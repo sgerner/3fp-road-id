@@ -195,10 +195,18 @@ export function mapTbagLegacyUrl(value) {
 	}
 }
 
+/**
+ * @param {string} type
+ * @param {Record<string, any>} [overrides]
+ * @param {string} [id]
+ */
 function block(type, overrides = {}, id = '') {
 	return createGroupSiteBlock(type, { id, overrides });
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} [group]
+ */
 export function isTempeBicycleActionGroup(group = {}) {
 	group = group || {};
 	const name = clean(group.name).toLowerCase();
@@ -797,6 +805,10 @@ export function buildTempeBicycleActionGroupResourcePages() {
 	];
 }
 
+/**
+ * @param {any} value
+ * @param {{ group?: Record<string, any>, homeBlocks?: any[] }} [options]
+ */
 export function ensureTempeBicycleActionGroupPages(value, { group = {}, homeBlocks = [] } = {}) {
 	const currentPages = normalizeGroupSitePages(value, { homeBlocks });
 	const defaultPages = buildTempeBicycleActionGroupSite(group).site_pages;
@@ -816,6 +828,9 @@ export function ensureTempeBicycleActionGroupPages(value, { group = {}, homeBloc
 	return normalizeGroupSitePages([...refreshedPages, ...missingPages], { homeBlocks });
 }
 
+/**
+ * @param {Record<string, any>} [group]
+ */
 export function buildTempeBicycleActionGroupSite(group = {}) {
 	const homeBlocks = [
 		block('hero', {

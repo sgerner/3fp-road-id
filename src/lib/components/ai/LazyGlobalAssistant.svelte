@@ -1,7 +1,9 @@
 <script>
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 
+	/** @type {Record<string, any>} */
 	let { userId = null, pathname = '/' } = $props();
+	/** @type {any} */
 	let assistantComponent = $state(null);
 	let loading = $state(false);
 

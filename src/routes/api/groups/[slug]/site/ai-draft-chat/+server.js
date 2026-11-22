@@ -10,6 +10,7 @@ import { getGroupSiteConfig } from '#lib/server/groupSites';
 import { mergeGroupSiteConfig } from '#lib/microsites/config';
 
 const MAX_MESSAGES = 20;
+/** @type {any} */
 const RESPONSE_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
@@ -21,11 +22,17 @@ const RESPONSE_SCHEMA = {
 	}
 };
 
+/**
+ * @param {any} value
+ */
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
 }
 
+/**
+ * @param {any} raw
+ */
 function normalizeMessages(raw) {
 	if (!Array.isArray(raw)) return [];
 	return raw
@@ -40,11 +47,17 @@ function normalizeMessages(raw) {
 		.slice(-MAX_MESSAGES);
 }
 
+/**
+ * @param {any} messages
+ */
 function countAssistantQuestions(messages) {
 	return messages.filter((entry) => entry.role === 'assistant' && entry.content.includes('?'))
 		.length;
 }
 
+/**
+ * @param {any} text
+ */
 function safeParseJson(text) {
 	const source = cleanText(text);
 	if (!source) return null;
@@ -58,6 +71,9 @@ function safeParseJson(text) {
 	}
 }
 
+/**
+ * @param {any} param0
+ */
 function buildPlannerPrompt({ group, currentConfig, messages }) {
 	const transcript = messages
 		.map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`)
@@ -120,6 +136,7 @@ ${transcript || '(no conversation yet)'}
 `;
 }
 
+/** @type {any} */
 const DIFF_LABELS = {
 	site_title: 'Site title',
 	site_tagline: 'Tagline',
@@ -141,11 +158,20 @@ const DIFF_LABELS = {
 	ride_widget_title: 'Ride calendar title'
 };
 
+/**
+ * @param {any} left
+ * @param {any} right
+ */
 function sameValue(left, right) {
 	return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+/**
+ * @param {any} currentConfig
+ * @param {any} nextConfig
+ */
 function summarizeSiteDiff(currentConfig, nextConfig) {
+	/** @type {any} */
 	const summary = [];
 	for (const [key, label] of Object.entries(DIFF_LABELS)) {
 		if (sameValue(currentConfig?.[key], nextConfig?.[key])) continue;
@@ -164,7 +190,9 @@ function summarizeSiteDiff(currentConfig, nextConfig) {
 
 	const currentSections = currentConfig?.sections || {};
 	const nextSections = nextConfig?.sections || {};
+	/** @type {any} */
 	const enabled = [];
+	/** @type {any} */
 	const disabled = [];
 	for (const key of Object.keys(nextSections)) {
 		if (Boolean(nextSections[key]) === Boolean(currentSections[key])) continue;
@@ -190,6 +218,9 @@ function summarizeSiteDiff(currentConfig, nextConfig) {
 	return summary.slice(0, 10);
 }
 
+/**
+ * @param {any} param0
+ */
 export async function POST({ params, request, cookies }) {
 	const auth = await requireGroupSiteAiOwner(cookies, params.slug);
 	if (!auth.ok) {
@@ -198,7 +229,9 @@ export async function POST({ params, request, cookies }) {
 
 	const payload = await request.json().catch(() => ({}));
 	const messages = normalizeMessages(payload?.messages);
-	const userMessageCount = messages.filter((entry) => entry.role === 'user').length;
+	const userMessageCount = messages.filter(
+		(entry) => /** @type {any} */ (entry).role === 'user'
+	).length;
 	const assistantQuestionCount = countAssistantQuestions(messages);
 
 	const persistedConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
@@ -213,8 +246,8 @@ export async function POST({ params, request, cookies }) {
 	if (!isAiModelConfigured('structured_text')) {
 		const fallbackPrompt =
 			messages
-				.filter((entry) => entry.role === 'user')
-				.map((entry) => entry.content)
+				.filter((entry) => /** @type {any} */ (entry).role === 'user')
+				.map((entry) => /** @type {any} */ (entry).content)
 				.join('\n')
 				.trim() || 'Refresh the microsite with a clear, welcoming, practical design.';
 		const proposed = await generateGroupSiteDraft({
@@ -272,8 +305,8 @@ export async function POST({ params, request, cookies }) {
 			action = 'generate';
 			if (!generationPrompt) {
 				generationPrompt = messages
-					.filter((entry) => entry.role === 'user')
-					.map((entry) => entry.content)
+					.filter((entry) => /** @type {any} */ (entry).role === 'user')
+					.map((entry) => /** @type {any} */ (entry).content)
 					.join('\n')
 					.trim();
 			}

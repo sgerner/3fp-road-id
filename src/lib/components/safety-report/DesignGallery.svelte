@@ -2,6 +2,7 @@
 	import { tick, onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
+	/** @type {Record<string, any>} */
 	let { report, onAsk = undefined } = $props();
 	let library = $state('visuals');
 	let query = $state('');

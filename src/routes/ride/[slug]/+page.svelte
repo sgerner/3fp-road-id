@@ -41,8 +41,10 @@
 	let rsvpError = $state('');
 	let claimLoading = $state(false);
 	let claimError = $state('');
+	/** @type {any} */
 	let selectedOccurrenceId = $state(null);
 	let nowMs = $state(Date.now());
+	/** @type {any} */
 	let mapEl = $state(null);
 	let map;
 	let marker;

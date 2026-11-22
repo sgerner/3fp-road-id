@@ -4,6 +4,7 @@
 	import { CTA_ICON_MAP } from '#lib/groups/contactLinks.js';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
+	/** @type {Record<string, any>} */
 	let { group, canEdit, primaryCta, membershipCta = null } = $props();
 
 	const ctaIcons = CTA_ICON_MAP;

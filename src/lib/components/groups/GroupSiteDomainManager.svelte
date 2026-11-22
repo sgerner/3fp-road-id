@@ -10,12 +10,14 @@
 	import IconTrash from '@lucide/svelte/icons/trash-2';
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
 
+	/** @type {Record<string, any>} */
 	let { group, slug = $bindable(''), currentSlug = '', liveUrl = '' } = $props();
 	let availability = $state({
 		state: 'current',
 		label: 'Current',
 		message: 'This is your included address.'
 	});
+	/** @type {any} */
 	let domains = $state([]);
 	let loading = $state(false);
 	let existingDomain = $state('');

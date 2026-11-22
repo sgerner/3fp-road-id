@@ -23,6 +23,7 @@
 	const confirmWindowHours = $derived(data?.confirmWindowHours ?? 48);
 	const user = $derived(data?.user ?? null);
 
+	/** @type {any} */
 	let openReschedule = $state(null);
 
 	function toggleReschedule(id) {

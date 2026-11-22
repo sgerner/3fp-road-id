@@ -9,6 +9,7 @@
 	import { isSafeInternalPath } from '#lib/security/navigation';
 	import { safeHttpUrl } from '#lib/security/urls';
 
+	/** @type {any} */
 	const DEFAULT_WELCOME = {
 		id: 'welcome',
 		role: 'assistant',
@@ -21,23 +22,39 @@
 
 	let { userId = null, pathname = '/', initialOpen = false } = $props();
 
+	/** @type {any} */
 	let isOpen = $state(false);
+	/** @type {any} */
 	let sending = $state(false);
+	/** @type {any} */
 	let input = $state('');
+	/** @type {any} */
 	let error = $state('');
+	/** @type {any} */
 	let messages = $state([DEFAULT_WELCOME]);
+	/** @type {HTMLDivElement | null} */
 	let dialogEl = $state(null);
+	/** @type {any} */
 	let chatBodyEl = $state(null);
+	/** @type {HTMLTextAreaElement | null} */
 	let inputTextareaEl = $state(null);
+	/** @type {HTMLButtonElement | null} */
 	let toggleButtonEl = $state(null);
+	/** @type {HTMLElement | null} */
 	let previousFocusEl = $state(null);
 	let focusRestoreVersion = 0;
+	/** @type {any} */
 	let assistantSessionId = $state('');
+	/** @type {any} */
 	let savedRecommendationKeys = $state({});
+	/** @type {any} */
 	let hasMounted = $state(false);
+	/** @type {any} */
 	let lastLoadedStorageKey = $state('');
 
+	/** @type {any} */
 	const storageKey = $derived(userId ? `3fp-assistant-chat-${userId}` : '3fp-assistant-chat-guest');
+	/** @type {any} */
 	const canSend = $derived(!sending && input.trim().length > 0);
 	const feedbackStorageKey = '3fp-assistant-session-id';
 	const feedbackEndpoint = '/api/ai/article-feedback';
@@ -74,6 +91,9 @@
 		});
 	}
 
+	/**
+	 * @param {any} [param0]
+	 */
 	function closeAssistant({ restoreFocus = true } = {}) {
 		if (!isOpen) {
 			if (!restoreFocus) focusRestoreVersion += 1;
@@ -96,6 +116,9 @@
 		else openAssistant();
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleDialogKeydown(event) {
 		if (event.key !== 'Tab') return;
 
@@ -104,7 +127,11 @@
 				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			) ?? []
 		).filter(
-			(element) => element.tabIndex >= 0 && !element.hidden && element.getClientRects().length > 0
+			(element) =>
+				element instanceof HTMLElement &&
+				element.tabIndex >= 0 &&
+				!element.hidden &&
+				element.getClientRects().length > 0
 		);
 
 		if (!focusable.length) {
@@ -121,13 +148,16 @@
 			(activeElement === first || activeElement === dialogEl || !dialogEl?.contains(activeElement))
 		) {
 			event.preventDefault();
-			last.focus();
+			/** @type {any} */ (last).focus();
 		} else if (!event.shiftKey && (activeElement === last || !dialogEl?.contains(activeElement))) {
 			event.preventDefault();
-			first.focus();
+			/** @type {any} */ (first).focus();
 		}
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function escapeHtml(value) {
 		return String(value)
 			.replace(/&/g, '&amp;')
@@ -137,6 +167,9 @@
 			.replace(/'/g, '&#39;');
 	}
 
+	/**
+	 * @param {any} raw
+	 */
 	function normalizeAssistantLink(raw) {
 		const candidate = String(raw || '').trim();
 		if (!candidate) return '';
@@ -144,12 +177,17 @@
 		return safeHttpUrl(candidate);
 	}
 
+	/**
+	 * @param {any} content
+	 */
 	function renderAssistantMessageHtml(content) {
 		const source = String(content || '');
+		/** @type {any} */
 		const parts = [];
 		const tokenRegex =
 			/\((\/[^\s)]+|https?:\/\/[^\s)]+)\)|\b(https?:\/\/[^\s<>"')]+)|(\/(?:ride|groups|volunteer|learn|get-involved|profile|donate)[^\s<>"')]+)/gi;
 		let cursor = 0;
+		/** @type {any} */
 		let match;
 		while ((match = tokenRegex.exec(source)) !== null) {
 			const fullMatch = match[0];
@@ -173,6 +211,9 @@
 		return parts.join('').replace(/\n/g, '<br />');
 	}
 
+	/**
+	 * @param {any} [prefix]
+	 */
 	function generateId(prefix = 'msg') {
 		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
 			return `${prefix}-${crypto.randomUUID()}`;
@@ -180,6 +221,10 @@
 		return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 	}
 
+	/**
+	 * @param {any} messageId
+	 * @param {any} recommendation
+	 */
 	function recommendationKey(messageId, recommendation) {
 		const baseId = String(
 			recommendation?.articleId || recommendation?.id || recommendation?.url || ''
@@ -187,6 +232,9 @@
 		return `${String(messageId || '')}:${baseId}`;
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function normalizeRecommendation(item) {
 		const type = String(item?.type || '')
 			.trim()
@@ -209,6 +257,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} items
+	 */
 	function normalizeRecommendations(items) {
 		if (!Array.isArray(items)) return [];
 		return items
@@ -234,16 +285,25 @@
 		}
 	}
 
+	/**
+	 * @param {any} rec
+	 */
 	function isArticleRecommendation(rec) {
 		return rec?.type === 'article' && Boolean(rec?.articleId || rec?.id);
 	}
 
+	/**
+	 * @param {any} messageId
+	 */
 	function estimateDwellSeconds(messageId) {
 		const shownAt = messageShownAt.get(messageId);
 		if (!shownAt) return 0;
 		return Math.max(0, Math.floor((Date.now() - shownAt) / 1000));
 	}
 
+	/**
+	 * @param {any} param0
+	 */
 	async function sendArticleFeedback({
 		messageId,
 		recommendation,
@@ -281,6 +341,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} entry
+	 */
 	function queueArticleImpressions(entry) {
 		if (!entry || entry.role !== 'assistant') return;
 		const recommendations = Array.isArray(entry.recommendations) ? entry.recommendations : [];
@@ -294,6 +357,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} raw
+	 */
 	function normalizeSavedMessages(raw) {
 		if (!Array.isArray(raw)) return [DEFAULT_WELCOME];
 		const rows = raw
@@ -352,6 +418,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} key
+	 */
 	function loadMessagesFromStorage(key) {
 		if (typeof window === 'undefined') return;
 		try {
@@ -369,6 +438,9 @@
 		lastLoadedStorageKey = key;
 	}
 
+	/**
+	 * @param {any} messageId
+	 */
 	async function scrollAssistantMessageToTop(messageId) {
 		await tick();
 		if (!chatBodyEl || !messageId) return;
@@ -387,6 +459,9 @@
 		inputTextareaEl.style.height = `${nextHeight}px`;
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleInputKeydown(event) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -394,6 +469,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} entry
+	 * @param {any} recommendation
+	 */
 	function handleRecommendationClick(entry, recommendation) {
 		if (isArticleRecommendation(recommendation)) {
 			void sendArticleFeedback({
@@ -414,10 +493,17 @@
 		closeAssistant();
 	}
 
+	/**
+	 * @param {any} key
+	 */
 	function markRecommendationSaved(key) {
 		savedRecommendationKeys = { ...savedRecommendationKeys, [key]: true };
 	}
 
+	/**
+	 * @param {any} messageId
+	 * @param {any} recommendation
+	 */
 	function hideRecommendation(messageId, recommendation) {
 		const key = recommendationKey(messageId, recommendation);
 		messages = messages.map((entry) => {
@@ -431,6 +517,12 @@
 		});
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} entry
+	 * @param {any} recommendation
+	 * @param {any} feedbackType
+	 */
 	async function handleArticlePreference(event, entry, recommendation, feedbackType) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -481,6 +573,7 @@
 				throw new Error(payload?.error || 'Unable to reach the assistant right now.');
 			}
 			const assistantId = generateId('assistant');
+			/** @type {any} */
 			const assistantEntry = {
 				id: assistantId,
 				role: 'assistant',
@@ -530,11 +623,13 @@
 		hasMounted = true;
 		loadMessagesFromStorage(storageKey);
 
+		/** @type {any} */
 		const onGlobalKeydown = (event) => {
 			if (!isOpen || event.key !== 'Escape') return;
 			event.preventDefault();
 			closeAssistant();
 		};
+		/** @type {any} */
 		const onOpenLogin = () => closeAssistant({ restoreFocus: false });
 		document.addEventListener('keydown', onGlobalKeydown);
 		window.addEventListener('open-login', onOpenLogin);

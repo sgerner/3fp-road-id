@@ -42,8 +42,10 @@
 		onClearEmailQueue = () => {}
 	} = $props();
 
+	/** @type {any} */
 	const shiftMap = $derived(new SvelteMap(shifts.map((shift) => [shift.id, shift])));
 
+	/** @type {any} */
 	const statusOptions = [
 		{ value: 'approved', label: 'Approved' },
 		{ value: 'pending', label: 'Pending review' },
@@ -51,6 +53,7 @@
 	];
 
 	// ── Status pill definitions ──────────────────────────────────────────────
+	/** @type {any} */
 	const statusPills = [
 		{ value: 'all', label: 'All' },
 		{ value: 'approved', label: 'Approved' },
@@ -60,6 +63,9 @@
 		{ value: 'cancelled', label: 'Cancelled' }
 	];
 
+	/**
+	 * @param {any} value
+	 */
 	function pillClass(value) {
 		const active = selectedStatus === value;
 		switch (value) {
@@ -88,7 +94,9 @@
 	}
 
 	// ── Add volunteer form ────────────────────────────────────────────────────
+	/** @type {any} */
 	let selectedProfile = $state(null);
+	/** @type {any} */
 	let addForm = $state({
 		email: '',
 		name: '',
@@ -99,22 +107,36 @@
 		shiftId: '',
 		status: 'approved'
 	});
+	/** @type {any} */
 	let addError = $state('');
+	/** @type {any} */
 	let addSuccess = $state('');
+	/** @type {any} */
 	let addLoading = $state(false);
+	/** @type {any} */
 	let addVolunteer = $state(false);
+	/** @type {any} */
 	let profileLookupLoading = $state(false);
+	/** @type {any} */
 	let profileLookupError = $state('');
+	/** @type {any} */
 	let profileLookupTimeout = null;
 	let profileLookupRequestId = 0;
+	/** @type {any} */
 	let emailSuggestions = $state([]);
+	/** @type {any} */
 	let suggestionTimeout = null;
 
 	// ── Email queue panel ─────────────────────────────────────────────────────
+	/** @type {any} */
 	let emailQueueOpen = $state(false);
 
+	/** @type {any} */
 	let expandedRows = $state(new Set());
 
+	/**
+	 * @param {any} key
+	 */
 	function toggleRow(key) {
 		const next = new Set(expandedRows);
 		if (next.has(key)) next.delete(key);
@@ -126,6 +148,7 @@
 		expandedRows = new Set();
 	}
 
+	/** @type {any} */
 	const activityLabelMap = $derived.by(() => {
 		const map = new SvelteMap();
 		for (const option of activityFilters) {
@@ -139,6 +162,7 @@
 		return map;
 	});
 
+	/** @type {any} */
 	const shiftsByActivity = $derived.by(() => {
 		const map = new SvelteMap();
 		for (const shift of shifts) {
@@ -164,7 +188,9 @@
 		return map;
 	});
 
+	/** @type {any} */
 	const addActivityOptions = $derived.by(() => {
+		/** @type {any} */
 		const options = [];
 		const usedIds = new Set();
 
@@ -194,10 +220,12 @@
 		return options;
 	});
 
+	/** @type {any} */
 	const selectedAddActivity = $derived.by(
 		() => addActivityOptions.find((option) => option.value === addForm.shiftActivityId) ?? null
 	);
 
+	/** @type {any} */
 	const shiftTimeOptions = $derived.by(() => selectedAddActivity?.shifts ?? []);
 
 	$effect(() => {
@@ -234,6 +262,9 @@
 		}
 	});
 
+	/**
+	 * @param {any} term
+	 */
 	async function fetchEmailSuggestions(term) {
 		if (term.length < 2) {
 			emailSuggestions = [];
@@ -253,6 +284,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} row
+	 */
 	function normalizeProfileRow(row) {
 		if (!row) return null;
 		const email = (row.email ?? '').trim();
@@ -277,6 +311,9 @@
 		profileLookupRequestId += 1;
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	async function lookupProfileByEmail(email) {
 		const normalizedEmail = email.trim().toLowerCase();
 		if (!normalizedEmail) return;
@@ -313,6 +350,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} profile
+	 */
 	function applyProfileToForm(profile) {
 		if (!profile) return;
 		clearProfileLookup();
@@ -329,6 +369,9 @@
 		if (suggestionTimeout) clearTimeout(suggestionTimeout);
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function handleEmailInput(value) {
 		const email = value.trim();
 		addForm = { ...addForm, email };
@@ -367,6 +410,9 @@
 		}, 250);
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	async function submitAddVolunteer(event) {
 		event?.preventDefault?.();
 		addError = '';
@@ -384,6 +430,7 @@
 		const currentShiftId = addForm.shiftId;
 		addLoading = true;
 		try {
+			/** @type {any} */
 			const payload = {
 				email: addForm.email,
 				name: addForm.name,
@@ -418,12 +465,16 @@
 		}
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function formatRelativeTime(date) {
 		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
 		const now = new Date();
 		let diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 		if (diffInSeconds < 0) diffInSeconds = 0;
 		if (diffInSeconds < 10) return 'just now';
+		/** @type {any} */
 		const units = [
 			{ limit: 60, divisor: 1, singular: 'sec', plural: 'sec' },
 			{ limit: 3600, divisor: 60, singular: 'min', plural: 'min' },
@@ -443,6 +494,9 @@
 		return '—';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function parseDateValue(value) {
 		if (!value) return null;
 		const date = value instanceof Date ? value : new Date(value);
@@ -450,6 +504,10 @@
 		return date;
 	}
 
+	/**
+	 * @param {any} date
+	 * @param {any} timezone
+	 */
 	function formatExactDate(date, timezone) {
 		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
 		try {
@@ -464,6 +522,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} confirmedAt
+	 * @param {any} timezone
+	 */
 	function buildConfirmationDisplay(confirmedAt, timezone) {
 		const date = parseDateValue(confirmedAt);
 		if (!date) return null;
@@ -476,6 +538,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} createdAt
+	 */
 	function buildSignupInfo(createdAt) {
 		if (!createdAt) return { createdAt: null, timestamp: 0, relative: '—' };
 		const parsed = new Date(createdAt);
@@ -483,7 +548,9 @@
 		return { createdAt, timestamp: parsed.getTime(), relative: formatRelativeTime(parsed) };
 	}
 
+	/** @type {any} */
 	const individualShifts = $derived.by(() => {
+		/** @type {any} */
 		const flattened = [];
 		for (const volunteer of volunteers) {
 			const signupInfo = buildSignupInfo(volunteer.signup?.created_at ?? null);
@@ -529,10 +596,14 @@
 		return flattened;
 	});
 
+	/** @type {any} */
 	const groupedShiftBlocks = $derived.by(() => {
+		/** @type {any} */
 		const groups = [];
+		/** @type {any} */
 		let currentGroup = null;
 
+		/** @type {any} */
 		const ensureLabel = (value, fallback) => {
 			if (typeof value === 'string' && value.trim().length > 0) return value.trim();
 			return fallback;
@@ -571,6 +642,9 @@
 		return groups;
 	});
 
+	/**
+	 * @param {any} status
+	 */
 	function statusBadgeClass(status) {
 		switch (status) {
 			case 'approved':
@@ -590,6 +664,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} status
+	 */
 	function orbClass(status) {
 		switch (status) {
 			case 'approved':
@@ -608,6 +685,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} status
+	 */
 	function statusLabel(status) {
 		switch (status) {
 			case 'checked_in':
@@ -619,6 +699,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} s
+	 */
 	function formatQueueStatus(s) {
 		return (s || '').replace(/_/g, ' ');
 	}

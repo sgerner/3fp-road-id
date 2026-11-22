@@ -401,6 +401,7 @@
 		subject: defaultQuestionSubject,
 		message: ''
 	});
+	/** @type {Record<string, string>} */
 	let questionErrors = $state({});
 	let questionStatus = $state({ loading: false, success: '', error: '' });
 
@@ -449,6 +450,7 @@
 		const subject = (questionForm.subject || '').trim();
 		const message = questionForm.message;
 
+		/** @type {Record<string, string>} */
 		const nextErrors = {};
 		if (!replyTo || !questionEmailPattern.test(replyTo)) {
 			nextErrors.replyTo = 'Enter a valid email address so the organizer can respond.';
@@ -522,9 +524,13 @@
 		}
 	}
 
+	/** @type {HTMLDivElement | null} */
 	let mapEl = $state(null);
+	/** @type {any} */
 	let map;
+	/** @type {any} */
 	let marker;
+	/** @type {any} */
 	let L;
 	const hasCoords = Number.isFinite(event.latitude) && Number.isFinite(event.longitude);
 
@@ -587,6 +593,7 @@
 		if (!value) return 'TBD';
 		try {
 			const date = new Date(value);
+			/** @type {Intl.DateTimeFormatOptions} */
 			const config = {};
 			const tz = timezone || event.timezone;
 			if (tz) config.timeZone = tz;
@@ -609,6 +616,7 @@
 	function isSameDay(startIso, endIso, timezone) {
 		try {
 			const tz = timezone || event.timezone || 'UTC';
+			/** @type {Intl.DateTimeFormatOptions} */
 			const opts = { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' };
 			const fmt = new Intl.DateTimeFormat(undefined, opts);
 			return fmt.format(new Date(startIso)) === fmt.format(new Date(endIso));
@@ -869,7 +877,8 @@
 	async function maybeUpdateProfile(details) {
 		if (!user) return;
 		const current = profile || {};
-		const payload = { user_id: user.id };
+		/** @type {Record<string, any>} */
+		const mutablePayload = {};
 		let changed = false;
 
 		const assign = (key, raw) => {
@@ -877,7 +886,7 @@
 			const normalized = value ? value : null;
 			const currentValue = current[key] ?? null;
 			if (normalized !== currentValue) {
-				payload[key] = normalized;
+				mutablePayload[key] = normalized;
 				changed = true;
 			}
 		};
@@ -893,8 +902,6 @@
 		// Keep the conflict key out of the UPDATE statement. The profiles grants
 		// intentionally protect user_id from client updates, while PostgREST
 		// includes every upsert payload column in its ON CONFLICT update clause.
-		const mutablePayload = { ...payload };
-		delete mutablePayload.user_id;
 
 		let profileResult = await supabase
 			.from('profiles')
@@ -1098,6 +1105,7 @@
 			const toAdd = selectedShiftIds.filter((shiftId) => !existingShiftIds.includes(shiftId));
 			const toRemove = existingShiftIds.filter((shiftId) => !selectedShiftIds.includes(shiftId));
 
+			/** @type {string} */
 			const status = opportunity.requires_approval ? 'pending' : 'approved';
 			const newlyAddedShifts = [];
 			const createdAssignmentIds = [];

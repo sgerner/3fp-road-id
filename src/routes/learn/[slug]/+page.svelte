@@ -20,13 +20,17 @@
 	} from '#lib/seo';
 
 	const { data, form } = $props();
+	/** @type {any} */
 	let showVersionHistory = $state(false);
+	/** @type {any} */
 	const authRequired = $derived(
 		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
 	);
 
 	// ── Reading progress bar ─────────────────────────────────────────────
+	/** @type {any} */
 	let scrollProgress = $state(0);
+	/** @type {any} */
 	let articleEl = $state(null);
 
 	function onScroll() {
@@ -39,6 +43,7 @@
 	}
 
 	// ── TOC Scroll-spy ───────────────────────────────────────────────────
+	/** @type {any} */
 	let activeHeadingId = $state('');
 
 	/** @type {IntersectionObserver | null} */
@@ -63,7 +68,7 @@
 			},
 			{ rootMargin: '-10% 0px -75% 0px', threshold: 0 }
 		);
-		headingEls.forEach((el) => observer.observe(el));
+		headingEls.forEach((el) => /** @type {any} */ (observer).observe(el));
 	}
 
 	$effect(() => {
@@ -89,9 +94,13 @@
 	});
 
 	// Keep the TOC focused on the main sections across screen sizes.
+	/** @type {any} */
 	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
+	/** @type {any} */
 	const tocHeadingsMobile = $derived(tocHeadingsDesktop);
+	/** @type {any} */
 	const seoTitle = $derived.by(() => cleanSeoText(data.article.title || 'Learn'));
+	/** @type {any} */
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
 			data.article.summary ||
@@ -99,7 +108,9 @@
 			165
 		)
 	);
+	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url, ['revision']));
+	/** @type {any} */
 	const seoImage = $derived.by(() => {
 		const image = data.article.cover_image_url || '';
 		if (!image) return '';
@@ -109,14 +120,17 @@
 			return image;
 		}
 	});
+	/** @type {any} */
 	const optimizedArticleImage = $derived(
 		optimizedImageUrl(data.article.cover_image_url, { width: 1200, height: 600, quality: 68 })
 	);
+	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
 		const categoryUrl = buildAbsoluteUrl(
 			page.url.origin,
 			`/learn/category/${data.article.category_slug}`
 		);
+		/** @type {any} */
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -141,6 +155,7 @@
 				}
 			]
 		};
+		/** @type {any} */
 		const article = {
 			'@context': 'https://schema.org',
 			'@type': 'Article',
@@ -168,6 +183,10 @@
 		return toJsonLd([breadcrumbs, article]);
 	});
 
+	/**
+	 * @param {any} value
+	 * @param {any} [withTime]
+	 */
 	function formatDate(value, withTime = false) {
 		if (!value) return 'Recently';
 		return new Date(value).toLocaleString(undefined, {

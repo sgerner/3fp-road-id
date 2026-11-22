@@ -22,14 +22,20 @@
 		toJsonLd
 	} from '#lib/seo';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {any} */
 	let searchQuery = $state('');
+	/** @type {any} */
 	let activeSubcategory = $state('all');
+	/** @type {any} */
 	let isReordering = $state(false);
 
 	// Mutable local copies used by DnD
+	/** @type {any} */
 	let subcategories = $state([]);
+	/** @type {any} */
 	let articles = $state([]);
 
 	$effect(() => {
@@ -37,6 +43,7 @@
 		articles = [...data.articles];
 	});
 
+	/** @type {any} */
 	const filteredArticles = $derived(
 		articles.filter((article) => {
 			if (!searchQuery.trim()) return true;
@@ -46,7 +53,9 @@
 		})
 	);
 
+	/** @type {any} */
 	const groups = $derived.by(() => {
+		/** @type {any} */
 		const items = [];
 		const uncategorized = filteredArticles.filter((a) => !a.subcategory_slug);
 		if (uncategorized.length > 0 || data.canEdit) {
@@ -59,6 +68,7 @@
 		return items;
 	});
 
+	/** @type {any} */
 	const visibleGroups = $derived(
 		activeSubcategory === 'all'
 			? groups.filter((g) => g.articles.length > 0 || (data.canEdit && g.subcategory))
@@ -68,9 +78,14 @@
 				)
 	);
 
+	/** @type {any} */
 	const totalArticles = $derived(articles.length);
+	/** @type {any} */
 	const totalSubcategories = $derived(subcategories.length);
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return '';
 		return new Date(value).toLocaleDateString(undefined, {
@@ -83,16 +98,22 @@
 	// ── DnD state ─────────────────────────────────────────────────────────
 	// dndArticleMap: groupId → article[]
 	// All article zones share type:'article' so items can cross between zones.
+	/** @type {any} */
 	let dndArticleMap = $state({});
 	// Subcategory-level drag list
+	/** @type {any} */
 	let dndSubGroups = $state([]);
 
 	// groupId → subcategory_slug (null for uncategorized)
+	/**
+	 * @param {any} groupId
+	 */
 	function groupIdToSlug(groupId) {
 		return groupId === 'uncategorized' ? null : groupId;
 	}
 
 	function enterReorderMode() {
+		/** @type {any} */
 		const map = {};
 		for (const g of groups) {
 			map[g.id] = g.articles.map((a) => ({ ...a }));
@@ -112,19 +133,30 @@
 	}
 
 	// ── Subcategory section reordering ────────────────────────────────────
+	/**
+	 * @param {any} e
+	 */
 	function handleGroupConsider(e) {
 		dndSubGroups = e.detail.items;
 	}
 
+	/**
+	 * @param {any} e
+	 */
 	function handleGroupFinalize(e) {
 		dndSubGroups = e.detail.items;
+		/** @type {any} */
 		const newOrder = dndSubGroups.map((g) => g.sub);
 		newOrder.forEach((sub, i) => (sub.sort_order = i));
-		subcategories = newOrder;
-		document.getElementById('reorder-subcategories-payload').value = JSON.stringify(
-			newOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
-		);
-		document.getElementById('reorder-subcategories-form').requestSubmit();
+		/** @type {any} */ (subcategories) = newOrder;
+		const subPayloadEl = document.getElementById('reorder-subcategories-payload');
+		if (subPayloadEl instanceof HTMLInputElement) {
+			subPayloadEl.value = JSON.stringify(
+				newOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
+			);
+		}
+		const subFormEl = document.getElementById('reorder-subcategories-form');
+		if (subFormEl instanceof HTMLFormElement) subFormEl.requestSubmit();
 	}
 
 	// ── Article reordering (within-zone AND cross-zone) ───────────────────
@@ -133,10 +165,18 @@
 	// zones when an item crosses zones. We just update dndArticleMap for
 	// whichever zone called us — the library keeps both in sync during
 	// the consider phase and commits on finalize.
+	/**
+	 * @param {any} groupId
+	 * @param {any} e
+	 */
 	function handleArticleConsider(groupId, e) {
 		dndArticleMap = { ...dndArticleMap, [groupId]: e.detail.items };
 	}
 
+	/**
+	 * @param {any} groupId
+	 * @param {any} e
+	 */
 	function handleArticleFinalize(groupId, e) {
 		const newItems = e.detail.items;
 
@@ -161,7 +201,9 @@
 
 		// Collect ALL articles across every zone so we save a complete snapshot.
 		// This ensures the source zone's items get their new sort_orders saved too.
+		/** @type {any} */
 		const allChanged = Object.entries(dndArticleMap).flatMap(([gid, items]) => {
+			/** @type {any} */
 			const slug = groupIdToSlug(gid);
 			return items.map((a, i) => ({
 				id: a.id,
@@ -170,11 +212,19 @@
 			}));
 		});
 
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(allChanged);
-		document.getElementById('reorder-articles-form').requestSubmit();
+		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
+		if (articlesPayloadEl instanceof HTMLInputElement) {
+			articlesPayloadEl.value = JSON.stringify(allChanged);
+		}
+		const articlesFormEl = document.getElementById('reorder-articles-form');
+		if (articlesFormEl instanceof HTMLFormElement) articlesFormEl.requestSubmit();
 	}
 
 	// ── Move to subcategory (dropdown fallback) ────────────────────────────
+	/**
+	 * @param {any} articleId
+	 * @param {any} subcategorySlug
+	 */
 	function assignSubcategory(articleId, subcategorySlug) {
 		const article = articles.find((a) => a.id === articleId);
 		if (!article) return;
@@ -182,6 +232,7 @@
 		article.subcategory_slug = targetSlug;
 
 		// Also update the dnd map so the UI stays in sync
+		/** @type {any} */
 		const newMap = {};
 		for (const [gid, items] of Object.entries(dndArticleMap)) {
 			newMap[gid] = items.filter((a) => a.id !== articleId);
@@ -193,16 +244,24 @@
 		dndArticleMap = newMap;
 
 		// Re-index sort orders
+		/** @type {any} */
 		const allChanged = Object.entries(newMap).flatMap(([gid, items]) => {
+			/** @type {any} */
 			const slug = groupIdToSlug(gid);
 			return items.map((a, i) => ({ id: a.id, sort_order: i, subcategory_slug: slug }));
 		});
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(allChanged);
-		document.getElementById('reorder-articles-form').requestSubmit();
+		const movedPayloadEl = document.getElementById('reorder-articles-payload');
+		if (movedPayloadEl instanceof HTMLInputElement) {
+			movedPayloadEl.value = JSON.stringify(allChanged);
+		}
+		const movedFormEl = document.getElementById('reorder-articles-form');
+		if (movedFormEl instanceof HTMLFormElement) movedFormEl.requestSubmit();
 	}
 
 	const FLIP_MS = 200;
+	/** @type {any} */
 	const seoTitle = $derived.by(() => cleanSeoText(data.category.name || 'Learn Category'));
+	/** @type {any} */
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
 			data.category.description ||
@@ -210,8 +269,11 @@
 			165
 		)
 	);
+	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url));
+	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
+		/** @type {any} */
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -230,6 +292,7 @@
 				}
 			]
 		};
+		/** @type {any} */
 		const collection = {
 			'@context': 'https://schema.org',
 			'@type': 'CollectionPage',
@@ -346,7 +409,7 @@
 					<span class="text-surface-300 text-xs font-black tracking-widest uppercase">Move to</span>
 					<select
 						class="border-surface-50 bg-surface-950 text-surface-50 flex-1 border-2 px-2 py-1 text-xs font-bold uppercase"
-						onchange={(e) => assignSubcategory(article.id, e.target.value)}
+						onchange={(e) => assignSubcategory(article.id, /** @type {any} */ (e.target).value)}
 					>
 						<option value="" selected={!article.subcategory_slug}>General</option>
 						{#each subcategories as sub}
@@ -653,8 +716,10 @@
 										class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-wider uppercase transition"
 										title="Delete empty subcategory"
 										onclick={() => {
-											document.getElementById('delete-subcategory-slug').value = groupItem.id;
-											document.getElementById('delete-subcategory-form').requestSubmit();
+											const slugInput = document.getElementById('delete-subcategory-slug');
+											if (slugInput instanceof HTMLInputElement) slugInput.value = groupItem.id;
+											const deleteForm = document.getElementById('delete-subcategory-form');
+											if (deleteForm instanceof HTMLFormElement) deleteForm.requestSubmit();
 										}}
 									>
 										<IconTrash2 class="h-4 w-4" />

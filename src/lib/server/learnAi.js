@@ -47,7 +47,10 @@ const cleanText = cleanLearnAiString;
 
 async function generateJson(prompt, schema, schemaName) {
 	if (!isAiModelConfigured('structured_text')) {
-		const error = new Error(getAiConfigurationError('structured_text'));
+		/** @type {Error & { code?: string }} */
+		const error = new Error(
+			getAiConfigurationError('structured_text') || 'AI model is not configured.'
+		);
 		error.code = 'AI_UNAVAILABLE';
 		throw error;
 	}

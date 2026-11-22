@@ -18,14 +18,25 @@ import {
 const MAX_REQUEST_BYTES = 48 * 1024;
 const MAX_CONTENT_CHARS = 18_000;
 
+/**
+ * @param {any} value
+ * @param {any} limit
+ */
 function cleanText(value, limit) {
 	return cleanLearnAiString(value, limit);
 }
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function fail(message, status = 400) {
 	return json({ error: message }, { status, headers: { 'cache-control': 'no-store' } });
 }
 
+/**
+ * @param {any} error
+ */
 function mapAiError(error) {
 	if (error?.code === 'AI_UNAVAILABLE')
 		return fail('AI writing tools are not configured right now.', 503);
@@ -34,6 +45,9 @@ function mapAiError(error) {
 	return fail('The AI request could not be completed. Please try again.', 502);
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, cookies } = event;
 	const parsed = await readJsonBody(request, { maxBytes: MAX_REQUEST_BYTES });
@@ -105,23 +119,26 @@ export async function POST(event) {
 			query = id ? query.eq('id', id) : query.eq('slug', slug);
 			const { data: article, error: articleError } = await query.maybeSingle();
 			if (articleError) throw articleError;
-			if (!canAccessLearnAiArticle(article, user)) {
+			if (!article || !canAccessLearnAiArticle(article, user)) {
 				return fail('Article not found.', 404);
 			}
+			/** @type {any} */
 			let chunks = [];
 			if (
-				typeof article.body_markdown === 'string' &&
-				article.body_markdown.length > LEARN_AI_SOURCE_LIMIT
+				typeof (/** @type {any} */ (article).body_markdown) === 'string' &&
+				/** @type {any} */ (article).body_markdown.length > LEARN_AI_SOURCE_LIMIT
 			) {
 				const chunkResult = await supabase
 					.from('learn_article_chunks')
 					.select('chunk_index,heading,chunk_text')
-					.eq('article_id', article.id)
+					.eq('article_id', /** @type {any} */ (article).id)
 					.order('chunk_index', { ascending: true })
 					.limit(500);
 				if (!chunkResult.error) chunks = chunkResult.data || [];
 			}
+			/** @type {any} */
 			const context = buildLearnQuestionContext(article, chunks, question);
+			/** @type {any} */
 			const answer = await answerLearnArticleQuestion({
 				question,
 				article: {
@@ -131,7 +148,7 @@ export async function POST(event) {
 				}
 			});
 			return json(
-				{ answer, article: { slug: article.slug, title: article.title } },
+				{ answer, article: { slug: article.slug, title: /** @type {any} */ (article).title } },
 				{ headers: { 'cache-control': 'no-store' } }
 			);
 		}

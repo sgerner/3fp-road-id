@@ -5,6 +5,7 @@
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
 	import IconSettings from '@lucide/svelte/icons/settings';
 
+	/** @type {Record<string, any>} */
 	let { children } = $props();
 
 	const pathname = $derived(page.url.pathname);

@@ -6,6 +6,7 @@
 
 	export let eventDetails;
 	export let timezoneOptions = [];
+	/** @type {(patch: Record<string, any>) => void} */
 	export let onEventDetailsChange = () => {};
 
 	let mapContainer;
@@ -20,6 +21,7 @@
 	let googleReady = false;
 	let lastPlacesValue = '';
 	let geocodeTimeout;
+	/** @type {{ lat: number | null; lng: number | null }} */
 	let lastPlaced = { lat: null, lng: null };
 
 	const MAP_DEFAULT = { lat: 37.8, lng: -96, zoom: 4 };

@@ -1,4 +1,5 @@
 <script>
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 	import { Progress } from '@skeletonlabs/skeleton-svelte';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
@@ -12,14 +13,21 @@
 	function getDuplicateCandidates() {
 		return form?.duplicate_candidates ?? [];
 	}
+	/**
+	 * @param {any} candidateCount
+	 */
 	function getNeedsDuplicateOverride(candidateCount) {
 		return Boolean(form?.needs_duplicate_override && candidateCount);
 	}
 	const initialValues = getInitialValues();
 	const duplicateCandidates = getDuplicateCandidates();
 	const needsDuplicateOverride = getNeedsDuplicateOverride(duplicateCandidates.length);
+	/** @type {any} */
 	let duplicateOverrideConfirmed = $state(false);
 
+	/**
+	 * @param {any} input
+	 */
 	function toValueSet(input) {
 		if (Array.isArray(input)) return new Set(input.map((value) => String(value)));
 		if (input == null || input === '') return new Set();
@@ -32,31 +40,58 @@
 	const selectedSkillLevelIds = toValueSet(initialValues.skill_level_ids);
 
 	// Simple client-side slug preview
+	/** @type {any} */
 	let name = $state(initialValues.name || '');
+	/** @type {any} */
 	let handle = $state(initialValues.slug || '');
+	/** @type {any} */
 	let handleTouched = $state(Boolean(initialValues.slug));
+	/** @type {any} */
 	let handleStatus = $state(''); // '', 'checking', 'available', 'taken', 'invalid'
+	/** @type {any} */
 	let handleTimer;
 	// Optional AI-assisted enrichment inputs
+	/** @type {any} */
 	let aiInstagram = $state(initialValues.aiInstagram || '');
+	/** @type {any} */
 	let aiFacebook = $state(initialValues.aiFacebook || '');
+	/** @type {any} */
 	let aiWebsite = $state(initialValues.aiWebsite || '');
+	/** @type {any} */
 	let aiLoading = $state(false);
+	/** @type {any} */
 	let aiError = $state('');
 	// Hidden values we will submit (extra AI fields not shown on this page)
+	/** @type {any} */
 	let hiddenSuggestedWebsite = $state(initialValues.suggested_website_url || '');
+	/** @type {any} */
 	let hiddenSocialLinks = $state(initialValues.social_links || ''); // JSON string
+	/** @type {any} */
 	let hiddenMembershipInfo = $state(initialValues.membership_info || '');
+	/** @type {any} */
 	let hiddenMeetingAddress = $state(initialValues.specific_meeting_point_address || '');
+	/** @type {any} */
 	let hiddenLat = $state(initialValues.latitude || '');
+	/** @type {any} */
 	let hiddenLng = $state(initialValues.longitude || '');
+	/** @type {any} */
 	let hiddenServiceArea = $state(initialValues.service_area_description || '');
+	/** @type {any} */
 	let hiddenSkills = $state(initialValues.skill_levels_description || '');
+	/** @type {any} */
 	let hiddenActivityFrequency = $state(initialValues.activity_frequency || '');
+	/** @type {any} */
 	let hiddenTypicalTime = $state(initialValues.typical_activity_day_time || '');
+	/** @type {any} */
 	let hiddenLogoUrl = $state(initialValues.logo_url || '');
+	/** @type {any} */
 	let hiddenCoverUrl = $state(initialValues.cover_photo_url || '');
+	/** @type {any} */
 	let formEl = $state();
+	/**
+	 * @param {any} id
+	 * @param {any} value
+	 */
 	function applyLocationValue(id, value) {
 		const v = value == null ? '' : `${value}`.trim();
 		if (id === 'city') city = v;
@@ -66,6 +101,10 @@
 			country = c ? c.toUpperCase() : '';
 		}
 	}
+	/**
+	 * @param {any} lat
+	 * @param {any} lng
+	 */
 	function updateHiddenLatLng(lat, lng) {
 		if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 		hiddenLat = lat.toFixed(6);
@@ -105,12 +144,20 @@
 		}
 		if (window.initGroupsNewPlaces === initGooglePlaces) delete window.initGroupsNewPlaces;
 	}
+	/**
+	 * @param {any} query
+	 * @param {any} countryCode
+	 */
 	function fetchLatLngWithGeocoder(query, countryCode) {
 		return geocodeAddress(geocoder, query, countryCode, window.google?.maps?.GeocoderStatus?.OK);
 	}
+	/**
+	 * @param {any} config
+	 */
 	function runGeocode(config) {
 		if (!config) return;
 		const currentKey = config.key;
+		/** @type {any} */
 		const execute = async () => {
 			try {
 				const coords = await fetchLatLngWithGeocoder(config.query, config.country);
@@ -124,6 +171,11 @@
 		};
 		void execute();
 	}
+	/**
+	 * @param {any} query
+	 * @param {any} countryCode
+	 * @param {any} [options]
+	 */
 	function scheduleGeocode(query, countryCode, options = {}) {
 		const q = (query || '').trim();
 		if (!q) return;
@@ -133,18 +185,26 @@
 		const config = { query: q, country: countryCodeNorm, key };
 		pendingGeocode = config;
 		if (!googleReady) return;
+		/** @type {any} */
 		const run = () => runGeocode(config);
 		clearTimeout(geocodeTimeout);
 		if (options.immediate) run();
 		else geocodeTimeout = setTimeout(run, 600);
 	}
+	/** @type {any} */
 	let city = $state(initialValues.city || '');
+	/** @type {any} */
 	let stateRegion = $state(initialValues.state_region || '');
+	/** @type {any} */
 	let country = $state(initialValues.country || 'US');
+	/** @type {any} */
 	let googleReady = $state(false);
+	/** @type {any} */
 	let pendingGeocode;
 	let lastGeocodeKey = '';
+	/** @type {any} */
 	let geocodeTimeout;
+	/** @type {any} */
 	let geocoder;
 	async function suggestFromAI() {
 		aiError = '';
@@ -166,11 +226,18 @@
 			}
 			const payload = await res.json();
 			const f = payload.fields || {};
+			/** @type {any} */
 			const setVal = (id, v) => {
 				if (v == null) return;
 				const str = typeof v === 'string' ? v : `${v}`;
 				const el = document.getElementById(id);
-				if (el) el.value = str;
+				if (
+					el instanceof HTMLInputElement ||
+					el instanceof HTMLTextAreaElement ||
+					el instanceof HTMLSelectElement
+				) {
+					el.value = str;
+				}
 				applyLocationValue(id, str);
 			};
 			// Allow AI to suggest or correct the name
@@ -190,7 +257,9 @@
 			setVal('state_region', f.state_region);
 			if (f.country) {
 				const sel = document.getElementById('country');
-				if (sel) sel.value = f.country;
+				if (sel instanceof HTMLSelectElement || sel instanceof HTMLInputElement) {
+					sel.value = f.country;
+				}
 				applyLocationValue('country', f.country);
 			}
 			// Hidden fields not shown on this page
@@ -211,6 +280,7 @@
 				} catch {}
 			}
 			const cats = payload.categories || {};
+			/** @type {any} */
 			const nameIn = (s) => (s || '').toString().trim().toLowerCase();
 			if (cats.group_types?.length) {
 				const map = new Map(data.group_types.map((x) => [nameIn(x.name), x.id]));
@@ -218,7 +288,7 @@
 					const id = map.get(nameIn(n));
 					if (id) {
 						const box = document.querySelector(`input[name="group_type_ids"][value="${id}"]`);
-						if (box) box.checked = true;
+						if (box instanceof HTMLInputElement) box.checked = true;
 					}
 				});
 			}
@@ -228,7 +298,7 @@
 					const id = map.get(nameIn(n));
 					if (id) {
 						const box = document.querySelector(`input[name="audience_focus_ids"][value="${id}"]`);
-						if (box) box.checked = true;
+						if (box instanceof HTMLInputElement) box.checked = true;
 					}
 				});
 			}
@@ -240,7 +310,7 @@
 						const box = document.querySelector(
 							`input[name="riding_discipline_ids"][value="${id}"]`
 						);
-						if (box) box.checked = true;
+						if (box instanceof HTMLInputElement) box.checked = true;
 					}
 				});
 			}
@@ -255,6 +325,7 @@
 		if (!data.groupsNavUser?.id) return;
 		// Suggested website falls back to AI Website field if visible Website is left blank
 		hiddenSuggestedWebsite = (aiWebsite || '').trim();
+		/** @type {any} */
 		const socials = {};
 		if ((aiInstagram || '').trim())
 			socials.instagram = `https://www.instagram.com/${aiInstagram.replace(/^@/, '').trim()}`;
@@ -273,6 +344,7 @@
 		const cityPart = (city || '').trim();
 		const statePart = (stateRegion || '').trim();
 		const countryPart = (country || '').trim().toUpperCase();
+		/** @type {any} */
 		const manualParts = [];
 		if (cityPart) manualParts.push(cityPart);
 		if (statePart) manualParts.push(statePart);
@@ -283,6 +355,9 @@
 		const countryForRequest = countryPart && countryPart !== 'OTHER' ? countryPart : '';
 		scheduleGeocode(query, countryForRequest, { immediate: Boolean(aiAddress) });
 	});
+	/**
+	 * @param {any} text
+	 */
 	function slugify(text) {
 		return (text || '')
 			.toString()
@@ -308,8 +383,10 @@
 		clearTimeout(handleTimer);
 		handleTimer = setTimeout(async () => {
 			try {
+				/** @type {any} */
 				const res = await fetch(`/api/groups/check-slug?slug=${encodeURIComponent(handle)}`);
 				if (!res.ok) throw new Error('check failed');
+				/** @type {any} */
 				const j = await res.json();
 				if (!j.slug || j.slug !== handle) {
 					if (!handleTouched && j.slug) handle = j.slug;
@@ -323,11 +400,17 @@
 	});
 	onMount(() => {
 		if (typeof window === 'undefined' || !data.groupsNavUser?.id) return;
-		const read = (id) => document.getElementById(id)?.value?.trim() || '';
+		/** @param {string} id */
+		const read = (id) => {
+			const el = document.getElementById(id);
+			return el instanceof HTMLInputElement ? el.value.trim() : '';
+		};
 		city = read('city');
 		stateRegion = read('state_region');
 		const countryEl = document.getElementById('country');
-		if (countryEl) country = (countryEl.value || country).trim().toUpperCase() || country;
+		if (countryEl instanceof HTMLSelectElement || countryEl instanceof HTMLInputElement) {
+			country = (countryEl.value || country).trim().toUpperCase() || country;
+		}
 		loadGooglePlaces();
 	});
 	onDestroy(() => {
@@ -373,6 +456,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} result
+	 */
 	function applyGeneratedGroupImage(result) {
 		hiddenCoverUrl = result?.url || hiddenCoverUrl;
 	}
@@ -678,7 +764,7 @@
 							required
 							bind:value={name}
 							oninput={(e) => {
-								if (!handleTouched) handle = slugify(e.target.value);
+								if (!handleTouched) handle = slugify(/** @type {any} */ (e.target).value);
 							}}
 						/>
 					</div>
@@ -696,7 +782,7 @@
 							bind:value={handle}
 							oninput={(e) => {
 								handleTouched = true;
-								handle = slugify(e.target.value);
+								handle = slugify(/** @type {any} */ (e.target).value);
 							}}
 							autocomplete="off"
 						/>

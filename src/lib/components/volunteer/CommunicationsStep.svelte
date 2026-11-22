@@ -20,21 +20,37 @@
 	} from '#lib/volunteer/merge-tags';
 	import { slide } from 'svelte/transition';
 
+	/** @type {any} */
 	export let customQuestions = [];
+	/** @type {any} */
 	export let showCustomQuestionsSection = true;
+	/** @type {any} */
 	export let eventEmails = [];
+	/** @type {any} */
 	export let eventDetails = {};
+	/** @type {any} */
 	export let opportunities = [];
+	/** @type {any} */
 	export let fieldTypeOptions = [];
+	/** @type {any} */
 	export let emailTypeOptions = [];
+	/** @type {any} */
 	export let onAddQuestion = () => {};
+	/** @type {any} */
 	export let onRemoveQuestion = () => {};
+	/** @type {any} */
 	export let onUpdateQuestion = () => {};
+	/** @type {any} */
 	export let onAddEmail = () => {};
+	/** @type {any} */
 	export let onRemoveEmail = () => {};
+	/** @type {any} */
 	export let onUpdateEmail = () => {};
+	/** @type {any} */
 	export let onComposeEmail = () => {};
+	/** @type {any} */
 	export let showImmediateEmailOption = false;
+	/** @type {any} */
 	export let volunteerCounts = {
 		total: 0,
 		approved: 0,
@@ -43,11 +59,21 @@
 		checkedIn: 0,
 		declined: 0
 	};
+	/** @type {any} */
 	export let onSendImmediateEmail = async () => {};
+	/** @type {any} */
 	export let hostNotificationSettings = { register: true, cancel: true };
+	/** @type {any} */
 	export let onHostNotificationChange = () => {};
+	/** @type {any} */
 	export let hostNotificationSaving = false;
+	/** @type {any} */
 	export let hostNotificationDisabled = false;
+	/** @type {any} */
+	export let showAdvancedCommunications = false;
+	/** @type {any} */
+	export let onToggleAdvanced = () => {};
+	$: void (showAdvancedCommunications, onToggleAdvanced);
 
 	let targetStatuses = ['approved'];
 	$: targetVolunteerCount = targetStatuses.reduce((total, status) => {
@@ -61,8 +87,12 @@
 
 	const OPTION_FIELD_TYPES = new Set(['select', 'multiselect', 'checkbox']);
 
+	/** @type {any} */
 	const supportsOptionField = (type) => OPTION_FIELD_TYPES.has(type);
 
+	/**
+	 * @param {any} type
+	 */
 	function formatEmailType(type) {
 		if (type === 'thankyou') {
 			return 'Thank You';
@@ -73,6 +103,9 @@
 		return '';
 	}
 
+	/**
+	 * @param {any} timestamp
+	 */
 	function formatSentTimestamp(timestamp) {
 		if (!timestamp) return '';
 		try {
@@ -88,6 +121,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} raw
+	 */
 	function parseOptions(raw) {
 		return (raw || '')
 			.split(/\r?\n/)
@@ -95,6 +131,9 @@
 			.filter(Boolean);
 	}
 
+	/**
+	 * @param {any} minutes
+	 */
 	function getEmailTiming(minutes) {
 		const value = Number(minutes);
 		if (!Number.isFinite(value) || value === 0) {
@@ -106,6 +145,10 @@
 		};
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} param1
+	 */
 	function handleTimingChange(id, { hours, direction }) {
 		const parsedHours = Number(hours);
 		const numericHours = Number.isFinite(parsedHours) && parsedHours >= 0 ? parsedHours : 0;
@@ -114,6 +157,10 @@
 		onUpdateEmail(id, { sendOffsetMinutes: minutes });
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} email
+	 */
 	function handleConfirmationChange(event, email) {
 		const { checked } = event.currentTarget;
 		let body = email.body || '';
@@ -127,6 +174,9 @@
 		resetSendNowFeedback(email.id);
 	}
 
+	/**
+	 * @param {any} question
+	 */
 	function addOption(question) {
 		const draft = question?.optionDraft?.trim();
 		if (!draft) return;
@@ -142,6 +192,10 @@
 		});
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} value
+	 */
 	function removeOption(question, value) {
 		const next = parseOptions(question.optionsRaw).filter((option) => option !== value);
 		onUpdateQuestion(question.id, { optionsRaw: next.join('\n') });
@@ -163,16 +217,22 @@
 		}, 50);
 	}
 
+	/** @type {any} */
 	let activeInput = null;
+	/** @type {any} */
 	let activeEmailId = null;
+	/** @type {any} */
 	let activeFieldType = null;
 	let immediateEmail = { subject: '', body: '', requireConfirmation: false };
 	let immediateEmailSending = false;
 	let immediateEmailError = '';
 	let immediateEmailSuccess = '';
+	/** @type {any} */
 	let sendNowFeedback = {};
 	let warnBeforeUnload = false;
+	/** @type {any} */
 	let openMergePreviews = {};
+	/** @type {any} */
 	let openSentEmails = {};
 	let immediateValuesInitialised = false;
 	let lastImmediateSubject = immediateEmail.subject ?? '';
@@ -183,6 +243,9 @@
 	const CONFIRMATION_TOKEN = '{{shift_confirmation_block}}';
 	const CONFIRMATION_PATTERN = /\s*\{\{shift_confirmation_block\}\}\s*/gi;
 
+	/**
+	 * @param {any} [content]
+	 */
 	function removeConfirmationBlock(content = '') {
 		return content
 			.replace(CONFIRMATION_PATTERN, '\n\n')
@@ -190,20 +253,29 @@
 			.trim();
 	}
 
+	/**
+	 * @param {any} [content]
+	 */
 	function ensureConfirmationBlock(content = '') {
 		const base = removeConfirmationBlock(content);
 		if (!base) return CONFIRMATION_TOKEN;
 		return `${base}\n\n${CONFIRMATION_TOKEN}`;
 	}
 
-	$: previewContext = createPreviewContext({ eventDetails, opportunities, origin: previewOrigin });
+	$: previewContext = /** @type {any} */ (
+		createPreviewContext({ eventDetails, opportunities, origin: previewOrigin })
+	);
 	$: mergeTagPreviews = VOLUNTEER_MERGE_TAGS.map((tag) => ({
 		...tag,
 		exampleHtml: getMergeTagExample(tag.token, previewContext, 'html'),
 		exampleText: getMergeTagExample(tag.token, previewContext, 'text')
 	}));
-	$: immediateBodyPreview = renderEmailBody(immediateEmail.body ?? '', previewContext);
-	$: immediateSubjectPreview = renderSubject(immediateEmail.subject ?? '', previewContext);
+	$: immediateBodyPreview = /** @type {any} */ (
+		renderEmailBody(immediateEmail.body ?? '', previewContext)
+	);
+	$: immediateSubjectPreview = /** @type {any} */ (
+		renderSubject(immediateEmail.subject ?? '', previewContext)
+	);
 
 	$: {
 		const nextSubject = immediateEmail.subject ?? '';
@@ -219,14 +291,24 @@
 		lastImmediateBody = nextBody;
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	function buildBodyPreview(email) {
 		return renderEmailBody(email.body ?? '', previewContext);
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	function buildSubjectPreview(email) {
 		return renderSubject(email.subject ?? '', previewContext);
 	}
 
+	/**
+	 * @param {any} value
+	 * @param {any} [maxLength]
+	 */
 	function truncateSubject(value, maxLength = 80) {
 		const text = (value ?? '').trim();
 		if (!text) return 'No subject';
@@ -234,12 +316,19 @@
 		return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
 	}
 
+	/**
+	 * @param {any} a
+	 * @param {any} b
+	 */
 	function compareSentEmail(a, b) {
 		const aTime = new Date(a?.lastSentAt ?? a?.last_sent_at ?? 0).getTime();
 		const bTime = new Date(b?.lastSentAt ?? b?.last_sent_at ?? 0).getTime();
 		return bTime - aTime;
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	function getSentEmailKey(email) {
 		if (!email) return '';
 		if (email.id) return String(email.id);
@@ -247,29 +336,46 @@
 		return `sent:${email.subject ?? Math.random()}`;
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	function isScheduledEmail(email) {
 		if (!email) return false;
 		if (email.emailType === 'immediate') return false;
 		return !email.lastSentAt;
 	}
 
+	/**
+	 * @param {any} key
+	 */
 	function toggleSentEmail(key) {
 		if (!key) return;
 		openSentEmails[key] = !openSentEmails[key];
 		openSentEmails = openSentEmails;
 	}
 
+	/**
+	 * @param {any} key
+	 */
 	function isSentEmailOpen(key) {
 		if (!key) return false;
 		return !!openSentEmails[key];
 	}
 
+	/**
+	 * @param {any} emailId
+	 * @param {any} field
+	 * @param {any} element
+	 */
 	function setActiveEditor(emailId, field, element) {
 		activeEmailId = emailId;
 		activeFieldType = field;
 		activeInput = element;
 	}
 
+	/**
+	 * @param {any} element
+	 */
 	function clearActiveEditor(element) {
 		if (activeInput === element) {
 			activeInput = null;
@@ -278,12 +384,19 @@
 		}
 	}
 
+	/**
+	 * @param {any} minutes
+	 */
 	function getTimingModeFromMinutes(minutes) {
 		if (!Number.isFinite(minutes)) return 'now';
 		if (minutes === 0) return 'now';
 		return minutes > 0 ? 'before' : 'after';
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} patch
+	 */
 	function setSendNowFeedback(id, patch) {
 		const current = sendNowFeedback[id] ?? {};
 		sendNowFeedback = {
@@ -292,6 +405,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} id
+	 */
 	function resetSendNowFeedback(id) {
 		if (!id || !sendNowFeedback[id]) return;
 		sendNowFeedback = {
@@ -300,6 +416,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} email
+	 */
 	async function handleSendScheduledNow(email) {
 		const key = email?.id ?? '';
 		if (!key) return;
@@ -345,6 +464,11 @@
 		}
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} email
+	 * @param {any} field
+	 */
 	async function handleEmailInput(event, email, field) {
 		const target = event.currentTarget;
 		if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
@@ -363,6 +487,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} token
+	 */
 	async function insertMergeTag(token) {
 		if (!token || !activeInput) return;
 		const target = activeInput;
@@ -430,6 +557,11 @@
 		immediateEmailSuccess = '';
 	}
 
+	/**
+	 * @param {any} emailId
+	 * @param {any} token
+	 * @param {any} [immediate]
+	 */
 	function insertBodyTag(emailId, token, immediate = false) {
 		if (typeof document === 'undefined') return;
 		const elementId = immediate ? 'immediate-email-body' : `email-body-${emailId}`;
@@ -453,15 +585,27 @@
 		insertMergeTag(token);
 	}
 
+	/**
+	 * @param {any} scope
+	 * @param {any} token
+	 */
 	function getMergePreviewKey(scope, token) {
 		return `${scope ?? 'global'}:${token}`;
 	}
+	/**
+	 * @param {any} scope
+	 * @param {any} token
+	 */
 	function toggleMergePreview(scope, token) {
 		if (!token) return;
 		const key = getMergePreviewKey(scope, token);
 		openMergePreviews[key] = !openMergePreviews[key];
 		openMergePreviews = openMergePreviews;
 	}
+	/**
+	 * @param {any} scope
+	 * @param {any} token
+	 */
 	function isMergePreviewOpen(scope, token) {
 		return !!openMergePreviews[getMergePreviewKey(scope, token)];
 	}
@@ -491,9 +635,10 @@
 		!immediateEmailSending &&
 		!immediateEmailSuccess &&
 		((immediateEmail.subject ?? '').trim() || (immediateEmail.body ?? '').trim());
-	$: warnBeforeUnload = immediateDraftDirty;
+	$: warnBeforeUnload = /** @type {any} */ (immediateDraftDirty);
 
 	onMount(() => {
+		/** @type {any} */
 		const handleBeforeUnload = (event) => {
 			if (!warnBeforeUnload) return;
 			event.preventDefault();

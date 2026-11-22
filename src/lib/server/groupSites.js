@@ -36,6 +36,7 @@ const IMAGE_FETCH_TIMEOUT_MS = 8000;
 const MAX_PALETTE_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_PALETTE_IMAGE_PIXELS = 40_000_000;
 const PALETTE_CACHE = new Map();
+/** @type {Map<string, { groupId: string | null, expiresAt: number, promise: Promise<any> | null }>} */
 const MICROSITE_PAGE_CACHE = new Map();
 const MICROSITE_PAGE_CACHE_TTL_MS = 30_000;
 const EMPTY_MEMBERSHIP = Object.freeze({ program: null, tiers: [], formFields: [] });
@@ -45,9 +46,14 @@ const EMPTY_INSTAGRAM_FEED = Object.freeze({
 	instagramPostsSource: 'none'
 });
 
-function cleanText(value) {
+/**
+ * @param {any} value
+ * @param {number} [maxLength]
+ */
+function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
-	return String(value).trim();
+	const cleaned = String(value).trim();
+	return maxLength > 0 ? cleaned.slice(0, maxLength) : cleaned;
 }
 
 const INSTAGRAM_POST_LIMIT = 3;
@@ -142,6 +148,9 @@ function normalizeInstagramTimestamp(unixSeconds) {
 	return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+/**
+ * @param {any} [node]
+ */
 function normalizePublicInstagramPost(node = null) {
 	if (!node || typeof node !== 'object') return null;
 	const shortcode = cleanText(node.shortcode);
@@ -186,6 +195,9 @@ function resolveTimelineImageUrl(item) {
 	return pickFromMedia(item);
 }
 
+/**
+ * @param {any} [item]
+ */
 function normalizeTimelineItem(item = null) {
 	if (!item || typeof item !== 'object') return null;
 	const shortcode = cleanText(item?.code);
@@ -630,6 +642,10 @@ async function extractPaletteFromImageUrl(imageUrl) {
 	return cached;
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} group
+ * @param {Record<string, any> | null} [siteConfig]
+ */
 export async function deriveGroupSitePalette(group, siteConfig = null) {
 	const config = normalizeGroupSiteConfig(siteConfig || {}, { group });
 	if (group?.slug === '3-feet-please') {
@@ -658,6 +674,10 @@ export async function deriveGroupSitePalette(group, siteConfig = null) {
 	return normalizePalette(config.theme_colors, group?.slug || group?.name);
 }
 
+/**
+ * @param {string | null | undefined} groupId
+ * @param {{ group?: Record<string, any> | null }} [options]
+ */
 export async function getGroupSiteConfig(groupId, { group = null } = {}) {
 	if (!groupId) return normalizeGroupSiteConfig({}, { group });
 	const db = pickGroupSiteClient();
@@ -1000,6 +1020,7 @@ export async function loadGroupMicrosite(args) {
 	if (cached && cached.expiresAt > now) return cached.promise;
 	if (cached) MICROSITE_PAGE_CACHE.delete(key);
 
+	/** @type {{ groupId: string | null, expiresAt: number, promise: Promise<any> | null }} */
 	const entry = {
 		groupId: null,
 		expiresAt: now + MICROSITE_PAGE_CACHE_TTL_MS,

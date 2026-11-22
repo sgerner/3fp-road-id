@@ -12,6 +12,7 @@
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconX from '@lucide/svelte/icons/x';
 
+	/** @type {Record<string, any>} */
 	let {
 		articleId = '',
 		uploaded = [],
@@ -26,6 +27,7 @@
 		{ value: 'documents', label: 'Documents' }
 	];
 
+	/** @type {any} */
 	let files = $state([]);
 	let loading = $state(false);
 	let error = $state('');
@@ -36,6 +38,7 @@
 	let insertedAssetId = $state('');
 	let copiedNotice = $state('');
 	let previewAssetId = $state('');
+	/** @type {any} */
 	let previewDialog = $state(null);
 	let results = $derived(uploaded);
 	const PAGE_SIZE = 12;

@@ -21,6 +21,7 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash-2';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 
+	/** @type {Record<string, any>} */
 	let {
 		pageTitle = 'New Ride',
 		pageDescription = '',
@@ -785,23 +786,29 @@
 	let aiPrompt = $state('');
 	let aiLoading = $state(false);
 	let aiError = $state('');
+	/** @type {any} */
 	let latestAiDraft = $state(null);
 	let aiMessagesEl = $state();
+	/** @type {any} */
 	let occurrenceDraft = $state(null);
 	let occurrenceSaving = $state(false);
 	let occurrenceSaveError = $state('');
 	let newHostEmail = $state('');
 	let hostSaving = $state(false);
 	let hostError = $state('');
+	/** @type {any} */
 	let hostEntries = $state([]);
 	let organizerEmailSubject = $state('');
 	let organizerEmailBody = $state('');
 	let organizerEmailSending = $state(false);
 	let organizerEmailError = $state('');
 	let organizerEmailSuccess = $state('');
+	/** @type {any} */
 	let selectedManageOccurrenceId = $state(null);
 	let applyFromOccurrenceStart = $state('');
+	/** @type {any} */
 	let hostGroupSelection = $state([]);
+	/** @type {any} */
 	let hostGroupItems = $state([]);
 	let deleteError = $state('');
 	let deleting = $state(false);

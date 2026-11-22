@@ -6,6 +6,7 @@
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import IconShieldAlert from '@lucide/svelte/icons/shield-alert';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 	const donation = $derived(data?.donation ?? null);
 	let refreshing = $state(false);

@@ -66,6 +66,7 @@
 		}
 	}
 
+	/** @type {Record<string, any>} */
 	let { slug = '', buckets = [], form = null } = $props();
 
 	let successNotice = $state('');
@@ -84,9 +85,12 @@
 	let pendingLinkUpdateAssetId = $state('');
 	let dragOverBucket = $state('');
 	let lightboxOpen = $state(false);
+	/** @type {any} */
 	let lightboxItems = $state([]);
 	let lightboxIndex = $state(0);
+	/** @type {any} */
 	let lightboxTrigger = null;
+	/** @type {any} */
 	let lightboxCloseButton = $state(null);
 
 	$effect(() => {

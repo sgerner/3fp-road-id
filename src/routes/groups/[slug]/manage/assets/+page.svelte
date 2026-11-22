@@ -1,6 +1,7 @@
 <script>
 	import GroupAssetManager from '#lib/components/groups/GroupAssetManager.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 </script>
 

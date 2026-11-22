@@ -1,8 +1,12 @@
 <script>
+	/** @type {any} */
 	export let values = {};
+	/** @type {any} */
 	export let onChange = () => {};
+	/** @type {any} */
 	export let disabled = false;
 
+	/** @type {any} */
 	const fields = [
 		{ key: 'volunteerName', label: 'Name', type: 'text', required: true, autocomplete: 'name' },
 		{ key: 'volunteerEmail', label: 'Email', type: 'email', required: true, autocomplete: 'email' },

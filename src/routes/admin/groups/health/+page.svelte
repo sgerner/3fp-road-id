@@ -22,20 +22,30 @@
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import AdminNotice from '#lib/components/admin/AdminNotice.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	// State
+	/** @type {any} */
 	let searchTerm = $state('');
+	/** @type {any} */
 	let statusFilter = $state('all');
+	/** @type {any} */
 	let currentPage = $state(1);
+	/** @type {any} */
 	let pageSize = $state(24);
+	/** @type {any} */
 	let expandedGroups = $state(new Set());
 
+	/** @type {any} */
 	const healthData = $derived(data.healthData);
+	/** @type {any} */
 	const allGroups = $derived(healthData.groups || []);
+	/** @type {any} */
 	const totals = $derived(healthData.totals || {});
 
 	// Filtering
+	/** @type {any} */
 	const filteredGroups = $derived(
 		allGroups.filter((g) => {
 			const matchesStatus = statusFilter === 'all' || g.health.status === statusFilter;
@@ -48,12 +58,15 @@
 	);
 
 	// Pagination
+	/** @type {any} */
 	const totalPages = $derived(Math.ceil(filteredGroups.length / pageSize));
+	/** @type {any} */
 	const paginatedGroups = $derived(
 		filteredGroups.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 	);
 
 	// Full class names so Tailwind can see them. `field` is the solid color a status takes over.
+	/** @type {any} */
 	const STATUS_CONFIG = {
 		healthy: {
 			icon: IconCircleCheck,
@@ -81,10 +94,16 @@
 		}
 	};
 
+	/**
+	 * @param {any} status
+	 */
 	function getStatusConfig(status) {
 		return STATUS_CONFIG[status] || STATUS_CONFIG.inactive;
 	}
 
+	/**
+	 * @param {any} iso
+	 */
 	function formatDate(iso) {
 		if (!iso) return 'Never';
 		try {
@@ -94,6 +113,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} status
+	 */
 	function toggleStatusFilter(status) {
 		if (statusFilter === status) {
 			statusFilter = 'all';
@@ -103,6 +125,9 @@
 		currentPage = 1; // Reset to page 1 on filter change
 	}
 
+	/**
+	 * @param {any} groupId
+	 */
 	function toggleExpand(groupId) {
 		if (expandedGroups.has(groupId)) {
 			expandedGroups.delete(groupId);
@@ -147,7 +172,7 @@
 				id="group-health-window"
 				class="select h-10 py-0 pr-10 pl-3 text-sm"
 				value={String(data.windowDays)}
-				onchange={(e) => e.target.form.submit()}
+				onchange={(e) => /** @type {any} */ (e.target).form.submit()}
 			>
 				<option value="7">7 Days</option>
 				<option value="30">30 Days</option>

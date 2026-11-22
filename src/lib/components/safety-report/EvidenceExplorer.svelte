@@ -1,20 +1,28 @@
 <script>
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
+	/** @type {Record<string, any>} */
 	let { report, onAsk = undefined } = $props();
+	/** @type {any} */
 	let motionDuration = $state(140);
 	onMount(() => {
 		const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+		/** @type {any} */
 		const update = () => (motionDuration = preference.matches ? 0 : 140);
 		update();
 		preference.addEventListener('change', update);
 		return () => preference.removeEventListener('change', update);
 	});
+	/** @type {any} */
 	let query = $state('');
+	/** @type {any} */
 	let outcome = $state('All');
+	/** @type {any} */
 	let visible = $state(10);
+	/** @type {any} */
 	let selected = $state(0);
 
+	/** @type {any} */
 	const filters = [
 		[
 			'Understanding/attitudes',
@@ -28,11 +36,13 @@
 		['Injuries', /injur|crash|accident|fatalit/i],
 		['Planning', /guidance|framework|toolkit|planning|implementation/i]
 	];
+	/** @type {any} */
 	const outcomes = [
 		{ label: 'All multi-party accidents', estimate: 0.7, low: 0.39, high: 1.28 },
 		{ label: 'Multi-party injury accidents', estimate: 0.75, low: 0.23, high: 2.47 },
 		{ label: 'Multi-party accidents in darkness', estimate: 0.29, low: 0.1, high: 0.84 }
 	];
+	/** @type {any} */
 	const matches = $derived.by(() => {
 		const term = query.trim().toLowerCase();
 		const pattern = filters.find(([label]) => label === outcome)?.[1];
@@ -44,8 +54,11 @@
 			);
 		});
 	});
+	/** @type {any} */
 	const current = $derived(outcomes[selected]);
+	/** @type {any} */
 	const source42 = $derived(report?.sources?.find((source) => source.id === 'R42'));
+	/** @type {any} */
 	const axis = (value) =>
 		48 + ((Math.log(value) - Math.log(0.1)) / (Math.log(3) - Math.log(0.1))) * 504;
 	function resetResults() {

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import '@toast-ui/editor/dist/toastui-editor.css';
 
+	/** @type {Record<string, any>} */
 	let {
 		name = 'bodyMarkdown',
 		modeName = 'editorMode',
@@ -13,11 +14,15 @@
 		onReady = null
 	} = $props();
 
+	/** @type {any} */
 	let editorEl = $state(null);
+	/** @type {any} */
 	let textareaEl = $state(null);
+	/** @type {any} */
 	let modeEl = $state(null);
 	let currentMode = $state('wysiwyg');
 	let lastExternalValue = $state('');
+	/** @type {any} */
 	let editor = null;
 	let ready = $state(false);
 

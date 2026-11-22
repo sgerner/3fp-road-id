@@ -19,63 +19,92 @@
 	import { fade, fly } from 'svelte/transition';
 	import { scrollReveal } from '#lib/microsites/scrollReveal';
 
+	/** @type {Record<string, any>} */
 	let { data, children } = $props();
 
+	/** @type {any} */
 	const site = $derived(data.site);
+	/** @type {any} */
 	const group = $derived(site?.group ?? null);
+	/** @type {any} */
 	const isTbagSite = $derived(site?.siteConfig?.site_variant === 'tbag');
+	/** @type {any} */
 	const heroImageHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
 	);
+	/** @type {any} */
 	const heroImageSrcSet = $derived(
 		group?.cover_photo_url
 			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 800, quality: 50 })} 800w, ${heroImageHref} 1600w`
 			: ''
 	);
+	/** @type {any} */
 	const heroImageMobileHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 640, quality: 50 })
 	);
+	/** @type {any} */
 	const heroImageMobileSrcSet = $derived(
 		group?.cover_photo_url
 			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${heroImageMobileHref} 640w`
 			: ''
 	);
+	/** @type {any} */
 	const heroImageSmallHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 320, quality: 40 })
 	);
+	/** @type {any} */
 	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
+	/** @type {any} */
 	const taxonomy = $derived(site?.taxonomy || { audiences: [], disciplines: [], skills: [] });
+	/** @type {any} */
 	const basePath = $derived(site?.basePath || '');
+	/** @type {any} */
 	const homeHref = $derived(basePath || '/');
+	/** @type {any} */
 	const updatesHref = $derived(basePath ? `${basePath}/updates` : '/updates');
+	/** @type {any} */
 	const joinHref = $derived(basePath ? `${basePath}/join` : '/join');
+	/** @type {any} */
 	const galleryHref = $derived(basePath ? `${basePath}/gallery` : '/gallery');
+	/** @type {any} */
 	const assetsHref = $derived(basePath ? `${basePath}/assets` : '/assets');
+	/** @type {any} */
 	const contactHref = $derived(basePath ? `${basePath}#contact` : '/#contact');
 	const communityHref = 'https://3fp.org';
+	/** @type {any} */
 	const membershipCtaLabel = $derived(
 		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
 	);
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
+	/** @type {any} */
 	const currentPathname = $derived(normalizePathname(page.url.pathname));
+	/** @type {any} */
 	const homePathname = $derived(normalizePathname(homeHref));
+	/** @type {any} */
 	const siteRootUrl = $derived(buildAbsoluteUrl(page.url.origin, homeHref || '/'));
+	/** @type {any} */
 	const seoCanonical = $derived(buildAbsoluteUrl(page.url.origin, currentPathname || '/'));
+	/** @type {any} */
 	const seoSection = $derived.by(() => {
 		const relative = getRelativePathname(currentPathname, homePathname);
 		return relative.split('/')[0] || '';
 	});
+	/** @type {any} */
 	const customPage = $derived(
 		(site?.siteConfig?.site_pages || []).find(
 			(candidate) => !candidate.is_home && candidate.slug === seoSection
 		) || null
 	);
+	/** @type {any} */
 	const isHomePage = $derived(currentPathname === homePathname);
+	/** @type {any} */
 	const seoTitle = $derived(
 		(site?.siteConfig?.site_title || group?.name || 'Cycling Group').trim()
 	);
+	/** @type {any} */
 	const seoPageTitle = $derived.by(() => {
 		if (isHomePage) return seoTitle;
+		/** @type {any} */
 		const sectionTitles = {
 			updates: 'Updates',
 			gallery: 'Gallery',
@@ -85,14 +114,17 @@
 		const sectionTitle = customPage?.title || sectionTitles[seoSection];
 		return sectionTitle ? `${sectionTitle} — ${seoTitle}` : seoTitle;
 	});
+	/** @type {any} */
 	const seoOgImage = $derived(
 		group?.cover_photo_url || group?.logo_url || site?.photoBucket?.image_assets?.[0]?.href || ''
 	);
 
+	/** @type {any} */
 	const seoDescription = $derived.by(() => {
 		if (customPage?.seo_description || customPage?.description) {
 			return limitSeoText(customPage.seo_description || customPage.description, 165);
 		}
+		/** @type {any} */
 		const sectionDescriptions = {
 			updates: limitSeoText(
 				`${seoTitle} updates, announcements, route changes, volunteer asks, and public notes.`,
@@ -125,6 +157,7 @@
 		return limitSeoText(`${primary || fallback}${tail}`, 165);
 	});
 
+	/** @type {any} */
 	const seoKeywords = $derived.by(() => {
 		const values = new Set([
 			cleanSeoText(group?.name),
@@ -147,6 +180,7 @@
 		return Array.from(values).filter(Boolean).slice(0, 18).join(', ');
 	});
 
+	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
 		const sameAs = (site?.contactLinks || [])
 			.map((link) => String(link?.href || '').trim())
@@ -180,6 +214,7 @@
 		return toJsonLd(payload);
 	});
 
+	/** @type {any} */
 	const navItems = $derived.by(() => {
 		const available = new Map();
 		for (const page of site?.siteConfig?.site_pages || []) {
@@ -216,20 +251,35 @@
 			})
 			.filter(Boolean);
 	});
+	/** @type {any} */
 	const primaryNavItems = $derived(navItems.filter((item) => item.placement === 'primary'));
+	/** @type {any} */
 	const moreNavItems = $derived(navItems.filter((item) => item.placement === 'more'));
+	/** @type {any} */
 	const mobileNavItems = $derived(navItems.filter((item) => item.placement !== 'hidden'));
 
+	/** @type {any} */
 	let mobileMenuOpen = $state(false);
+	/** @type {any} */
 	let colorMode = $state('light');
+	/** @type {any} */
 	let prefersReducedMotion = $state(false);
+	/** @type {any} */
 	let hasMounted = $state(false);
+	/** @type {any} */
 	const routeTransitionKey = $derived(currentPathname);
 
+	/**
+	 * @param {any} value
+	 */
 	function normalizeColorMode(value) {
 		return value === 'dark' ? 'dark' : 'light';
 	}
 
+	/**
+	 * @param {any} value
+	 * @param {any} [persist]
+	 */
 	function setColorMode(value, persist = true) {
 		const next = normalizeColorMode(value);
 		colorMode = next;
@@ -248,6 +298,7 @@
 
 	onMount(() => {
 		const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+		/** @type {any} */
 		const handleMotionPreferenceChange = () => (prefersReducedMotion = motionQuery.matches);
 		handleMotionPreferenceChange();
 		if (typeof motionQuery.addEventListener === 'function') {
@@ -273,11 +324,15 @@
 		};
 	});
 
+	/**
+	 * @param {any} href
+	 */
 	function isActive(href) {
 		if (!href) return false;
+		/** @type {any} */
 		let targetUrl;
 		try {
-			targetUrl = new URL(href, page.url);
+			targetUrl = new URL(href, /** @type {any} */ (page.url));
 		} catch {
 			return false;
 		}

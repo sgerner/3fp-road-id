@@ -172,6 +172,10 @@ export async function getSmsManagerIds(supabase, context = {}) {
 	return Array.from(managerIds);
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ userId?: string | null, phoneE164?: string | null }} [options]
+ */
 async function loadSubscription(supabase, { userId, phoneE164 } = {}) {
 	let query = supabase.from('sms_subscriptions').select('*');
 	if (userId) query = query.eq('user_id', userId);
@@ -246,6 +250,10 @@ export async function closeSmsThreadsForPhone(supabase, userId, phoneE164) {
 	return asArray(result.data).length;
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ userId?: string | null, phoneE164?: string | null, context?: Record<string, any>, managerUserIds?: Array<string | null> }} options
+ */
 async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, managerUserIds = [] }) {
 	const normalizedPhone = normalizeSmsPhone(phoneE164);
 	if (!normalizedPhone) throw new Error('A valid SMS phone number is required.');
@@ -306,6 +314,21 @@ async function ensureSmsThread(supabase, { userId, phoneE164, context = {}, mana
 	return thread;
 }
 
+/**
+ * @param {{
+ *   supabase?: any,
+ *   userId?: string | null,
+ *   phoneE164?: string | null,
+ *   kind?: string,
+ *   body?: string,
+ *   dedupeKey?: string,
+ *   context?: Record<string, any>,
+ *   managerUserIds?: Array<string | null>,
+ *   createdByUserId?: string | null,
+ *   metadata?: Record<string, any>,
+ *   requireSubscription?: boolean
+ * }} [options]
+ */
 export async function enqueueSms({
 	supabase = getSmsServiceClient(),
 	userId = null,
@@ -439,6 +462,7 @@ export async function sendSignalWireMessage({ to, body }) {
 		payload = { raw };
 	}
 	if (!response.ok) {
+		/** @type {Error & { status?: number, providerPayload?: any }} */
 		const error = new Error(
 			payload?.message || payload?.error_message || 'SignalWire rejected the SMS.'
 		);
@@ -453,6 +477,24 @@ export async function sendSignalWireMessage({ to, body }) {
 	};
 }
 
+/**
+ * @param {any} supabase
+ * @param {{
+ *   threadId: any,
+ *   direction: string,
+ *   kind?: string,
+ *   fromPhone?: string | null,
+ *   toPhone?: string | null,
+ *   body: string,
+ *   providerMessageId?: string | null,
+ *   providerStatus?: string | null,
+ *   mediaCount?: number,
+ *   segments?: number,
+ *   metadata?: Record<string, any>,
+ *   sentAt?: string | null,
+ *   validateOutbound?: boolean
+ * }} options
+ */
 export async function recordSmsMessage(
 	supabase,
 	{
@@ -462,8 +504,8 @@ export async function recordSmsMessage(
 		fromPhone,
 		toPhone,
 		body,
-		providerMessageId,
-		providerStatus,
+		providerMessageId = null,
+		providerStatus = null,
 		mediaCount = 0,
 		segments = 1,
 		metadata = {},
@@ -629,6 +671,9 @@ async function resolveInboundContext(supabase, userId) {
 	return { subject: 'General 3FP SMS conversation' };
 }
 
+/**
+ * @param {{ supabase?: any, payload?: Record<string, any> }} [options]
+ */
 export async function handleSignalWireInbound({
 	supabase = getSmsServiceClient(),
 	payload = {}
@@ -788,7 +833,7 @@ export async function handleSignalWireInbound({
 
 	let autoReplySuppressed = false;
 	if (reply) {
-		const complianceReply = ['stop', 'help', 'start'].includes(keyword);
+		const complianceReply = keyword !== null && ['stop', 'help', 'start'].includes(keyword);
 		if (!complianceReply) {
 			const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 			const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

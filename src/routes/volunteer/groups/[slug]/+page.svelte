@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { buildCanonicalUrl, cleanSeoText, limitSeoText } from '#lib/seo';
 
+	/** @type {{ data: Record<string, any> }} */
 	const { data } = $props();
 
 	const group = $derived(data?.group ?? null);
@@ -18,8 +19,10 @@
 	const opportunities = $derived(
 		(data?.volunteer_opportunities ?? data?.volunteerOpportunities ?? []).filter(Boolean)
 	);
+	/** @type {any} */
 	const currentUser = $derived(data?.user ?? null);
 
+	/** @type {any} */
 	const locationLabel = $derived.by(() => {
 		if (!group) return '';
 		return [group.city, group.state_region, group.country]
@@ -27,9 +30,11 @@
 			.filter(Boolean)
 			.join(', ');
 	});
+	/** @type {any} */
 	const title = $derived(
 		group?.name ? cleanSeoText(`Volunteer with ${group.name}`) : 'Volunteer Opportunities'
 	);
+	/** @type {any} */
 	const description = $derived.by(() => {
 		if (!group) {
 			return 'Join upcoming volunteer opportunities hosted by this group.';
@@ -40,6 +45,7 @@
 		}
 		return `Support ${group.name} by joining their upcoming volunteer events.`;
 	});
+	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url));
 </script>
 

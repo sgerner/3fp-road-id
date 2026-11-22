@@ -7,13 +7,21 @@
 	import EvidenceExplorer from '#lib/components/safety-report/EvidenceExplorer.svelte';
 	import ReportAssistant from '#lib/components/safety-report/ReportAssistant.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
+	/** @type {any} */
 	const report = $derived(data.report);
+	/** @type {any} */
 	let query = $state('');
+	/** @type {any} */
 	let active = $state('start');
+	/** @type {any} */
 	let currentTopic = $state('');
+	/** @type {any} */
 	let assistant;
+	/** @type {any} */
 	let motionReady = $state(false);
+	/** @type {any} */
 	const navigation = [
 		['start', 'Key takeaways'],
 		['campaign-planner', 'Build a campaign'],
@@ -23,6 +31,7 @@
 		['assistant', 'Ask the report']
 	];
 
+	/** @type {any} */
 	const heroImages = $derived(
 		[
 			report.campaignGallery.find((i) => i.id === '01-give-people-space-poster-v9-page-01'),
@@ -32,6 +41,7 @@
 			report.campaignGallery.find((i) => i.campaign === '05-light-the-ride' && i.kind === 'poster')
 		].filter(Boolean)
 	);
+	/** @type {any} */
 	const searchEntries = $derived([
 		...report.sections
 			.filter((s) => s.id !== 'references')
@@ -57,6 +67,7 @@
 			target: f.id
 		}))
 	]);
+	/** @type {any} */
 	const results = $derived.by(() => {
 		const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
 		if (!terms.length) return [];
@@ -82,9 +93,14 @@
 			.slice(0, 12);
 	});
 
+	/**
+	 * @param {any} id
+	 * @param {any} [scroll]
+	 */
 	function reveal(id, scroll = true) {
 		const target = document.getElementById(id);
 		if (!target) return;
+		/** @type {any} */
 		let ancestor = target;
 		while (ancestor) {
 			if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
@@ -98,6 +114,9 @@
 				})
 			);
 	}
+	/**
+	 * @param {any} id
+	 */
 	function navigateTo(id) {
 		window.history.replaceState(null, '', `#${id}`);
 		reveal(id);
@@ -110,27 +129,42 @@
 			/* Ignore malformed fragments. */
 		}
 	}
+	/**
+	 * @param {any} open
+	 */
 	function openChapters(open) {
 		document.querySelectorAll('.report-reading > details').forEach((el) => {
-			el.open = open;
+			if (el instanceof HTMLDetailsElement) el.open = open;
 		});
 	}
+	/**
+	 * @param {any} question
+	 */
 	async function askReport(question) {
 		navigateTo('assistant');
 		await tick();
 		assistant?.ask(question);
 	}
+	/**
+	 * @param {any} section
+	 */
 	function chapterLinks(section) {
 		return [...section.html.matchAll(/<h3 id="([^"]+)">([\s\S]*?)<\/h3>/g)].map((match) => ({
 			id: match[1],
 			title: match[2].replace(/<[^>]*>/g, '')
 		}));
 	}
+	/**
+	 * @param {any} section
+	 */
 	function chapterParts(section) {
 		const html = chapterHtml(section);
 		const index = html.indexOf('<h3');
 		return [html.slice(0, index), html.slice(index)];
 	}
+	/**
+	 * @param {any} section
+	 */
 	function chapterHtml(section) {
 		return section.html
 			.replace(new RegExp(`<h2 id="${section.id}">[\\s\\S]*?<\\/h2>`), '')
@@ -140,6 +174,7 @@
 		followHash();
 		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		motionReady = !reduceMotion;
+		/** @type {any} */
 		let revealObserver;
 		if (!reduceMotion && 'IntersectionObserver' in window) {
 			revealObserver = new IntersectionObserver(
@@ -158,6 +193,7 @@
 		}
 		// Track section starts, including sections taller than the viewport.
 		let frame = 0;
+		/** @type {any} */
 		const updateActive = () => {
 			frame = 0;
 			let current = navigation[0][0];
@@ -175,6 +211,7 @@
 				}
 			}
 		};
+		/** @type {any} */
 		const queueActive = () => {
 			if (!frame) frame = requestAnimationFrame(updateActive);
 		};

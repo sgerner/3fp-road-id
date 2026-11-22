@@ -23,6 +23,7 @@
 
 	const { data } = $props();
 
+	/** @type {any} */
 	const DIFFICULTY_COLORS = {
 		beginner: '#34d399',
 		easy: '#22c55e',
@@ -35,6 +36,7 @@
 		expert: '#a855f7',
 		uncategorized: '#64748b'
 	};
+	/** @type {any} */
 	const DIFFICULTY_FALLBACK_PALETTE = [
 		'#06b6d4',
 		'#84cc16',
@@ -46,36 +48,59 @@
 		'#f43f5e'
 	];
 
+	/** @type {any} */
 	let view = $state('list');
+	/** @type {any} */
 	let hasInitializedView = $state(false);
+	/** @type {any} */
 	let search = $state('');
+	/** @type {any} */
 	let selectedDifficulty = $state('all');
+	/** @type {any} */
 	let locationFilter = $state('');
+	/** @type {any} */
 	let datePreset = $state('anytime');
+	/** @type {any} */
 	let customStartDate = $state('');
+	/** @type {any} */
 	let customEndDate = $state('');
+	/** @type {any} */
 	let pageNumber = $state(1);
+	/** @type {any} */
 	let calendarReference = $state(startOfMonth(new Date()));
+	/** @type {any} */
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
+	/** @type {any} */
 	let dayDialog = $state(null);
+	/** @type {any} */
 	let dayModalTrigger = null;
+	/** @type {any} */
 	let dayModalCloseButton = $state(null);
 
+	/** @type {any} */
 	let mapEl = $state(null);
+	/** @type {any} */
 	let map;
+	/** @type {any} */
 	let markerLayer;
+	/** @type {any} */
 	let L;
 
 	const PAGE_SIZE = 8;
+	/** @type {any} */
 	const config = $derived(data?.config ?? {});
+	/** @type {any} */
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
+	/** @type {any} */
 	const showFilters = $derived(Boolean(config.showUserFilters));
+	/** @type {any} */
 	const resolvedTheme = $derived.by(() => {
 		if (config.theme === 'light' || config.theme === 'dark') return config.theme;
 		if (browser && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
 		return 'light';
 	});
 
+	/** @type {any} */
 	const baseFilteredRides = $derived(
 		rides.filter((ride) => {
 			if (!showFilters) return true;
@@ -101,6 +126,7 @@
 				.replace(/[^a-z0-9]+/g, ' ')
 				.split(/\s+/)
 				.filter(Boolean);
+			/** @type {any} */
 			const locationHaystack = [
 				ride.startLocationName,
 				ride.startLocationAddress,
@@ -124,6 +150,7 @@
 		})
 	);
 
+	/** @type {any} */
 	const filteredRides = $derived(
 		baseFilteredRides.filter((ride) => {
 			if (!showFilters || selectedDifficulty === 'all') return true;
@@ -131,11 +158,14 @@
 		})
 	);
 
+	/** @type {any} */
 	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / PAGE_SIZE)));
+	/** @type {any} */
 	const pagedRides = $derived(
 		filteredRides.slice((pageNumber - 1) * PAGE_SIZE, pageNumber * PAGE_SIZE)
 	);
 
+	/** @type {any} */
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
@@ -145,6 +175,7 @@
 			.filter(Boolean)
 	);
 
+	/** @type {any} */
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
 			const key = toDateKey(ride._calendarStart);
@@ -154,11 +185,14 @@
 		}, {})
 	);
 
+	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
+	/** @type {any} */
 	const calendarHeader = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
 
+	/** @type {any} */
 	const legendEntries = $derived.by(() => {
 		const names = new Set();
 		for (const ride of baseFilteredRides) {
@@ -186,21 +220,36 @@
 		if (pageNumber < 1) pageNumber = 1;
 	});
 
+	/**
+	 * @param {any} value
+	 */
 	function parseRideDate(value) {
 		if (!value) return null;
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? null : date;
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function toDateKey(date) {
 		if (!date) return '';
 		return date.toISOString().slice(0, 10);
 	}
 
+	/**
+	 * @param {any} date
+	 * @param {any} preset
+	 * @param {any} startDateRaw
+	 * @param {any} endDateRaw
+	 */
 	function matchesDateRange(date, preset, startDateRaw, endDateRaw) {
 		if (!date) return false;
 		if (preset === 'anytime') return true;
@@ -244,12 +293,18 @@
 
 	const todayKey = toDateKey(new Date());
 
+	/**
+	 * @param {any} ride
+	 */
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
 		const start = new Date(ride.nextOccurrenceStart);
 		return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function formatDayCellDate(ride) {
 		if (!ride?.nextOccurrenceStart) return { month: '--', day: '--', time: '--' };
 		const start = new Date(ride.nextOccurrenceStart);
@@ -260,16 +315,26 @@
 		};
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function rideTitle(ride) {
 		return formatRideWidgetTitle(ride, config);
 	}
 
+	/**
+	 * @param {any} offset
+	 */
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
 	}
 
+	/**
+	 * @param {any} day
+	 * @param {any} trigger
+	 */
 	async function openDayModal(day, trigger) {
 		if (!day?.items?.length) return;
 		dayModalTrigger = trigger;
@@ -302,21 +367,33 @@
 		void tick().then(() => trigger?.focus());
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleBackdropClick(event) {
 		if (event.target === event.currentTarget) {
 			closeDayModal();
 		}
 	}
 
+	/**
+	 * @param {any} name
+	 */
 	function normalizeDifficultyName(name) {
 		return (name || '').trim().toLowerCase();
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function getRideDifficultyLabel(ride) {
 		const first = (ride?.difficultyLevels ?? []).find((level) => level?.name)?.name;
 		return first?.trim() || 'Uncategorized';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function hashString(value) {
 		let hash = 0;
 		for (let index = 0; index < value.length; index += 1) {
@@ -326,6 +403,9 @@
 		return Math.abs(hash);
 	}
 
+	/**
+	 * @param {any} name
+	 */
 	function difficultyColor(name) {
 		const key = normalizeDifficultyName(name);
 		if (!key) return DIFFICULTY_COLORS.uncategorized;
@@ -334,16 +414,25 @@
 		return DIFFICULTY_FALLBACK_PALETTE[fallbackIndex];
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function primaryDifficulty(ride) {
 		return getRideDifficultyLabel(ride);
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function validCoords(ride) {
 		return (
 			Number.isFinite(Number(ride?.startLatitude)) && Number.isFinite(Number(ride?.startLongitude))
 		);
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function markerOptions(ride) {
 		const color = config.difficultyColors ? difficultyColor(primaryDifficulty(ride)) : '#0ea5e9';
 		return {
@@ -379,6 +468,7 @@
 	function updateMarkers() {
 		if (!map || !markerLayer || !L) return;
 		markerLayer.clearLayers();
+		/** @type {any} */
 		const points = [];
 
 		for (const ride of filteredRides || []) {

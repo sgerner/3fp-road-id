@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 
+	/** @type {Record<string, any>} */
 	let {
 		category = 'ride_reminders',
 		source = 'profile',

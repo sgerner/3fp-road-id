@@ -86,7 +86,7 @@
 			for (const id of riding_discipline_ids) p.append('riding_discipline_ids', String(id));
 			const qs = p.toString();
 			const target = url.pathname + (qs ? `?${qs}` : '');
-			goto(target, { replaceState: true, keepFocus: true, noScroll: true });
+			goto(target, { replaceState: true, reset: false });
 		} catch {}
 	}
 
@@ -227,12 +227,19 @@
 	const hasStateList = $derived(!!statesByCountry[country]?.length);
 
 	// Leaflet map + clustering
+	/** @type {HTMLElement | undefined} */
 	let mapEl = $state();
+	/** @type {HTMLElement | undefined} */
 	let mapLightboxEl = $state();
+	/** @type {any} */
 	let map = $state(null);
+	/** @type {any} */
 	let mapLightbox = $state(null);
+	/** @type {any} */
 	let clusterLayer = $state(null);
+	/** @type {any} */
 	let clusterLayerLightbox = $state(null);
+	/** @type {any} */
 	let L = $state(null);
 
 	function validCoords(g) {
@@ -375,7 +382,7 @@
 
 	$effect(() => {
 		if (!scrollToCardsAfterSearch) return;
-		if (navigating) return;
+		if (navigating.to) return;
 		scrollToCardsAfterSearch = false;
 		setTimeout(() => scrollToGroupCards(), 10);
 	});
@@ -1001,7 +1008,7 @@
 				<button
 					type="button"
 					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 cursor-pointer border-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page <= 1 || navigating}
+					disabled={page <= 1 || Boolean(navigating.to)}
 					onclick={() => setPage(page - 1)}
 				>
 					Previous
@@ -1009,7 +1016,7 @@
 				<span
 					class="flex items-center justify-center gap-2 px-4 text-sm font-black tracking-[0.2em] uppercase tabular-nums"
 				>
-					{#if navigating}
+					{#if navigating.to}
 						<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
 					{/if}
 					Page {page} of {totalPages}
@@ -1017,7 +1024,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page >= totalPages || navigating}
+					disabled={page >= totalPages || Boolean(navigating.to)}
 					onclick={() => setPage(page + 1)}
 				>
 					Next

@@ -113,6 +113,7 @@ export function getGroupNewsPostId(formData) {
 	return safeTrim(formData.get('postId')) || null;
 }
 
+/** @param {any} [post] */
 export function toGroupNewsFormValues(post = null) {
 	if (!post) {
 		return {
@@ -237,6 +238,11 @@ export async function listGroupNewsPostsForManagement(supabase, groupId) {
 	}));
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} groupId
+ * @param {{ limit?: number | null }} [options]
+ */
 export async function listPublishedGroupNewsPosts(supabase, groupId, { limit = null } = {}) {
 	let query = supabase
 		.from('group_news_posts')
@@ -288,8 +294,8 @@ export async function listPublishedGroupNewsSummaries(
 	groupId,
 	{ page = 1, pageSize = 24, search = '' } = {}
 ) {
-	const normalizedPage = Math.max(1, Number.parseInt(page, 10) || 1);
-	const normalizedPageSize = Math.min(48, Math.max(6, Number.parseInt(pageSize, 10) || 24));
+	const normalizedPage = Math.max(1, Number.parseInt(String(page), 10) || 1);
+	const normalizedPageSize = Math.min(48, Math.max(6, Number.parseInt(String(pageSize), 10) || 24));
 	const normalizedSearch = normalizeGroupNewsSearch(search);
 	const offset = (normalizedPage - 1) * normalizedPageSize;
 	let query = supabase
@@ -483,7 +489,7 @@ export async function listGroupUpdateEmailRecipients(
 				recipient_name: safeTrim(profile?.full_name) || null
 			};
 		})
-		.filter(Boolean);
+		.filter((recipient) => recipient !== null);
 }
 
 export async function countGroupUpdateEmailRecipients(

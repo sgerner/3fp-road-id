@@ -1,5 +1,5 @@
 <script>
-	let { data, embedded = false } = $props();
+	let { data, form: _form = undefined, embedded = false } = $props();
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
@@ -59,6 +59,7 @@
 	let cropStart = { x: 0, y: 0 };
 	let cropImgNatural = { w: 0, h: 0 };
 	let cropReady = $state(false);
+	/** @type {HTMLFormElement | undefined} */
 	let formEl = $state();
 	let stripeAccount = $state(pageData.donation_account || null);
 	let stripeBusy = $state(false);
@@ -74,6 +75,7 @@
 	let stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
 
 	// Crop viewport container ref (no measurements used)
+	/** @type {HTMLDivElement | null} */
 	let cropContainerEl = $state(null);
 
 	// Server logs now print profile; no client logging needed
@@ -148,8 +150,8 @@
 		const lngNum = Number(lng);
 		const latStr = Number.isFinite(latNum) ? latNum.toFixed(6) : '';
 		const lngStr = Number.isFinite(lngNum) ? lngNum.toFixed(6) : '';
-		if (latInput) latInput.value = latStr;
-		if (lngInput) lngInput.value = lngStr;
+		if (latInput instanceof HTMLInputElement) latInput.value = latStr;
+		if (lngInput instanceof HTMLInputElement) lngInput.value = lngStr;
 	}
 	function placeMarker(lat, lng) {
 		syncLatLngInputs(lat, lng);
@@ -266,7 +268,8 @@
 				if (def) placesEl.value = def;
 				placesContainer.innerHTML = '';
 				placesContainer.appendChild(placesEl);
-				placesEl.addEventListener('gmp-select', async ({ placePrediction }) => {
+				placesEl.addEventListener('gmp-select', async (/** @type {any} */ event) => {
+					const { placePrediction } = event;
 					try {
 						const place = placePrediction.toPlace();
 						await place.fetchFields({ fields: ['location', 'viewport'] });
@@ -303,8 +306,8 @@
 					const p = ac.getPlace();
 					const loc = p?.geometry?.location;
 					if (!loc) return;
-					const lat = loc.lat();
-					const lng = loc.lng();
+					const lat = typeof loc.lat === 'function' ? loc.lat() : Number(loc.lat);
+					const lng = typeof loc.lng === 'function' ? loc.lng() : Number(loc.lng);
 					placeMarker(lat, lng);
 					queueSave({ fields: { latitude: lat, longitude: lng } });
 				});
@@ -318,15 +321,20 @@
 
 	// Removed reactive loop on cropScale; clamp offsets on explicit events instead
 
-	onMount(async () => {
+	onMount(() => {
 		// Make initPlaces globally available for the callback
 		window.initGooglePlaces = initPlaces;
-		const readVal = (id) => document.getElementById(id)?.value?.trim() || '';
+		const readVal = (/** @type {string} */ id) => {
+			const el = document.getElementById(id);
+			return el && 'value' in el && typeof el.value === 'string' ? el.value.trim() : '';
+		};
 		meetingAddress = readVal('specific_meeting_point_address');
 		cityValue = readVal('city');
 		stateValue = readVal('state_region');
 		const countryEl = document.getElementById('country');
-		if (countryEl) countryValue = (countryEl.value || countryValue).toUpperCase();
+		if (countryEl && 'value' in countryEl && typeof countryEl.value === 'string') {
+			countryValue = (countryEl.value || countryValue).toUpperCase();
+		}
 
 		if (data.group?.logo_url) {
 			logoPreview = data.group.logo_url;
@@ -335,28 +343,30 @@
 			coverPreview = data.group.cover_photo_url;
 		}
 		// Map init
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-		}
-		const hasCoords =
-			Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
-		const lat = hasCoords ? Number(data.group.latitude) : 37.8;
-		const lng = hasCoords ? Number(data.group.longitude) : -96;
-		requestAnimationFrame(() => {
-			ensureMap(lat, lng, hasCoords ? 12 : 4);
-			if (hasCoords) placeMarker(lat, lng);
-		});
-		if (placesContainer) {
-			loadGooglePlaces();
-		}
-		if (!hasCoords && (meetingAddress || '').trim()) {
-			scheduleLocationGeocode({ force: true });
-		}
+		void (async () => {
+			try {
+				const mod = await import('leaflet');
+				L = mod.default || mod;
+				const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
+				await ensureLeafletDefaultIcon(L);
+			} catch (e) {
+				console.error('Failed to load Leaflet', e);
+			}
+			const hasCoords =
+				Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
+			const lat = hasCoords ? Number(data.group.latitude) : 37.8;
+			const lng = hasCoords ? Number(data.group.longitude) : -96;
+			requestAnimationFrame(() => {
+				ensureMap(lat, lng, hasCoords ? 12 : 4);
+				if (hasCoords) placeMarker(lat, lng);
+			});
+			if (placesContainer) {
+				loadGooglePlaces();
+			}
+			if (!hasCoords && (meetingAddress || '').trim()) {
+				scheduleLocationGeocode({ force: true });
+			}
+		})();
 
 		return () => {
 			// Cleanup the global function when the component is destroyed
@@ -461,7 +471,7 @@
 		const outW = cropTarget === 'logo' ? 800 : 1600;
 		const outH = Math.round(outW / ar);
 		const img = document.getElementById('crop-img');
-		if (!img) return;
+		if (!(img instanceof HTMLImageElement)) return;
 
 		// Compute the visible area in image coordinates using DOM rects (robust to any CSS/layout)
 		const imgRect = img.getBoundingClientRect();
@@ -483,21 +493,23 @@
 		canvas.width = outW;
 		canvas.height = outH;
 		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
 		ctx.imageSmoothingQuality = 'high';
 		ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
 
 		const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
 		if (!blob) return;
+		/** @type {string} */
 		const dataUrl = await new Promise((resolve) => {
 			const fr = new FileReader();
-			fr.onload = () => resolve(fr.result);
+			fr.onload = () => resolve(typeof fr.result === 'string' ? fr.result : '');
 			fr.readAsDataURL(blob);
 		});
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
 			const input = document.getElementById('logo_file_cropped');
-			if (input) input.value = dataUrl;
+			if (input instanceof HTMLInputElement) input.value = dataUrl;
 			// Autosave cropped logo immediately
 			try {
 				saving = true;
@@ -520,7 +532,7 @@
 			if (coverPreview) URL.revokeObjectURL(coverPreview);
 			coverPreview = URL.createObjectURL(blob);
 			const input = document.getElementById('cover_file_cropped');
-			if (input) input.value = dataUrl;
+			if (input instanceof HTMLInputElement) input.value = dataUrl;
 			// Autosave cropped cover immediately
 			try {
 				saving = true;
@@ -642,9 +654,10 @@
 	}
 
 	function collectSocialLinksFromInputs() {
-		return collectGroupSocialLinkInputs(
-			(field) => document.getElementById(`social_${field}`)?.value?.trim() || ''
-		);
+		return collectGroupSocialLinkInputs((field) => {
+			const el = document.getElementById(`social_${field}`);
+			return el && 'value' in el && typeof el.value === 'string' ? el.value.trim() : '';
+		});
 	}
 
 	function onSocialsChange() {
@@ -659,7 +672,7 @@
 			formEl?.querySelectorAll?.('input[name="audience_focus_ids"]:checked') ?? []
 		)
 			.map((input) => {
-				const id = Number(input.value);
+				const id = input instanceof HTMLInputElement ? Number(input.value) : NaN;
 				return data.audience_focuses.find((item) => item.id === id)?.name || '';
 			})
 			.filter(Boolean);
@@ -667,7 +680,7 @@
 			formEl?.querySelectorAll?.('input[name="riding_discipline_ids"]:checked') ?? []
 		)
 			.map((input) => {
-				const id = Number(input.value);
+				const id = input instanceof HTMLInputElement ? Number(input.value) : NaN;
 				return data.riding_disciplines.find((item) => item.id === id)?.name || '';
 			})
 			.filter(Boolean);
@@ -699,7 +712,7 @@
 		const checked = Array.from(
 			formEl?.querySelectorAll?.(`input[name="${inputName}"]:checked`) ?? []
 		)
-			.map((input) => Number(input.value))
+			.map((input) => (input instanceof HTMLInputElement ? Number(input.value) : NaN))
 			.filter((value) => Number.isFinite(value));
 		const out = [];
 		for (const id of checked) {
@@ -804,10 +817,10 @@
 		};
 		for (const [key, inputId] of Object.entries(map)) {
 			const el = document.getElementById(inputId);
-			if (el) el.value = links?.[key] || '';
+			if (el instanceof HTMLInputElement) el.value = links?.[key] || '';
 		}
 		const postsArea = document.getElementById('social_instagram_posts');
-		if (postsArea) {
+		if (postsArea instanceof HTMLTextAreaElement) {
 			const urls = Array.isArray(links?.instagram_posts)
 				? links.instagram_posts.map((value) => String(value || '').trim()).filter(Boolean)
 				: [];
@@ -820,7 +833,13 @@
 		const fields = payload?.fields || {};
 		const setField = (key, value) => {
 			const el = formEl?.querySelector?.(`[name="${key}"]`);
-			if (!el) return;
+			if (!(
+				el instanceof HTMLInputElement ||
+				el instanceof HTMLTextAreaElement ||
+				el instanceof HTMLSelectElement
+			)) {
+				return;
+			}
 			const normalized = value == null ? '' : String(value);
 			el.value = normalized;
 			if (key === 'city') cityValue = normalized.trim();
@@ -897,7 +916,7 @@
 					.toLowerCase();
 				if (!rowName || !normalized.has(rowName)) continue;
 				const box = formEl?.querySelector?.(`input[name="${inputName}"][value="${row.id}"]`);
-				if (box && !box.checked) {
+				if (box instanceof HTMLInputElement && !box.checked) {
 					box.checked = true;
 					categoryChanged = true;
 				}
@@ -1040,7 +1059,9 @@
 	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
 	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	/** @type {HTMLDivElement | null} */
 	let ownerTurnstileEl = $state(null);
+	/** @type {string | null} */
 	let ownerTurnstileWidgetId = $state(null);
 	// Local reactive owners list so UI updates on removal
 	let owners = $state((pageData.owners || []).slice());
@@ -1308,9 +1329,9 @@
 			logoFiles = [];
 			logoUploadKey += 1;
 			const input = document.getElementById('logo_file_cropped');
-			if (input) input.value = '';
+			if (input instanceof HTMLInputElement) input.value = '';
 			const clear = document.getElementById('clear_logo');
-			if (clear) clear.value = '1';
+			if (clear instanceof HTMLInputElement) clear.value = '1';
 			// Do not mutate data.group; leave server to persist on submit
 		} else if (which === 'cover') {
 			if (coverPreview) URL.revokeObjectURL(coverPreview);
@@ -1318,9 +1339,9 @@
 			coverFiles = [];
 			coverUploadKey += 1;
 			const input = document.getElementById('cover_file_cropped');
-			if (input) input.value = '';
+			if (input instanceof HTMLInputElement) input.value = '';
 			const clear = document.getElementById('clear_cover');
-			if (clear) clear.value = '1';
+			if (clear instanceof HTMLInputElement) clear.value = '1';
 			// Do not mutate data.group; leave server to persist on submit
 		}
 	}
@@ -1689,25 +1710,27 @@
 						<div class="text-surface-600-400 mb-1 text-xs">Preview</div>
 						{#key ctaKind + ctaLabel + ctaUrl}
 							{#await Promise.resolve(pickCtaPreview()) then cp}
-								<button
-									type="button"
-									class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
-								>
-									{#if cp.key !== 'custom'}
-										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
-										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
-										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-										{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
-										{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
-										{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
-										{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
-										{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
-										{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
-										{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
-										{:else}<IconLink class="h-4 w-4" />{/if}
-									{/if}
-									<span>{cp.label}</span>
-								</button>
+								{#if cp}
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
+									>
+										{#if cp.key !== 'custom'}
+											{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+											{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+											{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+											{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
+											{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
+											{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
+											{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
+											{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
+											{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
+											{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
+											{:else}<IconLink class="h-4 w-4" />{/if}
+										{/if}
+										<span>{cp.label}</span>
+									</button>
+								{/if}
 							{/await}
 						{/key}
 					</div>
@@ -1969,7 +1992,7 @@
 							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
-							classes="w-full"
+							class="w-full"
 							onFileChange={onLogoChange}
 							onFileReject={onReject}
 						>
@@ -2009,7 +2032,7 @@
 							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
-							classes="w-full"
+							class="w-full"
 							onFileChange={onCoverChange}
 							onFileReject={onReject}
 						>

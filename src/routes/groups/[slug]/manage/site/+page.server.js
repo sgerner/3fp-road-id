@@ -21,6 +21,9 @@ const SPONSOR_LOGO_BUCKET = 'group-assets';
 const SPONSOR_LOGO_MAX_BYTES = 5 * 1024 * 1024;
 const SPONSOR_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
+/**
+ * @param {any} raw
+ */
 function sanitizeSponsorItems(raw) {
 	if (!Array.isArray(raw)) return [];
 	return raw
@@ -33,6 +36,9 @@ function sanitizeSponsorItems(raw) {
 		.slice(0, 12);
 }
 
+/**
+ * @param {any} formData
+ */
 function parseSponsorItemsJson(formData) {
 	const raw = formData.get('sponsor_items_json');
 	if (!raw) return [];
@@ -43,11 +49,18 @@ function parseSponsorItemsJson(formData) {
 	}
 }
 
+/**
+ * @param {any} groupId
+ * @param {any} fileName
+ */
 function buildSponsorLogoObjectPath(groupId, fileName) {
 	const extension = path.extname(String(fileName || '')).toLowerCase() || '.png';
 	return `groups/${groupId}/microsite/sponsors/${Date.now()}-${randomUUID()}${extension}`;
 }
 
+/**
+ * @param {any} param0
+ */
 async function uploadSponsorLogosAndRewriteJson({ formData, groupId }) {
 	const sponsorItems = parseSponsorItemsJson(formData);
 	if (!sponsorItems.length) return [];
@@ -57,6 +70,7 @@ async function uploadSponsorLogosAndRewriteJson({ formData, groupId }) {
 		throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for sponsor logo uploads.');
 	}
 
+	/** @type {any} */
 	const uploadedPaths = [];
 	try {
 		for (let index = 0; index < sponsorItems.length; index += 1) {
@@ -111,6 +125,9 @@ async function uploadSponsorLogosAndRewriteJson({ formData, groupId }) {
 	return uploadedPaths;
 }
 
+/**
+ * @param {any} paths
+ */
 async function removeSponsorLogoObjects(paths) {
 	if (!paths?.length) return;
 	const serviceSupabase = createServiceSupabaseClient();
@@ -118,6 +135,10 @@ async function removeSponsorLogoObjects(paths) {
 	await serviceSupabase.storage.from(SPONSOR_LOGO_BUCKET).remove(paths);
 }
 
+/**
+ * @param {any} config
+ * @param {any} groupId
+ */
 function managedSponsorLogoObjectPaths(config, groupId) {
 	const marker = `/storage/v1/object/public/${SPONSOR_LOGO_BUCKET}/`;
 	const prefix = `groups/${groupId}/microsite/sponsors/`;
@@ -138,6 +159,9 @@ function managedSponsorLogoObjectPaths(config, groupId) {
 	);
 }
 
+/**
+ * @param {any} param0
+ */
 async function removeUnusedSponsorLogoObjects({ previousConfig, nextConfig, groupId }) {
 	const previousPaths = managedSponsorLogoObjectPaths(previousConfig, groupId);
 	const nextPaths = managedSponsorLogoObjectPaths(nextConfig, groupId);
@@ -146,6 +170,10 @@ async function removeUnusedSponsorLogoObjects({ previousConfig, nextConfig, grou
 	);
 }
 
+/**
+ * @param {any} cookies
+ * @param {any} slug
+ */
 async function requireSiteManager(cookies, slug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) throw redirect(303, `/groups/${slug}?auth=required`);
@@ -171,6 +199,9 @@ async function requireSiteManager(cookies, slug) {
 	return { group, userId: user.id, isAdmin: profile?.admin === true, supabase };
 }
 
+/**
+ * @param {any} param0
+ */
 async function prepareSiteSettingsForm({ auth, request }) {
 	const parsedForm = await readFormData(request, { maxBytes: 64 * 1024 * 1024 });
 	if (!parsedForm.ok) {
@@ -214,6 +245,7 @@ async function prepareSiteSettingsForm({ auth, request }) {
 		slugChanged = true;
 	}
 
+	/** @type {any} */
 	let uploadedPaths = [];
 	try {
 		uploadedPaths = await uploadSponsorLogosAndRewriteJson({
@@ -247,6 +279,10 @@ async function prepareSiteSettingsForm({ auth, request }) {
 	};
 }
 
+/**
+ * @param {any} auth
+ * @param {any} prepared
+ */
 async function rollbackPreparedSiteSettings(auth, prepared) {
 	await removeSponsorLogoObjects(prepared.uploadedPaths);
 	if (!prepared.slugChanged) return;
@@ -308,6 +344,7 @@ export const actions = {
 	save: async ({ params, request, cookies }) => {
 		const auth = await requireSiteManager(cookies, params.slug);
 		const previousConfig = await getGroupSiteConfig(auth.group.id, { group: auth.group });
+		/** @type {any} */
 		const prepared = await prepareSiteSettingsForm({ auth, request });
 		if (!prepared.ok) return prepared.response;
 		try {

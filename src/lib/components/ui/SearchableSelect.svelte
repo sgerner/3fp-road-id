@@ -5,20 +5,33 @@
 <script>
 	import { tick } from 'svelte';
 
+	/** @type {any} */
 	export let items = [];
+	/** @type {any} */
 	export let query = '';
+	/** @type {any} */
 	export let placeholder = 'Search';
+	/** @type {any} */
 	export let ariaLabel = '';
+	/** @type {any} */
 	export let id = '';
+	/** @type {any} */
 	export let emptyMessage = 'No matches.';
+	/** @type {any} */
 	export let maxItems = 12;
+	/** @type {any} */
 	export let disabled = false;
+	/** @type {any} */
 	export let onQueryChange = undefined;
+	/** @type {any} */
 	export let onSelect = undefined;
+	/** @type {any} */
 	export let itemLabel = (item) => item?.label || '';
+	/** @type {any} */
 	export let itemMeta = () => '';
 
 	let open = false;
+	/** @type {any} */
 	let closeTimer = null;
 	let listboxId = '';
 	let activeIndex = -1;
@@ -29,6 +42,9 @@
 		listboxId = id || `searchable-select-${idSequence}`;
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function handleQueryChange(value) {
 		query = value;
 		activeIndex = -1;
@@ -49,6 +65,9 @@
 		}, 80);
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function choose(item) {
 		if (disabled) return;
 		clearTimeout(closeTimer);
@@ -58,7 +77,7 @@
 		if (typeof onSelect === 'function') onSelect(item);
 	}
 
-	$: visibleItems = Array.isArray(items) ? items.slice(0, maxItems) : [];
+	$: visibleItems = /** @type {any} */ (Array.isArray(items) ? items.slice(0, maxItems) : []);
 	$: if (activeIndex >= visibleItems.length) activeIndex = visibleItems.length - 1;
 
 	async function scrollActiveOptionIntoView() {
@@ -69,6 +88,9 @@
 			?.scrollIntoView?.({ block: 'nearest' });
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleKeydown(event) {
 		if (disabled) return;
 

@@ -49,9 +49,10 @@ export async function renderTurnstile(element, options = {}) {
 
 export function executeTurnstile(widgetId, options = {}) {
 	if (typeof window === 'undefined') return Promise.resolve(null);
-	if (!window.turnstile || widgetId == null) return Promise.resolve(null);
+	const turnstile = window.turnstile;
+	if (!turnstile || widgetId == null) return Promise.resolve(null);
 	return new Promise((resolve) => {
-		window.turnstile.execute(widgetId, {
+		turnstile.execute(widgetId, {
 			...options,
 			callback(token) {
 				options?.callback?.(token);

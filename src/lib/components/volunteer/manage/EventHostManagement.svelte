@@ -108,7 +108,7 @@
 			newHostEmail = '';
 			toaster.success({ title: 'Host added successfully.' });
 		} catch (err) {
-			toaster.error({ title: 'Error adding host', message: err.message });
+			toaster.error({ title: 'Error adding host', description: err.message });
 		} finally {
 			loading = false;
 		}
@@ -132,7 +132,7 @@
 			hosts = normalizedHosts.filter((h) => String(getUserId(h)) !== String(userId));
 			toaster.success({ title: 'Host removed successfully.' });
 		} catch (err) {
-			toaster.error({ title: 'Error removing host', message: err.message });
+			toaster.error({ title: 'Error removing host', description: err.message });
 		}
 	}
 </script>

@@ -8,6 +8,10 @@ import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/se
 import { enforceRateLimit, readFormData } from '#lib/server/security';
 import { fail, redirect } from '@sveltejs/kit';
 
+/**
+ * @param {any} remoteUrl
+ * @param {any} destBasePath
+ */
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
 		const storageClient = createServiceSupabaseClient();
@@ -18,6 +22,9 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	}
 }
 
+/**
+ * @param {any} text
+ */
 function slugify(text) {
 	return (text || '')
 		.toString()
@@ -28,6 +35,9 @@ function slugify(text) {
 		.replace(/-+/g, '-');
 }
 
+/**
+ * @param {any} text
+ */
 function normalizeComparableText(text) {
 	return (text || '')
 		.toString()
@@ -38,6 +48,9 @@ function normalizeComparableText(text) {
 		.trim();
 }
 
+/**
+ * @param {any} text
+ */
 function toTokenSet(text) {
 	return new Set(
 		normalizeComparableText(text)
@@ -47,6 +60,10 @@ function toTokenSet(text) {
 	);
 }
 
+/**
+ * @param {any} a
+ * @param {any} b
+ */
 function tokenSimilarity(a, b) {
 	const aSet = toTokenSet(a);
 	const bSet = toTokenSet(b);
@@ -59,6 +76,9 @@ function tokenSimilarity(a, b) {
 	return overlap / union;
 }
 
+/**
+ * @param {any} url
+ */
 function normalizeHost(url) {
 	if (!url) return '';
 	try {
@@ -69,6 +89,10 @@ function normalizeHost(url) {
 	}
 }
 
+/**
+ * @param {any} value
+ * @param {any} platform
+ */
 function normalizeSocialHandle(value, platform) {
 	const raw = (value || '').toString().trim();
 	if (!raw) return '';
@@ -77,6 +101,7 @@ function normalizeSocialHandle(value, platform) {
 		platformName === 'facebook'
 			? new Set(['facebook.com', 'm.facebook.com'])
 			: new Set(['instagram.com']);
+	/** @type {any} */
 	const stripHandleDecorators = (input) =>
 		input
 			.toLowerCase()
@@ -112,6 +137,9 @@ function normalizeSocialHandle(value, platform) {
 	}
 }
 
+/**
+ * @param {any} socialLinks
+ */
 function normalizedSocialMap(socialLinks) {
 	const links = socialLinks && typeof socialLinks === 'object' ? socialLinks : {};
 	return {
@@ -120,13 +148,21 @@ function normalizedSocialMap(socialLinks) {
 	};
 }
 
+/**
+ * @param {any} a
+ * @param {any} b
+ */
 function sameText(a, b) {
 	const av = normalizeComparableText(a);
 	const bv = normalizeComparableText(b);
 	return Boolean(av && bv && av === bv);
 }
 
+/**
+ * @param {any} formData
+ */
 function formDataToObject(formData) {
+	/** @type {any} */
 	const out = {};
 	for (const [key, rawValue] of formData.entries()) {
 		const value = typeof rawValue === 'string' ? rawValue : '';
@@ -141,6 +177,10 @@ function formDataToObject(formData) {
 	return out;
 }
 
+/**
+ * @param {any} supabaseClient
+ * @param {any} param1
+ */
 async function findPotentialDuplicateGroups(
 	supabaseClient,
 	{ name, city, state_region, country, website_url, slug, social_links }
@@ -175,6 +215,7 @@ async function findPotentialDuplicateGroups(
 			if (!groupName) return null;
 
 			let score = 0;
+			/** @type {any} */
 			const reasons = [];
 
 			if (groupName === targetName) {
@@ -242,7 +283,7 @@ async function findPotentialDuplicateGroups(
 				duplicate_reason: reasons.join(', ')
 			};
 		})
-		.filter(Boolean)
+		.filter((item) => item !== null)
 		.sort((a, b) => b.duplicate_score - a.duplicate_score)
 		.slice(0, 5);
 
@@ -326,12 +367,14 @@ export const actions = {
 		const membership_info = form.get('membership_info')?.toString().trim() || null;
 		const specific_meeting_point_address =
 			form.get('specific_meeting_point_address')?.toString().trim() || null;
+		/** @type {any} */
 		const latitude = (() => {
 			const v = form.get('latitude');
 			if (v === null || v === '') return null;
 			const n = Number(v);
 			return Number.isFinite(n) ? n : null;
 		})();
+		/** @type {any} */
 		const longitude = (() => {
 			const v = form.get('longitude');
 			if (v === null || v === '') return null;
@@ -346,6 +389,7 @@ export const actions = {
 			form.get('typical_activity_day_time')?.toString().trim() || null;
 		const incoming_logo_url = form.get('logo_url')?.toString().trim() || '';
 		const incoming_cover_url = form.get('cover_photo_url')?.toString().trim() || '';
+		/** @type {any} */
 		const social_links = (() => {
 			const raw = form.get('social_links')?.toString().trim();
 			if (!raw) return null;
@@ -384,6 +428,7 @@ export const actions = {
 		}
 
 		// Attempt insert, handle potential slug conflict once by suffixing a short hash
+		/** @type {any} */
 		const insertPayload = {
 			slug,
 			name,
@@ -407,6 +452,7 @@ export const actions = {
 			social_links
 		};
 
+		/** @type {any} */
 		const createGroup = async () => {
 			const { data, error } = await serviceSupabase.rpc('create_group_with_owner', {
 				group_data: insertPayload,
@@ -434,6 +480,7 @@ export const actions = {
 		const group_id = groupRes.id;
 
 		// Mirror remote images to storage after group creation and update the record
+		/** @type {any} */
 		const updates = {};
 		if (incoming_logo_url && /^https?:\/\//i.test(incoming_logo_url)) {
 			const publicUrl = await mirrorRemoteImageToStorage(
@@ -471,6 +518,7 @@ export const actions = {
 			.map((v) => Number(v))
 			.filter(Boolean);
 
+		/** @type {any} */
 		const inserts = [];
 		if (gt_ids.length) {
 			inserts.push(

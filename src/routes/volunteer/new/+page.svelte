@@ -808,10 +808,13 @@
 		};
 	}
 
+	/** @type {any[]} */
 	let opportunities = $state([
 		createOpportunity({ title: 'Lead Volunteer', opportunityType: 'coordination' })
 	]);
+	/** @type {any[]} */
 	let customQuestions = $state([]);
+	/** @type {any[]} */
 	let eventEmails = $state([
 		createEmailTemplate({
 			emailType: 'reminder',
@@ -829,10 +832,13 @@
 		})
 	]);
 	let chatPrompt = $state('');
+	/** @type {HTMLElement | null} */
 	let chatContainer = $state(null);
 	let aiLoading = $state(false);
 	let aiError = $state('');
+	/** @type {any[]} */
 	let followUpQuestions = $state([]);
+	/** @type {string | null} */
 	let draftAppliedAt = $state(null);
 	let showAdvancedSettings = $state(false);
 	let showAdvancedCommunications = $state(false);
@@ -987,6 +993,7 @@
 			}));
 	}
 
+	/** @param {ScrollBehavior} [behavior] */
 	async function scrollChatBottom(behavior = 'smooth') {
 		await tick();
 		if (chatContainer) {

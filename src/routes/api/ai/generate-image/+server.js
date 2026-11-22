@@ -30,15 +30,25 @@ const ALLOWED_TARGETS = new Set(['ride', 'learn', 'group']);
 const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '4:5', '9:16', '16:9']);
 const MAX_GENERATED_IMAGE_BYTES = 12 * 1024 * 1024;
 
+/**
+ * @param {any} value
+ */
 function safeTrim(value) {
 	if (value == null) return '';
 	return String(value).trim();
 }
 
+/**
+ * @param {any} value
+ * @param {any} [limit]
+ */
 function sanitizePrompt(value, limit = 5000) {
 	return safeTrim(value).replace(/\s+/g, ' ').slice(0, limit);
 }
 
+/**
+ * @param {any} value
+ */
 function slugifySegment(value) {
 	return safeTrim(value)
 		.toLowerCase()
@@ -48,6 +58,9 @@ function slugifySegment(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
+/**
+ * @param {any} text
+ */
 function safeParseJson(text) {
 	if (!text) return null;
 	const first = text.indexOf('{');
@@ -61,6 +74,10 @@ function safeParseJson(text) {
 	}
 }
 
+/**
+ * @param {any} markdown
+ * @param {any} [limit]
+ */
 function summarizeMarkdown(markdown, limit = 1200) {
 	const normalized = safeTrim(markdown)
 		.replace(/```[\s\S]*?```/g, ' ')
@@ -72,6 +89,7 @@ function summarizeMarkdown(markdown, limit = 1200) {
 	return normalized.slice(0, limit);
 }
 
+/** @type {any} */
 const STABILITY_REWRITE_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
@@ -81,6 +99,10 @@ const STABILITY_REWRITE_SCHEMA = {
 	}
 };
 
+/**
+ * @param {any} finalPrompt
+ * @param {any} [param1]
+ */
 async function optimizePromptForStability(
 	finalPrompt,
 	{ allowTextInImage = false, target = 'group' } = {}
@@ -130,6 +152,9 @@ ${finalPrompt}`;
 	}
 }
 
+/**
+ * @param {any} [context]
+ */
 function formatContextLines(context = {}) {
 	return Object.entries(context)
 		.flatMap(([key, value]) => {
@@ -149,6 +174,10 @@ function formatContextLines(context = {}) {
 		.filter(Boolean);
 }
 
+/**
+ * @param {any} target
+ * @param {any} [context]
+ */
 function buildTargetPrompt(target, context = {}) {
 	if (target === 'ride') {
 		return [
@@ -206,6 +235,9 @@ function buildTargetPrompt(target, context = {}) {
 	].join('\n');
 }
 
+/**
+ * @param {any} param0
+ */
 function buildFinalPrompt({
 	target,
 	context,
@@ -270,6 +302,14 @@ Output requirements:
 - Honor the selected visual style and tone; keep the result welcoming and the subject recognizable.`;
 }
 
+/**
+ * @param {any} target
+ * @param {any} userId
+ * @param {any} articleId
+ * @param {any} context
+ * @param {any} [extension]
+ * @param {any} [storageBucket]
+ */
 function getStorageConfig(
 	target,
 	userId,
@@ -309,6 +349,9 @@ function getStorageConfig(
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 async function persistLearnAsset({
 	supabase,
 	userId,
@@ -362,6 +405,9 @@ async function persistLearnAsset({
 	return assetRow;
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, cookies } = event;
 	const { user } = await resolveVerifiedSession(cookies);
@@ -501,7 +547,9 @@ export async function POST(event) {
 			optimized.extension || extension,
 			storageBucket
 		);
+		/** @type {any} */
 		let asset = null;
+		/** @type {any} */
 		let url = null;
 
 		if (target === 'ride' || storage.bucket === 'group-social-media') {
@@ -544,7 +592,7 @@ export async function POST(event) {
 				articleId: storage.articleId,
 				objectPath: storage.objectPath,
 				publicUrl: url,
-				fileName: storage.fileName || path.basename(storage.objectPath),
+				fileName: storage.fileName || path.basename(/** @type {any} */ (storage.objectPath)),
 				sizeBytes: optimized.optimizedBytes,
 				mimeType: optimized.contentType,
 				styleId: stylePreset.id,

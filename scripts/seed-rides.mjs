@@ -10,6 +10,18 @@ import {
 const DEFAULT_SOURCE_PATH = path.resolve('docs/seed_rides.json');
 
 function parseArgs(argv) {
+	/**
+	 * @type {{
+	 *   source: string,
+	 *   limit: number | null,
+	 *   eventId: string | null,
+	 *   slugPrefix: string,
+	 *   createdByUserId: string,
+	 *   publish: boolean,
+	 *   dryRun: boolean,
+	 *   requireGeocoding: boolean
+	 * }}
+	 */
 	const options = {
 		source: DEFAULT_SOURCE_PATH,
 		limit: null,

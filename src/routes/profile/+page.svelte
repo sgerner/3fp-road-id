@@ -46,6 +46,7 @@
 	let locationConfirmation = $state(existingContext?.home_location?.label ?? '');
 	let uploadingAvatar = $state(false);
 	let avatarError = $state('');
+	/** @type {any} */
 	let fileInputEl = $state(null);
 
 	const completionScore = $derived.by(() => {

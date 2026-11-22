@@ -2,6 +2,7 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconUndo2 from '@lucide/svelte/icons/undo-2';
 
+	/** @type {Record<string, any>} */
 	let {
 		articleId = null,
 		canAsk = false,
@@ -14,11 +15,14 @@
 	let prompt = $state('');
 	let suggestion = $state('');
 	let answer = $state('');
+	/** @type {any} */
 	let takeaways = $state([]);
 	let takeawaySummary = $state('');
 	let pending = $state('');
 	let error = $state('');
+	/** @type {any} */
 	let appliedPrevious = $state(null);
+	/** @type {any} */
 	let appliedText = $state(null);
 	let undoConflict = $state(false);
 

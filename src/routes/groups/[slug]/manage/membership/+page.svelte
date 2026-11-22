@@ -15,13 +15,17 @@
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import { slide } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
+	/** @type {any} */
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
 	const MAX_TIER_PRICE_CENTS = 2_147_483_647;
 	const TIER_PRICE_ERROR =
 		'Enter a non-negative amount with up to two decimals (maximum $21,474,836.47).';
+	/** @type {any} */
 	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
+	/** @type {any} */
 	const DEFAULT_PROGRAM = {
 		enabled: true,
 		access_mode: 'public',
@@ -33,28 +37,40 @@
 	};
 
 	// Panel states
+	/** @type {any} */
 	let settingsOpen = $state(false);
+	/** @type {any} */
 	let tiersOpen = $state(true);
+	/** @type {any} */
 	let policyOpen = $state(false);
+	/** @type {any} */
 	let formFieldsOpen = $state(false);
+	/** @type {any} */
 	let billingOpen = $state(false);
 
 	// Notification states
+	/** @type {any} */
 	let busy = $state(false);
+	/** @type {any} */
 	let notice = $state('');
+	/** @type {any} */
 	let error = $state('');
 
 	// Data
+	/** @type {any} */
 	let program = $state(
 		untrack(() => structuredClone(data?.program_data?.program || DEFAULT_PROGRAM))
 	);
 
+	/** @type {any} */
 	let tiers = $state(
 		untrack(() =>
 			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
 		)
 	);
+	/** @type {any} */
 	let tierPriceDrafts = $state({});
+	/** @type {any} */
 	let formFields = $state(
 		untrack(() =>
 			Array.isArray(data?.program_data?.form_fields)
@@ -62,30 +78,39 @@
 				: []
 		)
 	);
+	/** @type {any} */
 	let applications = $state(
 		untrack(() => (Array.isArray(data?.applications) ? structuredClone(data.applications) : []))
 	);
+	/** @type {any} */
 	let members = $state(
 		untrack(() => (Array.isArray(data?.members) ? structuredClone(data.members) : []))
 	);
 
 	// Filters
 	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
+	/** @type {any} */
 	let memberFilterStatus = $state('all');
+	/** @type {any} */
 	let memberFilterQuery = $state('');
+	/** @type {any} */
 	let expandedMemberId = $state(null);
 
 	// Manual membership
+	/** @type {any} */
 	let manualMembership = $state({
 		user_email: '',
 		full_name: '',
 		tier_id: '',
 		status: 'active'
 	});
+	/** @type {any} */
 	let manualLookupState = $state({ checking: false, found: null, full_name: '' });
+	/** @type {any} */
 	let manualLookupTimer = null;
 
 	// New tier form
+	/** @type {any} */
 	let newTier = $state({
 		name: '',
 		description: '',
@@ -96,6 +121,7 @@
 	});
 
 	// New form field
+	/** @type {any} */
 	let newField = $state({
 		field_type: 'text',
 		label: '',
@@ -105,10 +131,13 @@
 	});
 
 	// Computed
+	/** @type {any} */
 	const publicMembershipUrl = $derived(`/groups/${slug}/membership`);
+	/** @type {any} */
 	const pendingApplications = $derived(
 		applications.filter((a) => ['submitted', 'under_review', 'payment_pending'].includes(a.status))
 	);
+	/** @type {any} */
 	const filteredMembers = $derived(
 		members.filter((m) => {
 			if (memberFilterStatus !== 'all' && m.status !== memberFilterStatus) return false;
@@ -121,25 +150,39 @@
 			);
 		})
 	);
+	/** @type {any} */
 	const activeCount = $derived(members.filter((m) => m.status === 'active').length);
+	/** @type {any} */
 	const pastDueCount = $derived(members.filter((m) => m.status === 'past_due').length);
+	/** @type {any} */
 	const hasPaidTiers = $derived(
 		tiers.some((t) => (t.monthly_amount_cents || 0) > 0 || (t.annual_amount_cents || 0) > 0)
 	);
+	/** @type {any} */
 	const stripeReady = $derived(stripeConnection?.connected && stripeConnection?.charges_enabled);
 
 	// Helpers
+	/**
+	 * @param {any} [nextNotice]
+	 * @param {any} [nextError]
+	 */
 	function setMessage(nextNotice = '', nextError = '') {
 		notice = nextNotice;
 		error = nextError;
 		if (nextNotice) setTimeout(() => (notice = ''), 4000);
 	}
 
+	/**
+	 * @param {any} cents
+	 */
 	function centsToDollar(cents) {
 		if (cents === null || cents === undefined || cents === '') return '';
 		return (cents / 100).toFixed(2);
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function dollarToCents(value) {
 		const raw = String(value ?? '').trim();
 		if (!raw) return null;
@@ -149,20 +192,39 @@
 		return Number.isSafeInteger(cents) && cents <= MAX_TIER_PRICE_CENTS ? cents : undefined;
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} field
+	 * @param {any} cents
+	 */
 	function getTierPriceDraft(id, field, cents) {
 		const key = `${id ?? 'new'}:${field}`;
 		return Object.hasOwn(tierPriceDrafts, key) ? tierPriceDrafts[key] : centsToDollar(cents);
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} field
+	 * @param {any} value
+	 */
 	function setTierPriceDraft(id, field, value) {
 		tierPriceDrafts[`${id ?? 'new'}:${field}`] = value;
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} field
+	 */
 	function isTierPriceInvalid(id, field) {
 		const key = `${id ?? 'new'}:${field}`;
 		return Object.hasOwn(tierPriceDrafts, key) && dollarToCents(tierPriceDrafts[key]) === undefined;
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} tier
+	 * @param {any} field
+	 */
 	function commitTierPriceDraft(id, tier, field) {
 		const key = `${id ?? 'new'}:${field}`;
 		if (!Object.hasOwn(tierPriceDrafts, key)) return true;
@@ -174,17 +236,28 @@
 		return true;
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} tier
+	 */
 	function commitTierPriceDrafts(id, tier) {
 		const monthlyValid = commitTierPriceDraft(id, tier, 'monthly_amount_cents');
 		const annualValid = commitTierPriceDraft(id, tier, 'annual_amount_cents');
 		return monthlyValid && annualValid;
 	}
 
+	/**
+	 * @param {any} cents
+	 */
 	function formatCurrency(cents) {
 		if (!cents) return 'Free';
 		return `$${(cents / 100).toFixed(2)}`;
 	}
 
+	/**
+	 * @param {any} path
+	 * @param {any} [options]
+	 */
 	async function api(path, options = {}) {
 		const response = await fetch(path, {
 			headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -211,6 +284,10 @@
 		members = await api(`/api/groups/${slug}/membership/members?${params.toString()}`);
 	}
 
+	/**
+	 * @param {any} member
+	 * @param {any} newStatus
+	 */
 	async function updateMemberStatus(member, newStatus) {
 		try {
 			busy = true;
@@ -228,6 +305,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} appId
+	 */
 	async function approveApplication(appId) {
 		try {
 			busy = true;
@@ -245,6 +325,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} appId
+	 */
 	async function rejectApplication(appId) {
 		try {
 			busy = true;
@@ -379,6 +462,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} tier
+	 */
 	async function updateTier(tier) {
 		if (!commitTierPriceDrafts(tier.id, tier)) {
 			setMessage('', TIER_PRICE_ERROR);
@@ -400,6 +486,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} tierId
+	 */
 	async function deleteTier(tierId) {
 		if (
 			!confirm(
@@ -455,6 +544,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} fieldId
+	 */
 	async function deleteField(fieldId) {
 		if (!confirm('Delete this form field?')) return;
 		try {
@@ -498,6 +590,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return '';
 		const date = new Date(value);
@@ -505,6 +600,9 @@
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 	}
 
+	/**
+	 * @param {any} name
+	 */
 	function getInitials(name) {
 		if (!name) return '?';
 		return name

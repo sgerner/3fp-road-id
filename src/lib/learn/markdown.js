@@ -107,7 +107,7 @@ export function splitMarkdownIntoSections(markdown) {
 				? { index, depth: match[1].length, raw: line, text: stripMarkdown(match[2]) }
 				: null;
 		})
-		.filter(Boolean);
+		.filter((heading) => heading !== null);
 
 	const splitDepth = headingMatches.some((heading) => heading.depth === 2)
 		? 2
@@ -143,6 +143,10 @@ export function splitMarkdownIntoSections(markdown) {
 	};
 }
 
+/**
+ * @param {string} markdown
+ * @param {{ headings?: Array<{ id: string, [key: string]: any }> | null }} [options]
+ */
 export async function renderLearnMarkdown(markdown, { headings = null } = {}) {
 	const rawHtml = await marked.parse(markdown || '');
 	const headingList = headings ?? extractMarkdownHeadings(markdown);

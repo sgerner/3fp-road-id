@@ -4,6 +4,7 @@
 	let question = $state('');
 	let busy = $state(false);
 	let answer = $state('');
+	/** @type {any} */
 	let articles = $state([]);
 	let error = $state('');
 

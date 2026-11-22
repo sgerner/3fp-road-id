@@ -533,6 +533,12 @@ export function formatCents(cents, currency = 'usd') {
 	}
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, user: any, userId: string, group: any, isAdmin: boolean, requestSupabase: any, serviceSupabase: any }
+ * >}
+ */
 export async function requireGroupAccountingManager(cookies, groupSlug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
@@ -691,6 +697,13 @@ function requiredPostingRequestId(formData) {
 	return requestId;
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} groupId
+ * @param {Record<string, any>} entry
+ * @param {Array<Record<string, any>>} lines
+ * @param {string | null} [requestId]
+ */
 async function insertBalancedEntry(supabase, groupId, entry, lines, requestId = null) {
 	const debitTotal = lines.reduce((sum, line) => sum + Number(line.debit_cents || 0), 0);
 	const creditTotal = lines.reduce((sum, line) => sum + Number(line.credit_cents || 0), 0);
@@ -904,7 +917,8 @@ export async function postJournal(auth, formData) {
 	});
 	if (lines.some((line) => !line))
 		throw new Error('Choose a valid account for every journal line.');
-	const validLines = lines.filter((line) => line.debit_cents > 0 || line.credit_cents > 0);
+	const nonNullLines = lines.filter((line) => line !== null);
+	const validLines = nonNullLines.filter((line) => line.debit_cents > 0 || line.credit_cents > 0);
 	if (validLines.length !== rows.length) {
 		throw new Error('Every journal line must contain a valid amount.');
 	}
@@ -1812,7 +1826,7 @@ export async function loadAccountingDashboard(auth, url) {
 				.order('entry_date', { ascending: false })
 				.order('id', { ascending: true })
 				.range(fromRow, toRow)
-		).then((data) => ({ data })),
+		).then((data) => ({ data, error: null })),
 		auth.serviceSupabase
 			.from('group_accounting_budgets')
 			.select('*, account:group_accounting_accounts(*)')
@@ -2757,6 +2771,11 @@ export async function completeStripeFinancialConnectionsSession(auth, sessionId)
 	return connection;
 }
 
+/**
+ * @param {any} auth
+ * @param {Record<string, any> | null} [connection]
+ * @param {Record<string, any>} [options]
+ */
 async function performStripeFinancialConnectionsSync(auth, connection = null, options = {}) {
 	const { runAutoMatch = true, allowRefresh = true, refreshedAccount = null } = options;
 	const stripe = getStripeClient();
@@ -2837,6 +2856,7 @@ async function performStripeFinancialConnectionsSync(auth, connection = null, op
 			lastProviderRefreshAt = refreshState.refreshAt;
 		}
 
+		/** @type {Record<string, any>} */
 		const listParams = { account: accountId, limit: 100 };
 		if (refreshCursors[accountId])
 			listParams.transaction_refresh = { after: refreshCursors[accountId] };

@@ -16,6 +16,7 @@ export const GET = async ({ url, cookies }) => {
 	}
 
 	// Verify the OTP and retrieve session details
+	/** @type {any} */
 	const authClient = createRequestSupabaseClient();
 	const { data, error } = tokenHash
 		? await authClient.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })

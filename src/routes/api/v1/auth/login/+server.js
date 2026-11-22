@@ -16,6 +16,9 @@ import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
 // }
 const hasTurnstileSecret = Boolean(TURNSTILE_SECRET_KEY);
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request } = event;
 	const limited = enforceRateLimit(event, {
@@ -88,7 +91,9 @@ export async function POST(event) {
 		// Build confirm URL with return_to so users land back where they started.
 		let safeReturn = isSafeInternalPath(returnTo) ? returnTo : '/';
 		let ownerInviteRequested = false;
+		/** @type {any} */
 		let ownerInviteGroup = null;
+		/** @type {any} */
 		let ownerInviteManager = null;
 		if (safeReturn !== '/') {
 			try {
@@ -132,6 +137,7 @@ export async function POST(event) {
 		const params = new URLSearchParams({ return_to: safeReturn });
 		if (code) params.set('rid', code);
 		const baseUrl = requestOrigin;
+		/** @type {any} */
 		let redirectUrl;
 		try {
 			const confirmUrl = new URL('/auth/confirm', baseUrl);

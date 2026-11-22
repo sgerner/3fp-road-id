@@ -19,6 +19,7 @@ const SEARCH_STOP_WORDS = new Set([
 	'with'
 ]);
 
+/** @type {any} */
 const SEARCH_SYNONYM_GROUPS = [
 	['bike', 'bikes', 'bicycle', 'bicycles', 'biking', 'cycling', 'cyclist', 'cyclists'],
 	['ride', 'rides', 'riding', 'rider', 'riders', 'peloton'],
@@ -31,6 +32,7 @@ const SEARCH_SYNONYM_GROUPS = [
 const SEARCH_COLUMN_LIST =
 	'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude';
 
+/** @type {any} */
 const SEARCH_SYNONYMS = (() => {
 	const map = new Map();
 	for (const group of SEARCH_SYNONYM_GROUPS) {
@@ -44,6 +46,9 @@ const SEARCH_SYNONYMS = (() => {
 	return map;
 })();
 
+/**
+ * @param {any} text
+ */
 function normalizeSearchText(text) {
 	return (text || '')
 		.toString()
@@ -55,6 +60,9 @@ function normalizeSearchText(text) {
 		.trim();
 }
 
+/**
+ * @param {any} text
+ */
 function tokenizeSearch(text) {
 	return normalizeSearchText(text)
 		.split(' ')
@@ -62,6 +70,9 @@ function tokenizeSearch(text) {
 		.filter((token) => token.length >= 2 && !SEARCH_STOP_WORDS.has(token));
 }
 
+/**
+ * @param {any} token
+ */
 function expandTokenVariants(token) {
 	const normalized = normalizeSearchText(token);
 	if (!normalized) return [];
@@ -73,6 +84,9 @@ function expandTokenVariants(token) {
 	return Array.from(out).filter(Boolean);
 }
 
+/**
+ * @param {any} input
+ */
 function buildSearchQueryText(input) {
 	const tokens = tokenizeSearch(input);
 	if (!tokens.length) return normalizeSearchText(input);
@@ -95,6 +109,7 @@ export const load = async ({ url }) => {
 	const limit = parseInt(url.searchParams.get('limit') || '24', 10) || 24;
 
 	// Flexible state/region candidates (abbrev <-> full names)
+	/** @type {any} */
 	const US_STATES = {
 		AL: 'Alabama',
 		AK: 'Alaska',
@@ -148,6 +163,7 @@ export const load = async ({ url }) => {
 		WY: 'Wyoming',
 		DC: 'District of Columbia'
 	};
+	/** @type {any} */
 	const CA_PROVINCES = {
 		AB: 'Alberta',
 		BC: 'British Columbia',
@@ -163,6 +179,7 @@ export const load = async ({ url }) => {
 		SK: 'Saskatchewan',
 		YT: 'Yukon'
 	};
+	/** @type {any} */
 	const AU_STATES = {
 		ACT: 'Australian Capital Territory',
 		NSW: 'New South Wales',
@@ -174,11 +191,19 @@ export const load = async ({ url }) => {
 		WA: 'Western Australia'
 	};
 
+	/**
+	 * @param {any} cn
+	 * @param {any} input
+	 */
 	function expandStateCandidates(cn, input) {
 		const val = (input || '').trim();
 		if (!val) return [];
 		const up = val.toUpperCase();
+		/** @type {any} */
 		const list = [];
+		/**
+		 * @param {any} x
+		 */
 		function add(x) {
 			if (x && !list.includes(x)) list.push(x);
 		}
@@ -189,6 +214,7 @@ export const load = async ({ url }) => {
 			(w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
 		);
 		add(tcase);
+		/** @type {any} */
 		const maps = [];
 		if (!cn || cn === 'US') maps.push(US_STATES);
 		if (!cn || cn === 'CA') maps.push(CA_PROVINCES);
@@ -228,7 +254,9 @@ export const load = async ({ url }) => {
 		riding_discipline_ids.length
 	);
 
+	/** @type {any} */
 	let filterIds = null;
+	/** @type {any} */
 	const filterRequests = [
 		{
 			table: 'group_x_skill_levels',
@@ -255,7 +283,7 @@ export const load = async ({ url }) => {
 	if (filterRequests.length) {
 		const filterResults = await Promise.all(
 			filterRequests.map(async (entry) => {
-				const { data, error } = await supabase
+				const { data, error } = await /** @type {any} */ (supabase)
 					.from(entry.table)
 					.select('group_id')
 					.in(entry.column, entry.values);
@@ -275,6 +303,7 @@ export const load = async ({ url }) => {
 		}
 	}
 
+	/** @type {any} */
 	const commonContext = {
 		q,
 		country,
@@ -308,6 +337,10 @@ export const load = async ({ url }) => {
 		};
 	}
 
+	/**
+	 * @param {any} qBuilder
+	 * @param {any} [param1]
+	 */
 	function applyCommonFilters(qBuilder, { includeSearch = true } = {}) {
 		let query = qBuilder;
 		if (includeSearch && q) {
@@ -337,6 +370,10 @@ export const load = async ({ url }) => {
 		]);
 	}
 
+	/**
+	 * @param {any} groups
+	 * @param {any} allTypes
+	 */
 	async function fetchGroupTypesMap(groups, allTypes) {
 		if (!groups.length) return {};
 		const ids = groups.map((g) => g.id);
@@ -345,6 +382,7 @@ export const load = async ({ url }) => {
 			.select('group_id, group_type_id')
 			.in('group_id', ids);
 		const typeNameById = Object.fromEntries((allTypes || []).map((t) => [t.id, t.name]));
+		/** @type {any} */
 		const map = {};
 		for (const row of gxRes || []) {
 			const arr = map[row.group_id] || (map[row.group_id] = []);
@@ -362,6 +400,11 @@ export const load = async ({ url }) => {
 
 	listQuery = applyCommonFilters(listQuery, { includeSearch: true });
 
+	/**
+	 * @param {any} from
+	 * @param {any} to
+	 * @param {any} [includeCount]
+	 */
 	function buildMapChunkQuery(from, to, includeCount = false) {
 		let query = supabase
 			.from('groups')
@@ -380,7 +423,9 @@ export const load = async ({ url }) => {
 	async function fetchAllMapPoints() {
 		const pageSize = 1000;
 		let from = 0;
+		/** @type {any} */
 		let total = null;
+		/** @type {any} */
 		const points = [];
 		while (true) {
 			const includeCount = total === null;

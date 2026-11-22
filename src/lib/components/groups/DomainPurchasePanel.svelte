@@ -4,6 +4,7 @@
 	import IconCreditCard from '@lucide/svelte/icons/credit-card';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 
+	/** @type {Record<string, any>} */
 	let {
 		groupSlug,
 		initialSearchQuery = '',
@@ -14,11 +15,14 @@
 
 	let domainSearchQuery = $state('');
 	let domainSearchBusy = $state(false);
+	/** @type {any} */
 	let domainSearchResults = $state([]);
+	/** @type {any} */
 	let selectedDomainQuote = $state(null);
 	let domainCheckoutBusy = $state(false);
 	let domainPreparingPayment = $state(false);
 	let domainPaymentFormReady = $state(false);
+	/** @type {any} */
 	let domainPaymentElementHost = $state(null);
 	let domainPaymentReturnUrl = $state('');
 	let domainPreparedSignature = $state('');
@@ -38,8 +42,11 @@
 		companyName: ''
 	});
 
+	/** @type {any} */
 	let domainStripe = null;
+	/** @type {any} */
 	let domainElements = null;
+	/** @type {any} */
 	let domainPaymentElement = null;
 
 	function asText(value) {

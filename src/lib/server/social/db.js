@@ -119,10 +119,19 @@ export async function upsertGroupSocialAccount(supabase, payload) {
 	return data;
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ groupId: string, platform: string, status: string, lastError?: string | null, metadataPatch?: Record<string, any> | null }} options
+ */
+/**
+ * @param {any} supabase
+ * @param {{ groupId: any, platform: string, status: string, lastError?: string | null, metadataPatch?: any }} options
+ */
 export async function setGroupSocialAccountStatus(
 	supabase,
 	{ groupId, platform, status, lastError = null, metadataPatch = null }
 ) {
+	/** @type {Record<string, any>} */
 	const payload = {
 		status: cleanText(status, 40) || 'error',
 		last_error: safeErrorMessage(lastError),
@@ -178,6 +187,11 @@ export async function createGroupSocialPost(supabase, payload) {
 	return data;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} groupId
+ * @param {{ status?: string | null, limit?: number }} [options]
+ */
 export async function listGroupSocialPosts(supabase, groupId, { status = null, limit = 60 } = {}) {
 	let query = supabase
 		.from('group_social_posts')
@@ -207,10 +221,17 @@ export async function getGroupSocialPostById(supabase, groupId, postId) {
 	return data ?? null;
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} groupId
+ * @param {string} postId
+ * @param {Record<string, any>} [patch]
+ */
 export async function updateGroupSocialPost(supabase, groupId, postId, patch = {}) {
 	const id = cleanText(postId, 120);
 	if (!id) throw new Error('Post id is required.');
 
+	/** @type {Record<string, any>} */
 	const payload = { updated_at: new Date().toISOString() };
 	if (patch.updated_by) payload.updated_by = patch.updated_by;
 	if (patch.status) payload.status = normalizePostStatus(patch.status) || undefined;
@@ -504,6 +525,14 @@ export async function createGroupSocialOauthPendingConnection(supabase, payload)
 	return data;
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ groupId?: string, userId?: string, provider?: string | null }} [options]
+ */
+/**
+ * @param {any} supabase
+ * @param {{ groupId?: any, userId?: any, provider?: string | null }} [options]
+ */
 export async function listGroupSocialOauthPendingConnections(
 	supabase,
 	{ groupId, userId, provider = null } = {}
@@ -521,6 +550,14 @@ export async function listGroupSocialOauthPendingConnections(
 	return Array.isArray(data) ? data : [];
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ pendingId?: string, groupId?: string, userId?: string, provider?: string | null }} [options]
+ */
+/**
+ * @param {any} supabase
+ * @param {{ pendingId?: any, groupId?: any, userId?: any, provider?: string | null }} [options]
+ */
 export async function getGroupSocialOauthPendingConnectionById(
 	supabase,
 	{ pendingId, groupId, userId, provider = null } = {}

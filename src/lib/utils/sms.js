@@ -96,10 +96,14 @@ export function validateSmsBody(value, { appendStopFooter = false } = {}) {
 	return { body, segments };
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} subscription
+ * @param {{ kind?: string, phoneE164?: string }} [options]
+ */
 export function subscriptionAllowsSms(subscription, { kind, phoneE164 } = {}) {
 	if (!subscription || subscription.status !== 'active') return false;
 	if (phoneE164 && subscription.phone_e164 !== phoneE164) return false;
-	const category = SMS_CATEGORY_BY_KIND[kind];
+	const category = kind ? SMS_CATEGORY_BY_KIND[kind] : undefined;
 	return !category || subscription[category] === true;
 }
 
@@ -145,6 +149,16 @@ export function classifySmsKeyword(value) {
 	return null;
 }
 
+/**
+ * @param {{
+ *   activityEventId?: string | null,
+ *   activityOccurrenceId?: string | null,
+ *   volunteerEventId?: string | null,
+ *   volunteerSignupId?: string | null,
+ *   bikeValetReference?: string | null,
+ *   contextKey?: string | null
+ * }} [options]
+ */
 export function buildSmsContextKey({
 	activityEventId,
 	activityOccurrenceId,

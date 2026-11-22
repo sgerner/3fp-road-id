@@ -17,6 +17,10 @@ export function domainMatchesManagedZone(domain, managedDomain) {
 	);
 }
 
+/**
+ * @param {any[]} [rows]
+ * @param {string | null} [preferredDomainId]
+ */
 export function resolveSenderSelection(rows = [], preferredDomainId = null) {
 	const list = Array.isArray(rows) ? rows : [];
 	const preferredId = cleanText(preferredDomainId);

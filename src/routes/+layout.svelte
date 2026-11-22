@@ -1,5 +1,6 @@
 <script>
 	import '../app.css';
+	/** @type {Record<string, any>} */
 	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, tick } from 'svelte';
@@ -70,6 +71,7 @@
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
+	/** @type {any} */
 	let loginIntent = $state(null);
 	const activeLoginIntent = $derived(
 		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
@@ -80,16 +82,24 @@
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
+	/** @type {any} */
 	let loginBtnEl = $state(null);
+	/** @type {any} */
 	let userMenuBtnEl = $state(null);
+	/** @type {any} */
 	let userMenuEl = $state(null);
+	/** @type {any} */
 	let mobileMenuBtnEl = $state(null);
+	/** @type {any} */
 	let mobileMenuEl = $state(null);
 	let showMobileMenu = $state(false);
+	/** @type {any} */
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
 	let colorMode = $state(defaultColorMode);
+	/** @type {any} */
 	let supabaseClient = null;
+	/** @type {any} */
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const turnstileEnabled = $derived(

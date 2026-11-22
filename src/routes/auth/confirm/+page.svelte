@@ -21,7 +21,9 @@
 	let turnstileEnabled = $derived(
 		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
 	);
+	/** @type {HTMLDivElement | null} */
 	let turnstileEl = $state(null);
+	/** @type {string | null} */
 	let turnstileWidgetId = $state(null);
 
 	async function initTurnstile() {
@@ -136,7 +138,7 @@
 			let autoClaimSlug = '';
 			let autoAddOwnerSlug = '';
 			let ownerInviteToken = '';
-			if (isSafeInternalPath(returnTo)) {
+			if (returnTo && isSafeInternalPath(returnTo)) {
 				dest = returnTo;
 				try {
 					const rtUrl = new URL(returnTo, window.location.origin);

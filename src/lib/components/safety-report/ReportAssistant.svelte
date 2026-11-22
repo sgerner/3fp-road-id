@@ -2,7 +2,9 @@
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { report, initialQuestion = '', currentTopic = '' } = $props();
+	/** @type {any} */
 	const topicLabel = $derived(
 		typeof currentTopic === 'string'
 			? currentTopic
@@ -12,21 +14,32 @@
 					.trim()
 			: ''
 	);
+	/** @type {any} */
 	let draft = $state(untrack(() => initialQuestion));
+	/** @type {any} */
 	let busy = $state(false);
+	/** @type {any} */
 	let error = $state('');
+	/** @type {any} */
 	let related = $state([]);
+	/** @type {any} */
 	let messages = $state([]);
+	/** @type {any} */
 	let input;
+	/** @type {any} */
 	let controller;
 	let destroyed = false;
+	/** @type {any} */
 	let elapsed = $state(0);
+	/** @type {any} */
 	let timer;
 	let requestStarted = 0;
 	let timedOut = false;
+	/** @type {any} */
 	let motionDuration = $state(0);
 	onMount(() => {
 		const preference = matchMedia('(prefers-reduced-motion: reduce)');
+		/** @type {any} */
 		const update = () => (motionDuration = preference.matches ? 0 : 220);
 		update();
 		preference.addEventListener('change', update);
@@ -42,12 +55,14 @@
 		controller?.abort();
 	}
 
+	/** @type {any} */
 	const defaultPrompts = [
 		'What makes a cycling safety campaign effective?',
 		'What does the evidence say about safe passing?',
 		'How should we evaluate a campaign?',
 		'What are the limitations of this review?'
 	];
+	/** @type {any} */
 	const prompts = $derived(
 		topicLabel
 			? [
@@ -57,6 +72,7 @@
 				]
 			: defaultPrompts
 	);
+	/** @type {any} */
 	const templateRoutes = [
 		{ pattern: /\bpass(?:ing)?\b|\blane position\b/i, campaigns: ['01-give-people-space'] },
 		{ pattern: /\bdoor(?:ing)?\b|\bopening a door\b/i, campaigns: ['06-before-the-door'] },
@@ -71,11 +87,15 @@
 		{ pattern: /\blights?\b|\bvisibility\b|\breflective\b/i, campaigns: ['05-light-the-ride'] }
 	];
 
+	/**
+	 * @param {any} question
+	 */
 	function relevantTemplates(question) {
 		const context = `${topicLabel} ${question}`;
 		const campaigns = templateRoutes
 			.filter(({ pattern }) => pattern.test(context))
 			.flatMap(({ campaigns: slugs }) => slugs);
+		/** @type {any} */
 		const selected = [];
 		for (const campaign of campaigns) {
 			const item = report?.campaignGallery?.find(
@@ -93,11 +113,14 @@
 		return selected;
 	}
 
+	/**
+	 * @param {any} id
+	 */
 	function openTarget(id) {
 		const target = document.getElementById(id);
 		let parent = target;
 		while (parent) {
-			if (parent.tagName === 'DETAILS') parent.open = true;
+			if (parent instanceof HTMLDetailsElement) parent.open = true;
 			parent = parent.parentElement;
 		}
 	}

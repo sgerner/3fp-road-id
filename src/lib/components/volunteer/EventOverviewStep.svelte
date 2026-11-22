@@ -3,18 +3,33 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 
+	const LegacyCombobox = /** @type {any} */ (Combobox);
+
+	/** @type {any} */
 	export let eventDetails;
+	/** @type {any} */
 	export let eventTypeOptions = [];
+	/** @type {any} */
 	export let statusOptions = [];
+	/** @type {any} */
 	export let hostGroupSelection = [];
+	/** @type {any} */
 	export let filteredHostGroupOptions = [];
+	/** @type {any} */
 	export let showAdvancedSettings = false;
+	/** @type {any} */
 	export let currentEventTypeDescription = '';
+	/** @type {any} */
 	export let hasHostGroups = false;
+	/** @type {any} */
 	export let onEventDetailsChange = () => {};
+	/** @type {any} */
 	export let onHostGroupValueChange = () => {};
+	/** @type {any} */
 	export let onHostGroupSearch = () => {};
+	/** @type {any} */
 	export let onClearHostGroup = () => {};
+	/** @type {any} */
 	export let onToggleAdvanced = () => {};
 </script>
 
@@ -47,7 +62,7 @@
 			{/if}
 		</div>
 		<div class="flex flex-col gap-1.5">
-			<Combobox
+			<LegacyCombobox
 				data={filteredHostGroupOptions}
 				key="value"
 				defaultValue={hostGroupSelection}

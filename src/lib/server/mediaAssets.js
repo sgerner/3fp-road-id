@@ -79,11 +79,22 @@ function buildPublicUrl(bucketId, objectPath) {
 		.join('/')}`;
 }
 
+/**
+ * @param {{
+ *   supabase: any,
+ *   bucketId: string,
+ *   objectPath?: string | null,
+ *   contentType?: string,
+ *   buffer: any,
+ *   fileName?: string,
+ *   sizeBytes?: number | null
+ * }} options
+ */
 export async function uploadCanonicalMediaAsset({
 	supabase,
 	bucketId,
-	objectPath,
-	contentType,
+	objectPath = '',
+	contentType = '',
 	buffer,
 	fileName = '',
 	sizeBytes = null

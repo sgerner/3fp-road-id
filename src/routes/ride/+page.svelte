@@ -21,22 +21,37 @@
 
 	const { data } = $props();
 
+	/** @type {any} */
 	let searchInput = $state('');
+	/** @type {any} */
 	let search = $state('');
+	/** @type {any} */
 	let selectedDifficulty = $state('all');
+	/** @type {any} */
 	let needsHost = $state(false);
+	/** @type {any} */
 	let view = $state('list');
+	/** @type {any} */
 	let currentPage = $state(1);
+	/** @type {any} */
 	let calendarReference = $state(startOfMonth(new Date()));
+	/** @type {any} */
 	let calendarMonthTouched = $state(false);
+	/** @type {any} */
 	let rideListEl = $state(null);
 
+	/** @type {any} */
 	let mapEl = $state(null);
+	/** @type {any} */
 	let map;
+	/** @type {any} */
 	let clusterLayer;
+	/** @type {any} */
 	let L;
 
+	/** @type {any} */
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
+	/** @type {any} */
 	const difficultyOptions = $derived(
 		Array.from(
 			new Set(
@@ -48,6 +63,7 @@
 		)
 	);
 
+	/** @type {any} */
 	const filteredRides = $derived(
 		rides.filter((ride) => {
 			const query = search.trim().toLowerCase();
@@ -79,18 +95,25 @@
 		})
 	);
 
+	/** @type {any} */
 	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
+	/** @type {any} */
 	const claimableRides = $derived(
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
 	);
+	/** @type {any} */
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
+	/** @type {any} */
 	const totalUpcoming = $derived(filteredRides.length);
 	const ridesPerPage = 24;
+	/** @type {any} */
 	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / ridesPerPage)));
+	/** @type {any} */
 	const paginatedRides = $derived(
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
 
+	/** @type {any} */
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
@@ -100,6 +123,7 @@
 			.filter(Boolean)
 	);
 
+	/** @type {any} */
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
 			const key = toDateKey(ride._calendarStart);
@@ -109,13 +133,16 @@
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
+	/** @type {any} */
 	const earliestRideMonth = $derived.by(() => {
 		const first = datedRides[0]?._calendarStart;
 		return first ? startOfMonth(first) : startOfMonth(new Date());
 	});
 
+	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
 	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+	/** @type {any} */
 	const calendarHeaderText = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, {
 			month: 'long',
@@ -123,6 +150,7 @@
 		}).format(calendarReference)
 	);
 
+	/** @type {any} */
 	const mobileMonthDays = $derived(
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
@@ -147,16 +175,25 @@
 		currentPage = 1;
 	}
 
+	/**
+	 * @param {any} difficulty
+	 */
 	function selectDifficulty(difficulty) {
 		selectedDifficulty = difficulty;
 		currentPage = 1;
 	}
 
+	/**
+	 * @param {any} nextPage
+	 */
 	function changeRidePage(nextPage) {
 		currentPage = Math.min(Math.max(nextPage, 1), totalPages);
 		scrollToRideCards();
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
 		const start = new Date(ride.nextOccurrenceStart);
@@ -164,25 +201,40 @@
 		return `${start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })} – ${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function formatStatNumber(value) {
 		return new Intl.NumberFormat().format(value);
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function parseRideDate(value) {
 		if (!value) return null;
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? null : date;
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function toDateKey(date) {
 		if (!date) return '';
 		return date.toISOString().slice(0, 10);
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
 
+	/**
+	 * @param {any} offset
+	 */
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
@@ -190,8 +242,12 @@
 		calendarMonthTouched = true;
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function rideMeta(ride) {
 		const details = ride?.rideDetails ?? {};
+		/** @type {any} */
 		const bits = [];
 		if (details.estimated_distance_miles)
 			bits.push({ icon: IconRuler, label: `${details.estimated_distance_miles} mi` });
@@ -205,6 +261,9 @@
 		return bits;
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function leadImage(ride) {
 		return optimizedImageUrl(getRideImage(ride), {
 			width: 768,
@@ -213,14 +272,21 @@
 		});
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function cardImage(ride) {
 		return leadImage(ride);
 	}
 
+	/**
+	 * @param {any} ride
+	 */
 	function heroImage(ride) {
 		return getRideImage(ride);
 	}
 
+	/** @type {any} */
 	let mapLoadPromise;
 
 	async function initMap() {
@@ -277,6 +343,9 @@
 		};
 	});
 
+	/**
+	 * @param {any} r
+	 */
 	function validCoords(r) {
 		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
 	}
@@ -284,6 +353,7 @@
 	function updateMarkers() {
 		if (!map || !clusterLayer) return;
 		clusterLayer.clearLayers();
+		/** @type {any} */
 		const pts = [];
 
 		for (const r of filteredRides || []) {
@@ -608,9 +678,9 @@
 										height="432"
 										decoding="async"
 										onerror={(e) => {
-											if (!e.currentTarget.dataset.fallback) {
-												e.currentTarget.dataset.fallback = '1';
-												e.currentTarget.src = '/images/default-ride.webp';
+											if (!(/** @type {any} */ (e.currentTarget).dataset.fallback)) {
+												/** @type {any} */ (e.currentTarget).dataset.fallback = '1';
+												/** @type {any} */ (e.currentTarget).src = '/images/default-ride.webp';
 											}
 										}}
 									/>
@@ -880,7 +950,7 @@
 											href={`/ride/${ride.slug}`}
 										>
 											<span class="text-primary-500 font-black">
-												{tf.format(parseRideDate(ride.nextOccurrenceStart))} —
+												{tf.format(/** @type {any} */ (parseRideDate)(ride.nextOccurrenceStart))} —
 											</span>
 											{ride.title}
 										</a>
@@ -934,7 +1004,9 @@
 															href={`/ride/${ride.slug}`}
 														>
 															<span class="font-black">
-																{tf.format(parseRideDate(ride.nextOccurrenceStart))}
+																{tf.format(
+																	/** @type {any} */ (parseRideDate)(ride.nextOccurrenceStart)
+																)}
 															</span>
 															{ride.title}
 														</a>
@@ -949,7 +1021,9 @@
 													items={day.items.map((ride) => ({
 														href: `/ride/${ride.slug}`,
 														title: ride.title,
-														time: tf.format(parseRideDate(ride.nextOccurrenceStart))
+														time: tf.format(
+															/** @type {any} */ (parseRideDate)(ride.nextOccurrenceStart)
+														)
 													}))}
 												/>
 											{/if}

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import Stripe from 'stripe';
 
-const target = process.env.ACCOUNTING_TEST_WEBHOOK_URL;
-const secret = process.env.ACCOUNTING_TEST_WEBHOOK_SECRET;
+/** @type {string} */
+const target = /** @type {any} */ (process.env.ACCOUNTING_TEST_WEBHOOK_URL);
+/** @type {string} */
+const secret = /** @type {any} */ (process.env.ACCOUNTING_TEST_WEBHOOK_SECRET);
 test(
 	'signed Financial Connections completion reaches accounting handling instead of the ignored-event path',
 	{ skip: !target || !secret },

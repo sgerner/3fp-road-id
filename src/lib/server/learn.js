@@ -59,6 +59,11 @@ export async function requireLearnUser(cookies) {
 	return { user, supabase };
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} source
+ * @param {string | null} [excludeId]
+ */
 export async function ensureUniqueLearnSlug(supabase, source, excludeId = null) {
 	const base = slugifyLearn(source) || 'article';
 	let attempt = 0;
@@ -209,6 +214,10 @@ export async function listLearnAssetsForArticle(supabase, articleId) {
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ uploadedByUserId?: string | null, limit?: number }} [options]
+ */
 export async function listLearnRecentAssets(
 	supabase,
 	{ uploadedByUserId = null, limit = 18 } = {}
@@ -228,6 +237,10 @@ export async function listLearnRecentAssets(
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
 }
 
+/**
+ * @param {any} article
+ * @param {{ revisions?: any[], comments?: any[], assets?: any[], profiles?: Map<any, any> }} [options]
+ */
 export async function buildLearnArticleView(
 	article,
 	{ revisions = [], comments = [], assets = [], profiles = new Map() } = {}

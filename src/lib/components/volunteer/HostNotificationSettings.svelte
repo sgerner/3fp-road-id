@@ -1,27 +1,40 @@
 <script>
 	import Toggle from '#lib/components/ui/Toggle.svelte';
 
+	/** @type {any} */
 	export let value = { register: true, cancel: true };
+	/** @type {any} */
 	export let onChange = () => {};
+	/** @type {any} */
 	export let disabled = false;
+	/** @type {any} */
 	export let saving = false;
 
+	/** @type {any} */
 	const coerceBoolean = (input, fallback = false) => {
 		if (input === true) return true;
 		if (input === false) return false;
 		return fallback;
 	};
 
-	$: registerEnabled = coerceBoolean(value?.register, true);
-	$: cancelEnabled = coerceBoolean(value?.cancel, true);
+	$: registerEnabled = /** @type {any} */ (coerceBoolean(value?.register, true));
+	$: cancelEnabled = /** @type {any} */ (coerceBoolean(value?.cancel, true));
 
+	/**
+	 * @param {any} patch
+	 */
 	function emitChange(patch) {
 		if (typeof onChange === 'function') {
 			onChange({ register: registerEnabled, cancel: cancelEnabled, ...patch });
 		}
 	}
 
+	/**
+	 * @param {any} key
+	 * @param {any} checked
+	 */
 	function handleToggle(key, checked) {
+		/** @type {any} */
 		const patch = {};
 		if (key === 'register') {
 			registerEnabled = checked;

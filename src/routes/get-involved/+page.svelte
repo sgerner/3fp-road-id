@@ -19,9 +19,12 @@
 	import IconCheckCircle from '@lucide/svelte/icons/check-circle-2';
 	import { slide } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {any} */
 	let turnstileEl = $state(null);
+	/** @type {any} */
 	let turnstileWidgetId = $state(null);
 	let captchaError = $state('');
 

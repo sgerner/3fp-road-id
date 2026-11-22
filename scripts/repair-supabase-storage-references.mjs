@@ -74,8 +74,8 @@ function loadLocalEnv() {
 }
 
 const env = loadLocalEnv();
-const supabaseUrl = env.PUBLIC_SUPABASE_URL;
-const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = env.PUBLIC_SUPABASE_URL || '';
+const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY || '';
 if (!supabaseUrl || !serviceRoleKey) {
 	throw new Error('PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
 }
@@ -342,7 +342,9 @@ async function fetchRows(table) {
 
 async function fetchAllRows() {
 	const entries = await Promise.all(
-		TABLES.map(async (table) => [table.name, await fetchRows(table)])
+		TABLES.map(
+			async (table) => /** @type {[string, any[]]} */ ([table.name, await fetchRows(table)])
+		)
 	);
 	return new Map(entries);
 }
@@ -587,7 +589,7 @@ function summarizePlans(plans, updates) {
 }
 
 async function updateRow(update) {
-	let query = supabase.from(update.table.name).update(update.changes);
+	let query = /** @type {any} */ (supabase).from(update.table.name).update(update.changes);
 	for (const column of update.table.keyColumns) query = query.eq(column, update.row[column]);
 	const { data, error } = await query.select(update.table.keyColumns.join(','));
 	if (error)

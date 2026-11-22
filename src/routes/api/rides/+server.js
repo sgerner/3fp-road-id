@@ -11,14 +11,24 @@ import {
 	upsertActivityRelations
 } from '#lib/server/activities';
 
+/**
+ * @param {any} request
+ */
 function parseJson(request) {
 	return request.json().catch(() => null);
 }
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ url, cookies }) {
 	const { supabase } = await getActivityClient(cookies);
 	const nowIso = new Date().toISOString();
@@ -84,36 +94,37 @@ export async function GET({ url, cookies }) {
 	);
 
 	const rows = (activities ?? [])
-		.map((activity) => ({
-			id: activity.id,
-			title: activity.title,
-			slug: activity.slug,
-			summary: activity.summary,
-			description: activity.description,
-			timezone: activity.timezone,
-			hostUserId: activity.host_user_id,
-			hostGroupId: activity.host_group_id,
-			startLocationName: activity.start_location_name,
-			startLocationAddress: activity.start_location_address,
-			startLatitude: activity.start_latitude,
-			startLongitude: activity.start_longitude,
-			nextOccurrenceStart: activity.next_occurrence_start,
-			nextOccurrenceEnd: activity.next_occurrence_end,
-			recurrenceEnabled: recurringActivityIds.has(activity.id),
-			group: activity.group ?? null,
-			rideDetails: Array.isArray(activity.ride_details)
+		.map((activity) => {
+			const rideDetails = Array.isArray(activity.ride_details)
 				? (activity.ride_details[0] ?? null)
-				: (activity.ride_details ?? null),
-			imageUrls: Array.isArray(activity.ride_details)
-				? (activity.ride_details[0]?.image_urls ?? [])
-				: (activity.ride_details?.image_urls ?? []),
-			difficultyLevels: (activity.difficulty_links ?? [])
-				.map((entry) => entry?.level)
-				.filter(Boolean),
-			ridingDisciplines: (activity.discipline_links ?? [])
-				.map((entry) => entry?.discipline)
-				.filter(Boolean)
-		}))
+				: /** @type {Record<string, any> | null} */ (activity.ride_details ?? null);
+			return {
+				id: activity.id,
+				title: activity.title,
+				slug: activity.slug,
+				summary: activity.summary,
+				description: activity.description,
+				timezone: activity.timezone,
+				hostUserId: activity.host_user_id,
+				hostGroupId: activity.host_group_id,
+				startLocationName: activity.start_location_name,
+				startLocationAddress: activity.start_location_address,
+				startLatitude: activity.start_latitude,
+				startLongitude: activity.start_longitude,
+				nextOccurrenceStart: activity.next_occurrence_start,
+				nextOccurrenceEnd: activity.next_occurrence_end,
+				recurrenceEnabled: recurringActivityIds.has(activity.id),
+				group: activity.group ?? null,
+				rideDetails,
+				imageUrls: rideDetails?.image_urls ?? [],
+				difficultyLevels: (activity.difficulty_links ?? [])
+					.map((entry) => entry?.level)
+					.filter(Boolean),
+				ridingDisciplines: (activity.discipline_links ?? [])
+					.map((entry) => entry?.discipline)
+					.filter(Boolean)
+			};
+		})
 		.filter((activity) => {
 			if (!search) return true;
 			return [
@@ -122,9 +133,11 @@ export async function GET({ url, cookies }) {
 				activity.description,
 				activity.startLocationName,
 				activity.startLocationAddress,
-				activity.group?.name,
-				...(activity.difficultyLevels ?? []).map((level) => level?.name),
-				...(activity.ridingDisciplines ?? []).map((discipline) => discipline?.name)
+				/** @type {any} */ (activity.group)?.name,
+				...(activity.difficultyLevels ?? []).map((level) => /** @type {any} */ (level)?.name),
+				...(activity.ridingDisciplines ?? []).map(
+					(discipline) => /** @type {any} */ (discipline)?.name
+				)
 			]
 				.filter(Boolean)
 				.join(' ')
@@ -135,6 +148,9 @@ export async function GET({ url, cookies }) {
 	return json({ data: rows });
 }
 
+/**
+ * @param {any} param0
+ */
 export async function POST({ request, cookies }) {
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) {
@@ -178,6 +194,7 @@ export async function POST({ request, cookies }) {
 		payload.activity.slug || payload.activity.title
 	);
 
+	/** @type {any} */
 	const activityInsert = {
 		activity_type: 'ride',
 		host_user_id: payload.activity.is_host ? user.id : null,

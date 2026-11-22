@@ -7,6 +7,7 @@
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 	function getPageData() {
 		return data ?? {};
@@ -17,6 +18,7 @@
 	const user = pageData.user;
 
 	// If there's no profile, create an empty one
+	/** @type {any} */
 	const emptyProfile = {
 		user_id: user?.id,
 		claimed: Boolean(user?.id),
@@ -27,24 +29,36 @@
 		allergies: '',
 		medication: ''
 	};
+	/** @type {any} */
 	let profile = $state(pageData.qrData ? { ...pageData.qrData?.profile } : emptyProfile);
+	/** @type {any} */
 	let showLogin = $state(false);
 
 	// Control which tab is active. 'profile' is default.
+	/** @type {any} */
 	let group = $state('profile');
 
 	// For a new profile claim
+	/** @type {any} */
 	let newProfile = $state({ email: '' });
+	/** @type {any} */
 	let loading = $state(false);
+	/** @type {any} */
 	let emailTouched = $state(false);
+	/** @type {any} */
 	let errorMessage = $state('');
+	/** @type {any} */
 	let submissionSuccess = $state(false);
+	/** @type {any} */
 	let honeypot = $state('');
 	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	/** @type {any} */
 	let turnstileEl = $state(null);
+	/** @type {any} */
 	let turnstileWidgetId = $state(null);
 
 	// Email validation
+	/** @type {any} */
 	let emailIsValid = $derived(/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(newProfile.email));
 
 	async function initTurnstile() {
@@ -67,6 +81,7 @@
 	});
 
 	// Claim/Login via magic link
+	/** @type {any} */
 	const handleSubmit = async (event) => {
 		event.preventDefault();
 		loading = true;
@@ -99,6 +114,7 @@
 			}
 		}
 
+		/** @type {any} */
 		const payload = {
 			code,
 			email: newProfile.email,
@@ -131,6 +147,7 @@
 	};
 
 	// Update profile fields (excluding emergency_contacts).
+	/** @type {any} */
 	const handleProfileUpdate = async () => {
 		const { emergency_contacts, claimed, is_owner, ...profileUpdate } = profile;
 
@@ -148,9 +165,12 @@
 
 	// Common allergy & medication chip logic
 	const allergyOptions = ['Latex', 'Penicillin', 'Sulfa', 'Iodine'];
+	/** @type {any} */
 	const getAllergyArray = () =>
 		profile?.allergies ? profile.allergies.split(',').map((s) => s.trim()) : [];
+	/** @type {any} */
 	const isAllergySelected = (allergy) => getAllergyArray().includes(allergy);
+	/** @type {any} */
 	const toggleAllergy = (allergy) => {
 		let current = getAllergyArray();
 		if (current.includes(allergy)) {
@@ -163,13 +183,17 @@
 	};
 
 	const medicineOptions = ['Insulin', 'Blood Thinners', 'Albuterol', 'Aspirin'];
+	/** @type {any} */
 	const normalizeMedication = (medication) => {
 		const value = medication.trim();
 		return value.toLowerCase() === 'asprin' ? 'Aspirin' : value;
 	};
+	/** @type {any} */
 	const getMedicationArray = () =>
 		profile?.medication ? profile.medication.split(',').map(normalizeMedication) : [];
+	/** @type {any} */
 	const isMedicationSelected = (med) => getMedicationArray().includes(med);
+	/** @type {any} */
 	const toggleMedication = (med) => {
 		let current = getMedicationArray();
 		if (current.includes(med)) {
@@ -185,6 +209,7 @@
 	// Emergency Contact Handling
 	// ---------------------------
 	// Local state for new emergency contact
+	/** @type {any} */
 	let newContact = $state({
 		contact_name: '',
 		contact_phone: '',
@@ -192,10 +217,12 @@
 	});
 
 	// Create a new emergency contact
+	/** @type {any} */
 	const handleCreateContact = async (event) => {
 		event.preventDefault();
 		errorMessage = '';
 		try {
+			/** @type {any} */
 			const payload = {
 				profile_id: user.id,
 				contact_name: newContact.contact_name.trim(),
@@ -226,6 +253,7 @@
 	};
 
 	// Update an existing contact immediately when a field changes (onblur)
+	/** @type {any} */
 	const handleUpdateContact = async (contact) => {
 		errorMessage = '';
 		try {
@@ -245,6 +273,7 @@
 	};
 
 	// Delete an existing contact
+	/** @type {any} */
 	const handleDeleteContact = async (contactId) => {
 		errorMessage = '';
 		try {
@@ -515,7 +544,7 @@
 										value={profile?.full_name}
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
-											profile.full_name = e.target.value;
+											profile.full_name = /** @type {any} */ (e.target).value;
 											handleProfileUpdate();
 										}}
 									/>
@@ -535,7 +564,7 @@
 										autocomplete="tel"
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
-											profile.phone = e.target.value;
+											profile.phone = /** @type {any} */ (e.target).value;
 											handleProfileUpdate();
 										}}
 									/>
@@ -552,7 +581,7 @@
 										id="blood_type"
 										class="select bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
-											profile.blood_type = e.target.value;
+											profile.blood_type = /** @type {any} */ (e.target).value;
 											handleProfileUpdate();
 										}}
 									>
@@ -600,7 +629,7 @@
 										value={profile?.allergies}
 										class="input bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
-											profile.allergies = e.target.value;
+											profile.allergies = /** @type {any} */ (e.target).value;
 											handleProfileUpdate();
 										}}
 									/>
@@ -637,7 +666,7 @@
 										rows="3"
 										class="textarea bg-surface-900 border-surface-700 text-surface-50"
 										onblur={(e) => {
-											profile.medication = e.target.value;
+											profile.medication = /** @type {any} */ (e.target).value;
 											handleProfileUpdate();
 										}}>{getMedicationArray().join(', ')}</textarea
 									>

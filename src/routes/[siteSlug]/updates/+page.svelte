@@ -59,8 +59,7 @@
 		try {
 			await goto(query ? `?${query}` : '?', {
 				replaceState: true,
-				keepFocus: true,
-				noScroll: true
+				reset: false
 			});
 		} finally {
 			pendingSlug = '';

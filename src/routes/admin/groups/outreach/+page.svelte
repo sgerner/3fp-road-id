@@ -22,20 +22,27 @@
 	import IconCheck from '@lucide/svelte/icons/check';
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 	let removedGroupIds = $state(new Set());
 	const groups = $derived((data.groups || []).filter((group) => !removedGroupIds.has(group.id)));
 	const total = $derived(groups.length);
 
+	/** @type {any} */
 	let selectedGroupId = $state(null);
+	/** @type {any} */
 	let copiedGroupId = $state(null);
+	/** @type {any} */
 	let messageByGroup = $state({});
+	/** @type {any} */
 	let subjectByGroup = $state({});
+	/** @type {any} */
 	let emailStatusByGroup = $state({});
 	let sending = $state(false);
 	let generating = $state(false);
 	let enriching = $state(false);
 	let deletingGroup = $state(false);
+	/** @type {any} */
 	let confirmDeleteFor = $state(null);
 
 	let imageModalOpen = $state(false);
@@ -51,12 +58,16 @@
 	let cropX = $state(0);
 	let cropY = $state(0);
 	let draggingCrop = $state(false);
+	/** @type {any} */
 	let cropDragStart = $state(null);
 	let savingAssets = $state(false);
 	let logoCroppedDataUrl = $state('');
 	let coverCroppedDataUrl = $state('');
+	/** @type {any} */
 	let imageFormEl = $state(null);
+	/** @type {any} */
 	let generateFormEl = $state(null);
+	/** @type {any} */
 	let imageDialogEl = $state(null);
 
 	// Keep the native dialog in step with imageModalOpen. showModal() provides the focus trap,

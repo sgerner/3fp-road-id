@@ -2,13 +2,17 @@
 	import IconLoader from '@lucide/svelte/icons/loader-2';
 
 	export let eventDetails;
+	/** @type {any} */
 	export let opportunities = [];
+	/** @type {any} */
 	export let customQuestions = [];
+	/** @type {any} */
 	export let eventEmails = [];
 	export let saveError = '';
 	export let saveSuccess = '';
 	export let saving = false;
 	export let onSubmit = () => {};
+	/** @type {any} */
 	export let onSaveDraft = null;
 	export let saveIntent = 'publish';
 

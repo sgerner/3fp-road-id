@@ -55,6 +55,7 @@ export const POST = async ({ params, cookies, request }) => {
 
 	if (membershipTierRequiresPayment(program, tier)) {
 		if (existing?.renews_at && tier.billing_type === 'recurring' && !tier.allow_custom_amount) {
+			/** @type {any} */
 			const result = await requestMembershipTierChange({
 				cookies,
 				groupSlug: params.slug,

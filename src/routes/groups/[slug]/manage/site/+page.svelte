@@ -50,16 +50,23 @@
 		GROUP_SITE_SECTION_KEYS
 	} from '#lib/microsites/config';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
+	/** @type {any} */
 	const clone = (value) => JSON.parse(JSON.stringify(value));
 	const baseConfig = untrack(() =>
 		mergeGroupSiteEditorConfig(data.defaultSiteConfig, data.siteConfig)
 	);
+	/** @type {any} */
 	let siteConfig = $state(baseConfig);
+	/** @type {any} */
 	let pageBlocks = $state(untrack(() => clone(baseConfig.page_blocks || [])));
+	/** @type {any} */
 	let sitePages = $state(untrack(() => clone(baseConfig.site_pages || [])));
+	/** @type {any} */
 	let selectedPageId = $state(untrack(() => baseConfig.site_pages?.[0]?.id || 'home'));
 	let sponsorSequence = 0;
+	/** @type {any} */
 	let sponsorItems = $state(
 		untrack(() => {
 			const items = Array.isArray(baseConfig.sponsor_items) ? baseConfig.sponsor_items : [];
@@ -72,6 +79,7 @@
 			}));
 		})
 	);
+	/** @type {any} */
 	let faqItems = $state(
 		untrack(() =>
 			[
@@ -80,20 +88,32 @@
 			].filter((item) => item.question || item.answer)
 		)
 	);
+	/** @type {any} */
 	let slugInput = $state(untrack(() => data.micrositeSlug || ''));
+	/** @type {any} */
 	let activeView = $state('builder');
+	/** @type {any} */
 	let showPreview = $state(false);
+	/** @type {any} */
 	let previewVersion = $state(0);
+	/** @type {any} */
 	let localNotice = $state('');
+	/** @type {any} */
 	let localError = $state('');
+	/** @type {any} */
 	let groupSearch = $state('');
+	/** @type {any} */
 	let submitting = $state(false);
+	/** @type {any} */
 	let refreshingPalette = $state(false);
+	/** @type {any} */
 	let sponsorFileRevision = $state(0);
+	/** @type {any} */
 	let sponsorFileNames = $state({});
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	const initialWidget = untrack(() => baseConfig.ride_widget_config || {});
+	/** @type {any} */
 	let rideFilterMode = $state(
 		untrack(() =>
 			initialWidget.near || initialWidget.radiusMiles
@@ -103,7 +123,9 @@
 					: 'none'
 		)
 	);
+	/** @type {any} */
 	let rideLocation = $state(untrack(() => initialWidget.location || ''));
+	/** @type {any} */
 	let rideNear = $state(
 		untrack(
 			() =>
@@ -111,27 +133,41 @@
 				[data.group?.city, data.group?.state_region].filter(Boolean).join(', ')
 		)
 	);
+	/** @type {any} */
 	let rideRadius = $state(untrack(() => initialWidget.radiusMiles || '50'));
+	/** @type {any} */
 	let rideDefaultTab = $state(untrack(() => initialWidget.defaultTab || 'list'));
+	/** @type {any} */
 	let rideTheme = $state(untrack(() => initialWidget.theme || 'auto'));
+	/** @type {any} */
 	let rideDensity = $state(untrack(() => initialWidget.density || 'comfortable'));
+	/** @type {any} */
 	let rideShowFilters = $state(untrack(() => initialWidget.showUserFilters ?? true));
+	/** @type {any} */
 	let rideShowAdd = $state(untrack(() => initialWidget.showAddButton ?? true));
+	/** @type {any} */
 	let ridePrefixCity = $state(untrack(() => initialWidget.prefixCity ?? false));
+	/** @type {any} */
 	let rideDifficultyColors = $state(untrack(() => initialWidget.difficultyColors ?? true));
+	/** @type {any} */
 	let selectedRideGroupIds = $state(
 		untrack(() =>
 			Array.isArray(baseConfig.ride_widget_group_ids) ? [...baseConfig.ride_widget_group_ids] : []
 		)
 	);
+	/** @type {any} */
 	const selectedSitePage = $derived(
 		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
 	);
+	/** @type {any} */
 	const navigationItems = $derived(sitePages[0]?.navigation?.items || []);
+	/** @type {any} */
 	const primaryNavigationCount = $derived(
 		navigationItems.filter((item) => item.placement === 'primary').length
 	);
+	/** @type {any} */
 	const announcementExpiresIso = $derived(toIsoDateTimeValue(siteConfig.announcement_expires_at));
+	/** @type {any} */
 	const aiCurrentConfig = $derived({
 		...siteConfig,
 		page_blocks: sitePages[0]?.blocks || pageBlocks,
@@ -158,6 +194,7 @@
 		}
 	});
 
+	/** @type {any} */
 	const views = [
 		{
 			id: 'builder',
@@ -187,34 +224,40 @@
 		},
 		{ id: 'more', label: 'Settings', hint: 'Search, safety, and publishing', icon: IconSettings }
 	];
+	/** @type {any} */
 	const heroLabels = {
 		immersive: ['Immersive', 'Big, cinematic welcome'],
 		bold: ['Editorial', 'Strong type and clear hierarchy'],
 		orbit: ['Community cards', 'Friendly, layered highlights']
 	};
+	/** @type {any} */
 	const backgroundLabels = {
 		cinematic: 'Cinematic photo',
 		aurora: 'Soft color glow',
 		prism: 'Bright geometric',
 		void: 'Minimal dark'
 	};
+	/** @type {any} */
 	const panelStyleLabels = {
 		glass: 'Soft translucent',
 		filled: 'Solid cards',
 		outlined: 'Light outlines'
 	};
 	const densityLabels = { compact: 'Compact', comfortable: 'Comfortable', airy: 'Spacious' };
+	/** @type {any} */
 	const toneLabels = {
 		surface: 'Neutral',
 		primary: 'Brand color',
 		secondary: 'Supporting color',
 		tertiary: 'Accent color'
 	};
+	/** @type {any} */
 	const navigationPlacementLabels = {
 		primary: 'Primary header',
 		more: 'More menu',
 		hidden: 'Hidden'
 	};
+	/** @type {any} */
 	const sitePalettes = [
 		{
 			id: 'brand',
@@ -241,6 +284,7 @@
 			colors: { primary: '#2563EB', secondary: '#0F766E', accent: '#06B6D4', surface: '#F8FAFC' }
 		}
 	];
+	/** @type {any} */
 	const filteredGroups = $derived(
 		(data.availableGroups || []).filter((candidate) =>
 			`${candidate.name} ${candidate.city || ''} ${candidate.state_region || ''}`
@@ -248,6 +292,7 @@
 				.includes(groupSearch.toLowerCase())
 		)
 	);
+	/** @type {any} */
 	const previewPath = $derived(`${data.previewPath || '/'}?editor=${previewVersion}`);
 
 	function snapshot() {
@@ -273,7 +318,9 @@
 			sponsorFileRevision
 		});
 	}
+	/** @type {any} */
 	let savedSnapshot = $state(untrack(() => snapshot()));
+	/** @type {any} */
 	const dirty = $derived(snapshot() !== savedSnapshot);
 	function syncViewFromUrl() {
 		const requested = new URL(window.location.href).searchParams.get('view');
@@ -281,6 +328,9 @@
 		if (views.some((view) => view.id === normalizedView)) activeView = normalizedView;
 	}
 
+	/**
+	 * @param {any} view
+	 */
 	function selectView(view) {
 		activeView = view;
 		if (typeof window === 'undefined') return;
@@ -289,6 +339,10 @@
 		replaceState(url, {});
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} index
+	 */
 	function handleViewKeydown(event, index) {
 		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
@@ -305,6 +359,9 @@
 	function addFaq() {
 		if (faqItems.length < 2) faqItems = [...faqItems, { question: '', answer: '' }];
 	}
+	/**
+	 * @param {any} index
+	 */
 	function removeFaq(index) {
 		faqItems = faqItems.filter((_, candidate) => candidate !== index);
 	}
@@ -321,6 +378,9 @@
 				}
 			];
 	}
+	/**
+	 * @param {any} index
+	 */
 	function removeSponsor(index) {
 		const removedId = sponsorItems[index]?._editorId;
 		sponsorItems = sponsorItems.filter((_, candidate) => candidate !== index);
@@ -330,16 +390,27 @@
 			sponsorFileNames = nextNames;
 		}
 	}
+	/**
+	 * @param {any} index
+	 * @param {any} patch
+	 */
 	function updateSponsor(index, patch) {
 		sponsorItems = sponsorItems.map((sponsor, candidate) =>
 			candidate === index ? { ...sponsor, ...patch } : sponsor
 		);
 	}
+	/**
+	 * @param {any} id
+	 * @param {any} checked
+	 */
 	function toggleRideGroup(id, checked) {
 		selectedRideGroupIds = checked
 			? [...new Set([...selectedRideGroupIds, id])]
 			: selectedRideGroupIds.filter((candidate) => candidate !== id);
 	}
+	/**
+	 * @param {any} palette
+	 */
 	function applySitePalette(palette) {
 		if (!palette.colors) {
 			siteConfig.theme_mode = 'derived';
@@ -377,6 +448,10 @@
 			refreshingPalette = false;
 		}
 	}
+	/**
+	 * @param {any} nextConfig
+	 * @param {any} source
+	 */
 	function applyAiConfig(nextConfig, source) {
 		siteConfig = mergeGroupSiteEditorConfig(clone(siteConfig), clone(nextConfig));
 		sitePages = clone(siteConfig.site_pages || sitePages);
@@ -425,6 +500,9 @@
 					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
 	}
+	/**
+	 * @param {any} template
+	 */
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
@@ -435,6 +513,9 @@
 		localNotice = `${template.label} applied as a draft. Personalize the sections, then publish when ready.`;
 	}
 
+	/**
+	 * @param {any} nextBlocks
+	 */
 	function updatePageBlocks(nextBlocks) {
 		pageBlocks = clone(nextBlocks);
 		sitePages = sitePages.map((page) =>
@@ -451,6 +532,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} patch
+	 */
 	function updateSiteConfig(patch) {
 		siteConfig = {
 			...siteConfig,
@@ -460,6 +544,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} pageId
+	 */
 	function selectSitePage(pageId) {
 		const page = sitePages.find((candidate) => candidate.id === pageId);
 		if (!page) return;
@@ -491,6 +578,9 @@
 		localNotice = 'New page added as a draft.';
 	}
 
+	/**
+	 * @param {any} patch
+	 */
 	function updateSelectedPage(patch) {
 		sitePages = normalizeGroupSitePages(
 			sitePages.map((page) => {
@@ -508,6 +598,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} offset
+	 */
 	function moveSelectedPage(offset) {
 		const index = sitePages.findIndex((page) => page.id === selectedPageId);
 		const target = index + offset;
@@ -529,6 +622,9 @@
 		localNotice = `${page.title} removed from the draft.`;
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function navigationItemMeta(item) {
 		if (item.id.startsWith('page:')) {
 			const pageId = item.id.slice(5);
@@ -547,6 +643,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} nextItems
+	 */
 	function setNavigationItems(nextItems) {
 		const pagesWithVisibility = sitePages.map((page) => {
 			if (page.is_home) return page;
@@ -567,12 +666,19 @@
 		};
 	}
 
+	/**
+	 * @param {any} itemId
+	 * @param {any} patch
+	 */
 	function updateNavigationItem(itemId, patch) {
 		setNavigationItems(
 			navigationItems.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
 		);
 	}
 
+	/**
+	 * @param {any} visible
+	 */
 	function setSelectedPageNavigationVisible(visible) {
 		const itemId = `page:${selectedPageId}`;
 		setNavigationItems(
@@ -591,6 +697,10 @@
 		);
 	}
 
+	/**
+	 * @param {any} itemId
+	 * @param {any} offset
+	 */
 	function moveNavigationItem(itemId, offset) {
 		const index = navigationItems.findIndex((item) => item.id === itemId);
 		const target = index + offset;
@@ -607,6 +717,7 @@
 
 	onMount(() => {
 		syncViewFromUrl();
+		/** @type {any} */
 		const warn = (event) => {
 			if (!dirty || submitting) return;
 			event.preventDefault();

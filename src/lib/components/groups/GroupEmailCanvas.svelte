@@ -20,6 +20,7 @@
 		newEmailBlock
 	} from '#lib/groups/emailEditor';
 
+	/** @type {Record<string, any>} */
 	let {
 		blocks: initialBlocks = [],
 		brand = {},
@@ -28,31 +29,55 @@
 		onchange = () => {}
 	} = $props();
 
+	/** @type {any} */
 	let blocks = $state(untrack(() => cloneEmailBlocks(initialBlocks)));
+	/** @type {any} */
 	let selectedId = $state('');
+	/** @type {any} */
 	let previewDevice = $state('desktop');
+	/** @type {any} */
 	let showOutline = $state(false);
+	/** @type {any} */
 	let mobilePaletteOpen = $state(false);
+	/** @type {any} */
 	let mobilePaletteDialog = $state(null);
+	/** @type {any} */
 	let mobilePaletteCloseButton = $state(null);
+	/** @type {any} */
 	let mobilePaletteReturnFocus = null;
 	let focusEditorAfterPaletteClose = false;
+	/** @type {any} */
 	let mobileEditorPanel = $state(null);
+	/** @type {any} */
 	let mobileEditorReturnFocus = null;
+	/** @type {any} */
 	let dragged = null;
+	/** @type {any} */
 	let history = $state(untrack(() => [cloneEmailBlocks(blocks)]));
+	/** @type {any} */
 	let historyIndex = $state(0);
+	/** @type {any} */
 	let pendingHistoryTimer;
 
+	/** @type {any} */
 	const selectedIndex = $derived(blocks.findIndex((block) => block.id === selectedId));
+	/** @type {any} */
 	const selectedBlock = $derived(blocks[selectedIndex]);
+	/** @type {any} */
 	const canUndo = $derived(historyIndex > 0);
+	/** @type {any} */
 	const canRedo = $derived(historyIndex < history.length - 1);
+	/** @type {any} */
 	const previewWidth = $derived(previewDevice === 'mobile' ? '390px' : '640px');
+	/** @type {any} */
 	const safeColor = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(value) ? value : fallback);
+	/** @type {any} */
 	const accent = $derived(safeColor(brand?.primaryColor, '#84CC16'));
+	/** @type {any} */
 	const background = $derived(safeColor(brand?.backgroundColor, '#F4F4F5'));
+	/** @type {any} */
 	const ink = $derived(safeColor(brand?.inkColor, '#18181B'));
+	/** @type {any} */
 	const safePreviewUrl = (value) => {
 		try {
 			const parsed = new URL(String(value ?? '').trim());
@@ -63,9 +88,14 @@
 			return '';
 		}
 	};
+	/** @type {any} */
 	const blockLabel = (type) =>
 		EMAIL_BLOCK_OPTIONS.find((option) => option.type === type)?.label || 'Content';
 
+	/**
+	 * @param {any} next
+	 * @param {any} [param1]
+	 */
 	function emit(next, { coalesce = false } = {}) {
 		blocks = cloneEmailBlocks(next);
 		onchange(cloneEmailBlocks(blocks));
@@ -81,6 +111,9 @@
 		}, 400);
 	}
 
+	/**
+	 * @param {any} index
+	 */
 	function restoreHistory(index) {
 		clearTimeout(pendingHistoryTimer);
 		if (index < 0 || index >= history.length) return;
@@ -90,6 +123,10 @@
 		onchange(cloneEmailBlocks(blocks));
 	}
 
+	/**
+	 * @param {any} type
+	 * @param {any} [index]
+	 */
 	function addBlock(type, index = blocks.length) {
 		if (blocks.length >= MAX_EMAIL_BLOCKS) return;
 		const block = newEmailBlock(type, defaultActionUrl);
@@ -105,6 +142,9 @@
 		emit(next);
 	}
 
+	/**
+	 * @param {any} trigger
+	 */
 	async function openMobilePalette(trigger) {
 		mobilePaletteReturnFocus = trigger;
 		mobilePaletteDialog?.showModal();
@@ -129,12 +169,15 @@
 		void tick().then(() => trigger?.focus());
 	}
 
+	/**
+	 * @param {any} [param0]
+	 */
 	async function focusSelectedEditor({ returnToSelectedBlock = false } = {}) {
 		await tick();
 		if (!selectedBlock || !window.matchMedia('(max-width: 1535px)').matches) return;
 		if (returnToSelectedBlock) {
 			mobileEditorReturnFocus = Array.from(document.querySelectorAll('[data-email-block-id]')).find(
-				(element) => element.dataset.emailBlockId === selectedId
+				(element) => /** @type {any} */ (element).dataset.emailBlockId === selectedId
 			);
 		}
 		const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -144,6 +187,10 @@
 		mobileEditorPanel?.focus({ preventScroll: true });
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} trigger
+	 */
 	function selectBlock(id, trigger) {
 		selectedId = id;
 		mobileEditorReturnFocus = trigger || document.activeElement;
@@ -157,6 +204,9 @@
 		void tick().then(() => trigger?.focus());
 	}
 
+	/**
+	 * @param {any} patch
+	 */
 	function updateSelected(patch) {
 		if (!selectedBlock) return;
 		emit(
@@ -165,6 +215,9 @@
 		);
 	}
 
+	/**
+	 * @param {any} direction
+	 */
 	function moveSelected(direction) {
 		if (selectedIndex < 0) return;
 		emit(moveEmailBlock(blocks, selectedIndex, selectedIndex + direction));
@@ -184,11 +237,19 @@
 		emit(next);
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} value
+	 */
 	function startDrag(event, value) {
 		dragged = value;
 		event.dataTransfer.effectAllowed = value.kind === 'new' ? 'copy' : 'move';
 	}
 
+	/**
+	 * @param {any} index
+	 * @param {any} event
+	 */
 	function dropAt(index, event) {
 		event.preventDefault();
 		if (!dragged) return;

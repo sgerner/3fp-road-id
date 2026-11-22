@@ -12,6 +12,7 @@
 	import { BIKE_VIBE_OPTIONS, getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
 	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '#lib/geo/usStates';
 
+	/** @type {Record<string, any>} */
 	let {
 		target = 'ride',
 		heading = 'Generate image',
@@ -25,27 +26,45 @@
 		onApply = () => {}
 	} = $props();
 
+	/** @type {any} */
 	let styleId = $state('');
+	/** @type {any} */
 	let toneId = $state('');
+	/** @type {any} */
 	const selectedTone = $derived(getImageTonePreset(toneId));
+	/** @type {any} */
 	let userPrompt = $state('');
+	/** @type {any} */
 	let generating = $state(false);
+	/** @type {any} */
 	let error = $state('');
+	/** @type {any} */
 	let lastGeneratedUrl = $state('');
+	/** @type {any} */
 	let selectedStateCode = $state('');
+	/** @type {any} */
 	let selectedBikeVibeId = $state('');
+	/** @type {any} */
 	let resolvingState = $state(false);
 
+	/** @type {any} */
 	const selectedStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === styleId) ?? null
 	);
+	/** @type {any} */
 	const requiresStateSelection = $derived(styleId === STATE_MASCOT_STYLE_ID);
+	/** @type {any} */
 	const requiresBikeVibeSelection = $derived(styleId === BIKE_VIBE_STYLE_ID);
 
+	/** @type {any} */
 	const previewUrl = $derived(currentImageUrl || lastGeneratedUrl || '');
 
+	/**
+	 * @param {any} [context]
+	 */
 	function inferStateCodeFromContext(context = {}) {
 		if (!context || typeof context !== 'object') return '';
+		/** @type {any} */
 		const directCandidates = [
 			context.state,
 			context.stateCode,
@@ -60,6 +79,7 @@
 			if (normalized) return normalized;
 		}
 
+		/** @type {any} */
 		const locationCandidates = [
 			context.location,
 			context.startLocation,
@@ -81,8 +101,12 @@
 		return '';
 	}
 
+	/**
+	 * @param {any} [context]
+	 */
 	function inferBikeVibeIdFromContext(context = {}) {
 		if (!context || typeof context !== 'object') return '';
+		/** @type {any} */
 		const textBlob = [
 			context.disciplines,
 			context.ridingDisciplines,
@@ -177,6 +201,7 @@
 
 		try {
 			const context = (await buildContext?.()) ?? {};
+			/** @type {any} */
 			const styleOptions = {
 				...(requiresStateSelection
 					? {

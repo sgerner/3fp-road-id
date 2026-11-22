@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getGroupClaimStatus } from './groupClaimStatus.js';
 
+/** @param {{ count?: number, error?: any }} [options] */
 function createSupabaseStub({ count = 0, error = null } = {}) {
 	const calls = [];
 	const builder = {

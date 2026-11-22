@@ -47,14 +47,21 @@
 		getVolunteerEventEmail
 	} from '#lib/services/volunteers';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const toaster = createToaster({ placement: 'top-end' });
 
+	/** @type {any} */
 	const notifySuccess = (message) => toaster.success({ title: message });
+	/** @type {any} */
 	const notifyError = (message) => toaster.error({ title: message });
+	/** @type {any} */
 	const notifyWarning = (message) => toaster.warning({ title: message });
 
+	/**
+	 * @param {any} text
+	 */
 	function slugify(text) {
 		return (text || '')
 			.toString()
@@ -65,8 +72,13 @@
 			.replace(/-+/g, '-');
 	}
 
+	/**
+	 * @param {any} param0
+	 */
 	function createAutosave({ delay = 600, onSave, successMessage, errorMessage, setSaving }) {
+		/** @type {any} */
 		let timer = null;
+		/** @type {any} */
 		let pending = {};
 		let saving = false;
 
@@ -95,6 +107,9 @@
 			}
 		}
 
+		/**
+		 * @param {any} patch
+		 */
 		function queue(patch) {
 			pending = { ...pending, ...patch };
 			if (timer) clearTimeout(timer);
@@ -123,7 +138,9 @@
 
 	const eventRecordInitial = pageData.event ?? {};
 	const eventId = eventRecordInitial.id ?? '';
+	/** @type {any} */
 	let eventRecord = $state({ ...eventRecordInitial });
+	/** @type {any} */
 	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
 	const hostGroups = pageData.hostGroups ?? [];
@@ -132,10 +149,15 @@
 		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
 	const initialHostGroupId =
 		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
+	/** @type {any} */
 	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
+	/** @type {any} */
 	let filteredHostGroupOptions = $state(hostGroupOptions);
+	/** @type {any} */
 	let showAdvancedSettings = $state(false);
+	/** @type {any} */
 	let showAdvancedCommunications = $state(false);
+	/** @type {any} */
 	let eventSaving = $state(false);
 
 	function currentEventTypeDescription() {
@@ -143,6 +165,9 @@
 		return match?.description ?? '';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function handleHostGroupValueChange(value) {
 		const next = value ?? [];
 		hostGroupSelection = next;
@@ -150,6 +175,9 @@
 			hostGroupId: next?.[0] ?? ''
 		});
 	}
+	/**
+	 * @param {any} inputValue
+	 */
 	function handleHostGroupSearch(inputValue) {
 		const query = inputValue?.trim().toLowerCase() ?? '';
 		if (!query) {
@@ -183,11 +211,17 @@
 		setSaving: (value) => (eventSaving = value)
 	});
 
+	/**
+	 * @param {any} patch
+	 */
 	function updateEventDetails(patch) {
 		eventDetails = { ...eventDetails, ...patch };
 		eventAutosave.queue(patch);
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function handleSlugInput(value) {
 		const sanitized = slugify(value);
 		updateEventDetails({ slug: sanitized });
@@ -195,17 +229,24 @@
 
 	const timezoneOptions = FALLBACK_TIMEZONES;
 
+	/**
+	 * @param {...any} args
+	 */
 	function overviewDetailsChange(...args) {
 		const patch = args?.[0] ?? {};
 		updateEventDetails(patch);
 	}
 
+	/**
+	 * @param {...any} args
+	 */
 	function scheduleDetailsChange(...args) {
 		const patch = args?.[0] ?? {};
 		updateEventDetails(patch);
 	}
 
 	const loadedOpportunities = ensureArray(pageData.opportunities ?? []);
+	/** @type {any} */
 	let opportunities = $state(
 		loadedOpportunities.map((op) =>
 			mapOpportunityRecordToFormDetails(op, ensureArray(op?.shifts ?? []))
@@ -214,6 +255,9 @@
 	const opportunityAutosaves = new Map();
 	const shiftAutosaves = new Map();
 
+	/**
+	 * @param {any} id
+	 */
 	function getOpportunityAutosave(id) {
 		if (!opportunityAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -245,6 +289,10 @@
 		return opportunityAutosaves.get(id);
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} opportunityId
+	 */
 	function getShiftAutosave(id, opportunityId) {
 		if (!shiftAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -305,6 +353,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 */
 	async function removeOpportunity(id) {
 		try {
 			await deleteVolunteerOpportunity(id);
@@ -322,11 +373,18 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} patch
+	 */
 	function updateOpportunity(id, patch) {
 		opportunities = opportunities.map((op) => (op.id === id ? { ...op, ...patch } : op));
 		getOpportunityAutosave(id).queue(patch);
 	}
 
+	/**
+	 * @param {any} opportunityId
+	 */
 	async function addShift(opportunityId) {
 		try {
 			const opportunity = opportunities.find((op) => op.id === opportunityId);
@@ -362,6 +420,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} opportunityId
+	 * @param {any} shiftId
+	 */
 	async function removeShift(opportunityId, shiftId) {
 		try {
 			await deleteVolunteerShift(shiftId);
@@ -377,7 +439,13 @@
 		}
 	}
 
+	/**
+	 * @param {any} opportunityId
+	 * @param {any} shiftId
+	 * @param {any} patch
+	 */
 	function updateShift(opportunityId, shiftId, patch) {
+		/** @type {any} */
 		let nextShiftRecord = null;
 		opportunities = opportunities.map((op) => {
 			if (op.id !== opportunityId) return op;
@@ -406,11 +474,15 @@
 	}
 
 	const loadedQuestions = ensureArray(pageData.customQuestions ?? []);
+	/** @type {any} */
 	let customQuestions = $state(
 		loadedQuestions.map((question) => mapQuestionRecordToFormDetails(question))
 	);
 	const questionAutosaves = new Map();
 
+	/**
+	 * @param {any} id
+	 */
 	function getQuestionAutosave(id) {
 		if (!questionAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -435,6 +507,10 @@
 		return questionAutosaves.get(id);
 	}
 
+	/**
+	 * @param {any} label
+	 * @param {any} index
+	 */
 	function generateQuestionKey(label, index) {
 		const base = slugify(label || `question-${index + 1}`);
 		return base || `question-${crypto.randomUUID().slice(0, 8)}`;
@@ -466,6 +542,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 */
 	async function removeQuestion(id) {
 		try {
 			await deleteVolunteerCustomQuestion(id);
@@ -477,6 +556,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} patch
+	 */
 	function updateQuestion(id, patch) {
 		customQuestions = customQuestions.map((question) =>
 			question.id === id ? { ...question, ...patch } : question
@@ -485,9 +568,13 @@
 	}
 
 	const loadedEmails = ensureArray(pageData.eventEmails ?? []);
+	/** @type {any} */
 	let eventEmails = $state(loadedEmails.map((email) => mapEmailRecordToFormDetails(email)));
 	const emailAutosaves = new Map();
 
+	/**
+	 * @param {any} id
+	 */
 	function getEmailAutosave(id) {
 		if (!emailAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -534,6 +621,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 */
 	async function removeEmail(id) {
 		try {
 			await deleteVolunteerEventEmail(id);
@@ -545,6 +635,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} patch
+	 */
 	function updateEmail(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
 		if (patch && 'aiComposerOpen' in patch) {
@@ -560,35 +654,54 @@
 		getEmailAutosave(id).queue(patch);
 	}
 
+	/**
+	 * @param {any} _id
+	 */
 	function handleComposeEmail(_id) {
 		notifyWarning('Email composer is disabled in this editor.');
 	}
 
+	/** @type {any} */
 	const rolesAddOpportunityWrapper = () => {
 		addOpportunity();
 	};
+	/**
+	 * @param {...any} args
+	 */
 	function rolesRemoveOpportunityWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeOpportunity(id);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function rolesUpdateOpportunityWrapper(...args) {
 		const [id, patch] = args;
 
 		if (id === undefined || !patch) return;
 		updateOpportunity(id, patch);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function rolesAddShiftWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		addShift(id);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function rolesRemoveShiftWrapper(...args) {
 		const [opportunityId, shiftId] = args;
 
 		if (opportunityId === undefined || shiftId === undefined) return;
 		removeShift(opportunityId, shiftId);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function rolesUpdateShiftWrapper(...args) {
 		const [opportunityId, shiftId, patch] = args;
 
@@ -596,33 +709,50 @@
 		updateShift(opportunityId, shiftId, patch);
 	}
 
+	/** @type {any} */
 	const commAddQuestionWrapper = () => {
 		addQuestion();
 	};
+	/**
+	 * @param {...any} args
+	 */
 	function commRemoveQuestionWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeQuestion(id);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function commUpdateQuestionWrapper(...args) {
 		const [id, patch] = args;
 
 		if (id === undefined || !patch) return;
 		updateQuestion(id, patch);
 	}
+	/** @type {any} */
 	const commAddEmailWrapper = () => {
 		addEmail();
 	};
+	/**
+	 * @param {...any} args
+	 */
 	function commRemoveEmailWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeEmail(id);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function commUpdateEmailWrapper(...args) {
 		const [id, patch] = args;
 		if (id === undefined || !patch) return;
 		updateEmail(id, patch);
 	}
+	/**
+	 * @param {...any} args
+	 */
 	function commComposeEmailWrapper(...args) {
 		handleComposeEmail(args?.[0]);
 	}

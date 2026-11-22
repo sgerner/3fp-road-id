@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-const databaseUrl = process.env.ACCOUNTING_TEST_DATABASE_URL;
+/** @type {string} */
+const databaseUrl = /** @type {any} */ (process.env.ACCOUNTING_TEST_DATABASE_URL);
 test(
 	'accounting migrations preserve ledger integrity and privacy in PostgreSQL',
 	{ skip: !databaseUrl },
@@ -86,6 +87,7 @@ test(
 		'[{"account_id":"00000000-0000-0000-0000-000000000002","debit_cents":0,"credit_cents":100},{"account_id":"00000000-0000-0000-0000-000000000003","debit_cents":100,"credit_cents":0}]');`;
 			const runConcurrent = () =>
 				new Promise((resolve, reject) => {
+					/** @type {any} */
 					const child = execFile(
 						'psql',
 						[url.toString(), '-X', '-v', 'ON_ERROR_STOP=1', '-q'],

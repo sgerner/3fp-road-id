@@ -27,6 +27,7 @@
 		getGroupSiteBlockTone
 	} from '#lib/microsites/blocks';
 
+	/** @type {Record<string, any>} */
 	let {
 		blocks = [],
 		config = {},
@@ -39,7 +40,9 @@
 
 	const clone = (value) => JSON.parse(JSON.stringify(value));
 	let selectedId = $state('site-hero');
+	/** @type {any} */
 	let undoStack = $state([]);
+	/** @type {any} */
 	let redoStack = $state([]);
 	let device = $state('desktop');
 	let draggedBlockId = $state('');

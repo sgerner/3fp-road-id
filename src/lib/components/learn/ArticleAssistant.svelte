@@ -1,6 +1,7 @@
 <script>
 	const { articleSlug } = $props();
 	let draft = $state('');
+	/** @type {any} */
 	let turns = $state([]);
 	let busy = $state(false);
 	let error = $state('');

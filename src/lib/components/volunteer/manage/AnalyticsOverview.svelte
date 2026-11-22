@@ -8,6 +8,7 @@
 		declined: 0,
 		hours: 0
 	};
+	/** @type {any} */
 	export let shiftGroups = [];
 
 	function fillPercent(value, capacity) {

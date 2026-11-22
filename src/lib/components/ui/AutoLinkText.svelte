@@ -1,9 +1,13 @@
 <script>
+	/** @type {Record<string, any>} */
 	let { text = '', className = '', linkClass = '' } = $props();
 
 	const LINK_PATTERN =
 		/(?:\[([^\]]+)\]\(((?:https?:\/\/|mailto:|tel:|\/)[^)]+)\))|((?:https?:\/\/|www\.)[^\s<]+)/gi;
 
+	/**
+	 * @param {any} value
+	 */
 	function safeHref(value) {
 		const href = String(value || '').trim();
 		if (
@@ -15,10 +19,14 @@
 		return '';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function parseSegments(value) {
 		const source = typeof value === 'string' ? value : String(value ?? '');
 		if (!source) return [];
 
+		/** @type {any} */
 		const segments = [];
 		let lastIndex = 0;
 		for (const match of source.matchAll(LINK_PATTERN)) {
@@ -70,6 +78,7 @@
 		return segments;
 	}
 
+	/** @type {any} */
 	const segments = $derived(parseSegments(text));
 </script>
 

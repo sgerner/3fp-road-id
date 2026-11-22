@@ -111,7 +111,15 @@ function mapOpenAiTools(tools) {
 	});
 }
 
+/**
+ * @param {{
+ *   model: string,
+ *   contents: any,
+ *   config?: Record<string, any>
+ * }} options
+ */
 export function buildOpenAiResponseBody({ model, contents, config = {} }) {
+	/** @type {Record<string, any>} */
 	const body = {
 		model,
 		input: buildOpenAiInput(contents),

@@ -4,6 +4,7 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import AutoLinkText from '#lib/components/ui/AutoLinkText.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const site = $derived(data.site);

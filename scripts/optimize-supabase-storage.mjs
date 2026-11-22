@@ -373,7 +373,9 @@ async function fetchRows(table) {
 
 async function fetchAllRows() {
 	const entries = await Promise.all(
-		TABLES.map(async (table) => [table.name, await fetchRows(table)])
+		TABLES.map(
+			async (table) => /** @type {[string, any[]]} */ ([table.name, await fetchRows(table)])
+		)
 	);
 	return new Map(entries);
 }
@@ -482,7 +484,7 @@ function buildCandidateUpdates(candidate, rowsByTable) {
 
 async function updateRow(update) {
 	const { table, row, changes } = update;
-	let query = supabase.from(table.name).update(changes);
+	let query = /** @type {any} */ (supabase).from(table.name).update(changes);
 	for (const column of table.keyColumns) query = query.eq(column, row[column]);
 	const { data, error } = await query.select(table.keyColumns.join(','));
 	if (error) throw new Error(`${table.name}/${getRowKey(table, row)}: ${error.message}`);

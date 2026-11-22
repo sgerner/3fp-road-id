@@ -99,6 +99,15 @@ export function getDelegatedAdminEmail() {
 	return buildWorkspaceConfig()?.delegatedAdminEmail || '';
 }
 
+/**
+ * @param {string} pathname
+ * @param {{
+ *   method?: string,
+ *   query?: Record<string, any> | null,
+ *   body?: Record<string, any> | null,
+ *   scopes?: string[]
+ * }} [options]
+ */
 async function callDirectoryApi(
 	pathname,
 	{ method = 'GET', query = null, body = null, scopes = [USER_SCOPE] } = {}
@@ -153,6 +162,11 @@ async function callDirectoryApi(
 
 export async function listWorkspaceUsers({ query = '', pageToken = '', maxResults = 50 } = {}) {
 	const config = buildWorkspaceConfig();
+	if (!config) {
+		throw new Error(
+			'Google Workspace is not configured. Set GOOGLE_WORKSPACE_ADMIN_EMAIL and service account credentials.'
+		);
+	}
 	const payload = await callDirectoryApi('/users', {
 		query: {
 			customer: config.customer,
@@ -173,6 +187,11 @@ export async function listWorkspaceUsers({ query = '', pageToken = '', maxResult
 
 export async function listWorkspaceOrgUnits({ orgUnitPath = '/', type = 'ALL' } = {}) {
 	const config = buildWorkspaceConfig();
+	if (!config) {
+		throw new Error(
+			'Google Workspace is not configured. Set GOOGLE_WORKSPACE_ADMIN_EMAIL and service account credentials.'
+		);
+	}
 	const payload = await callDirectoryApi(
 		`/customer/${encodeURIComponent(config.customer)}/orgunits`,
 		{

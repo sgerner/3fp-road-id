@@ -33,55 +33,84 @@
 		THREE_FEET_LAW_STATUS_LABELS
 	} from '#lib/microsites/laws';
 	import { slide } from 'svelte/transition';
+	/** @type {Record<string, any>} */
 	let { data } = $props();
+	/** @type {any} */
 	const site = $derived(data.site);
+	/** @type {any} */
 	const group = $derived(site.group);
+	/** @type {any} */
 	const groupWebsiteUrl = $derived(safeNavigationUrl(group?.website_url));
+	/** @type {any} */
 	const config = $derived(site.siteConfig);
+	/** @type {any} */
 	const heroImageHref = $derived(
 		optimizedImageUrl(group?.cover_photo_url, { width: 1600, quality: 58 })
 	);
+	/** @type {any} */
 	const heroImageSrcSet = $derived(
 		group?.cover_photo_url
 			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 800, quality: 50 })} 800w, ${heroImageHref} 1600w`
 			: ''
 	);
+	/** @type {any} */
 	const heroImageMobileSrcSet = $derived(
 		group?.cover_photo_url
 			? `${optimizedImageUrl(group.cover_photo_url, { width: 480, quality: 46 })} 480w, ${optimizedImageUrl(group.cover_photo_url, { width: 640, quality: 50 })} 640w`
 			: ''
 	);
+	/** @type {any} */
 	const heroImageSmallSrcSet = $derived(
 		group?.cover_photo_url
 			? `${optimizedImageUrl(group.cover_photo_url, { width: 320, quality: 40 })} 320w`
 			: ''
 	);
+	/** @type {any} */
 	const logoImageHref = $derived(optimizedImageUrl(group?.logo_url, { width: 128, quality: 58 }));
+	/** @type {any} */
 	const currentPage = $derived(
 		data.currentPage || config?.site_pages?.find((page) => page.is_home) || config?.site_pages?.[0]
 	);
+	/** @type {any} */
 	const pageBlocks = $derived(currentPage?.blocks || config?.page_blocks || []);
+	/** @type {any} */
 	const heroBlock = $derived(pageBlocks.find((block) => block.type === 'hero') || null);
+	/** @type {any} */
 	const isAdvocacySite = $derived(group?.slug === '3-feet-please');
+	/** @type {any} */
 	const isTbagSite = $derived(config?.site_variant === 'tbag');
+	/** @type {any} */
 	const heroTitle = $derived(
 		heroBlock?.title ||
 			(currentPage?.is_home ? config?.site_title : currentPage?.title || config?.site_title)
 	);
+	/** @type {any} */
 	const heroTagline = $derived(
 		currentPage?.is_home ? config?.site_tagline : currentPage?.description || config?.site_tagline
 	);
+	/** @type {any} */
 	const heroStyle = $derived(config?.hero_style || 'immersive');
+	/** @type {any} */
 	const panelStyle = $derived(config?.panel_style || 'glass');
+	/** @type {any} */
 	const panelTone = $derived(config?.panel_tone || 'surface');
+	/** @type {any} */
 	const pageStyleClass = $derived(`hero-mode-${heroStyle} panel-${panelStyle} tone-${panelTone}`);
+	/** @type {any} */
 	const taxonomy = $derived(site.taxonomy || { audiences: [], disciplines: [], skills: [] });
+	/** @type {any} */
 	const basePath = $derived(site.basePath || '');
+	/** @type {any} */
 	const groupPageHref = $derived(`/groups/${group.slug}`);
+	/** @type {any} */
 	const galleryHref = $derived(basePath ? `${basePath}/gallery` : '/gallery');
+	/** @type {any} */
 	const showNotice = $derived(Boolean(site.announcementIsActive && config.microsite_notice));
+	/** @type {any} */
 	const hasNewRiderNote = $derived(Boolean((config?.new_rider_note || '').trim()));
+	/** @type {any} */
 	const location = $derived([group?.city, group?.state_region].filter(Boolean).join(', ') || null);
+	/** @type {any} */
 	const mapsHref = $derived.by(() => {
 		const lat = Number(group?.latitude);
 		const lng = Number(group?.longitude);
@@ -89,13 +118,23 @@
 		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
 	});
 	const donateAmountPresets = [10, 25, 50, 100];
+	/** @type {any} */
 	let donateAmount = $state(25);
+	/** @type {any} */
 	let signupFirstName = $state('');
+	/** @type {any} */
 	let signupEmail = $state('');
+	/** @type {any} */
 	let signupConsent = $state(false);
+	/** @type {any} */
 	let signupState = $state('idle');
+	/** @type {any} */
 	let signupMessage = $state('');
+	/** @type {any} */
 	let signupCompany = $state('');
+	/**
+	 * @param {any} event
+	 */
 	async function subscribeToGroupEmails(event) {
 		event.preventDefault();
 		if (signupState === 'submitting') return;
@@ -127,11 +166,17 @@
 		}
 	}
 	// Lightbox state
+	/** @type {any} */
 	let lightboxStartIndex = $state(0);
+	/** @type {any} */
 	let lightboxItems = $state([]);
 	// The regular gallery remains a small site-wide preview. Imported resource
 	// pages can opt into their own source collection through gallery_source_page.
+	/** @type {any} */
 	const galleryImages = $derived(site.photoBucket?.image_assets || []);
+	/**
+	 * @param {any} block
+	 */
 	function galleryImagesForBlock(block) {
 		const sourcePage = String(block?.gallery_source_page || '')
 			.trim()
@@ -156,10 +201,13 @@
 			.slice(0, sourcePage ? 12 : 3);
 	}
 	// Instagram posts
+	/** @type {any} */
 	let deferredInstagramPosts = $state([]);
+	/** @type {any} */
 	const instagramPosts = $derived(
 		(site.instagramPosts?.length ? site.instagramPosts : deferredInstagramPosts).slice(0, 3)
 	);
+	/** @type {any} */
 	const hasInstagramPosts = $derived(instagramPosts.length > 0);
 
 	onMount(() => {
@@ -169,9 +217,13 @@
 
 		let cancelled = false;
 		let started = false;
+		/** @type {any} */
 		let observer;
+		/** @type {any} */
 		let idleHandle;
+		/** @type {any} */
 		let timeoutHandle;
+		/** @type {any} */
 		const loadDeferredInstagram = async () => {
 			if (started) return;
 			started = true;
@@ -188,11 +240,12 @@
 			}
 		};
 
+		/** @type {any} */
 		const startWhenGalleryIsNear = () => {
 			if ('requestIdleCallback' in window) {
 				idleHandle = window.requestIdleCallback(loadDeferredInstagram, { timeout: 1200 });
 			} else {
-				timeoutHandle = window.setTimeout(loadDeferredInstagram, 0);
+				timeoutHandle = /** @type {any} */ (window).setTimeout(loadDeferredInstagram, 0);
 			}
 		};
 		const galleryTarget = document.querySelector('[data-site-block-type="gallery"]');
@@ -218,6 +271,7 @@
 		};
 	});
 	// Sponsor items
+	/** @type {any} */
 	const sponsorItems = $derived.by(() => {
 		if (Array.isArray(config?.sponsor_items) && config.sponsor_items.length) {
 			return config.sponsor_items
@@ -238,6 +292,7 @@
 		return [];
 	});
 	// Ride widget
+	/** @type {any} */
 	const rideWidgetFramePath = $derived.by(() => {
 		if (!config?.ride_widget_enabled) return '';
 		const baseConfig = { ...(config?.ride_widget_config || {}) };
@@ -261,12 +316,21 @@
 		return query ? `/ride/widget/frame?${query}` : '/ride/widget/frame';
 	});
 	// FAQ state
+	/** @type {any} */
 	let faqOpen = $state(0);
+	/**
+	 * @param {any} id
+	 */
 	function toggleFaq(id) {
 		faqOpen = faqOpen === id ? 0 : id;
 	}
 	// Sponsor logo tone detection
+	/** @type {any} */
 	let sponsorLogoFrameMode = $state({});
+	/**
+	 * @param {any} event
+	 * @param {any} index
+	 */
 	function detectSponsorLogoTone(event, index) {
 		const img = event.target;
 		if (!img?.naturalWidth) return;
@@ -288,7 +352,9 @@
 		}
 	}
 	// Combined events (rides + volunteer + news)
+	/** @type {any} */
 	const upcomingEvents = $derived.by(() => {
+		/** @type {any} */
 		const events = [];
 		if (site.rides?.length) {
 			events.push(...site.rides.slice(0, 3).map((r) => ({ ...r, type: 'ride' })));
@@ -301,12 +367,19 @@
 		}
 		return events.slice(0, 5);
 	});
+	/** @type {any} */
 	const hasEvents = $derived(upcomingEvents.length > 0);
+	/** @type {any} */
 	const hasRides = $derived(site.rides?.length > 0);
+	/** @type {any} */
 	const hasVolunteer = $derived(site.volunteerEvents?.length > 0);
+	/** @type {any} */
 	const hasNews = $derived(site.newsPosts?.length > 0);
+	/** @type {any} */
 	let lawsQuery = $state('');
+	/** @type {any} */
 	let lawsFilter = $state('all');
+	/** @type {any} */
 	const filteredLaws = $derived.by(() => {
 		const query = lawsQuery.trim().toLowerCase();
 		return THREE_FEET_LAWS.filter((law) => {
@@ -322,14 +395,19 @@
 				.includes(query);
 		});
 	});
+	/** @type {any} */
 	const lawCounts = $derived.by(() => ({
 		all: THREE_FEET_LAWS.length,
 		rule: THREE_FEET_LAWS.filter((law) => law.status !== 'no-specific-law').length,
 		'no-specific-law': THREE_FEET_LAWS.filter((law) => law.status === 'no-specific-law').length
 	}));
+	/**
+	 * @param {any} status
+	 */
 	function lawStatusLabel(status) {
 		return THREE_FEET_LAW_STATUS_LABELS[status] || 'Reference entry';
 	}
+	/** @type {any} */
 	const actionBlockTypes = [
 		'call_to_action',
 		'email_signup',
@@ -338,9 +416,15 @@
 		'updates',
 		'resources'
 	];
+	/**
+	 * @param {any} path
+	 */
 	function siteChildHref(path) {
 		return basePath ? `${basePath}${path}` : path;
 	}
+	/**
+	 * @param {any} block
+	 */
 	function blockActionHref(block) {
 		const configured = String(block?.button_url || '').trim();
 		const internalized = isTbagSite ? mapTbagLegacyUrl(configured) : configured;
@@ -364,10 +448,12 @@
 			return siteChildHref('/join');
 		return '';
 	}
+	/** @type {any} */
 	const heroActions = $derived.by(() => {
 		if (heroBlock?.button_label && heroBlock?.button_url) {
 			const href = blockActionHref(heroBlock);
 			if (!href) return [];
+			/** @type {any} */
 			const actions = [
 				{
 					label: heroBlock.button_label,
@@ -392,18 +478,27 @@
 		}
 		return currentPage?.is_home ? site.actions : [];
 	});
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return 'Soon';
 		const date = new Date(value);
 		if (Number.isNaN(date.getTime())) return 'Soon';
 		return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
 	}
+	/**
+	 * @param {any} value
+	 */
 	function formatTime(value) {
 		if (!value) return '';
 		const date = new Date(value);
 		if (Number.isNaN(date.getTime())) return '';
 		return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date);
 	}
+	/**
+	 * @param {any} link
+	 */
 	function contactLabel(link) {
 		if (!link?.key) return 'Link';
 		if (link.key === 'website') return 'Website';
@@ -411,6 +506,9 @@
 		if (link.key === 'phone') return link.label || 'Phone';
 		return link.key.charAt(0).toUpperCase() + link.key.slice(1);
 	}
+	/**
+	 * @param {any} ride
+	 */
 	function rideLeadImage(ride) {
 		return (
 			(ride?.imageUrls || ride?.rideDetails?.image_urls)?.[0] ||
@@ -419,6 +517,10 @@
 			''
 		);
 	}
+	/**
+	 * @param {any} index
+	 * @param {any} [items]
+	 */
 	function openLightbox(index, items = galleryImages) {
 		lightboxItems = items;
 		lightboxStartIndex = index;

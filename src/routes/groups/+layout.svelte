@@ -5,12 +5,18 @@
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconUsers from '@lucide/svelte/icons/users';
 
+	/** @type {Record<string, any>} */
 	let { data, children } = $props();
 
+	/** @type {any} */
 	const pathname = $derived(page.url.pathname);
+	/** @type {any} */
 	const currentGroup = $derived(data?.group ?? null);
+	/** @type {any} */
 	const ownedGroups = $derived((data?.groupsNavOwnedGroups ?? []).filter((group) => group?.slug));
+	/** @type {any} */
 	const currentGroupSlug = $derived(currentGroup?.slug ?? null);
+	/** @type {any} */
 	const currentGroupCanEdit = $derived(
 		Boolean(
 			currentGroupSlug &&
@@ -20,7 +26,9 @@
 		)
 	);
 
+	/** @type {any} */
 	const navSections = $derived.by(() => {
+		/** @type {any} */
 		const primaryItems = [
 			{
 				label: 'Browse Groups',
@@ -61,6 +69,7 @@
 			}
 		}
 
+		/** @type {any} */
 		const sections = [
 			{
 				label: '',
@@ -87,6 +96,9 @@
 		return sections;
 	});
 
+	/**
+	 * @param {any} item
+	 */
 	function isActive(item) {
 		if (!item?.href) return false;
 		if (item.match === 'prefix') {
@@ -95,6 +107,9 @@
 		return pathname === item.href;
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function itemClass(item) {
 		const base =
 			'inline-flex min-w-0 max-w-full items-center gap-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] whitespace-nowrap uppercase transition hover:no-underline';

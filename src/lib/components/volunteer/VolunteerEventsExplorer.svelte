@@ -12,6 +12,7 @@
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import { slide, fade } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let {
 		eventsData = [],
 		hostGroupsData = [],
@@ -25,24 +26,32 @@
 		createButtonHref = '/volunteer/new'
 	} = $props();
 
+	/** @type {any} */
 	const events = $derived((eventsData ?? []).filter(Boolean));
+	/** @type {any} */
 	const hostGroups = $derived((hostGroupsData ?? []).filter(Boolean));
+	/** @type {any} */
 	const eventTypes = $derived((eventTypesData ?? []).filter(Boolean));
+	/** @type {any} */
 	const hostOrgs = $derived((hostOrgsData ?? []).filter(Boolean));
+	/** @type {any} */
 	const opportunities = $derived((opportunitiesData ?? []).filter(Boolean));
 
+	/** @type {any} */
 	const hostGroupMap = $derived.by(() => {
 		const map = new Map();
 		for (const g of hostGroups) if (g?.id != null) map.set(String(g.id), g);
 		return map;
 	});
 
+	/** @type {any} */
 	const eventTypeMap = $derived.by(() => {
 		const map = new Map();
 		for (const t of eventTypes) if (t?.slug) map.set(t.slug, t);
 		return map;
 	});
 
+	/** @type {any} */
 	const hostOrgMap = $derived.by(() => {
 		const map = new Map();
 		for (const o of hostOrgs) {
@@ -51,10 +60,16 @@
 		}
 		return map;
 	});
+	/**
+	 * @param {any} id
+	 */
 	function getHostOrgNameById(id) {
 		const org = hostOrgMap.get(String(id));
 		return org?.name ?? org?.title ?? org?.org_name ?? '';
 	}
+	/**
+	 * @param {any} e
+	 */
 	function getHostOrgNameForEvent(e) {
 		const id = e?.host_org_id ?? e?.host_organization_id ?? e?.organization_id ?? e?.org_id ?? null;
 		if (id != null) {
@@ -64,13 +79,21 @@
 		return e?.host_org?.name ?? e?.host_org?.title ?? e?.host_org_name ?? '';
 	}
 
+	/** @type {any} */
 	let searchInput = $state('');
+	/** @type {any} */
 	let appliedSearch = $state('');
+	/** @type {any} */
 	let locationQ = $state('');
+	/** @type {any} */
 	let hostGroupId = $state('');
+	/** @type {any} */
 	let eventType = $state('');
+	/** @type {any} */
 	let view = $state('list');
+	/** @type {any} */
 	let mobileFiltersOpen = $state(false);
+	/** @type {any} */
 	let directoryTopEl = $state(null);
 
 	$effect(() => {
@@ -95,15 +118,24 @@
 		scrollToDirectory();
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function eventHostGroup(event) {
 		const id = event?.host_group_id;
 		return id != null ? hostGroupMap.get(String(id)) : undefined;
 	}
+	/**
+	 * @param {any} value
+	 */
 	function parseEventDate(value) {
 		if (!value) return null;
 		const d = new Date(value);
 		return Number.isNaN(d.getTime()) ? null : d;
 	}
+	/**
+	 * @param {any} group
+	 */
 	function hostGroupLocation(group) {
 		if (!group) return '';
 		return [group.city, group.state_region, group.country]
@@ -111,15 +143,24 @@
 			.filter(Boolean)
 			.join(', ');
 	}
+	/**
+	 * @param {any} event
+	 */
 	function eventLocation(event) {
 		if (event?.location_name) return event.location_name;
 		const g = eventHostGroup(event);
 		if (g?.city || g?.state_region || g?.country) return hostGroupLocation(g);
 		return event?.location_address || '';
 	}
+	/**
+	 * @param {any} event
+	 */
 	function eventTypeLabel(event) {
 		return eventTypeMap.get(event?.event_type_slug)?.event_type || '';
 	}
+	/**
+	 * @param {any} event
+	 */
 	function hostGroupLabel(event) {
 		return eventHostGroup(event)?.name || '';
 	}
@@ -127,6 +168,9 @@
 	const df = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
 	const tf = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' });
 
+	/**
+	 * @param {any} event
+	 */
 	function eventTimeRange(event) {
 		const start = parseEventDate(event?.event_start);
 		const end = parseEventDate(event?.event_end);
@@ -141,6 +185,9 @@
 		return `${df.format(start)} ${tf.format(start)} → ${df.format(end)} ${tf.format(end)}`.trim();
 	}
 
+	/**
+	 * @param {any} e
+	 */
 	function coordsFor(e) {
 		if (e?.latitude != null && e?.longitude != null)
 			return [Number(e.latitude), Number(e.longitude)];
@@ -150,10 +197,12 @@
 		return null;
 	}
 
+	/** @type {any} */
 	const indexedEvents = $derived(
 		events.map((e) => {
 			const g = eventHostGroup(e);
 			const hostOrgName = getHostOrgNameForEvent(e);
+			/** @type {any} */
 			const searchBlob = [
 				e.title,
 				e.summary,
@@ -184,26 +233,34 @@
 		})
 	);
 
+	/** @type {any} */
 	const normalizedSearch = $derived(appliedSearch.trim().toLowerCase());
+	/** @type {any} */
 	const normalizedLocation = $derived(locationQ.trim().toLowerCase());
+	/** @type {any} */
 	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
+	/** @type {any} */
 	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
 
 	const currentTime = new Date();
 
+	/** @type {any} */
 	const sortedEvents = $derived(
 		[...indexedEvents].sort((a, b) => {
+			/** @type {any} */
 			const aS = parseEventDate(a?.event_start) ?? new Date(0);
+			/** @type {any} */
 			const bS = parseEventDate(b?.event_start) ?? new Date(0);
 			return aS - bS;
 		})
 	);
 
+	/** @type {any} */
 	const filteredEvents = $derived(
 		sortedEvents.filter((e) => {
 			const start = parseEventDate(e?.event_start);
 			const end = parseEventDate(e?.event_end) ?? start;
-			if (!start || end < currentTime) return false;
+			if (!start || /** @type {any} */ (end) < currentTime) return false;
 
 			if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
 			if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
@@ -216,12 +273,17 @@
 			return true;
 		})
 	);
+	/** @type {any} */
 	const totalUpcoming = $derived(filteredEvents.length);
 
+	/**
+	 * @param {any} date
+	 */
 	function toDateKey(date) {
 		if (!date) return '';
 		return date.toISOString().slice(0, 10);
 	}
+	/** @type {any} */
 	const eventsByDate = $derived(
 		filteredEvents.reduce((acc, e) => {
 			const key = toDateKey(parseEventDate(e.event_start));
@@ -231,6 +293,9 @@
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
+	/**
+	 * @param {any} date
+	 */
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
@@ -240,22 +305,29 @@
 		return start ? startOfMonth(start) : startOfMonth(new Date());
 	}
 
+	/** @type {any} */
 	let calendarReference = $state(earliestEventMonth());
+	/**
+	 * @param {any} offset
+	 */
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
 	}
 
+	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, eventsByDate, toDateKey));
 
 	const calendarDayFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' });
+	/** @type {any} */
 	const calendarHeaderText = $derived.by(() => {
 		const monthLabel = new Intl.DateTimeFormat(undefined, {
 			month: 'long',
 			year: 'numeric'
 		}).format(calendarReference);
 
+		/** @type {any} */
 		let earliestEvent = null;
 		for (const week of calendarMatrix) {
 			for (const day of week) {
@@ -276,13 +348,18 @@
 		return monthLabel;
 	});
 
+	/** @type {any} */
 	const mobileMonthDays = $derived(
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
+	/** @type {any} */
 	let mapContainer = $state(null);
+	/** @type {any} */
 	let leafletModule = $state(null);
+	/** @type {any} */
 	let mapInstance = $state(null);
+	/** @type {any} */
 	let markerLayer = $state(null);
 
 	async function ensureMap() {
@@ -317,6 +394,7 @@
 	function updateMarkers() {
 		if (!browser || !leafletModule || !mapInstance || !markerLayer) return;
 		markerLayer.clearLayers();
+		/** @type {any} */
 		const pts = [];
 		for (const e of filteredEvents) {
 			const coords = e._coords;
@@ -374,6 +452,7 @@
 		}
 	});
 
+	/** @type {any} */
 	const heroStats = $derived([
 		{ value: totalUpcoming, label: 'Upcoming events', tone: 'text-primary-500' },
 		{ value: hostGroups.length, label: 'Host groups', tone: 'text-tertiary-500' },
@@ -800,7 +879,7 @@
 											href={`/volunteer/${event.slug}`}
 										>
 											<span class="text-primary-500 font-mono text-xs">
-												{tf.format(parseEventDate(event.event_start))} -
+												{tf.format(/** @type {any} */ (parseEventDate)(event.event_start))} -
 											</span>
 											{event.title}
 										</a>
@@ -854,7 +933,7 @@
 															href={`/volunteer/${event.slug}`}
 														>
 															<span class="font-mono text-[10px]">
-																{tf.format(parseEventDate(event.event_start))} -
+																{tf.format(/** @type {any} */ (parseEventDate)(event.event_start))} -
 															</span>
 															{event.title}
 														</a>
@@ -869,7 +948,7 @@
 													items={day.items.map((event) => ({
 														href: `/volunteer/${event.slug}`,
 														title: event.title,
-														time: tf.format(parseEventDate(event.event_start))
+														time: tf.format(/** @type {any} */ (parseEventDate)(event.event_start))
 													}))}
 												/>
 											{/if}

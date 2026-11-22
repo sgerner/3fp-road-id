@@ -166,6 +166,7 @@ test('Mercury internal transfers pair only when both completed sides match exact
 	assert.deepEqual(mercuryInternalTransferPairs([outgoing, incoming]), [
 		{ outgoingFeedItemId: 'feed-out', incomingFeedItemId: 'feed-in' }
 	]);
+	/** @type {any} */
 	const nestedOwner = {
 		...outgoing,
 		raw: { ...outgoing.raw, account: { id: 'mercury-checking' } }

@@ -285,6 +285,9 @@ export async function fetchManagedFacebookPages(userAccessToken) {
 	return Array.isArray(response?.data) ? response.data : [];
 }
 
+/**
+ * @param {{ userAccessToken?: string, scopes?: string[] }} [options]
+ */
 export async function resolveFacebookAccountConnection({ userAccessToken, scopes = [] } = {}) {
 	const userProfile = await fetchMetaUserProfile(userAccessToken);
 	const pages = await fetchManagedFacebookPages(userAccessToken);
@@ -316,6 +319,9 @@ export async function resolveFacebookAccountConnection({ userAccessToken, scopes
 	};
 }
 
+/**
+ * @param {{ userAccessToken?: string, scopes?: string[] }} [options]
+ */
 export async function resolveInstagramAccountConnection({ userAccessToken, scopes = [] } = {}) {
 	const profile = await fetchInstagramLoginProfile(userAccessToken);
 	const igAccountId = cleanText(profile?.id || profile?.userId, 120);
@@ -345,6 +351,9 @@ export async function resolveInstagramAccountConnection({ userAccessToken, scope
 	};
 }
 
+/**
+ * @param {{ userAccessToken?: string, scopes?: string[] }} [options]
+ */
 export async function listFacebookConnectionOptions({ userAccessToken, scopes = [] } = {}) {
 	const userProfile = await fetchMetaUserProfile(userAccessToken);
 	const pages = await fetchManagedFacebookPages(userAccessToken);
@@ -371,6 +380,9 @@ export async function listFacebookConnectionOptions({ userAccessToken, scopes = 
 		.filter((entry) => entry.option_id);
 }
 
+/**
+ * @param {{ userAccessToken?: string, scopes?: string[] }} [options]
+ */
 export async function listInstagramConnectionOptions({ userAccessToken, scopes = [] } = {}) {
 	const profile = await fetchInstagramLoginProfile(userAccessToken);
 	const igAccountId = cleanText(profile?.id || profile?.userId, 120);

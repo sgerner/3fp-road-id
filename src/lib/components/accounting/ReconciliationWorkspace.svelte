@@ -8,64 +8,102 @@
 
 	let { data, cashAccounts, today, accountLabel, formatDate, formatCents } = $props();
 
+	/** @type {any} */
 	const feedItems = $derived(
 		Array.isArray(data.reconciliation_feed_items) ? data.reconciliation_feed_items : []
 	);
+	/** @type {any} */
 	const ledgerEntries = $derived(
 		Array.isArray(data.reconciliation_entries) ? data.reconciliation_entries : []
 	);
+	/** @type {any} */
 	const reconciliations = $derived(Array.isArray(data.reconciliations) ? data.reconciliations : []);
+	/** @type {any} */
 	const storedStatementLines = $derived(
 		Array.isArray(data.reconciliation_statement_lines) ? data.reconciliation_statement_lines : []
 	);
+	/** @type {any} */
 	const storedMatches = $derived(
 		Array.isArray(data.reconciliation_matches) ? data.reconciliation_matches : []
 	);
+	/** @type {any} */
 	let accountId = $state('');
+	/** @type {any} */
 	let statementStartingDate = $state('');
+	/** @type {any} */
 	let statementEndingDate = $state('');
+	/** @type {any} */
 	let openingBalance = $state('');
+	/** @type {any} */
 	let endingBalance = $state('');
+	/** @type {any} */
 	let verificationMode = $state('statement');
+	/** @type {any} */
 	let statementCurrency = $state('');
+	/** @type {any} */
 	let balanceOnlyAttestation = $state(false);
+	/** @type {any} */
 	let workspaceDraftId = $state('');
+	/** @type {any} */
 	let workspaceLines = $state([]);
+	/** @type {any} */
 	let manualFeedItemIds = $state([]);
+	/** @type {any} */
 	let manualLedgerEntryIds = $state([]);
+	/** @type {any} */
 	let workspaceBusy = $state('');
+	/** @type {any} */
 	let workspaceNotice = $state('');
+	/** @type {any} */
 	let workspaceError = $state('');
+	/** @type {any} */
 	let expandedReconciliationId = $state('');
+	/** @type {any} */
 	let selectedStatementFile = $state(null);
+	/** @type {any} */
 	let statementPreviewUrl = $state('');
+	/** @type {any} */
 	let aiShareOptIn = $state(false);
+	/** @type {any} */
 	let analysisWarnings = $state([]);
+	/** @type {any} */
 	let analysisDiscrepancies = $state([]);
+	/** @type {any} */
 	let analysisSummaryText = $state('');
+	/** @type {any} */
 	let analysisArithmetic = $state(null);
+	/** @type {any} */
 	let prefetchedAccountId = $state('');
+	/** @type {any} */
 	let statementModeLocked = $state(false);
+	/** @type {any} */
 	let workspaceClosed = $state(false);
+	/** @type {any} */
 	let workspaceDirty = $state(false);
 
+	/** @type {any} */
 	const selectedAccount = $derived(
 		cashAccounts.find((account) => account.id === accountId) || null
 	);
+	/** @type {any} */
 	const groupCurrency = $derived(String(data.settings?.currency || 'USD').toUpperCase());
+	/** @type {any} */
 	const effectiveStatementCurrency = $derived(
 		String(statementCurrency || groupCurrency).toUpperCase()
 	);
+	/** @type {any} */
 	const currencyMismatch = $derived(
 		effectiveStatementCurrency !== groupCurrency ||
 			workspaceLines.some(
 				(line) => line.currency && String(line.currency).toUpperCase() !== groupCurrency
 			)
 	);
+	/** @type {any} */
 	const liabilityAccount = $derived(
 		selectedAccount?.kind === 'liability' || selectedAccount?.normal_side === 'credit'
 	);
 
+	/** @type {any} */
 	const workspaceFeedCandidates = $derived(
 		feedItems
 			.filter((item) => item.account_id === accountId && !item.cleared_at)
@@ -79,6 +117,7 @@
 				String(right.transaction_date || '').localeCompare(String(left.transaction_date || ''))
 			)
 	);
+	/** @type {any} */
 	const workspaceLedgerCandidates = $derived(
 		ledgerEntries
 			.filter((entry) => ['posted', 'void'].includes(entry.status))
@@ -91,6 +130,7 @@
 				String(right.entry_date || '').localeCompare(String(left.entry_date || ''))
 			)
 	);
+	/** @type {any} */
 	const statementLinePayload = $derived(
 		JSON.stringify(
 			workspaceLines.map((line) => ({
@@ -124,6 +164,7 @@
 			}))
 		)
 	);
+	/** @type {any} */
 	const chosenFeedItemIds = $derived(
 		verificationMode === 'balance_only'
 			? [...new Set(manualFeedItemIds)]
@@ -132,6 +173,7 @@
 					.map((line) => line.feedItemId)
 					.filter((id, index, ids) => ids.indexOf(id) === index)
 	);
+	/** @type {any} */
 	const chosenLedgerEntryIds = $derived(
 		verificationMode === 'balance_only'
 			? [...new Set(manualLedgerEntryIds)]
@@ -140,18 +182,23 @@
 					.map((line) => line.entryId)
 					.filter((id, index, ids) => ids.indexOf(id) === index)
 	);
+	/** @type {any} */
 	const matchedLineCount = $derived(
 		workspaceLines.filter((line) => line.resolution === 'matched' && line.entryId).length
 	);
+	/** @type {any} */
 	const excludedLineCount = $derived(
 		workspaceLines.filter((line) => ['excluded', 'ignored'].includes(line.resolution)).length
 	);
+	/** @type {any} */
 	const approvedExceptionCount = $derived(
 		workspaceLines.filter((line) => line.resolution === 'excluded').length
 	);
+	/** @type {any} */
 	const ignoredLineCount = $derived(
 		workspaceLines.filter((line) => line.resolution === 'ignored').length
 	);
+	/** @type {any} */
 	const outstandingLines = $derived(
 		workspaceLines.filter(
 			(line) =>
@@ -159,9 +206,11 @@
 				!(line.resolution === 'matched' && line.entryId)
 		)
 	);
+	/** @type {any} */
 	const excludedLines = $derived(
 		workspaceLines.filter((line) => ['excluded', 'ignored'].includes(line.resolution))
 	);
+	/** @type {any} */
 	const incompleteLines = $derived(
 		workspaceLines.filter((line) =>
 			line.resolution === 'ignored'
@@ -173,30 +222,36 @@
 						(!line.excludeReason.trim() || line.feedItemId || line.entryId))
 		)
 	);
+	/** @type {any} */
 	const exceptionMatchConflict = $derived(
 		workspaceLines.some(
 			(line) =>
 				['excluded', 'ignored'].includes(line.resolution) && (line.feedItemId || line.entryId)
 		)
 	);
+	/** @type {any} */
 	const unmatchedFeedCandidates = $derived(
 		workspaceFeedCandidates.filter(
 			(item) =>
 				!workspaceLines.some((line) => line.resolution === 'matched' && line.feedItemId === item.id)
 		)
 	);
+	/** @type {any} */
 	const unmatchedLedgerCandidates = $derived(
 		workspaceLedgerCandidates.filter(
 			(entry) =>
 				!workspaceLines.some((line) => line.resolution === 'matched' && line.entryId === entry.id)
 		)
 	);
+	/** @type {any} */
 	const selectedFeedRows = $derived(
 		chosenFeedItemIds.map((id) => feedItems.find((item) => item.id === id)).filter(Boolean)
 	);
+	/** @type {any} */
 	const selectedLedgerRows = $derived(
 		chosenLedgerEntryIds.map((id) => ledgerEntries.find((entry) => entry.id === id)).filter(Boolean)
 	);
+	/** @type {any} */
 	const statementActivityCents = $derived(
 		workspaceLines.reduce(
 			(total, line) =>
@@ -204,6 +259,7 @@
 			0
 		)
 	);
+	/** @type {any} */
 	const rollforwardDifference = $derived.by(() => {
 		if (
 			openingBalance === '' ||
@@ -212,7 +268,10 @@
 			workspaceLines.some((line) => line.resolution !== 'ignored' && line.amount === '')
 		)
 			return null;
-		return amountToCents(endingBalance) - (amountToCents(openingBalance) + statementActivityCents);
+		return (
+			/** @type {any} */ (amountToCents)(endingBalance) -
+			(amountToCents(openingBalance) + statementActivityCents)
+		);
 	});
 
 	$effect(() => {
@@ -248,18 +307,27 @@
 		}
 	});
 
+	/**
+	 * @param {any} value
+	 */
 	function amountToCents(value) {
 		if (value == null || value === '') return null;
 		const amount = Number(value);
 		return Number.isFinite(amount) ? Math.round(amount * 100) : null;
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function centsToInput(value) {
 		if (value == null || value === '') return '';
 		const amount = Number(value);
 		return Number.isFinite(amount) ? (amount / 100).toFixed(2) : '';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function nextDate(value) {
 		if (!value) return '';
 		const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -268,6 +336,10 @@
 		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 	}
 
+	/**
+	 * @param {any} value
+	 * @param {any} days
+	 */
 	function daysBefore(value, days) {
 		if (!value) return '';
 		const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -276,12 +348,18 @@
 		return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function confidenceLabel(value) {
 		const confidence = Number(value);
 		if (!Number.isFinite(confidence)) return '';
 		return `${Math.round(confidence <= 1 ? confidence * 100 : confidence)}% confidence`;
 	}
 
+	/**
+	 * @param {any} arithmetic
+	 */
 	function arithmeticLabel(arithmetic) {
 		if (!arithmetic) return '';
 		if (typeof arithmetic === 'string') return arithmetic;
@@ -299,6 +377,10 @@
 		return `Opening ${opening == null ? '—' : formatCents(opening)} + activity ${activity == null ? '—' : formatCents(activity)} = ending ${ending == null ? '—' : formatCents(ending)}${difference == null ? '' : ` · difference ${formatCents(difference)}`}`;
 	}
 
+	/**
+	 * @param {any} [line]
+	 * @param {any} [match]
+	 */
 	function makeLine(line = {}, match = {}) {
 		const clientId = String(line.clientId || line.client_id || line.id || cryptoId());
 		const amountCents = line.amountCents ?? line.amount_cents;
@@ -375,6 +457,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function onStatementFileChange(event) {
 		const file = event.currentTarget.files?.[0] || null;
 		selectedStatementFile = file;
@@ -402,6 +487,9 @@
 		workspaceDirty = true;
 	}
 
+	/**
+	 * @param {any} clientId
+	 */
 	function removeLine(clientId) {
 		workspaceLines = workspaceLines.filter((line) => line.clientId !== clientId);
 		workspaceDirty = true;
@@ -411,6 +499,9 @@
 		workspaceDirty = true;
 	}
 
+	/**
+	 * @param {any} reconciliationId
+	 */
 	function storedLinesFor(reconciliationId) {
 		return storedStatementLines
 			.filter((line) => (line.reconciliation_id || line.reconciliationId) === reconciliationId)
@@ -424,6 +515,9 @@
 			});
 	}
 
+	/**
+	 * @param {any} reconciliation
+	 */
 	function openReconciliation(reconciliation) {
 		statementCurrency = String(
 			reconciliation.statement_currency || reconciliation.currency || groupCurrency
@@ -483,7 +577,7 @@
 		statementPreviewUrl = '';
 		selectedStatementFile = null;
 		const fileInput = globalThis.document?.getElementById('reconciliation-statement-file');
-		if (fileInput) fileInput.value = '';
+		if (fileInput instanceof HTMLInputElement) fileInput.value = '';
 		const previous = reconciliations
 			.filter(
 				(item) => (item.account_id || item.account?.id) === accountId && item.status === 'completed'
@@ -525,6 +619,9 @@
 		workspaceError = '';
 	}
 
+	/**
+	 * @param {any} analysis
+	 */
 	function applyAnalysis(analysis) {
 		const extractedLines = Array.isArray(analysis?.statementLines) ? analysis.statementLines : [];
 		const recommendations = Array.isArray(analysis?.matches) ? analysis.matches : [];
@@ -625,6 +722,9 @@
 		workspaceError = '';
 	}
 
+	/** @type {any} */
+	const handleEnhanceWorkspace = enhanceWorkspace;
+
 	function enhanceWorkspace() {
 		return ({ submitter, cancel }) => {
 			const action = submitter?.formAction || '';
@@ -656,7 +756,7 @@
 							const fileInput = globalThis.document?.getElementById(
 								'reconciliation-statement-file'
 							);
-							if (fileInput) fileInput.value = '';
+							if (fileInput instanceof HTMLInputElement) fileInput.value = '';
 							workspaceDirty = false;
 							workspaceNotice =
 								verificationMode === 'statement' &&
@@ -695,6 +795,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} reconciliationId
+	 */
 	function enhanceReopen(reconciliationId) {
 		return () =>
 			async ({ result, update }) => {
@@ -709,10 +812,18 @@
 			};
 	}
 
+	/**
+	 * @param {any} id
+	 * @param {any} list
+	 * @param {any} assign
+	 */
 	function removeSelected(id, list, assign) {
 		assign(list.filter((value) => value !== id));
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function feedLabel(item) {
 		const amount = liabilityAccount
 			? -Number(item.amount_cents || 0)
@@ -724,6 +835,9 @@
 		return `${formatDate(item.transaction_date)} · ${item.description || 'Bank activity'} · ${formatCents(amount)}${earlier}`;
 	}
 
+	/**
+	 * @param {any} candidate
+	 */
 	function matchCandidateLabel(candidate) {
 		const feedId =
 			candidate.feedItemId ||
@@ -757,6 +871,10 @@
 		);
 	}
 
+	/**
+	 * @param {any} line
+	 * @param {any} candidate
+	 */
 	function chooseSuggestedCandidate(line, candidate) {
 		const suggested = candidate.suggestedMatch || candidate.suggested_match || candidate;
 		const candidateId = suggested.id || candidate.id;
@@ -788,6 +906,9 @@
 		// Keep the line outstanding. The user must explicitly mark it Matched to approve clearing.
 	}
 
+	/**
+	 * @param {any} entry
+	 */
 	function ledgerLabel(entry) {
 		const accountLines = (entry.lines ?? []).filter((line) => line.account_id === accountId);
 		const amount =
@@ -807,6 +928,9 @@
 		return `${formatDate(entry.entry_date)} · ${entry.description || 'Ledger activity'} · ${formatCents(amount)}${earlier}`;
 	}
 
+	/**
+	 * @param {any} discrepancy
+	 */
 	function discrepancyLineLabel(discrepancy) {
 		const id = discrepancy.statementLineId || discrepancy.statement_line_id || '';
 		const line = workspaceLines.find(
@@ -849,7 +973,7 @@
 
 	<form
 		method="POST"
-		use:enhance={enhanceWorkspace}
+		use:enhance={handleEnhanceWorkspace}
 		enctype="multipart/form-data"
 		action="?/saveReconciliationDraft"
 		class="card preset-tonal-surface border-surface-500/10 space-y-5 border p-4 sm:p-6"

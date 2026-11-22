@@ -262,10 +262,29 @@ function uniqueBlockId(candidate, type, usedIds, index) {
 	return id;
 }
 
+/**
+ * @typedef {{
+ *   id: string,
+ *   type: string,
+ *   eyebrow: string,
+ *   title: string,
+ *   body: string,
+ *   button_label: string,
+ *   button_url: string,
+ *   gallery_source_page?: string
+ * }} GroupSiteBlock
+ */
+
+/**
+ * @param {string} type
+ * @param {{ id?: string, overrides?: Record<string, any> }} [options]
+ * @returns {GroupSiteBlock | null}
+ */
 export function createGroupSiteBlock(type, { id = '', overrides = {} } = {}) {
 	const definition = GROUP_SITE_BLOCK_TYPES[type];
 	if (!definition) return null;
 	const defaults = blockDefaults(type);
+	/** @type {GroupSiteBlock} */
 	const block = {
 		id: cleanText(id, 80) || (definition.singleton ? canonicalBlockId(type) : ''),
 		type,
@@ -283,6 +302,10 @@ export function createGroupSiteBlock(type, { id = '', overrides = {} } = {}) {
 	return block;
 }
 
+/**
+ * @param {{ sections?: Record<string, any>, rideWidgetEnabled?: boolean }} [options]
+ * @returns {GroupSiteBlock[]}
+ */
 export function buildDefaultGroupSiteBlocks({ sections = {}, rideWidgetEnabled = false } = {}) {
 	const includeEvents =
 		sections.rides !== false || sections.volunteer !== false || sections.news !== false;
@@ -295,9 +318,14 @@ export function buildDefaultGroupSiteBlocks({ sections = {}, rideWidgetEnabled =
 		sections.contact === false ? null : createGroupSiteBlock('contact'),
 		createGroupSiteBlock('sponsors'),
 		createGroupSiteBlock('donation')
-	].filter(Boolean);
+	].filter(/** @returns {block is GroupSiteBlock} */ (block) => Boolean(block));
 }
 
+/**
+ * @param {any} value
+ * @param {{ sections?: Record<string, any>, rideWidgetEnabled?: boolean }} [options]
+ * @returns {GroupSiteBlock[]}
+ */
 export function normalizeGroupSiteBlocks(value, { sections = {}, rideWidgetEnabled = false } = {}) {
 	let source = value;
 	if (typeof source === 'string') {
@@ -313,6 +341,7 @@ export function normalizeGroupSiteBlocks(value, { sections = {}, rideWidgetEnabl
 
 	const usedIds = new Set();
 	const usedSingletons = new Set();
+	/** @type {GroupSiteBlock[]} */
 	const normalized = [];
 	for (const [index, entry] of source.entries()) {
 		if (normalized.length >= GROUP_SITE_BLOCK_LIMIT) break;
@@ -322,30 +351,51 @@ export function normalizeGroupSiteBlocks(value, { sections = {}, rideWidgetEnabl
 		if (!definition || (definition.singleton && usedSingletons.has(type))) continue;
 		if (definition.singleton) usedSingletons.add(type);
 		const block = createGroupSiteBlock(type, { overrides: entry });
+		if (!block) continue;
 		block.id = uniqueBlockId(entry.id, type, usedIds, index);
 		normalized.push(block);
 	}
 
-	const hero = normalized.find((block) => block.type === 'hero') || createGroupSiteBlock('hero');
+	const hero =
+		normalized.find((block) => block.type === 'hero') ||
+		/** @type {GroupSiteBlock} */ (createGroupSiteBlock('hero'));
 	return [hero, ...normalized.filter((block) => block.type !== 'hero')].slice(
 		0,
 		GROUP_SITE_BLOCK_LIMIT
 	);
 }
 
+/**
+ * @param {any} blocks
+ * @param {string} type
+ * @returns {GroupSiteBlock | null}
+ */
 export function groupSiteBlockAt(blocks, type) {
 	return (Array.isArray(blocks) ? blocks : []).find((block) => block?.type === type) || null;
 }
 
+/**
+ * @param {any} blocks
+ * @param {string} type
+ * @param {number} [fallback]
+ */
 export function groupSiteBlockOrder(blocks, type, fallback = 100) {
 	const index = (Array.isArray(blocks) ? blocks : []).findIndex((block) => block?.type === type);
 	return index < 0 ? fallback : index;
 }
 
+/**
+ * @param {any} blocks
+ * @param {string} type
+ */
 export function hasGroupSiteBlock(blocks, type) {
 	return groupSiteBlockOrder(blocks, type, -1) >= 0;
 }
 
+/**
+ * @param {any} blocks
+ * @param {Record<string, any>} [previousSections]
+ */
 export function deriveLegacySiteVisibility(blocks, previousSections = {}) {
 	const hasEvents = hasGroupSiteBlock(blocks, 'events');
 	return {

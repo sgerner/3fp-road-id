@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { merchCart } from '#lib/merch/cart';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 	let refreshing = $state(false);
 

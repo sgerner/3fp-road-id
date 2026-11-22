@@ -42,6 +42,7 @@
 		return data ?? {};
 	}
 	const pageData = getPageData();
+	const currentUser = $derived(/** @type {any} */ (data)?.session?.user ?? data?.user ?? null);
 
 	const event = pageData.event ?? {};
 	const opportunitiesRaw = pageData.opportunities ?? [];
@@ -211,20 +212,26 @@
 		const title = opportunity?.title?.trim() || 'Volunteer activity';
 		const shifts = coerceArray(opportunity?.shifts)
 			.map((shift) => normalizeShift(opportunity, shift))
-			.filter(Boolean);
+			.filter((shift) => shift !== null);
 		return { id, title, shifts };
 	});
 
 	const shiftMap = new SvelteMap(
 		opportunityGroups
-			.flatMap((group) => group.shifts.map((shift) => [shift.id, { ...shift, groupId: group.id }]))
-			.filter(([key]) => key)
+			.flatMap((group) =>
+				group.shifts.map(
+					(shift) => /** @type {[string, any]} */ ([shift.id, { ...shift, groupId: group.id }])
+				)
+			)
+			.filter(([key]) => Boolean(key))
 	);
 
 	const rawOpportunityMap = new SvelteMap(
 		opportunitiesRaw
-			.map((opportunity) => [String(opportunity?.id ?? ''), opportunity])
-			.filter(([key]) => key && key !== 'null' && key !== 'undefined')
+			.map(
+				(opportunity) => /** @type {[string, any]} */ ([String(opportunity?.id ?? ''), opportunity])
+			)
+			.filter(([key]) => Boolean(key) && key !== 'null' && key !== 'undefined')
 	);
 
 	const rawShiftMap = new SvelteMap();
@@ -335,7 +342,7 @@
 			hostNotificationSettings = previous;
 			toaster.error({
 				title: 'Update failed',
-				message: error?.message || 'Unable to update notification preferences.'
+				description: error?.message || 'Unable to update notification preferences.'
 			});
 		} finally {
 			hostNotificationSaving = false;
@@ -519,7 +526,9 @@
 	});
 
 	let volunteers = $state(initialVolunteers);
+	/** @type {string[]} */
 	let activityLog = $state([]);
+	/** @type {any[]} */
 	let emailQueue = $state([]);
 	let emailQueueSending = $state(false);
 	let emailQueueError = $state('');
@@ -567,6 +576,7 @@
 
 	function removeEmailFromQueue(queueId) {
 		if (!queueId) return;
+		/** @type {any} */
 		let removed = null;
 		emailQueue = emailQueue.filter((entry) => {
 			if (entry.id === queueId) removed = entry;
@@ -616,7 +626,7 @@
 		return fallbackEmail;
 	}
 
-	function buildShiftStatusEmailDetails({ volunteer, assignment, statusOverride }) {
+	function buildShiftStatusEmailDetails({ volunteer, assignment, statusOverride = undefined }) {
 		if (!assignment?.shiftId) return null;
 
 		const targetStatus = statusOverride
@@ -819,6 +829,7 @@
 			const updatedAssignment = normalizeAssignment(
 				response?.data ?? response ?? { ...assignmentToUpdate, status }
 			);
+			if (!updatedAssignment) return;
 
 			const nextAssignments = volunteerToUpdate.assignments.map((a) =>
 				a.id === assignmentId ? updatedAssignment : a
@@ -1236,7 +1247,7 @@
 
 	const activityFilterOptions = opportunityGroups
 		.filter((group) => group.id && group.shifts.length)
-		.map((group) => ({ value: group.id, label: group.title }));
+		.map((group) => ({ value: String(group.id), label: group.title }));
 
 	const initialActivity =
 		activityFilterOptions.length === 1 ? activityFilterOptions[0].value : 'all';
@@ -1351,7 +1362,7 @@
 							if (!assignmentsForShift.length) return null;
 							return { volunteer, assignments: assignmentsForShift };
 						})
-						.filter(Boolean);
+						.filter((entry) => entry !== null);
 
 					const totals = shiftAssignments.reduce(
 						(accumulator, entry) => {
@@ -1632,7 +1643,7 @@
 					tags: [
 						{ Name: 'context', Value: 'volunteer-manager' },
 						event?.id ? { Name: 'volunteer_event_id', Value: String(event.id) } : null
-					].filter(Boolean)
+					].filter((tag) => tag !== null)
 				});
 				sentCount += 1;
 			} catch (error) {
@@ -1807,7 +1818,7 @@
 				shiftFilters={shiftFilterOptions}
 				shifts={shiftOptions}
 				profiles={profileRecords}
-				eventId={event?.id}
+				eventId={event?.id ? String(event.id) : undefined}
 				{selectedStatus}
 				selectedActivity={selectedActivityId}
 				selectedShift={selectedShiftId}
@@ -1874,13 +1885,7 @@
 
 	{#if activeSection === 'hosts'}
 		<section id="section-hosts" transition:slide>
-			<EventHostManagement
-				{event}
-				{groupOwners}
-				hosts={eventHosts}
-				{primaryHost}
-				currentUser={data.session?.user}
-			/>
+			<EventHostManagement {event} {groupOwners} hosts={eventHosts} {primaryHost} {currentUser} />
 		</section>
 	{/if}
 </div>

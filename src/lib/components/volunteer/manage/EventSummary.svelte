@@ -7,6 +7,8 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 
 	export let title = 'Volunteer Event Management';
+	export let status = '';
+	$: void status;
 	export let schedule = '';
 	export let location = '';
 	export let description = '';

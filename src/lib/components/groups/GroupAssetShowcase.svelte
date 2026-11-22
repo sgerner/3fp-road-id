@@ -83,7 +83,7 @@
 	}
 
 	function panelHref(panelSlug) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('panel', panelSlug);
 		const trimmedQuery = quickSearch.trim();
 		if (trimmedQuery) {
@@ -114,15 +114,15 @@
 	}
 
 	async function closePanel() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.delete('panel');
 		url.searchParams.delete('q');
-		await goto(`${url.pathname}${url.search}`, { keepFocus: true, noScroll: true });
+		await goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 
 	async function openSearchPanel(event) {
 		event.preventDefault();
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('panel', 'all');
 		const query = quickSearch.trim();
 		if (query) {
@@ -130,7 +130,7 @@
 		} else {
 			url.searchParams.delete('q');
 		}
-		await goto(`${url.pathname}${url.search}`, { keepFocus: true, noScroll: true });
+		await goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 
 	function hasAnyMatches(query) {

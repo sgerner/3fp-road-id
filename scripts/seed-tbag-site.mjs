@@ -316,9 +316,10 @@ function extractSourcePageMedia(pageSlug, html) {
 	const seen = new Set();
 	return findAll((element) => getName(element) === 'img', [content])
 		.map((element, index) => {
+			const parentElement = element.parent && 'attribs' in element.parent ? element.parent : null;
 			const linkedSource =
-				element.parent && getName(element.parent) === 'a'
-					? getAttributeValue(element.parent, 'href')
+				parentElement && getName(parentElement) === 'a'
+					? getAttributeValue(parentElement, 'href')
 					: '';
 			const sourceCandidates = [linkedSource, getAttributeValue(element, 'src')];
 			const sourceUrl = sourceCandidates
@@ -333,7 +334,7 @@ function extractSourcePageMedia(pageSlug, html) {
 				pageSlug
 			];
 		})
-		.filter(Boolean);
+		.filter((entry) => entry !== null);
 }
 
 async function crawlSourcePageMedia() {

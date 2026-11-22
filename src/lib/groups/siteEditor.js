@@ -25,6 +25,11 @@ export function siteEditorConfigFingerprint(value) {
 	return JSON.stringify(sortSiteEditorValue(value || {}));
 }
 
+/**
+ * @param {Record<string, any>} [defaultConfig]
+ * @param {Record<string, any>} [savedConfig]
+ * @returns {Record<string, any>}
+ */
 export function mergeGroupSiteEditorConfig(defaultConfig = {}, savedConfig = {}) {
 	const defaults = structuredClone(defaultConfig || {});
 	const saved = structuredClone(savedConfig || {});

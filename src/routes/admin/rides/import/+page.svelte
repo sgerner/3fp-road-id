@@ -5,6 +5,7 @@
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import AdminNotice from '#lib/components/admin/AdminNotice.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
 	const values = $derived(form?.values ?? data.initialValues);

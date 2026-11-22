@@ -6,6 +6,7 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import { siteEditorConfigFingerprint } from '#lib/groups/siteEditor';
 
+	/** @type {Record<string, any>} */
 	let { groupSlug, currentConfig = {}, onapplied = () => {} } = $props();
 	const starter =
 		'Tell me the feeling you want visitors to get. I can rewrite the page, choose a visual direction, and organize the sections.';
@@ -19,6 +20,7 @@
 	let sending = $state(false);
 	let applying = $state(false);
 	let error = $state('');
+	/** @type {any} */
 	let proposal = $state(null);
 	let transcript;
 	const canSend = $derived(Boolean(input.trim()) && !sending);

@@ -4,6 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
 	const showSaved = $derived(page.url.searchParams.get('saved') === '1');

@@ -5,13 +5,20 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 
+	/** @type {Record<string, any>} */
 	let { children } = $props();
 
+	/** @type {any} */
 	const pathname = $derived(page.url.pathname);
+	/** @type {any} */
 	const currentUser = $derived(page.data?.currentUser ?? null);
+	/** @type {any} */
 	const currentRide = $derived(page.data?.ride ?? null);
+	/** @type {any} */
 	const currentRideSlug = $derived(currentRide?.activity?.slug ?? null);
+	/** @type {any} */
 	const isWidgetFrame = $derived(pathname.startsWith('/ride/widget/frame'));
+	/** @type {any} */
 	const canManageCurrentRide = $derived(
 		Boolean(
 			currentRideSlug &&
@@ -21,7 +28,9 @@
 		)
 	);
 
+	/** @type {any} */
 	const navSections = $derived.by(() => {
+		/** @type {any} */
 		const sections = [
 			{
 				label: '',
@@ -40,6 +49,7 @@
 			}
 		];
 
+		/** @type {any} */
 		const actionSection = {
 			label: '',
 			items: []
@@ -79,6 +89,9 @@
 		return sections;
 	});
 
+	/**
+	 * @param {any} item
+	 */
 	function isActive(item) {
 		if (!item?.href) return false;
 		if (typeof item.match === 'function') return item.match(pathname);
@@ -88,6 +101,9 @@
 		return pathname === item.href;
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function itemClass(item) {
 		const base =
 			'inline-flex min-w-0 max-w-full items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] whitespace-nowrap uppercase transition hover:no-underline';

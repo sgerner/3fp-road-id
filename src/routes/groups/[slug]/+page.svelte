@@ -42,19 +42,28 @@
 
 	// UI state
 	let showSticky = $state(false);
+	/** @type {HTMLElement | null} */
 	let heroSentinel = $state(null);
 
 	// Leaflet map (loaded client-side)
+	/** @type {any} */
 	let L;
+	/** @type {HTMLDivElement | null} */
 	let mapEl = $state(null);
+	/** @type {any} */
 	let map;
+	/** @type {any} */
 	let marker;
 	let mapInitialized = $state(false);
+	/** @type {Promise<any> | undefined} */
 	let mapLoadPromise;
+	/** @type {any} */
 	let instagramFeed = $state(null);
 
 	const group = $derived(data.group ?? null);
+	/** @type {Record<string, any>} */
 	const selected = $derived(data.selected ?? {});
+	const dataAccountingCurrency = $derived(/** @type {any} */ (data).accounting_currency ?? null);
 	const hasCoords = $derived(Number.isFinite(group?.latitude) && Number.isFinite(group?.longitude));
 	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
@@ -172,7 +181,9 @@
 	let claimHoneypot = $state('');
 	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
 	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
+	/** @type {HTMLDivElement | null} */
 	let turnstileEl = $state(null);
+	/** @type {string | null} */
 	let turnstileWidgetId = $state(null);
 
 	async function initTurnstile() {
@@ -322,15 +333,6 @@
 						? 'Request Membership'
 						: 'Join Membership')
 	);
-	const headerMembershipCta = $derived(
-		membershipEnabled
-			? {
-					href: `/groups/${data.group?.slug}/membership`,
-					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
-					onClick: handleMembershipCtaClick
-				}
-			: null
-	);
 	function resolveSingleFreeFollowTier() {
 		if (!membershipEnabled) return null;
 		if (membershipProgram?.access_mode === 'private_request') return null;
@@ -354,6 +356,16 @@
 	let followLoading = $state(false);
 	let followError = $state('');
 	let donationStartAmount = $state(25);
+
+	const headerMembershipCta = $derived(
+		membershipEnabled
+			? {
+					href: `/groups/${data.group?.slug}/membership`,
+					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
+					onClick: handleMembershipCtaClick
+				}
+			: null
+	);
 
 	async function joinSingleFreeTierNow() {
 		if (!singleFreeFollowTier) return;
@@ -1589,7 +1601,7 @@
 		{@const snapshot = latestAccountingReport.snapshot ?? {}}
 		{@const financialReport = snapshot.report ?? {}}
 		{@const snapshotCurrency =
-			snapshot.currency ?? financialReport.currency ?? data.accounting_currency ?? 'usd'}
+			snapshot.currency ?? financialReport.currency ?? dataAccountingCurrency ?? 'usd'}
 		{@const retainedActivityCents =
 			Number(financialReport.totals?.equity_cents || 0) -
 			(financialReport.equity ?? []).reduce(
@@ -1961,7 +1973,6 @@
 										title="Instagram post"
 										loading="lazy"
 										referrerpolicy="strict-origin-when-cross-origin"
-										allowtransparency="true"
 										class="h-full w-full border-0"
 									></iframe>
 								{/if}
