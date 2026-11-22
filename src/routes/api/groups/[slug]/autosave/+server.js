@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { uploadGroupEditorImageDataUrl } from '#lib/server/groupEditorImages';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -174,5 +175,6 @@ export const POST = async ({ params, request, cookies }) => {
 		if (insErr) return json({ ok: false, error: insErr.message }, { status: 400 });
 	}
 
+	invalidateGroupSnapshotCache({ groupId: group_id, slug });
 	return json({ ok: true, saved: { fields: Object.keys(updates), gt, af, rd, sl } });
 };
