@@ -6,6 +6,7 @@
 
 	export let eventDetails;
 	export let timezoneOptions = [];
+	export let showDateTimeFields = false;
 	export let onEventDetailsChange = () => {};
 
 	let mapContainer;
@@ -252,45 +253,47 @@
 	}
 </script>
 
-<section class="grid gap-4 md:grid-cols-2">
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
-		<input
-			id="event-start"
-			type="datetime-local"
-			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
-			value={eventDetails.eventStart}
-			oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
-		/>
-	</div>
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
-		<input
-			id="event-end"
-			type="datetime-local"
-			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
-			value={eventDetails.eventEnd}
-			oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
-		/>
-	</div>
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
-		<select
-			id="event-timezone"
-			class="select preset-tonal-surface w-full rounded-lg px-4 py-2"
-			value={eventDetails.timezone}
-			onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
-		>
-			{#each timezoneOptions as tz}
-				<option value={tz}>{tz}</option>
-			{/each}
-		</select>
-	</div>
+<div class="grid gap-4 md:grid-cols-2">
+	{#if showDateTimeFields}
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
+			<input
+				id="event-start"
+				type="datetime-local"
+				class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
+				value={eventDetails.eventStart}
+				oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
+			/>
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
+			<input
+				id="event-end"
+				type="datetime-local"
+				class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
+				value={eventDetails.eventEnd}
+				oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
+			/>
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
+			<select
+				id="event-timezone"
+				class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
+				value={eventDetails.timezone}
+				onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
+			>
+				{#each timezoneOptions as tz}
+					<option value={tz}>{tz}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
 	<div class="flex flex-col gap-1.5 md:col-span-2">
 		<label class="text-surface-200 text-sm font-medium" for="event-location-name">Address</label>
 		<input
 			id="event-location-name"
-			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 			value={eventDetails.locationName}
 			oninput={(e) => onEventDetailsChange({ locationName: e.currentTarget.value })}
 			onblur={(e) => scheduleAddressGeocode(e.currentTarget.value.trim())}
@@ -310,10 +313,13 @@
 		></textarea>
 	</div>
 	<div class="space-y-3 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-map-search">Pin on map</label>
+		<span id="event-map-search-label" class="text-surface-200 block text-sm font-medium"
+			>Pin on map</span
+		>
 		<div
 			id="event-map-search"
-			class="input preset-tonal-surface flex items-center gap-2 rounded-lg px-4 py-2 text-sm"
+			aria-labelledby="event-map-search-label"
+			class="input preset-tonal-surface flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm"
 			bind:this={placesContainer}
 		>
 			{#if placesLoading}
@@ -324,7 +330,7 @@
 			<p class="text-error-400 text-xs">{placesError}</p>
 		{/if}
 		<div
-			class="border-surface-500/20 bg-surface-900/60 h-64 w-full overflow-hidden rounded-xl border"
+			class="border-surface-500/20 bg-surface-900/60 isolate h-64 w-full overflow-hidden rounded-xl border"
 			bind:this={mapContainer}
 		></div>
 		{#if eventDetails.latitude && eventDetails.longitude}
@@ -346,7 +352,7 @@
 		>
 		<input
 			id="event-contact-email"
-			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 			type="email"
 			value={eventDetails.contactEmail}
 			oninput={(e) => onEventDetailsChange({ contactEmail: e.currentTarget.value })}
@@ -359,11 +365,11 @@
 		>
 		<input
 			id="event-contact-phone"
-			class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 			type="tel"
 			value={eventDetails.contactPhone}
 			oninput={(e) => onEventDetailsChange({ contactPhone: e.currentTarget.value })}
 			placeholder="(555) 123-4567"
 		/>
 	</div>
-</section>
+</div>

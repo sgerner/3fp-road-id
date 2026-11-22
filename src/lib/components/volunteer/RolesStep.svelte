@@ -38,7 +38,7 @@
 				<div class="mt-2 flex w-full shrink-0 items-center justify-between gap-3 md:mt-0 md:w-auto">
 					<select
 						id={`type-${opportunity.id}`}
-						class="select preset-tonal-surface w-full rounded-lg px-4 py-2 text-sm md:w-auto md:min-w-[240px]"
+						class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2 text-sm md:w-auto md:min-w-[240px]"
 						value={opportunity.opportunityType}
 						aria-label="Role type"
 						onchange={(e) =>
@@ -79,7 +79,8 @@
 			<div class="mt-4 flex">
 				<button
 					type="button"
-					class="text-surface-300 hover:text-surface-100 inline-flex items-center gap-2 text-sm font-medium transition-colors"
+					class="text-surface-300 hover:text-surface-100 inline-flex min-h-11 items-center gap-2 py-2 text-sm font-medium transition-colors"
+					aria-expanded={Boolean(expandedSettings[opportunity.id])}
 					onclick={() => toggleAdvanced(opportunity.id)}
 				>
 					{#if expandedSettings[opportunity.id]}
@@ -101,7 +102,7 @@
 						<input
 							id={`min-${opportunity.id}`}
 							type="number"
-							class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+							class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 							value={opportunity.minVolunteers}
 							oninput={(e) =>
 								onUpdateOpportunity(opportunity.id, { minVolunteers: e.currentTarget.value })}
@@ -115,7 +116,7 @@
 						<input
 							id={`max-${opportunity.id}`}
 							type="number"
-							class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+							class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 							value={opportunity.maxVolunteers}
 							oninput={(e) =>
 								onUpdateOpportunity(opportunity.id, { maxVolunteers: e.currentTarget.value })}
@@ -130,7 +131,7 @@
 						<input
 							id={`waitlist-${opportunity.id}`}
 							type="number"
-							class="input preset-tonal-surface w-full rounded-lg px-4 py-2"
+							class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 							value={opportunity.waitlistLimit}
 							oninput={(e) =>
 								onUpdateOpportunity(opportunity.id, { waitlistLimit: e.currentTarget.value })}
@@ -138,12 +139,12 @@
 							placeholder="Optional"
 						/>
 					</div>
-					<div class="flex flex-col gap-2 md:col-span-3">
+					<div class="flex flex-col gap-1 md:col-span-3">
+						<span class="text-surface-200 text-sm font-medium">Signups require approval?</span>
 						<label
-							class="text-surface-200 text-sm font-medium"
-							for={`requires-approval-${opportunity.id}`}>Signups require approval?</label
+							for={`requires-approval-${opportunity.id}`}
+							class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
 						>
-						<label class="flex items-center gap-3 text-sm">
 							<input
 								id={`requires-approval-${opportunity.id}`}
 								type="checkbox"
@@ -156,12 +157,12 @@
 							<span class="text-surface-300">Manually review signups for this role</span>
 						</label>
 					</div>
-					<div class="flex flex-col gap-2 md:col-span-3">
+					<div class="flex flex-col gap-1 md:col-span-3">
+						<span class="text-surface-200 text-sm font-medium">Auto-confirm attendance?</span>
 						<label
-							class="text-surface-200 text-sm font-medium"
-							for={`auto-confirm-${opportunity.id}`}>Auto-confirm attendance?</label
+							for={`auto-confirm-${opportunity.id}`}
+							class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
 						>
-						<label class="flex items-center gap-3 text-sm">
 							<input
 								id={`auto-confirm-${opportunity.id}`}
 								type="checkbox"
@@ -273,14 +274,20 @@
 		</div>
 	{/each}
 
-	<div class="border-surface-500/15 border-t pt-6">
+	{#if opportunities.length === 0}
+		<p class="text-surface-400 text-sm">
+			No volunteer roles configured yet. Add a role to organize volunteer shifts and capacity.
+		</p>
+	{/if}
+
+	<div class={opportunities.length > 0 ? 'border-surface-500/15 border-t pt-6' : ''}>
 		<button
 			type="button"
 			onclick={onAddOpportunity}
-			class="btn preset-tonal-surface gap-2 font-medium"
+			class="btn preset-tonal-surface min-h-11 gap-2 font-medium"
 		>
 			<IconPlus class="h-4 w-4" />
-			<span>Add another role</span>
+			<span>Add role</span>
 		</button>
 	</div>
 </div>
