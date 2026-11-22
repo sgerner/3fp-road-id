@@ -30,16 +30,21 @@
 	}
 
 	function handleQueryChange(value) {
+		if (disabled) return;
 		query = value;
 		activeIndex = -1;
 		if (typeof onQueryChange === 'function') onQueryChange(value);
 	}
 
+	function openListbox() {
+		if (disabled) return;
+		clearTimeout(closeTimer);
+		ensureListboxId();
+		open = true;
+	}
+
 	function handleFocus() {
-		if (!disabled) {
-			ensureListboxId();
-			open = true;
-		}
+		openListbox();
 	}
 
 	function handleBlur() {
@@ -60,6 +65,11 @@
 
 	$: visibleItems = Array.isArray(items) ? items.slice(0, maxItems) : [];
 	$: if (activeIndex >= visibleItems.length) activeIndex = visibleItems.length - 1;
+	$: if (disabled && open) {
+		clearTimeout(closeTimer);
+		open = false;
+		activeIndex = -1;
+	}
 
 	async function scrollActiveOptionIntoView() {
 		await tick();
@@ -74,8 +84,7 @@
 
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
-			ensureListboxId();
-			open = true;
+			openListbox();
 			if (visibleItems.length) {
 				activeIndex = Math.min(activeIndex + 1, visibleItems.length - 1);
 				void scrollActiveOptionIntoView();
@@ -85,8 +94,7 @@
 
 		if (event.key === 'ArrowUp') {
 			event.preventDefault();
-			ensureListboxId();
-			open = true;
+			openListbox();
 			if (visibleItems.length) {
 				activeIndex = activeIndex < 0 ? visibleItems.length - 1 : Math.max(activeIndex - 1, 0);
 				void scrollActiveOptionIntoView();
@@ -110,7 +118,7 @@
 
 <div class="relative">
 	<input
-		class="input preset-tonal-surface py-1.5 text-sm"
+		class="input preset-tonal-surface min-h-11 py-2 text-base"
 		type="search"
 		role="combobox"
 		autocomplete="off"
@@ -126,8 +134,12 @@
 		bind:value={query}
 		{disabled}
 		onfocus={handleFocus}
+		onclick={openListbox}
 		onblur={handleBlur}
-		oninput={(event) => handleQueryChange(event.currentTarget.value)}
+		oninput={(event) => {
+			openListbox();
+			handleQueryChange(event.currentTarget.value);
+		}}
 		onkeydown={handleKeydown}
 	/>
 
@@ -136,7 +148,7 @@
 			id={listboxId}
 			role="listbox"
 			aria-label={`${ariaLabel || placeholder} suggestions`}
-			class="bg-surface-950/95 border-surface-500/10 absolute z-10 mt-2 max-h-56 w-full overflow-auto rounded-xl border p-1 shadow-xl backdrop-blur"
+			class="bg-surface-50-950 text-surface-950-50 border-surface-300-700 absolute z-10 mt-2 max-h-56 w-full overflow-auto rounded-xl border p-1 shadow-xl"
 		>
 			{#each visibleItems as item, index}
 				<button
@@ -144,23 +156,28 @@
 					role="option"
 					aria-selected={activeIndex === index}
 					tabindex="-1"
-					class="hover:bg-surface-500/10 flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm {activeIndex ===
+					class="hover:bg-surface-200-800 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm {activeIndex ===
 					index
-						? 'bg-surface-500/10'
+						? 'bg-surface-200-800'
 						: ''}"
 					type="button"
+					onpointerdown={(event) => {
+						event.preventDefault();
+						clearTimeout(closeTimer);
+					}}
 					onmousedown={(event) => {
 						event.preventDefault();
-						choose(item);
+						clearTimeout(closeTimer);
 					}}
+					onclick={() => choose(item)}
 				>
 					<span class="min-w-0 truncate font-medium">{itemLabel(item)}</span>
-					<span class="text-surface-500 shrink-0 text-[10px] font-semibold uppercase">
+					<span class="text-surface-700-300 shrink-0 text-[10px] font-semibold uppercase">
 						{itemMeta(item)}
 					</span>
 				</button>
 			{:else}
-				<div class="text-surface-500 px-3 py-2 text-sm" role="status">{emptyMessage}</div>
+				<div class="text-surface-700-300 px-3 py-2 text-sm" role="status">{emptyMessage}</div>
 			{/each}
 		</div>
 	{/if}

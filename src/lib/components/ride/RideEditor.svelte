@@ -10,15 +10,21 @@
 		BIKE_SUITABILITY_OPTIONS,
 		WEEKDAY_OPTIONS
 	} from '#lib/rides/constants';
+	import {
+		buildHostGroupOptions,
+		buildOccurrenceDraft,
+		filterHostGroupOptions,
+		toLocalDateTimeValue
+	} from '#lib/rides/editorHelpers';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconSave from '@lucide/svelte/icons/save';
-	import IconLoader from '@lucide/svelte/icons/loader-2';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
 
 	let {
@@ -67,14 +73,6 @@
 			.replace(/[^\w\s-]/g, '')
 			.replace(/[\s_-]+/g, '-')
 			.replace(/^-+|-+$/g, '');
-	}
-
-	function toLocalDateTimeValue(value) {
-		if (!value) return '';
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return '';
-		const pad = (part) => String(part).padStart(2, '0');
-		return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 	}
 
 	function initializeForm(ride) {
@@ -646,18 +644,13 @@
 	}
 
 	function beginOccurrenceEdit(occurrence) {
-		selectedManageOccurrenceId = occurrence?.id ?? selectedManageOccurrenceId;
-		occurrenceDraft = {
-			id: occurrence.id,
-			titleOverride: occurrence.title_override || '',
-			startsAt: toLocalDateTimeValue(occurrence.starts_at),
-			endsAt: toLocalDateTimeValue(occurrence.ends_at),
-			status: occurrence.status,
-			startLocationName: occurrence.start_location_name || '',
-			startLocationAddress: occurrence.start_location_address || '',
-			endLocationName: occurrence.end_location_name || '',
-			endLocationAddress: occurrence.end_location_address || ''
-		};
+		occurrenceSaveError = '';
+		if (!occurrence) {
+			occurrenceDraft = null;
+			return;
+		}
+		selectedManageOccurrenceId = occurrence.id ?? selectedManageOccurrenceId;
+		occurrenceDraft = buildOccurrenceDraft(occurrence);
 	}
 
 	async function saveOccurrence() {
@@ -809,10 +802,19 @@
 	let selectedManageOccurrenceId = $state(null);
 	let applyFromOccurrenceStart = $state('');
 	let hostGroupSelection = $state([]);
+	let hostGroupQuery = $state('');
 	let hostGroupItems = $state([]);
+	let activeManageTab = $state('details');
 	let deleteError = $state('');
 	let deleting = $state(false);
 	let timezoneOptions = $state(RIDE_TIMEZONES);
+
+	const manageSections = [
+		{ id: 'details', label: 'Series Details', icon: IconCalendarClock },
+		{ id: 'hosts', label: 'Hosts and Participants', icon: IconUsers },
+		{ id: 'email', label: 'Email Participants', icon: IconMail },
+		{ id: 'occurrence', label: 'Edit One Occurrence', icon: IconMapPin }
+	];
 
 	const occurrenceEntries = $derived(initialRide?.occurrences ?? []);
 	const selectedOccurrence = $derived(
@@ -822,13 +824,7 @@
 	);
 	const selectedOccurrenceRsvps = $derived(selectedOccurrence?.rsvps ?? []);
 	const aiConversationStarted = $derived(aiMessages.length > 1);
-	const hostGroupOptions = $derived(
-		hostGroups.map((group) => ({
-			label: group.name,
-			value: String(group.id),
-			slug: group.slug
-		}))
-	);
+	const hostGroupOptions = $derived(buildHostGroupOptions(hostGroups));
 	const hostGroupCollection = $derived(
 		useListCollection({
 			items: hostGroupItems,
@@ -853,13 +849,16 @@
 		selectedManageOccurrenceId = nextOccurrence?.id ?? null;
 		applyFromOccurrenceStart = manageMode ? nextOccurrence?.starts_at || '' : '';
 		hostGroupSelection = form.hostGroupId ? [String(form.hostGroupId)] : [];
+		hostGroupQuery = form.hostGroupId
+			? (hostGroupOptions.find((option) => option.value === String(form.hostGroupId))?.label ?? '')
+			: '';
 		hostGroupItems = hostGroupOptions;
 		initializedFromProps = true;
 	});
 
 	$effect(() => {
 		if (!initializedFromProps) return;
-		hostGroupItems = hostGroupOptions;
+		hostGroupItems = filterHostGroupOptions(hostGroupOptions, hostGroupQuery);
 	});
 
 	$effect(() => {
@@ -917,40 +916,37 @@
 	function handleHostGroupValueChange(value) {
 		hostGroupSelection = value;
 		const nextId = value?.[0] ?? '';
+		hostGroupQuery = nextId
+			? (hostGroupOptions.find((option) => option.value === nextId)?.label ?? '')
+			: '';
 		form = { ...form, hostGroupId: nextId };
 	}
 
 	function handleHostGroupSearch(inputValue) {
-		const query = safeTrim(inputValue).toLowerCase();
-		if (!query) {
-			hostGroupItems = hostGroupOptions;
-			return;
-		}
-		const filtered = hostGroupOptions.filter(
-			(option) =>
-				option.label.toLowerCase().includes(query) || option.slug?.toLowerCase().includes(query)
-		);
-		hostGroupItems = filtered.length ? filtered : hostGroupOptions;
+		hostGroupQuery = inputValue ?? '';
+		hostGroupItems = filterHostGroupOptions(hostGroupOptions, inputValue);
 	}
 
 	function clearHostGroupSelection() {
 		hostGroupSelection = [];
+		hostGroupQuery = '';
 		hostGroupItems = hostGroupOptions;
 		form = { ...form, hostGroupId: '' };
 	}
 
-	function handleHostGroupOpenChange() {
+	function handleHostGroupOpenChange(event) {
+		if (event?.reason === 'input-change') return;
 		hostGroupItems = hostGroupOptions;
 	}
 </script>
 
-<div class="mx-auto w-full max-w-7xl space-y-6">
+<div class="mx-auto w-full max-w-7xl min-w-0 space-y-6">
 	<!-- ── Hero ── -->
 	<section class="editor-hero border-primary-500 relative overflow-hidden border-t-4">
 		<div
 			class="relative z-10 flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-8"
 		>
-			<div class="space-y-1.5">
+			<div class="min-w-0 space-y-1.5">
 				<p class="editor-eyebrow">Ride Builder</p>
 				<h1 class="editor-title">{pageTitle}</h1>
 				{#if pageDescription}
@@ -962,7 +958,7 @@
 					<p class="text-sm opacity-70">Log in to save your ride.</p>
 				{/if}
 				<button
-					class="btn preset-filled-primary-500 gap-2"
+					class="btn preset-filled-primary-500 min-h-11 gap-2"
 					onclick={saveRide}
 					disabled={!currentUser || saving}
 				>
@@ -993,767 +989,825 @@
 		{/if}
 	</section>
 
-	<div class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.85fr)]">
-		<div class="order-1 space-y-6 xl:order-1">
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconCalendarClock class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Overview</h2>
-				</div>
-				<div class="p-5 pt-4">
-					<div class="grid gap-4 md:grid-cols-2">
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Ride title</span>
-							<input
-								class="input"
-								value={form.title}
-								oninput={(event) => updateTitle(event.currentTarget.value)}
-								placeholder="Sunrise gravel loop"
-							/>
-						</label>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Slug</span>
-							<input
-								class="input"
-								value={form.slug}
-								oninput={(event) => (
-									(slugTouched = true),
-									(form = { ...form, slug: slugify(event.currentTarget.value) })
-								)}
-							/>
-						</label>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Summary</span>
-							<input
-								class="input"
-								value={form.summary}
-								oninput={(event) => (form = { ...form, summary: event.currentTarget.value })}
-								placeholder="Short, sharp, public-facing hook"
-							/>
-						</label>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Description</span>
-							<textarea
-								class="textarea min-h-32"
-								value={form.description}
-								oninput={(event) => (form = { ...form, description: event.currentTarget.value })}
-								placeholder="What the ride feels like, what riders should expect, and anything they should bring."
-							></textarea>
-						</label>
-						<label class="block">
-							<span class="label mb-1">Status</span>
-							<select class="select" bind:value={form.status}>
-								<option value="draft">Draft</option>
-								<option value="published">Published</option>
-								<option value="cancelled">Cancelled</option>
-							</select>
-						</label>
-						<label class="block">
-							<span class="label mb-1">Timezone</span>
-							<select class="select" bind:value={form.timezone}>
-								{#each timezoneOptions as timezone}
-									<option value={timezone}>{timezone}</option>
-								{/each}
-							</select>
-						</label>
-						<div class="card preset-tonal-secondary p-4 md:col-span-2">
-							<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-								<div class="space-y-1">
-									<div class="font-medium">Hosting</div>
+	{#if manageMode}
+		<div class="min-w-0">
+			<div class="flex flex-wrap gap-1" role="group" aria-label="Ride management sections">
+				{#each manageSections as section (section.id)}
+					{@const active = activeManageTab === section.id}
+					{@const Icon = section.icon}
+					<button
+						type="button"
+						class={`flex min-h-11 items-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors ${
+							active
+								? 'border-primary-500 bg-primary-500 text-surface-950'
+								: 'text-surface-700-300 hover:text-surface-950-50 hover:border-surface-500 border-transparent'
+						}`}
+						aria-pressed={active}
+						onclick={() => (activeManageTab = section.id)}
+					>
+						<Icon class="h-4 w-4 shrink-0" />
+						<span>{section.label}</span>
+					</button>
+				{/each}
+			</div>
+			<div
+				aria-hidden="true"
+				class="h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+			></div>
+		</div>
+	{/if}
+
+	<div
+		class={`grid grid-cols-1 gap-6 ${!manageMode || activeManageTab === 'details' ? 'xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.85fr)]' : ''}`}
+	>
+		<div class="order-1 min-w-0 space-y-6 xl:order-1">
+			{#if !manageMode || activeManageTab === 'details'}
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header">
+						<div class="editor-section-icon"><IconCalendarClock class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Overview</h2>
+					</div>
+					<div class="p-5 pt-4">
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Ride title</span>
+								<input
+									class="input"
+									value={form.title}
+									oninput={(event) => updateTitle(event.currentTarget.value)}
+									placeholder="Sunrise gravel loop"
+								/>
+							</label>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Slug</span>
+								<input
+									class="input"
+									value={form.slug}
+									oninput={(event) => (
+										(slugTouched = true),
+										(form = { ...form, slug: slugify(event.currentTarget.value) })
+									)}
+								/>
+							</label>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Summary</span>
+								<input
+									class="input"
+									value={form.summary}
+									oninput={(event) => (form = { ...form, summary: event.currentTarget.value })}
+									placeholder="Short, sharp, public-facing hook"
+								/>
+							</label>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Description</span>
+								<textarea
+									class="textarea min-h-32"
+									value={form.description}
+									oninput={(event) => (form = { ...form, description: event.currentTarget.value })}
+									placeholder="What the ride feels like, what riders should expect, and anything they should bring."
+								></textarea>
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">Status</span>
+								<select class="select" bind:value={form.status}>
+									<option value="draft">Draft</option>
+									<option value="published">Published</option>
+									<option value="cancelled">Cancelled</option>
+								</select>
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">Timezone</span>
+								<select class="select" bind:value={form.timezone}>
+									{#each timezoneOptions as timezone}
+										<option value={timezone}>{timezone}</option>
+									{/each}
+								</select>
+							</label>
+							<div class="card preset-tonal-secondary min-w-0 p-4 md:col-span-2">
+								<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+									<div class="min-w-0 space-y-1">
+										<div class="font-medium">Hosting</div>
+										<p class="text-sm opacity-75">
+											Turn this off if you are posting the ride on behalf of someone else. Unhosted
+											rides can be claimed later.
+										</p>
+									</div>
+									<label class="flex min-h-11 items-center gap-3">
+										<input type="checkbox" class="checkbox" bind:checked={form.isHost} />
+										<span class="font-medium">I am one of the ride hosts</span>
+									</label>
+								</div>
+							</div>
+							<div class="flex min-w-0 flex-col gap-2">
+								<Combobox
+									class="w-full min-w-0"
+									placeholder="Search any organization..."
+									collection={hostGroupCollection}
+									value={hostGroupSelection}
+									inputValue={hostGroupQuery}
+									onValueChange={(event) => handleHostGroupValueChange(event.value)}
+									onInputValueChange={(event) => handleHostGroupSearch(event.inputValue)}
+									onOpenChange={handleHostGroupOpenChange}
+									inputBehavior="autohighlight"
+								>
+									<Combobox.Label class="label mb-1 block">Organization</Combobox.Label>
+									<Combobox.Control
+										class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-stretch gap-1"
+									>
+										<Combobox.Input class="input col-span-1 min-w-0" />
+										<Combobox.Trigger
+											class="btn preset-tonal-surface static! inset-auto! min-h-11! min-w-11! shrink-0 translate-y-0! px-2"
+											aria-label="Toggle organization options"
+										/>
+									</Combobox.Control>
+									<Portal>
+										<Combobox.Positioner>
+											<Combobox.Content
+												class="card preset-tonal-surface z-50 max-h-64 max-w-[calc(100vw-2rem)] overflow-y-auto p-2"
+											>
+												{#if hostGroupItems.length}
+													{#each hostGroupItems as item (item.value)}
+														<Combobox.Item {item} class="border-surface-500 min-h-11 border-b p-2">
+															<Combobox.ItemText class="break-words">{item.label}</Combobox.ItemText
+															>
+															<Combobox.ItemIndicator />
+														</Combobox.Item>
+													{/each}
+												{:else}
+													<li class="px-2 py-3 text-sm opacity-75">
+														No matching organizations found.
+													</li>
+												{/if}
+											</Combobox.Content>
+										</Combobox.Positioner>
+									</Portal>
+								</Combobox>
+								{#if hostGroupSelection.length}
+									<button
+										type="button"
+										class="text-primary-700-300 inline-flex min-h-11 items-center self-start text-left text-xs underline"
+										onclick={clearHostGroupSelection}
+									>
+										Clear organization
+									</button>
+								{:else}
+									<p class="text-xs opacity-65">Leave blank for an independent organizer.</p>
+								{/if}
+							</div>
+							<label class="block min-w-0">
+								<span class="label mb-1">Participant list</span>
+								<select class="select" bind:value={form.participantVisibility}>
+									<option value="public">Public</option>
+									<option value="private">Private to hosts</option>
+								</select>
+							</label>
+							<div
+								class="border-surface-500 grid min-w-0 grid-cols-1 gap-4 border p-4 md:col-span-2 md:grid-cols-2"
+							>
+								<div class="min-w-0 md:col-span-2">
+									<div class="font-medium">External registration &amp; attribution</div>
 									<p class="text-sm opacity-75">
-										Turn this off if you are posting the ride on behalf of someone else. Unhosted
-										rides can be claimed later.
+										Optional. Add an external event URL (Meetup, BikeReg, Eventbrite, etc.) to
+										promote external registration in the hero instead of local RSVPs.
 									</p>
 								</div>
-								<label class="flex items-center gap-3">
-									<input type="checkbox" class="checkbox" bind:checked={form.isHost} />
-									<span class="font-medium">I am one of the ride hosts</span>
-								</label>
+								<div class="flex min-w-0 flex-col gap-1.5">
+									<label class="label" for="ride-external-event-url"
+										>External registration link</label
+									>
+									<div class="flex min-w-0 gap-2">
+										<input
+											id="ride-external-event-url"
+											type="url"
+											class="input min-w-0 flex-1"
+											bind:value={form.externalEventUrl}
+											placeholder="https://www.meetup.com/..."
+										/>
+										{#if form.externalEventUrl}
+											<button
+												type="button"
+												aria-label="Clear external registration link"
+												class="btn preset-outlined-surface-500 min-h-11 shrink-0 px-3"
+												onclick={() => (form = { ...form, externalEventUrl: '' })}
+											>
+												Clear
+											</button>
+										{/if}
+									</div>
+								</div>
+								<div class="flex min-w-0 flex-col gap-1.5">
+									<label class="label" for="ride-external-organizer-name"
+										>External organizer name</label
+									>
+									<div class="flex min-w-0 gap-2">
+										<input
+											id="ride-external-organizer-name"
+											class="input min-w-0 flex-1"
+											bind:value={form.externalOrganizerName}
+											placeholder="Club or host name"
+										/>
+										{#if form.externalOrganizerName}
+											<button
+												type="button"
+												aria-label="Clear external organizer name"
+												class="btn preset-outlined-surface-500 min-h-11 shrink-0 px-3"
+												onclick={() => (form = { ...form, externalOrganizerName: '' })}
+											>
+												Clear
+											</button>
+										{/if}
+									</div>
+								</div>
 							</div>
 						</div>
-						<div class="flex flex-col gap-2">
-							<Combobox
-								class="w-full"
-								placeholder="Search any organization..."
-								collection={hostGroupCollection}
-								value={hostGroupSelection}
-								onValueChange={(event) => handleHostGroupValueChange(event.value)}
-								onInputValueChange={(event) => handleHostGroupSearch(event.inputValue)}
-								onOpenChange={handleHostGroupOpenChange}
-								inputBehavior="autohighlight"
-							>
-								<Combobox.Label>Organization</Combobox.Label>
-								<Combobox.Control class="grid grid-cols-[1fr_auto]">
-									<Combobox.Input class="input col-span-1" />
-									<Combobox.Trigger />
-								</Combobox.Control>
-								<Combobox.ClearTrigger>Clear organization</Combobox.ClearTrigger>
-								<Portal>
-									<Combobox.Positioner>
-										<Combobox.Content class="card preset-tonal-surface p-2">
-											{#each hostGroupItems as item (item.value)}
-												<Combobox.Item {item} class="border-surface-500 border-b p-2">
-													<Combobox.ItemText>{item.label}</Combobox.ItemText>
-													<Combobox.ItemIndicator />
-												</Combobox.Item>
-											{/each}
-										</Combobox.Content>
-									</Combobox.Positioner>
-								</Portal>
-							</Combobox>
-							{#if hostGroupSelection.length}
-								<button
-									type="button"
-									class="text-primary-700-300 text-left text-xs underline"
-									onclick={clearHostGroupSelection}
-								>
-									Clear organization
-								</button>
-							{:else}
-								<p class="text-xs opacity-65">Leave blank for an independent organizer.</p>
-							{/if}
-						</div>
-						<label class="block">
-							<span class="label mb-1">Participant list</span>
-							<select class="select" bind:value={form.participantVisibility}>
-								<option value="public">Public</option>
-								<option value="private">Private to hosts</option>
-							</select>
-						</label>
-						<div class="border-surface-500 grid gap-4 border p-4 md:col-span-2 md:grid-cols-2">
-							<div class="md:col-span-2">
-								<div class="font-medium">External registration &amp; attribution</div>
-								<p class="text-sm opacity-75">
-									Optional. Add an external event URL (Meetup, BikeReg, Eventbrite, etc.) to promote
-									external registration in the hero instead of local RSVPs.
+					</div>
+				</section>
+
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header">
+						<div class="editor-section-icon"><IconPlus class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Images</h2>
+					</div>
+					<div class="min-w-0 space-y-4 p-5 pt-4">
+						<ImageGeneratorPanel
+							target="ride"
+							heading="Generate ride art"
+							description="Create a lead ride image from the ride details already on this page."
+							helperText=""
+							currentImageUrl={form.imageUrls[0] || ''}
+							buildContext={buildRideImageContext}
+							onApply={applyGeneratedRideImage}
+						/>
+						<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+							<div class="min-w-0 space-y-1">
+								<p class="font-medium">Attach up to 6 ride photos</p>
+								<p class="text-sm opacity-70">
+									The first image becomes the lead photo on the ride page. Featured cards on `/ride`
+									only show that lead image so the directory stays readable.
 								</p>
 							</div>
-							<div class="flex flex-col gap-1.5">
-								<label class="label" for="ride-external-event-url">External registration link</label
-								>
-								<div class="flex gap-2">
-									<input
-										id="ride-external-event-url"
-										type="url"
-										class="input flex-1"
-										bind:value={form.externalEventUrl}
-										placeholder="https://www.meetup.com/..."
-									/>
-									{#if form.externalEventUrl}
-										<button
-											type="button"
-											aria-label="Clear external registration link"
-											class="btn preset-outlined-surface-500 min-h-9 shrink-0 px-3"
-											onclick={() => (form = { ...form, externalEventUrl: '' })}
-										>
-											Clear
-										</button>
-									{/if}
-								</div>
-							</div>
-							<div class="flex flex-col gap-1.5">
-								<label class="label" for="ride-external-organizer-name"
-									>External organizer name</label
-								>
-								<div class="flex gap-2">
-									<input
-										id="ride-external-organizer-name"
-										class="input flex-1"
-										bind:value={form.externalOrganizerName}
-										placeholder="Club or host name"
-									/>
-									{#if form.externalOrganizerName}
-										<button
-											type="button"
-											aria-label="Clear external organizer name"
-											class="btn preset-outlined-surface-500 min-h-9 shrink-0 px-3"
-											onclick={() => (form = { ...form, externalOrganizerName: '' })}
-										>
-											Clear
-										</button>
-									{/if}
-								</div>
-							</div>
+							<label class="btn preset-outlined-primary-500 min-h-11 cursor-pointer gap-2">
+								<input
+									type="file"
+									class="hidden"
+									accept="image/jpeg,image/png,image/webp,image/gif"
+									multiple
+									disabled={!currentUser || imageUploading || form.imageUrls.length >= 6}
+									onchange={(event) => {
+										void uploadImages(event.currentTarget.files);
+										event.currentTarget.value = '';
+									}}
+								/>
+								{imageUploading ? 'Uploading…' : 'Add images'}
+							</label>
 						</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconPlus class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Images</h2>
-				</div>
-				<div class="space-y-4 p-5 pt-4">
-					<ImageGeneratorPanel
-						target="ride"
-						heading="Generate ride art"
-						description="Create a lead ride image from the ride details already on this page."
-						helperText=""
-						currentImageUrl={form.imageUrls[0] || ''}
-						buildContext={buildRideImageContext}
-						onApply={applyGeneratedRideImage}
-					/>
-					<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-						<div class="space-y-1">
-							<p class="font-medium">Attach up to 6 ride photos</p>
-							<p class="text-sm opacity-70">
-								The first image becomes the lead photo on the ride page. Featured cards on `/ride`
-								only show that lead image so the directory stays readable.
-							</p>
-						</div>
-						<label class="btn preset-outlined-primary-500 cursor-pointer gap-2">
-							<input
-								type="file"
-								class="hidden"
-								accept="image/jpeg,image/png,image/webp,image/gif"
-								multiple
-								disabled={!currentUser || imageUploading || form.imageUrls.length >= 6}
-								onchange={(event) => {
-									void uploadImages(event.currentTarget.files);
-									event.currentTarget.value = '';
-								}}
-							/>
-							{imageUploading ? 'Uploading…' : 'Add images'}
-						</label>
-					</div>
-					{#if imageUploadError}
-						<div class="card preset-tonal-warning p-3 text-sm">{imageUploadError}</div>
-					{/if}
-					{#if form.imageUrls.length}
-						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{#each form.imageUrls as imageUrl, index (imageUrl)}
-								<div class="ride-image-card border-surface-500 overflow-hidden border">
-									<img
-										src={imageUrl}
-										alt={`Ride image ${index + 1}`}
-										class="h-44 w-full object-cover"
-									/>
-									<div class="flex items-center justify-between gap-2 p-3">
-										<div class="text-sm font-medium">
-											{index === 0 ? 'Lead image' : `Image ${index + 1}`}
-										</div>
-										<div class="flex gap-2">
-											{#if index > 0}
+						{#if imageUploadError}
+							<div class="card preset-tonal-warning p-3 text-sm">{imageUploadError}</div>
+						{/if}
+						{#if form.imageUrls.length}
+							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+								{#each form.imageUrls as imageUrl, index (imageUrl)}
+									<div class="ride-image-card border-surface-500 min-w-0 overflow-hidden border">
+										<img
+											src={imageUrl}
+											alt={`Ride image ${index + 1}`}
+											class="h-44 w-full object-cover"
+										/>
+										<div class="flex flex-wrap items-center justify-between gap-2 p-3">
+											<div class="text-sm font-medium">
+												{index === 0 ? 'Lead image' : `Image ${index + 1}`}
+											</div>
+											<div class="flex flex-wrap gap-2">
+												{#if index > 0}
+													<button
+														type="button"
+														class="btn btn-sm preset-outlined-secondary-500 min-h-11"
+														onclick={() => promoteImage(index)}
+													>
+														Use as lead
+													</button>
+												{/if}
 												<button
 													type="button"
-													class="btn btn-sm preset-outlined-secondary-500"
-													onclick={() => promoteImage(index)}
+													class="btn btn-sm preset-outlined-error-500 min-h-11 min-w-11"
+													aria-label={`Remove ride image ${index + 1}`}
+													onclick={() => removeImage(index)}
 												>
-													Use as lead
+													<IconTrash2 class="h-3.5 w-3.5" />
 												</button>
-											{/if}
-											<button
-												type="button"
-												class="btn btn-sm preset-outlined-error-500"
-												onclick={() => removeImage(index)}
-											>
-												<IconTrash2 class="h-3.5 w-3.5" />
-											</button>
+											</div>
 										</div>
 									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="border-surface-500 border border-dashed p-6 text-sm opacity-70">
-							No ride images yet.
-						</div>
-					{/if}
-				</div>
-			</section>
-
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconMapPin class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Schedule and Route</h2>
-				</div>
-				<div class="p-5 pt-4">
-					<div class="grid gap-4 md:grid-cols-2">
-						<label class="block">
-							<span class="label mb-1">Start</span>
-							<input type="datetime-local" class="input" bind:value={form.startsAt} />
-						</label>
-						<label class="block">
-							<span class="label mb-1">End</span>
-							<input type="datetime-local" class="input" bind:value={form.endsAt} />
-						</label>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Start location</span>
-							<input class="input" bind:value={form.startLocationName} placeholder="Meet at..." />
-						</label>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Start address</span>
-							<div class="flex gap-2">
-								<input
-									class="input flex-1"
-									bind:value={form.startLocationAddress}
-									placeholder="123 Main St, City, ST"
-								/>
-								<button
-									type="button"
-									class="btn preset-outlined-secondary-500 shrink-0"
-									onclick={() => geocode('start')}
-									disabled={geocodeLoading === 'start'}
-								>
-									{geocodeLoading === 'start' ? 'Locating...' : 'Geocode'}
-								</button>
+								{/each}
 							</div>
-						</label>
-						<label class="block">
-							<span class="label mb-1">End location</span>
-							<input
-								class="input"
-								bind:value={form.endLocationName}
-								placeholder="Optional finish point"
-							/>
-						</label>
-						<label class="block">
-							<span class="label mb-1">End address</span>
-							<div class="flex gap-2">
-								<input
-									class="input flex-1"
-									bind:value={form.endLocationAddress}
-									placeholder="Optional finish address"
-								/>
-								<button
-									type="button"
-									class="btn preset-outlined-secondary-500 shrink-0"
-									onclick={() => geocode('end')}
-									disabled={geocodeLoading === 'end'}
-								>
-									{geocodeLoading === 'end' ? 'Locating...' : 'Geocode'}
-								</button>
+						{:else}
+							<div class="border-surface-500 border border-dashed p-6 text-sm opacity-70">
+								No ride images yet.
 							</div>
-						</label>
+						{/if}
 					</div>
-					{#if geocodeError}
-						<div class="card preset-tonal-warning mt-4 p-3 text-sm" role="alert">
-							{geocodeError}
-						</div>
-					{/if}
+				</section>
 
-					<div class="mt-6 space-y-4">
-						<label class="flex items-center gap-3">
-							<input type="checkbox" class="checkbox" bind:checked={form.recurrenceEnabled} />
-							<span class="font-medium">Recurring ride</span>
-						</label>
-						{#if form.recurrenceEnabled}
-							<div class="border-surface-500 grid gap-4 border p-4 md:grid-cols-2">
-								<label class="block">
-									<span class="label mb-1">Pattern</span>
-									<select class="select" bind:value={form.recurrenceFrequency}>
-										<option value="weekly">Weekly</option>
-										<option value="monthly">Monthly</option>
-									</select>
-								</label>
-								<label class="block">
-									<span class="label mb-1">Interval</span>
-									<input type="number" min="1" class="input" bind:value={form.recurrenceInterval} />
-								</label>
-								<div class="md:col-span-2">
-									<span class="label mb-2 block">Weekdays</span>
-									<div class="flex flex-wrap gap-2" role="group" aria-label="Ride weekdays">
-										{#each WEEKDAY_OPTIONS as option}
-											<button
-												type="button"
-												aria-pressed={form.recurrenceWeekdays.includes(option.value)}
-												class={`chip ${form.recurrenceWeekdays.includes(option.value) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-												onclick={() => toggleSelection('recurrenceWeekdays', option.value)}
-											>
-												{option.label}
-											</button>
-										{/each}
-									</div>
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header">
+						<div class="editor-section-icon"><IconMapPin class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Schedule and Route</h2>
+					</div>
+					<div class="p-5 pt-4">
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+							<label class="block min-w-0">
+								<span class="label mb-1">Start</span>
+								<input type="datetime-local" class="input" bind:value={form.startsAt} />
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">End</span>
+								<input type="datetime-local" class="input" bind:value={form.endsAt} />
+							</label>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Start location</span>
+								<input class="input" bind:value={form.startLocationName} placeholder="Meet at..." />
+							</label>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Start address</span>
+								<div class="flex flex-wrap gap-2">
+									<input
+										class="input min-w-0 flex-1"
+										bind:value={form.startLocationAddress}
+										placeholder="123 Main St, City, ST"
+									/>
+									<button
+										type="button"
+										class="btn preset-outlined-secondary-500 min-h-11 shrink-0"
+										onclick={() => geocode('start')}
+										disabled={geocodeLoading === 'start'}
+									>
+										{geocodeLoading === 'start' ? 'Locating...' : 'Geocode'}
+									</button>
 								</div>
-								{#if form.recurrenceFrequency === 'monthly'}
-									<div class="md:col-span-2">
-										<span class="label mb-2 block">Month positions</span>
-										<div class="flex flex-wrap gap-2">
-											{#each MONTH_POSITION_OPTIONS as option}
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">End location</span>
+								<input
+									class="input"
+									bind:value={form.endLocationName}
+									placeholder="Optional finish point"
+								/>
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">End address</span>
+								<div class="flex flex-wrap gap-2">
+									<input
+										class="input min-w-0 flex-1"
+										bind:value={form.endLocationAddress}
+										placeholder="Optional finish address"
+									/>
+									<button
+										type="button"
+										class="btn preset-outlined-secondary-500 min-h-11 shrink-0"
+										onclick={() => geocode('end')}
+										disabled={geocodeLoading === 'end'}
+									>
+										{geocodeLoading === 'end' ? 'Locating...' : 'Geocode'}
+									</button>
+								</div>
+							</label>
+						</div>
+						{#if geocodeError}
+							<div class="card preset-tonal-warning mt-4 p-3 text-sm" role="alert">
+								{geocodeError}
+							</div>
+						{/if}
+
+						<div class="mt-6 space-y-4">
+							<label class="flex min-h-11 items-center gap-3">
+								<input type="checkbox" class="checkbox" bind:checked={form.recurrenceEnabled} />
+								<span class="font-medium">Recurring ride</span>
+							</label>
+							{#if form.recurrenceEnabled}
+								<div class="border-surface-500 grid grid-cols-1 gap-4 border p-4 md:grid-cols-2">
+									<label class="block min-w-0">
+										<span class="label mb-1">Pattern</span>
+										<select class="select" bind:value={form.recurrenceFrequency}>
+											<option value="weekly">Weekly</option>
+											<option value="monthly">Monthly</option>
+										</select>
+									</label>
+									<label class="block min-w-0">
+										<span class="label mb-1">Interval</span>
+										<input
+											type="number"
+											min="1"
+											class="input"
+											bind:value={form.recurrenceInterval}
+										/>
+									</label>
+									<div class="min-w-0 md:col-span-2">
+										<span class="label mb-2 block">Weekdays</span>
+										<div class="flex flex-wrap gap-2" role="group" aria-label="Ride weekdays">
+											{#each WEEKDAY_OPTIONS as option}
 												<button
 													type="button"
-													class={`chip ${form.recurrenceMonthPositions.includes(option.value) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
-													onclick={() => toggleSelection('recurrenceMonthPositions', option.value)}
+													aria-pressed={form.recurrenceWeekdays.includes(option.value)}
+													class={`chip min-h-11 min-w-11 ${form.recurrenceWeekdays.includes(option.value) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
+													onclick={() => toggleSelection('recurrenceWeekdays', option.value)}
 												>
 													{option.label}
 												</button>
 											{/each}
 										</div>
 									</div>
-								{/if}
-								<label class="block">
-									<span class="label mb-1">Repeat until</span>
-									<input type="date" class="input" bind:value={form.recurrenceUntilOn} />
-								</label>
-								{#if manageMode && occurrenceEntries.length}
-									<label class="block">
-										<span class="label mb-1">Apply series changes from</span>
-										<select class="select" bind:value={applyFromOccurrenceStart}>
-											<option value="">Series start</option>
-											{#each occurrenceEntries.filter((entry) => entry.status === 'scheduled') as occurrence}
-												<option value={occurrence.starts_at}>
-													{new Date(occurrence.starts_at).toLocaleString()}
-												</option>
-											{/each}
-										</select>
+									{#if form.recurrenceFrequency === 'monthly'}
+										<div class="min-w-0 md:col-span-2">
+											<span class="label mb-2 block">Month positions</span>
+											<div class="flex flex-wrap gap-2" role="group" aria-label="Month positions">
+												{#each MONTH_POSITION_OPTIONS as option}
+													<button
+														type="button"
+														aria-pressed={form.recurrenceMonthPositions.includes(option.value)}
+														class={`chip min-h-11 min-w-11 ${form.recurrenceMonthPositions.includes(option.value) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
+														onclick={() =>
+															toggleSelection('recurrenceMonthPositions', option.value)}
+													>
+														{option.label}
+													</button>
+												{/each}
+											</div>
+										</div>
+									{/if}
+									<label class="block min-w-0">
+										<span class="label mb-1">Repeat until</span>
+										<input type="date" class="input" bind:value={form.recurrenceUntilOn} />
 									</label>
-								{/if}
-							</div>
-						{/if}
-
-						<div class="border-surface-500 border p-4">
-							<div class="mb-3 flex items-center justify-between">
-								<div>
-									<h3 class="font-semibold">Skipped dates</h3>
-									<p class="text-sm opacity-70">
-										One-off dates or ranges to skip for closures and holidays.
-									</p>
+									{#if manageMode && occurrenceEntries.length}
+										<label class="block min-w-0">
+											<span class="label mb-1">Apply series changes from</span>
+											<select class="select" bind:value={applyFromOccurrenceStart}>
+												<option value="">Series start</option>
+												{#each occurrenceEntries.filter((entry) => entry.status === 'scheduled') as occurrence}
+													<option value={occurrence.starts_at}>
+														{new Date(occurrence.starts_at).toLocaleString()}
+													</option>
+												{/each}
+											</select>
+										</label>
+									{/if}
 								</div>
-								<button
-									type="button"
-									class="btn preset-outlined-secondary-500"
-									aria-label="Add a skipped date or date range"
-									onclick={addExclusion}
-								>
-									<IconPlus class="h-4 w-4" />
-									Add skip
-								</button>
-							</div>
-							<div class="space-y-3">
-								{#each form.exclusions as exclusion, index (exclusion.id)}
-									<div
-										class="border-surface-500 grid gap-3 border p-3 md:grid-cols-[1fr_1fr_2fr_auto]"
+							{/if}
+
+							<div class="border-surface-500 min-w-0 border p-4">
+								<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+									<div class="min-w-0">
+										<h3 class="font-semibold">Skipped dates</h3>
+										<p class="text-sm opacity-70">
+											One-off dates or ranges to skip for closures and holidays.
+										</p>
+									</div>
+									<button
+										type="button"
+										class="btn preset-outlined-secondary-500 min-h-11 shrink-0"
+										aria-label="Add a skipped date or date range"
+										onclick={addExclusion}
 									>
-										<input
-											type="date"
-											class="input"
-											aria-label={`Skip range start date ${index + 1}`}
-											value={exclusion.starts_on}
-											oninput={(event) =>
-												updateExclusion(exclusion.id, 'starts_on', event.currentTarget.value)}
-										/>
-										<input
-											type="date"
-											class="input"
-											aria-label={`Skip range end date ${index + 1}`}
-											value={exclusion.ends_on}
-											oninput={(event) =>
-												updateExclusion(exclusion.id, 'ends_on', event.currentTarget.value)}
-										/>
-										<input
-											class="input"
-											aria-label={`Optional note for skipped date ${index + 1}`}
-											value={exclusion.note}
-											placeholder="Optional note"
-											oninput={(event) =>
-												updateExclusion(exclusion.id, 'note', event.currentTarget.value)}
-										/>
+										<IconPlus class="h-4 w-4" />
+										Add skip
+									</button>
+								</div>
+								<div class="space-y-3">
+									{#each form.exclusions as exclusion, index (exclusion.id)}
+										<div
+											class="border-surface-500 grid grid-cols-1 gap-3 border p-3 md:grid-cols-[1fr_1fr_2fr_auto]"
+										>
+											<input
+												type="date"
+												class="input min-w-0"
+												aria-label={`Skip range start date ${index + 1}`}
+												value={exclusion.starts_on}
+												oninput={(event) =>
+													updateExclusion(exclusion.id, 'starts_on', event.currentTarget.value)}
+											/>
+											<input
+												type="date"
+												class="input min-w-0"
+												aria-label={`Skip range end date ${index + 1}`}
+												value={exclusion.ends_on}
+												oninput={(event) =>
+													updateExclusion(exclusion.id, 'ends_on', event.currentTarget.value)}
+											/>
+											<input
+												class="input min-w-0"
+												aria-label={`Optional note for skipped date ${index + 1}`}
+												value={exclusion.note}
+												placeholder="Optional note"
+												oninput={(event) =>
+													updateExclusion(exclusion.id, 'note', event.currentTarget.value)}
+											/>
+											<button
+												type="button"
+												class="btn preset-outlined-error-500 min-h-11 min-w-11"
+												aria-label={`Remove skipped date ${index + 1}`}
+												onclick={() => removeExclusion(exclusion.id)}
+											>
+												<IconTrash2 class="h-4 w-4" />
+											</button>
+										</div>
+									{/each}
+									{#if !form.exclusions.length}
+										<p class="text-sm opacity-70">No skips yet.</p>
+									{/if}
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header">
+						<div class="editor-section-icon"><IconUsers class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Rider Fit and Labels</h2>
+					</div>
+					<div class="p-5 pt-4">
+						<div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+							<div class="min-w-0">
+								<span class="label mb-2 block">Difficulty</span>
+								<div class="flex flex-wrap gap-2" role="group" aria-label="Ride difficulty">
+									{#each difficultyLevels as level}
 										<button
 											type="button"
-											class="btn preset-outlined-error-500"
-											aria-label={`Remove skipped date ${index + 1}`}
-											onclick={() => removeExclusion(exclusion.id)}
+											aria-pressed={form.difficultyLevelIds.includes(level.id)}
+											class={`chip min-h-11 ${form.difficultyLevelIds.includes(level.id) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
+											onclick={() => toggleSelection('difficultyLevelIds', level.id)}
 										>
-											<IconTrash2 class="h-4 w-4" />
+											{level.name}
 										</button>
-									</div>
-								{/each}
-								{#if !form.exclusions.length}
-									<p class="text-sm opacity-70">No skips yet.</p>
-								{/if}
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconUsers class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Rider Fit and Labels</h2>
-				</div>
-				<div class="p-5 pt-4">
-					<div class="grid gap-5 md:grid-cols-2">
-						<div>
-							<span class="label mb-2 block">Difficulty</span>
-							<div class="flex flex-wrap gap-2" role="group" aria-label="Ride difficulty">
-								{#each difficultyLevels as level}
-									<button
-										type="button"
-										aria-pressed={form.difficultyLevelIds.includes(level.id)}
-										class={`chip ${form.difficultyLevelIds.includes(level.id) ? 'preset-filled-primary-500' : 'preset-tonal-surface'}`}
-										onclick={() => toggleSelection('difficultyLevelIds', level.id)}
-									>
-										{level.name}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<div>
-							<span class="label mb-2 block">Discipline</span>
-							<div class="flex flex-wrap gap-2" role="group" aria-label="Riding disciplines">
-								{#each disciplines as discipline}
-									<button
-										type="button"
-										aria-pressed={form.ridingDisciplineIds.includes(discipline.id)}
-										class={`chip ${form.ridingDisciplineIds.includes(discipline.id) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
-										onclick={() => toggleSelection('ridingDisciplineIds', discipline.id)}
-									>
-										{discipline.name}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<label class="block">
-							<span class="label mb-1">Distance (miles)</span>
-							<input
-								type="number"
-								step="0.1"
-								class="input"
-								bind:value={form.estimatedDistanceMiles}
-							/>
-						</label>
-						<label class="block">
-							<span class="label mb-1">Duration (minutes)</span>
-							<input
-								type="number"
-								min="0"
-								class="input"
-								bind:value={form.estimatedDurationMinutes}
-							/>
-						</label>
-						<label class="block">
-							<span class="label mb-1">Elevation gain (feet)</span>
-							<input type="number" min="0" class="input" bind:value={form.elevationGainFeet} />
-						</label>
-						<label class="block">
-							<span class="label mb-1">Pace notes</span>
-							<input
-								class="input"
-								bind:value={form.paceNotes}
-								placeholder="Conversational, spicy climbs, steady social pace..."
-							/>
-						</label>
-						<div class="flex flex-wrap items-center gap-6 md:col-span-2">
-							<label class="flex items-center gap-2">
-								<input type="checkbox" class="checkbox" bind:checked={form.isNoDrop} />
-								<span>No-drop ride</span>
-							</label>
-							<label class="flex items-center gap-2">
-								<input type="checkbox" class="checkbox" bind:checked={form.waiverRequired} />
-								<span>Waiver required</span>
-							</label>
-						</div>
-						<div class="md:col-span-2" role="group" aria-label="Ride surface types">
-							<span class="label mb-2 block">Surface types</span>
-							<div class="flex flex-wrap gap-2">
-								{#each SURFACE_TYPE_OPTIONS as option}
-									<button
-										type="button"
-										aria-pressed={form.surfaceTypes.includes(option)}
-										class={`chip ${form.surfaceTypes.includes(option) ? 'preset-filled-success-500' : 'preset-tonal-surface'}`}
-										onclick={() => toggleSelection('surfaceTypes', option)}
-									>
-										{option}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<div class="md:col-span-2" role="group" aria-label="Bike suitability">
-							<span class="label mb-2 block">Bike suitability</span>
-							<div class="flex flex-wrap gap-2">
-								{#each BIKE_SUITABILITY_OPTIONS as option}
-									<button
-										type="button"
-										aria-pressed={form.bikeSuitability.includes(option)}
-										class={`chip ${form.bikeSuitability.includes(option) ? 'preset-filled-warning-500' : 'preset-tonal-surface'}`}
-										onclick={() => toggleSelection('bikeSuitability', option)}
-									>
-										{option}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<label class="block md:col-span-2">
-							<span class="label mb-1">Accessibility notes</span>
-							<textarea
-								class="textarea min-h-24"
-								bind:value={form.accessibilityNotes}
-								placeholder="Accessibility, regroup habits, transit access, bathroom notes, anything riders should know."
-							></textarea>
-						</label>
-					</div>
-				</div>
-			</section>
-
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconMail class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Reminder Emails</h2>
-					<button
-						type="button"
-						class="btn btn-sm preset-outlined-secondary-500 ml-auto gap-1"
-						onclick={addEmailTemplate}
-					>
-						<IconPlus class="h-3.5 w-3.5" />
-						Add template
-					</button>
-				</div>
-				<div class="p-5 pt-4">
-					<div class="space-y-4">
-						{#each form.emailTemplates as template (template.id)}
-							<div class="border-surface-500 border p-4">
-								<div class="grid gap-3 md:grid-cols-2">
-									<label class="block">
-										<span class="label mb-1">Template name</span>
-										<input
-											class="input"
-											value={template.name}
-											oninput={(event) =>
-												updateEmailTemplate(template.id, 'name', event.currentTarget.value)}
-										/>
-									</label>
-									<label class="block">
-										<span class="label mb-1">Send before ride (minutes)</span>
-										<input
-											type="number"
-											min="0"
-											class="input"
-											value={template.sendOffsetMinutes}
-											oninput={(event) =>
-												updateEmailTemplate(
-													template.id,
-													'sendOffsetMinutes',
-													event.currentTarget.value
-												)}
-										/>
-									</label>
-									<label class="block md:col-span-2">
-										<span class="label mb-1">Subject</span>
-										<input
-											class="input"
-											value={template.subject}
-											oninput={(event) =>
-												updateEmailTemplate(template.id, 'subject', event.currentTarget.value)}
-											placeholder={'Tomorrow: {{ride_title}}'}
-										/>
-									</label>
-									<label class="block md:col-span-2">
-										<span class="label mb-1">Body</span>
-										<textarea
-											class="textarea min-h-28"
-											value={template.body}
-											oninput={(event) =>
-												updateEmailTemplate(template.id, 'body', event.currentTarget.value)}
-										></textarea>
-									</label>
-								</div>
-								<div class="mt-3 flex items-center justify-between">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											class="checkbox"
-											checked={template.isActive}
-											onchange={(event) =>
-												updateEmailTemplate(template.id, 'isActive', event.currentTarget.checked)}
-										/>
-										<span>Active</span>
-									</label>
-									<button
-										type="button"
-										class="btn preset-outlined-error-500"
-										aria-label={`Remove ${template.name || 'email template'}`}
-										onclick={() => removeEmailTemplate(template.id)}
-									>
-										<IconTrash2 class="h-4 w-4" />
-										Remove
-									</button>
+									{/each}
 								</div>
 							</div>
-						{/each}
-					</div>
-				</div>
-			</section>
-
-			<section class="card preset-tonal-primary p-5">
-				<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-					<div>
-						<h2 class="text-lg font-semibold">
-							{manageMode ? 'Ready to update this ride?' : 'Ready to publish this ride?'}
-						</h2>
-					</div>
-					<button
-						class="btn preset-filled-primary-500 gap-2"
-						onclick={saveRide}
-						disabled={!currentUser || saving}
-					>
-						{#if saving}
-							<IconLoader class="h-4 w-4 animate-spin" />
-							Saving…
-						{:else}
-							<IconSave class="h-4 w-4" />
-							{manageMode ? 'Save changes' : 'Create ride'}
-						{/if}
-					</button>
-				</div>
-			</section>
-
-			{#if manageMode}
-				<section class="card preset-tonal-error p-5">
-					<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-						<div>
-							<h2 class="text-lg font-semibold">
-								Delete this {initialRide?.recurrenceRule ? 'ride series' : 'ride'}
-							</h2>
-							<p class="mt-1 text-sm opacity-75">
-								This permanently removes the ride, its occurrences, RSVPs, reminders, and host data.
-							</p>
+							<div class="min-w-0">
+								<span class="label mb-2 block">Discipline</span>
+								<div class="flex flex-wrap gap-2" role="group" aria-label="Riding disciplines">
+									{#each disciplines as discipline}
+										<button
+											type="button"
+											aria-pressed={form.ridingDisciplineIds.includes(discipline.id)}
+											class={`chip min-h-11 ${form.ridingDisciplineIds.includes(discipline.id) ? 'preset-filled-secondary-500' : 'preset-tonal-surface'}`}
+											onclick={() => toggleSelection('ridingDisciplineIds', discipline.id)}
+										>
+											{discipline.name}
+										</button>
+									{/each}
+								</div>
+							</div>
+							<label class="block min-w-0">
+								<span class="label mb-1">Distance (miles)</span>
+								<input
+									type="number"
+									step="0.1"
+									class="input"
+									bind:value={form.estimatedDistanceMiles}
+								/>
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">Duration (minutes)</span>
+								<input
+									type="number"
+									min="0"
+									class="input"
+									bind:value={form.estimatedDurationMinutes}
+								/>
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">Elevation gain (feet)</span>
+								<input type="number" min="0" class="input" bind:value={form.elevationGainFeet} />
+							</label>
+							<label class="block min-w-0">
+								<span class="label mb-1">Pace notes</span>
+								<input
+									class="input"
+									bind:value={form.paceNotes}
+									placeholder="Conversational, spicy climbs, steady social pace..."
+								/>
+							</label>
+							<div class="flex flex-wrap items-center gap-x-6 gap-y-2 md:col-span-2">
+								<label class="flex min-h-11 items-center gap-2">
+									<input type="checkbox" class="checkbox" bind:checked={form.isNoDrop} />
+									<span>No-drop ride</span>
+								</label>
+								<label class="flex min-h-11 items-center gap-2">
+									<input type="checkbox" class="checkbox" bind:checked={form.waiverRequired} />
+									<span>Waiver required</span>
+								</label>
+							</div>
+							<div class="min-w-0 md:col-span-2" role="group" aria-label="Ride surface types">
+								<span class="label mb-2 block">Surface types</span>
+								<div class="flex flex-wrap gap-2">
+									{#each SURFACE_TYPE_OPTIONS as option}
+										<button
+											type="button"
+											aria-pressed={form.surfaceTypes.includes(option)}
+											class={`chip min-h-11 ${form.surfaceTypes.includes(option) ? 'preset-filled-success-500' : 'preset-tonal-surface'}`}
+											onclick={() => toggleSelection('surfaceTypes', option)}
+										>
+											{option}
+										</button>
+									{/each}
+								</div>
+							</div>
+							<div class="min-w-0 md:col-span-2" role="group" aria-label="Bike suitability">
+								<span class="label mb-2 block">Bike suitability</span>
+								<div class="flex flex-wrap gap-2">
+									{#each BIKE_SUITABILITY_OPTIONS as option}
+										<button
+											type="button"
+											aria-pressed={form.bikeSuitability.includes(option)}
+											class={`chip min-h-11 ${form.bikeSuitability.includes(option) ? 'preset-filled-warning-500' : 'preset-tonal-surface'}`}
+											onclick={() => toggleSelection('bikeSuitability', option)}
+										>
+											{option}
+										</button>
+									{/each}
+								</div>
+							</div>
+							<label class="block min-w-0 md:col-span-2">
+								<span class="label mb-1">Accessibility notes</span>
+								<textarea
+									class="textarea min-h-24"
+									bind:value={form.accessibilityNotes}
+									placeholder="Accessibility, regroup habits, transit access, bathroom notes, anything riders should know."
+								></textarea>
+							</label>
 						</div>
+					</div>
+				</section>
+
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header flex-wrap">
+						<div class="editor-section-icon"><IconMail class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Reminder Emails</h2>
 						<button
 							type="button"
-							class="btn preset-outlined-error-500 gap-2"
-							onclick={deleteRide}
-							disabled={deleting}
+							class="btn btn-sm preset-outlined-secondary-500 ml-auto min-h-11 gap-1"
+							onclick={addEmailTemplate}
 						>
-							{#if deleting}
+							<IconPlus class="h-3.5 w-3.5" />
+							Add template
+						</button>
+					</div>
+					<div class="p-5 pt-4">
+						<div class="space-y-4">
+							{#each form.emailTemplates as template (template.id)}
+								<div class="border-surface-500 min-w-0 border p-4">
+									<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+										<label class="block min-w-0">
+											<span class="label mb-1">Template name</span>
+											<input
+												class="input"
+												value={template.name}
+												oninput={(event) =>
+													updateEmailTemplate(template.id, 'name', event.currentTarget.value)}
+											/>
+										</label>
+										<label class="block min-w-0">
+											<span class="label mb-1">Send before ride (minutes)</span>
+											<input
+												type="number"
+												min="0"
+												class="input"
+												value={template.sendOffsetMinutes}
+												oninput={(event) =>
+													updateEmailTemplate(
+														template.id,
+														'sendOffsetMinutes',
+														event.currentTarget.value
+													)}
+											/>
+										</label>
+										<label class="block min-w-0 md:col-span-2">
+											<span class="label mb-1">Subject</span>
+											<input
+												class="input"
+												value={template.subject}
+												oninput={(event) =>
+													updateEmailTemplate(template.id, 'subject', event.currentTarget.value)}
+												placeholder={'Tomorrow: {{ride_title}}'}
+											/>
+										</label>
+										<label class="block min-w-0 md:col-span-2">
+											<span class="label mb-1">Body</span>
+											<textarea
+												class="textarea min-h-28"
+												value={template.body}
+												oninput={(event) =>
+													updateEmailTemplate(template.id, 'body', event.currentTarget.value)}
+											></textarea>
+										</label>
+									</div>
+									<div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+										<label class="flex min-h-11 items-center gap-2">
+											<input
+												type="checkbox"
+												class="checkbox"
+												checked={template.isActive}
+												onchange={(event) =>
+													updateEmailTemplate(template.id, 'isActive', event.currentTarget.checked)}
+											/>
+											<span>Active</span>
+										</label>
+										<button
+											type="button"
+											class="btn preset-outlined-error-500 min-h-11"
+											aria-label={`Remove ${template.name || 'email template'}`}
+											onclick={() => removeEmailTemplate(template.id)}
+										>
+											<IconTrash2 class="h-4 w-4" />
+											Remove
+										</button>
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</section>
+
+				<section class="card preset-tonal-primary min-w-0 p-5">
+					<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<div class="min-w-0">
+							<h2 class="text-lg font-semibold">
+								{manageMode ? 'Ready to update this ride?' : 'Ready to publish this ride?'}
+							</h2>
+						</div>
+						<button
+							class="btn preset-filled-primary-500 min-h-11 gap-2"
+							onclick={saveRide}
+							disabled={!currentUser || saving}
+						>
+							{#if saving}
 								<IconLoader class="h-4 w-4 animate-spin" />
-								Deleting…
+								Saving…
 							{:else}
-								<IconTrash2 class="h-4 w-4" />
-								Delete {initialRide?.recurrenceRule ? 'series' : 'ride'}
+								<IconSave class="h-4 w-4" />
+								{manageMode ? 'Save changes' : 'Create ride'}
 							{/if}
 						</button>
 					</div>
-					{#if deleteError}
-						<div class="mt-3 text-sm">{deleteError}</div>
-					{/if}
 				</section>
+
+				{#if manageMode}
+					<section class="card preset-tonal-error min-w-0 p-5">
+						<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+							<div class="min-w-0">
+								<h2 class="text-lg font-semibold">
+									Delete this {initialRide?.recurrenceRule ? 'ride series' : 'ride'}
+								</h2>
+								<p class="mt-1 text-sm opacity-75">
+									This permanently removes the ride, its occurrences, RSVPs, reminders, and host
+									data.
+								</p>
+							</div>
+							<button
+								type="button"
+								class="btn preset-outlined-error-500 min-h-11 gap-2"
+								onclick={deleteRide}
+								disabled={deleting}
+							>
+								{#if deleting}
+									<IconLoader class="h-4 w-4 animate-spin" />
+									Deleting…
+								{:else}
+									<IconTrash2 class="h-4 w-4" />
+									Delete {initialRide?.recurrenceRule ? 'series' : 'ride'}
+								{/if}
+							</button>
+						</div>
+						{#if deleteError}
+							<div class="mt-3 text-sm">{deleteError}</div>
+						{/if}
+					</section>
+				{/if}
 			{/if}
 
-			{#if manageMode}
-				<section class="card preset-tonal-surface p-5">
+			{#if manageMode && activeManageTab === 'hosts'}
+				<section class="card preset-tonal-surface min-w-0 p-5">
 					<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-						<IconUsers class="h-5 w-5" />
+						<IconUsers class="h-5 w-5 shrink-0" />
 						Hosts and Participants
 					</div>
-					<div class="grid gap-6 xl:grid-cols-2">
-						<div class="space-y-4">
+					<div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+						<div class="min-w-0 space-y-4">
 							<div>
 								<h3 class="font-semibold">Co-hosts</h3>
 								<p class="text-sm opacity-70">
 									Owners and admins of the attached organization already inherit access.
 								</p>
 							</div>
-							<div class="flex gap-2">
+							<div class="flex flex-wrap gap-2">
 								<input
-									class="input flex-1"
+									class="input min-w-0 flex-1"
 									bind:value={newHostEmail}
 									placeholder="cohost@example.com"
 								/>
 								<button
 									type="button"
-									class="btn preset-filled-secondary-500"
+									class="btn preset-filled-secondary-500 min-h-11 shrink-0"
 									onclick={addHost}
 									disabled={hostSaving}
 								>
@@ -1765,16 +1819,20 @@
 							{/if}
 							<div class="space-y-2">
 								{#each hostEntries as host (host.userId)}
-									<div class="border-surface-500 flex items-center justify-between border p-3">
-										<div>
-											<div class="font-medium">{host.profile?.fullName || 'Unnamed host'}</div>
-											<div class="text-sm opacity-70">
+									<div
+										class="border-surface-500 flex flex-wrap items-center justify-between gap-3 border p-3"
+									>
+										<div class="min-w-0 flex-1">
+											<div class="font-medium break-words">
+												{host.profile?.fullName || 'Unnamed host'}
+											</div>
+											<div class="text-sm break-all opacity-70">
 												{host.profile?.email || 'No email on file'}
 											</div>
 										</div>
 										<button
 											type="button"
-											class="btn btn-sm preset-outlined-error-500"
+											class="btn btn-sm preset-outlined-error-500 min-h-11 shrink-0"
 											onclick={() => removeHost(host.userId)}
 											disabled={hostSaving}
 										>
@@ -1788,7 +1846,7 @@
 							</div>
 						</div>
 
-						<div class="space-y-4">
+						<div class="min-w-0 space-y-4">
 							<div>
 								<h3 class="font-semibold">Occurrence roster</h3>
 								<p class="text-sm opacity-70">
@@ -1797,7 +1855,7 @@
 							</div>
 							{#if occurrenceEntries.length}
 								<select
-									class="select"
+									class="select w-full min-w-0"
 									aria-label="Roster occurrence"
 									bind:value={selectedManageOccurrenceId}
 								>
@@ -1810,9 +1868,9 @@
 								</select>
 								<div class="space-y-2">
 									{#each selectedOccurrenceRsvps as rsvp (rsvp.id)}
-										<div class="border-surface-500 border p-3">
-											<div class="font-medium">{rsvp.participantName}</div>
-											<div class="text-sm opacity-70">{rsvp.participantEmail}</div>
+										<div class="border-surface-500 min-w-0 border p-3">
+											<div class="font-medium break-words">{rsvp.participantName}</div>
+											<div class="text-sm break-all opacity-70">{rsvp.participantEmail}</div>
 										</div>
 									{/each}
 									{#if !selectedOccurrenceRsvps.length}
@@ -1823,16 +1881,18 @@
 						</div>
 					</div>
 				</section>
+			{/if}
 
-				<section class="card preset-tonal-surface p-5">
+			{#if manageMode && activeManageTab === 'email'}
+				<section class="card preset-tonal-surface min-w-0 p-5">
 					<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-						<IconMail class="h-5 w-5" />
+						<IconMail class="h-5 w-5 shrink-0" />
 						Email Participants
 					</div>
-					<div class="grid gap-4">
-						<label class="block">
+					<div class="grid grid-cols-1 gap-4">
+						<label class="block min-w-0">
 							<span class="label mb-1">Occurrence</span>
-							<select class="select" bind:value={selectedManageOccurrenceId}>
+							<select class="select w-full min-w-0" bind:value={selectedManageOccurrenceId}>
 								<option value="">Choose an occurrence</option>
 								{#each occurrenceEntries as occurrence}
 									<option value={occurrence.id}
@@ -1841,18 +1901,18 @@
 								{/each}
 							</select>
 						</label>
-						<label class="block">
+						<label class="block min-w-0">
 							<span class="label mb-1">Subject</span>
 							<input class="input" bind:value={organizerEmailSubject} />
 						</label>
-						<label class="block">
+						<label class="block min-w-0">
 							<span class="label mb-1">Message</span>
 							<textarea class="textarea min-h-28" bind:value={organizerEmailBody}></textarea>
 						</label>
-						<div class="flex items-center gap-3">
+						<div class="flex flex-wrap items-center gap-3">
 							<button
 								type="button"
-								class="btn preset-filled-primary-500"
+								class="btn preset-filled-primary-500 min-h-11"
 								onclick={sendOrganizerEmail}
 								disabled={organizerEmailSending || !selectedManageOccurrenceId}
 							>
@@ -1867,18 +1927,21 @@
 						{/if}
 					</div>
 				</section>
+			{/if}
 
-				<section class="card preset-tonal-surface p-5">
+			{#if manageMode && activeManageTab === 'occurrence'}
+				<section class="card preset-tonal-surface min-w-0 p-5">
 					<div class="mb-4 flex items-center gap-2 text-lg font-semibold">
-						<IconCalendarClock class="h-5 w-5" />
+						<IconCalendarClock class="h-5 w-5 shrink-0" />
 						Edit One Occurrence
 					</div>
 					{#if occurrenceEntries.length}
-						<div class="grid gap-4">
-							<label class="block">
+						<div class="grid grid-cols-1 gap-4">
+							<label class="block min-w-0">
 								<span class="label mb-1">Occurrence</span>
 								<select
-									class="select"
+									class="select w-full min-w-0"
+									value={occurrenceDraft?.id ?? ''}
 									onchange={(event) =>
 										beginOccurrenceEdit(
 											occurrenceEntries.find(
@@ -1895,8 +1958,8 @@
 								</select>
 							</label>
 							{#if occurrenceDraft}
-								<div class="grid gap-4 md:grid-cols-2">
-									<label class="block">
+								<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<label class="block min-w-0">
 										<span class="label mb-1">Start</span>
 										<input
 											type="datetime-local"
@@ -1904,7 +1967,7 @@
 											bind:value={occurrenceDraft.startsAt}
 										/>
 									</label>
-									<label class="block">
+									<label class="block min-w-0">
 										<span class="label mb-1">End</span>
 										<input
 											type="datetime-local"
@@ -1912,38 +1975,38 @@
 											bind:value={occurrenceDraft.endsAt}
 										/>
 									</label>
-									<label class="block">
+									<label class="block min-w-0">
 										<span class="label mb-1">Status</span>
 										<select class="select" bind:value={occurrenceDraft.status}>
 											<option value="scheduled">Scheduled</option>
 											<option value="cancelled">Cancelled</option>
 										</select>
 									</label>
-									<label class="block">
+									<label class="block min-w-0">
 										<span class="label mb-1">Title override</span>
 										<input class="input" bind:value={occurrenceDraft.titleOverride} />
 									</label>
-									<label class="block md:col-span-2">
+									<label class="block min-w-0 md:col-span-2">
 										<span class="label mb-1">Start location override</span>
 										<input class="input" bind:value={occurrenceDraft.startLocationName} />
 									</label>
-									<label class="block md:col-span-2">
+									<label class="block min-w-0 md:col-span-2">
 										<span class="label mb-1">Start address override</span>
 										<input class="input" bind:value={occurrenceDraft.startLocationAddress} />
 									</label>
-									<label class="block">
+									<label class="block min-w-0">
 										<span class="label mb-1">End location override</span>
 										<input class="input" bind:value={occurrenceDraft.endLocationName} />
 									</label>
-									<label class="block">
+									<label class="block min-w-0">
 										<span class="label mb-1">End address override</span>
 										<input class="input" bind:value={occurrenceDraft.endLocationAddress} />
 									</label>
 								</div>
-								<div class="mt-4 flex items-center gap-3">
+								<div class="mt-4 flex flex-wrap items-center gap-3">
 									<button
 										type="button"
-										class="btn preset-filled-primary-500"
+										class="btn preset-filled-primary-500 min-h-11"
 										onclick={saveOccurrence}
 										disabled={occurrenceSaving}
 									>
@@ -1962,97 +2025,99 @@
 			{/if}
 		</div>
 
-		<div class="order-2 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
-			<!-- AI Intake -->
-			<section class="ai-panel card overflow-hidden">
-				<div class="ai-panel-header p-4 pb-3">
-					<div class="flex items-center gap-2">
-						<IconSparkles class="h-4 w-4" />
-						<span class="text-sm font-bold tracking-[0.18em] uppercase">Ride Muse</span>
+		{#if !manageMode || activeManageTab === 'details'}
+			<div class="order-2 min-w-0 space-y-5 xl:sticky xl:top-24 xl:order-2 xl:self-start">
+				<!-- AI Intake -->
+				<section class="ai-panel card overflow-hidden">
+					<div class="ai-panel-header p-4 pb-3">
+						<div class="flex items-center gap-2">
+							<IconSparkles class="h-4 w-4" />
+							<span class="text-sm font-bold tracking-[0.18em] uppercase">Ride Muse</span>
+							{#if aiLoading}
+								<span class="ml-auto flex items-center gap-1.5 text-xs opacity-60">
+									<IconLoader class="h-3 w-3 animate-spin" />
+									Drafting…
+								</span>
+							{/if}
+						</div>
+					</div>
+					<div bind:this={aiMessagesEl} class="ai-messages space-y-2 px-4 py-3">
+						{#each aiMessages as message, index (`${message.role}-${index}`)}
+							<div class={`ai-bubble ai-bubble-${message.role}`}>
+								<div class="ai-bubble-label">
+									{message.role === 'assistant' ? '✦ Ride Muse' : 'You'}
+								</div>
+								<div class="text-sm leading-relaxed break-words whitespace-pre-wrap">
+									{message.content}
+								</div>
+							</div>
+						{/each}
 						{#if aiLoading}
-							<span class="ml-auto flex items-center gap-1.5 text-xs opacity-60">
-								<IconLoader class="h-3 w-3 animate-spin" />
-								Drafting…
-							</span>
+							<div class="ai-bubble ai-bubble-assistant ai-bubble-loading">
+								<div class="ai-bubble-label">✦ Ride Muse</div>
+								<div class="flex items-center gap-2 text-sm">
+									<span class="ai-loader-dot"></span>
+									<span class="ai-loader-dot ai-loader-dot-delay-1"></span>
+									<span class="ai-loader-dot ai-loader-dot-delay-2"></span>
+									<span class="opacity-70">Drafting your ride…</span>
+								</div>
+							</div>
 						{/if}
 					</div>
-				</div>
-				<div bind:this={aiMessagesEl} class="ai-messages space-y-2 px-4 py-3">
-					{#each aiMessages as message, index (`${message.role}-${index}`)}
-						<div class={`ai-bubble ai-bubble-${message.role}`}>
-							<div class="ai-bubble-label">
-								{message.role === 'assistant' ? '✦ Ride Muse' : 'You'}
-							</div>
-							<div class=" text-sm leading-relaxed whitespace-pre-wrap">
-								{message.content}
-							</div>
+					<div class="border-surface-500/15 space-y-3 border-t p-4 pt-3">
+						<textarea
+							class="textarea preset-tonal-surface min-h-24 text-sm"
+							bind:value={aiPrompt}
+							placeholder="Monthly coffee ride, 18 miles, casual pace, first and third Monday, start downtown…"
+						></textarea>
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								class="btn preset-filled-secondary-500 min-h-11 flex-1 gap-1.5"
+								onclick={sendAiPrompt}
+								disabled={aiLoading}
+							>
+								<IconSparkles class="h-3.5 w-3.5" />
+								{aiLoading ? 'Drafting…' : aiConversationStarted ? 'Send' : 'Ask Ride Muse'}
+							</button>
 						</div>
-					{/each}
-					{#if aiLoading}
-						<div class="ai-bubble ai-bubble-assistant ai-bubble-loading">
-							<div class="ai-bubble-label">✦ Ride Muse</div>
-							<div class="flex items-center gap-2 text-sm">
-								<span class="ai-loader-dot"></span>
-								<span class="ai-loader-dot ai-loader-dot-delay-1"></span>
-								<span class="ai-loader-dot ai-loader-dot-delay-2"></span>
-								<span class="opacity-70">Drafting your ride…</span>
+						{#if aiLoading}
+							<div class="card preset-tonal-secondary flex items-center gap-3 p-3 text-xs">
+								<span class="relative flex h-3 w-3">
+									<span
+										class="bg-secondary-400 absolute inline-flex h-full w-full animate-ping opacity-75"
+									></span>
+									<span class="bg-secondary-500 relative inline-flex h-3 w-3"></span>
+								</span>
+								<span>Ride Muse is shaping copy, timing, and structure from your prompt.</span>
 							</div>
-						</div>
-					{/if}
-				</div>
-				<div class="border-surface-500/15 space-y-3 border-t p-4 pt-3">
-					<textarea
-						class="textarea preset-tonal-surface min-h-24 text-sm"
-						bind:value={aiPrompt}
-						placeholder="Monthly coffee ride, 18 miles, casual pace, first and third Monday, start downtown…"
-					></textarea>
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							class="btn preset-filled-secondary-500 flex-1 gap-1.5"
-							onclick={sendAiPrompt}
-							disabled={aiLoading}
-						>
-							<IconSparkles class="h-3.5 w-3.5" />
-							{aiLoading ? 'Drafting…' : aiConversationStarted ? 'Send' : 'Ask Ride Muse'}
-						</button>
+						{/if}
+						{#if aiError}
+							<div class="border-warning-500 bg-warning-500 text-surface-950 border p-2.5 text-xs">
+								{aiError}
+							</div>
+						{/if}
 					</div>
-					{#if aiLoading}
-						<div class="card preset-tonal-secondary flex items-center gap-3 p-3 text-xs">
-							<span class="relative flex h-3 w-3">
-								<span
-									class="bg-secondary-400 absolute inline-flex h-full w-full animate-ping opacity-75"
-								></span>
-								<span class="bg-secondary-500 relative inline-flex h-3 w-3"></span>
-							</span>
-							<span>Ride Muse is shaping copy, timing, and structure from your prompt.</span>
-						</div>
-					{/if}
-					{#if aiError}
-						<div class="border-warning-500 bg-warning-500 text-surface-950 border p-2.5 text-xs">
-							{aiError}
-						</div>
-					{/if}
-				</div>
-			</section>
+				</section>
 
-			<section class="editor-section card preset-tonal-surface">
-				<div class="editor-section-header">
-					<div class="editor-section-icon"><IconMail class="h-4 w-4" /></div>
-					<h2 class="editor-section-title">Contact</h2>
-				</div>
-				<div class="grid gap-3 p-5 pt-4">
-					<label class="block">
-						<span class="label mb-1">Reply-to email</span>
-						<input class="input" bind:value={form.contactEmail} />
-					</label>
-					<label class="block">
-						<span class="label mb-1">Phone</span>
-						<input class="input" bind:value={form.contactPhone} />
-					</label>
-				</div>
-			</section>
-		</div>
+				<section class="editor-section card preset-tonal-surface">
+					<div class="editor-section-header">
+						<div class="editor-section-icon"><IconMail class="h-4 w-4" /></div>
+						<h2 class="editor-section-title">Contact</h2>
+					</div>
+					<div class="grid grid-cols-1 gap-3 p-5 pt-4">
+						<label class="block min-w-0">
+							<span class="label mb-1">Reply-to email</span>
+							<input class="input" bind:value={form.contactEmail} />
+						</label>
+						<label class="block min-w-0">
+							<span class="label mb-1">Phone</span>
+							<input class="input" bind:value={form.contactPhone} />
+						</label>
+					</div>
+				</section>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -2078,11 +2143,16 @@
 		text-transform: uppercase;
 		font-style: italic;
 		letter-spacing: -0.03em;
+		overflow-wrap: anywhere;
 	}
 
 	/* ── Section cards ── */
 	.editor-section {
 		overflow: hidden;
+	}
+
+	.editor-section :global(.btn) {
+		min-height: 2.75rem;
 	}
 
 	.editor-section-header {

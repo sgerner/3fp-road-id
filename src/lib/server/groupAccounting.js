@@ -2176,10 +2176,6 @@ export async function voidEntry(auth, formData) {
 	);
 }
 
-export async function updateEntryByReplacement() {
-	throw new Error('Use the transaction editor to update posted transactions.');
-}
-
 export async function updateTransaction(auth, formData) {
 	const { accounts } = await ensureGroupAccountingSetup(
 		auth.serviceSupabase,
