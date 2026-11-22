@@ -92,14 +92,28 @@
 
 <style>
 	h2 {
-		color: var(--color-secondary-950) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 	}
 	.assistant {
-		background: var(--report-paper);
-		border: 2px solid var(--color-secondary-950);
-		border-top: 5px solid var(--color-tertiary-700-300);
+		--ra-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--ra-pink: var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
+		--ra-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--ra-paper: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
+		--ra-soft: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
+		background: var(--ra-paper);
+		border: 2px solid var(--ra-ink);
+		border-top: 5px solid var(--ra-pink);
 		border-radius: 0;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		padding: clamp(1.2rem, 3vw, 2rem);
 	}
 	.assistant-header {
@@ -123,7 +137,7 @@
 		margin: 0;
 	}
 	.eyebrow {
-		color: var(--color-tertiary-700-300);
+		color: var(--ra-pink);
 		font-size: 0.78rem;
 		font-weight: 800;
 		letter-spacing: 0.08em;
@@ -131,7 +145,7 @@
 	}
 	.open-btn {
 		background: var(--color-secondary-950);
-		border: 2px solid var(--color-secondary-950);
+		border: 2px solid var(--ra-ink);
 		border-radius: 0;
 		color: var(--color-primary-500);
 		cursor: pointer;
@@ -144,6 +158,7 @@
 	}
 	.open-btn:hover {
 		background: var(--color-primary-500);
+		border-color: var(--ra-ink);
 		color: var(--color-secondary-950);
 	}
 	.suggestions {
@@ -153,10 +168,10 @@
 		margin-top: 1.25rem;
 	}
 	.suggestions button {
-		background: var(--report-soft);
-		border: 2px solid var(--color-secondary-400);
+		background: var(--ra-soft);
+		border: 2px solid var(--ra-border);
 		border-radius: 0;
-		color: var(--color-secondary-950);
+		color: var(--ra-ink);
 		cursor: pointer;
 		font: inherit;
 		font-size: 0.88rem;
@@ -166,10 +181,11 @@
 	}
 	.suggestions button:hover {
 		background: var(--color-primary-500);
-		border-color: var(--color-secondary-950);
+		border-color: var(--ra-ink);
+		color: var(--color-primary-contrast-500);
 	}
 	button:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--ra-pink);
 		outline-offset: 3px;
 	}
 </style>
