@@ -11,9 +11,9 @@
 	import IconPrinter from '@lucide/svelte/icons/printer';
 	import IconQrCode from '@lucide/svelte/icons/qr-code';
 	import IconSave from '@lucide/svelte/icons/save';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import IconX from '@lucide/svelte/icons/x';
 	import RoadIdResponderCard from '#lib/components/RoadIdResponderCard.svelte';
 	import { renderPrintableQrSheetSvg, renderQrSvg } from '#lib/utils/qr';
