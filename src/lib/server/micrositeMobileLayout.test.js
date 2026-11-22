@@ -160,10 +160,11 @@ function buildMicrositeFixture({
 }
 
 async function launchChromiumOrSkip(t) {
+	const launchArgs = ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'];
 	try {
 		return await chromium.launch({
 			headless: true,
-			args: ['--no-sandbox', '--disable-gpu']
+			args: launchArgs
 		});
 	} catch {
 		const candidates = [
@@ -180,7 +181,7 @@ async function launchChromiumOrSkip(t) {
 		return chromium.launch({
 			headless: true,
 			executablePath,
-			args: ['--no-sandbox', '--disable-gpu']
+			args: launchArgs
 		});
 	}
 }
@@ -250,6 +251,13 @@ before(async () => {
 				'#lib': resolve(ROOT_DIR, 'src/lib')
 			}
 		},
+		optimizeDeps: {
+			entries: [
+				'src/routes/[siteSlug]/+page.svelte',
+				'src/routes/[siteSlug]/[pageSlug]/+page.svelte',
+				'src/lib/components/groups/GroupSiteBlockEditor.svelte'
+			]
+		},
 		plugins: [
 			{
 				name: 'microsite-test-virtual-entries',
@@ -298,6 +306,7 @@ before(async () => {
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="icon" href="data:," />
 	<style>
 		.microsite-shell .microsite-page > section:not([data-site-block-type='hero']),
 		.microsite-shell .microsite-page > footer {
@@ -318,6 +327,7 @@ before(async () => {
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="icon" href="data:," />
 </head>
 <body style="margin:0">
 	<div class="app-shell">
@@ -471,10 +481,31 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		const context = await browser.newContext({ viewport: { width: 375, height: 667 } });
 		const page = await context.newPage();
 		const pageErrors = [];
+		let sawOutdatedOptimizeDep = false;
 		page.on('pageerror', (err) => pageErrors.push(String(err?.stack || err)));
+		page.on('response', (res) => {
+			if (res.status() === 504) {
+				sawOutdatedOptimizeDep = true;
+			}
+		});
 
-		const waitReady = async () => {
-			await page.waitForFunction(() => window.__TEST_READY === true, { timeout: 15_000 });
+		const gotoReady = async (url) => {
+			for (let attempt = 0; attempt < 3; attempt++) {
+				sawOutdatedOptimizeDep = false;
+				await page.goto(url, { waitUntil: 'networkidle' });
+				if (sawOutdatedOptimizeDep) {
+					await sharedHarness.vite.waitForRequestsIdle?.();
+					continue;
+				}
+				await page.waitForFunction(() => window.__TEST_READY === true, null, {
+					timeout: 15_000
+				});
+				assert.deepEqual(pageErrors, [], `Unexpected browser errors: ${pageErrors.join('\n')}`);
+				return;
+			}
+			await page.waitForFunction(() => window.__TEST_READY === true, null, {
+				timeout: 15_000
+			});
 			assert.deepEqual(pageErrors, [], `Unexpected browser errors: ${pageErrors.join('\n')}`);
 		};
 
@@ -487,10 +518,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 				})
 			);
 			await page.setViewportSize({ width: 375, height: 667 });
-			await page.goto(`${sharedHarness.origin}/__test/microsite?id=${id}`, {
-				waitUntil: 'networkidle'
-			});
-			await waitReady();
+			await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${id}`);
 
 			const metrics = await page.evaluate(() => {
 				const heroSection = document.querySelector('[data-site-block-type="hero"]');
@@ -589,10 +617,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 			})
 		);
 		await page.setViewportSize({ width: 320, height: 667 });
-		await page.goto(`${sharedHarness.origin}/__test/microsite?id=${responsiveId}`, {
-			waitUntil: 'networkidle'
-		});
-		await waitReady();
+		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${responsiveId}`);
 		const narrow320 = await page.evaluate(() => {
 			const heroRect = document
 				.querySelector('[data-site-block-type="hero"]')
@@ -644,10 +669,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		const subpageId = sharedHarness.registerFixture(
 			buildMicrositeFixture({ heroStyle: 'immersive', isSubpage: true })
 		);
-		await page.goto(`${sharedHarness.origin}/__test/subpage?id=${subpageId}`, {
-			waitUntil: 'networkidle'
-		});
-		await waitReady();
+		await gotoReady(`${sharedHarness.origin}/__test/subpage?id=${subpageId}`);
 		const subpageHero = await page.evaluate(() => {
 			const hero = document.querySelector('[data-site-block-type="hero"] > .card');
 			const h1 = hero?.querySelector('h1');
@@ -662,10 +684,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		const tbagId = sharedHarness.registerFixture(
 			buildMicrositeFixture({ heroStyle: 'bold', isTbag: true })
 		);
-		await page.goto(`${sharedHarness.origin}/__test/microsite?id=${tbagId}`, {
-			waitUntil: 'networkidle'
-		});
-		await waitReady();
+		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${tbagId}`);
 		const tbagCols = await page.evaluate(
 			() =>
 				getComputedStyle(document.querySelector('.about-facts-grid--tbag'))
@@ -677,10 +696,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		const advocacyId = sharedHarness.registerFixture(
 			buildMicrositeFixture({ heroStyle: 'immersive', isAdvocacy: true })
 		);
-		await page.goto(`${sharedHarness.origin}/__test/microsite?id=${advocacyId}`, {
-			waitUntil: 'networkidle'
-		});
-		await waitReady();
+		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${advocacyId}`);
 		const advocacyHeroHeight = await page.evaluate(
 			() =>
 				document
@@ -704,10 +720,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 			group: editorFixture.site.group,
 			page: editorFixture.currentPage
 		});
-		await page.goto(`${sharedHarness.origin}/__test/editor?id=${editorId}`, {
-			waitUntil: 'networkidle'
-		});
-		await waitReady();
+		await gotoReady(`${sharedHarness.origin}/__test/editor?id=${editorId}`);
 
 		for (const style of ['immersive', 'bold', 'orbit']) {
 			await page.click(`#set-style-${style}`);
@@ -721,6 +734,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 						root.getBoundingClientRect().width <= 385
 					);
 				},
+				null,
 				{ timeout: 5_000 }
 			);
 
