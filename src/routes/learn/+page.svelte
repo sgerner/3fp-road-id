@@ -2,6 +2,7 @@
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconArrowUp from '@lucide/svelte/icons/arrow-up';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
@@ -56,6 +57,15 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function returnToControl(event, id) {
+		const target = document.getElementById(id);
+		if (!target) return;
+		event.preventDefault();
+		window.history.replaceState(null, '', `#${id}`);
+		target.scrollIntoView({ block: 'start' });
+		target.focus({ preventScroll: true });
 	}
 </script>
 
@@ -173,21 +183,22 @@
 	<!-- SEARCH & FILTER BAND -->
 	<div
 		id="library"
-		class="bg-surface-900 text-surface-50 border-surface-800 sticky top-[var(--app-header-height)] z-10 scroll-mt-[var(--app-header-height)] border-b-2 px-4 py-2 sm:px-10 lg:px-12"
+		class="bg-surface-900 text-surface-50 border-surface-800 border-b-2 px-4 py-3 sm:px-10 lg:px-12"
 	>
 		<div class="flex flex-col gap-4">
 			<div
 				class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_14rem_auto]"
 			>
-				<label class="relative col-span-2 block min-w-0 sm:col-span-1">
+				<label for="learn-search" class="relative col-span-2 block min-w-0 sm:col-span-1">
 					<span
 						class="text-surface-400 pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2"
 					>
 						<IconSearch class="h-4 w-4" />
 					</span>
 					<input
+						id="learn-search"
 						bind:value={search}
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-500 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						aria-label="Search articles"
 						placeholder="Search the field guide…"
@@ -329,13 +340,24 @@
 					</a>
 				{/each}
 			</div>
-			{#if visibleCount < filteredArticles.length}
-				<button
-					type="button"
-					class="btn preset-tonal-primary mt-4 min-h-11"
-					onclick={() => (visibleCount += pageSize)}>Show more articles</button
+			<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+				{#if visibleCount < filteredArticles.length}
+					<button
+						type="button"
+						class="btn preset-tonal-primary min-h-11"
+						onclick={() => (visibleCount += pageSize)}>Show more articles</button
+					>
+				{/if}
+				<a
+					href="#learn-search"
+					data-return-link="learn-search"
+					onclick={(event) => returnToControl(event, 'learn-search')}
+					class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex min-h-11 items-center gap-2 px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
 				>
-			{/if}
+					<IconArrowUp class="h-4 w-4 shrink-0" aria-hidden="true" />
+					<span>Back to search &amp; filters</span>
+				</a>
+			</div>
 		{:else}
 			<div class="border-surface-50 flex flex-col items-start gap-4 border-t-2 pt-8">
 				<p class="text-surface-50 m-0 text-2xl font-black uppercase italic">

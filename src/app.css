@@ -15,6 +15,13 @@
 	color: var(--color-primary-950-50);
 }
 
+:root {
+	--app-header-height: 4.5625rem;
+	--microsite-header-height: 5.25rem;
+	--shell-scroll-clearance: 0.75rem;
+	--shell-header-height: var(--app-header-height);
+}
+
 html,
 body {
 	@apply h-full;
@@ -22,7 +29,24 @@ body {
 
 html {
 	color-scheme: light;
+	scroll-padding-top: calc(var(--shell-header-height) + var(--shell-scroll-clearance));
 	background-color: light-dark(var(--body-background-color), var(--body-background-color-dark));
+}
+
+html:has(.app-shell) {
+	--shell-header-height: var(--app-header-height);
+	scroll-padding-top: max(
+		5.3125rem,
+		calc(var(--app-header-height) + var(--shell-scroll-clearance))
+	);
+}
+
+html:has(.microsite-shell) {
+	--shell-header-height: var(--microsite-header-height);
+	scroll-padding-top: max(
+		6rem,
+		calc(var(--microsite-header-height) + var(--shell-scroll-clearance))
+	);
 }
 
 html.dark {

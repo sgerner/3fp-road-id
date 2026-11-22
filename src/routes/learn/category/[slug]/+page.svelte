@@ -3,6 +3,7 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconArrowUp from '@lucide/svelte/icons/arrow-up';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
@@ -78,6 +79,15 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function returnToControl(event, id) {
+		const target = document.getElementById(id);
+		if (!target) return;
+		event.preventDefault();
+		window.history.replaceState(null, '', `#${id}`);
+		target.scrollIntoView({ block: 'start' });
+		target.focus({ preventScroll: true });
 	}
 
 	// ── DnD state ─────────────────────────────────────────────────────────
@@ -452,17 +462,22 @@
 	</section>
 
 	<div
-		class="bg-primary-500 text-surface-950 sticky top-[var(--app-header-height)] z-10 flex flex-col gap-1 px-4 py-2 sm:px-10 lg:px-14"
+		id="category-filters"
+		class="bg-primary-500 text-surface-950 border-surface-950 flex flex-col gap-1 border-t-2 px-6 py-4 sm:px-10 lg:px-14"
 	>
-		<div class="flex items-center gap-2 text-xs font-black tracking-[0.22em] uppercase">
+		<label
+			for="category-search"
+			class="flex items-center gap-2 text-xs font-black tracking-[0.22em] uppercase"
+		>
 			<IconSearch class="h-4 w-4" />
 			Search this category
-		</div>
+		</label>
 		<div class="relative">
 			<IconSearch
 				class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
 			/>
 			<input
+				id="category-search"
 				bind:value={searchQuery}
 				class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 				type="search"
@@ -736,6 +751,18 @@
 							No articles in this section yet.
 						</div>
 					{/if}
+
+					<div class="flex justify-end pt-2">
+						<a
+							href="#category-search"
+							data-return-link="category-search"
+							onclick={(event) => returnToControl(event, 'category-search')}
+							class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex min-h-11 items-center gap-2 px-5 py-2.5 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+						>
+							<IconArrowUp class="h-4 w-4 shrink-0" aria-hidden="true" />
+							<span>Back to category search</span>
+						</a>
+					</div>
 				</section>
 			{/each}
 		{/if}

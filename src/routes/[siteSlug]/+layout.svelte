@@ -221,10 +221,23 @@
 	const mobileNavItems = $derived(navItems.filter((item) => item.placement !== 'hidden'));
 
 	let mobileMenuOpen = $state(false);
+	let navShellHeight = $state(0);
 	let colorMode = $state('light');
 	let prefersReducedMotion = $state(false);
 	let hasMounted = $state(false);
 	const routeTransitionKey = $derived(currentPathname);
+
+	$effect(() => {
+		if (!(navShellHeight > 0)) return;
+		const root = document.documentElement;
+		const value = `${navShellHeight}px`;
+		root.style.setProperty('--microsite-header-height', value);
+		return () => {
+			if (root.style.getPropertyValue('--microsite-header-height') === value) {
+				root.style.removeProperty('--microsite-header-height');
+			}
+		};
+	});
 
 	function normalizeColorMode(value) {
 		return value === 'dark' ? 'dark' : 'light';
@@ -364,7 +377,7 @@
 	style={site?.theme?.style || ''}
 >
 	<div class="microsite-frame flex min-h-dvh flex-col">
-		<header class="microsite-nav-shell">
+		<header class="microsite-nav-shell" bind:offsetHeight={navShellHeight}>
 			<div
 				class="microsite-nav microsite-nav--floating mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6"
 			>
@@ -1057,6 +1070,14 @@ BACKGROUND STYLES — Aurora, Prism, Void
 	:global(.microsite-shell .microsite-scroll-reveal.is-visible) {
 		opacity: 1;
 		transform: none;
+		will-change: auto;
+	}
+
+	:global(.microsite-shell .microsite-scroll-reveal:focus),
+	:global(.microsite-shell .microsite-scroll-reveal:focus-within) {
+		opacity: 1;
+		transform: none;
+		transition: none;
 		will-change: auto;
 	}
 

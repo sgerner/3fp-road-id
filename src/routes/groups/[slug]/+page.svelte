@@ -40,10 +40,6 @@
 	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
-	// UI state
-	let showSticky = $state(false);
-	let heroSentinel = $state(null);
-
 	// Leaflet map (loaded client-side)
 	let L;
 	let mapEl = $state(null);
@@ -115,17 +111,6 @@
 		if (mapEl && !map && L) {
 			requestAnimationFrame(() => initMap());
 		}
-	});
-
-	// Sticky subheader observer
-	onMount(() => {
-		if (!heroSentinel) return;
-		const obs = new IntersectionObserver((entries) => {
-			const e = entries[0];
-			showSticky = !e.isIntersecting;
-		});
-		obs.observe(heroSentinel);
-		return () => obs.disconnect();
 	});
 
 	$effect(() => {
@@ -650,7 +635,6 @@
 <div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
 	<!-- HERO -->
 	<section
-		bind:this={heroSentinel}
 		class="bg-primary-500 text-surface-950 grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]"
 		aria-labelledby="group-hero-heading"
 	>
@@ -978,55 +962,82 @@
 		</section>
 	{/if}
 
-	<!-- Sticky subheader (appears after hero scrolls out) -->
-	{#if showSticky}
-		<div
-			class="bg-primary-500 text-surface-950 border-surface-950 sticky top-0 z-40 border-b-[3px]"
-			in:slide={{ duration: 180, axis: 'y' }}
-		>
-			<div class="flex items-center justify-between gap-3 px-6 py-3 sm:px-10 lg:px-14">
-				<div class="flex min-w-0 items-center gap-3">
-					{#if data.group?.logo_url}
-						<img
-							src={data.group.logo_url}
-							alt="{data.group.name} logo"
-							class="bg-surface-50 h-8 w-8 object-contain p-0.5"
-						/>
-					{/if}
-					<div class="min-w-0">
-						<div class="truncate text-sm font-black uppercase">{data.group?.name}</div>
-						<div class="truncate text-xs font-bold uppercase opacity-75">
-							{#if data.group?.city}{data.group.city},{/if}{data.group?.state_region} · {data.group
-								?.country}
-						</div>
-					</div>
-				</div>
-				{#if data.is_owner}
+	<!-- Group section navigation & action bar (in-flow) -->
+	<div class="bg-surface-900 text-surface-50 border-surface-800 border-t-2 border-b-2">
+		<div class="flex flex-wrap items-center justify-between gap-3 px-6 py-3 sm:px-10 lg:px-14">
+			<nav aria-label="Group sections" class="flex flex-wrap items-center gap-2">
+				<a
+					href="#about-heading"
+					class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+				>
+					About
+				</a>
+				{#if hasDetails || hasCoords}
 					<a
-						href={`/groups/${data.group.slug}/manage`}
-						class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase hover:no-underline"
+						href="#group-details-heading"
+						class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
 					>
-						Manage Group
-					</a>
-				{:else if primaryCta}
-					<a
-						href={primaryCta.href}
-						target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
-						rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
-							? undefined
-							: 'noopener noreferrer'}
-						class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 flex items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase hover:no-underline"
-					>
-						{#if primaryCta.key !== 'custom'}
-							{@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
-							<IconComp3 class="h-3.5 w-3.5" />
-						{/if}
-						<span>{primaryCta.label}</span>
+						Details &amp; Location
 					</a>
 				{/if}
-			</div>
+				{#if latestAccountingReport}
+					<a
+						href="#financial-heading"
+						class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+					>
+						Financials
+					</a>
+				{/if}
+				{#if groupNewsPosts.length}
+					<a
+						href="#news-heading"
+						class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+					>
+						Updates
+					</a>
+				{/if}
+				{#if hasPosts}
+					<a
+						href="#instagram-heading"
+						class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+					>
+						Posts
+					</a>
+				{/if}
+				{#if (data.asset_buckets ?? []).length > 0}
+					<a
+						href="#resources-heading"
+						class="bg-surface-950 border-surface-500 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+					>
+						Resources
+					</a>
+				{/if}
+			</nav>
+			{#if data.is_owner}
+				<a
+					href={`/groups/${data.group.slug}/manage`}
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
+				>
+					Manage Group
+				</a>
+			{:else if primaryCta}
+				<a
+					href={primaryCta.href}
+					target={primaryCta.key === 'email' || primaryCta.key === 'phone' ? '_self' : '_blank'}
+					rel={primaryCta.key === 'email' || primaryCta.key === 'phone'
+						? undefined
+						: 'noopener noreferrer'}
+					class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 flex items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
+				>
+					{#if primaryCta.key !== 'custom'}
+						{@const IconComp3 = ctaIcons[primaryCta.key] || IconLink}
+						<IconComp3 class="h-3.5 w-3.5" />
+					{/if}
+					<span>{primaryCta.label}</span>
+				</a>
+			{/if}
 		</div>
-	{/if}
+	</div>
 
 	<!-- ABOUT + DETAILS SPLIT -->
 	<section
@@ -1266,7 +1277,10 @@
 					<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 						When, where & how to meet
 					</p>
-					<h2 class="text-surface-50! m-0 mt-2 text-3xl font-black uppercase italic sm:text-4xl">
+					<h2
+						id="group-details-heading"
+						class="text-surface-50! m-0 mt-2 text-3xl font-black uppercase italic sm:text-4xl"
+					>
 						Details & Location
 					</h2>
 				</div>

@@ -102,6 +102,19 @@
 		window.history.replaceState(null, '', `#${id}`);
 		reveal(id);
 	}
+	function returnToControl(event, id) {
+		const target = document.getElementById(id);
+		if (!target) return;
+		event.preventDefault();
+		let ancestor = target;
+		while (ancestor) {
+			if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+			ancestor = ancestor.parentElement;
+		}
+		window.history.replaceState(null, '', `#${id}`);
+		target.scrollIntoView({ block: 'start' });
+		target.focus({ preventScroll: true });
+	}
 	function followHash() {
 		if (typeof window === 'undefined' || !window.location.hash) return;
 		try {
@@ -163,14 +176,14 @@
 			let current = navigation[0][0];
 			for (const [id] of navigation) {
 				const element = document.getElementById(id);
-				if (element && element.getBoundingClientRect().top <= 165) current = id;
+				if (element && element.getBoundingClientRect().top <= 120) current = id;
 			}
 			active = current;
 			for (const section of report.sections) {
 				const element = document.getElementById(section.id);
 				if (element instanceof HTMLDetailsElement && element.open) {
 					const rect = element.getBoundingClientRect();
-					if (rect.top <= 220 && rect.bottom > 220)
+					if (rect.top <= 140 && rect.bottom > 140)
 						currentTopic = section.title.replace(/^\d+\.\s*/, '');
 				}
 			}
@@ -265,7 +278,7 @@
 		</div>
 	</header>
 
-	<nav class="report-nav" aria-label="Report navigation">
+	<nav id="report-nav" class="report-nav" aria-label="Report navigation">
 		{#each navigation as [id, label]}<a
 				href={`#${id}`}
 				aria-current={active === id ? 'location' : undefined}>{label}</a
@@ -362,6 +375,24 @@
 
 	<section id="campaign-planner" class="section-pad planner-section">
 		<CampaignPlanner {report} onNavigate={navigateTo} onAsk={askReport} />
+		<div class="report-return-bar">
+			<a
+				href="#report-search"
+				class="report-return-link"
+				data-return-link="report-search"
+				onclick={(event) => returnToControl(event, 'report-search')}
+			>
+				↑ Back to report search
+			</a>
+			<a
+				href="#report-chapter-select"
+				class="report-return-link report-return-link--secondary"
+				data-return-link="report-chapter-select"
+				onclick={(event) => returnToControl(event, 'report-chapter-select')}
+			>
+				↑ Jump to chapter selector
+			</a>
+		</div>
 	</section>
 
 	<section id="read" class="reading-section section-pad motion-reveal">
@@ -376,9 +407,10 @@
 			</p>
 		</div>
 		<div class="reading-toolbar">
-			<label class="chapter-jump"
+			<label class="chapter-jump" for="report-chapter-select"
 				>Chapter
 				<select
+					id="report-chapter-select"
 					aria-label="Jump to a report chapter"
 					value={report.sections.find(
 						(section) => section.title.replace(/^\d+\.\s*/, '') === currentTopic
@@ -465,20 +497,84 @@
 							<a href="#gallery">Explore all example templates ↗</a>
 						</div>
 					{/if}
+					<div class="report-return-bar report-return-bar--chapter">
+						<a
+							href="#report-chapter-select"
+							class="report-return-link"
+							data-return-link="report-chapter-select"
+							onclick={(event) => returnToControl(event, 'report-chapter-select')}
+						>
+							↑ Back to chapter selector
+						</a>
+					</div>
 				</details>{/each}
 		</div>
 	</section>
 
 	<section id="evidence" class="section-pad evidence-section motion-reveal">
 		<EvidenceExplorer {report} onAsk={askReport} />
+		<div class="report-return-bar">
+			<a
+				href="#report-search"
+				class="report-return-link"
+				data-return-link="report-search"
+				onclick={(event) => returnToControl(event, 'report-search')}
+			>
+				↑ Back to report search
+			</a>
+			<a
+				href="#report-chapter-select"
+				class="report-return-link report-return-link--secondary"
+				data-return-link="report-chapter-select"
+				onclick={(event) => returnToControl(event, 'report-chapter-select')}
+			>
+				↑ Jump to chapter selector
+			</a>
+		</div>
 	</section>
 
 	<section id="gallery" class="section-pad gallery-section motion-reveal">
 		<DesignGallery {report} onAsk={askReport} />
+		<div class="report-return-bar">
+			<a
+				href="#report-search"
+				class="report-return-link"
+				data-return-link="report-search"
+				onclick={(event) => returnToControl(event, 'report-search')}
+			>
+				↑ Back to report search
+			</a>
+			<a
+				href="#report-chapter-select"
+				class="report-return-link report-return-link--secondary"
+				data-return-link="report-chapter-select"
+				onclick={(event) => returnToControl(event, 'report-chapter-select')}
+			>
+				↑ Jump to chapter selector
+			</a>
+		</div>
 	</section>
 
 	<section id="assistant" class="section-pad assistant-section motion-reveal">
 		<ReportAssistant {currentTopic} bind:this={assistant} {report} />
+		<div class="report-return-bar">
+			<a
+				href="#report-search"
+				class="report-return-link"
+				data-return-link="report-search"
+				onclick={(event) => returnToControl(event, 'report-search')}
+			>
+				↑ Back to report search
+			</a>
+			<a
+				href="#report-chapter-select"
+				class="report-return-link report-return-link--secondary"
+				data-return-link="report-chapter-select"
+				onclick={(event) => returnToControl(event, 'report-chapter-select')}
+			>
+				↑ Jump to chapter selector
+			</a>
+		</div>
 	</section>
 	<footer class="report-footer">
 		<img src="/logos/3FeetPlease_WhiteOutline.png" alt="3 Feet Please" width="64" height="64" />
@@ -515,18 +611,15 @@
 	}
 	.chapter-jump select {
 		color: var(--ink);
-		background: var(--cream);
-		border: 1px solid var(--line);
-		border-radius: 0.4rem;
+		background: var(--report-paper);
+		border: 2px solid var(--ink);
+		border-radius: 0;
 		padding: 0.5rem 2rem 0.5rem 0.7rem;
 		max-width: 24rem;
 		font-size: 0.8rem;
 	}
 
 	@media (max-width: 720px) {
-		.reading-toolbar {
-			position: static;
-		}
 		.chapter-jump {
 			width: 100%;
 		}
@@ -568,12 +661,12 @@
 		text-transform: none;
 	}
 	.chapter-copy :global([id]) {
-		scroll-margin-top: 160px;
+		scroll-margin-top: 1rem;
 	}
 	.planner-section {
 		padding-top: 2rem;
 		padding-bottom: 2rem;
-		scroll-margin-top: 140px;
+		scroll-margin-top: 1rem;
 	}
 	@media (max-width: 720px) {
 		.chapter-links {
@@ -1006,16 +1099,12 @@
 		line-height: 1.3;
 	}
 	.report-nav {
-		position: sticky;
-		top: var(--app-header-height, 73px);
-		z-index: 20;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0;
-		overflow-x: auto;
 		background: var(--color-primary-100);
 		border-bottom: 1px solid var(--ink);
 		padding: 0 clamp(1rem, 3vw, 3rem);
-		scrollbar-width: thin;
 	}
 	.report-nav a {
 		flex-shrink: 0;
@@ -1032,11 +1121,11 @@
 	.report-nav a:hover,
 	.report-nav a[aria-current] {
 		border-color: var(--pink);
-		background: color-mix(in srgb, var(--report-paper) 31%, transparent);
+		background: var(--report-paper);
 	}
 	.section-pad {
 		padding: clamp(2.75rem, 6vw, 6rem) clamp(1.25rem, 5vw, 5rem);
-		scroll-margin-top: 140px;
+		scroll-margin-top: 1rem;
 	}
 	.motion-reveal {
 		opacity: 1;
@@ -1187,16 +1276,14 @@
 		border-top: 1px solid var(--line);
 	}
 	.reading-toolbar {
-		position: sticky;
-		top: 132px;
-		z-index: 12;
 		background: var(--report-paper);
 		display: flex;
 		gap: 1.4rem;
 		align-items: center;
 		flex-wrap: wrap;
-		border-top: 1px solid var(--ink);
-		padding: 1rem 0 1.5rem;
+		border-top: 2px solid var(--ink);
+		border-bottom: 1px solid var(--line);
+		padding: 1rem 0 1.25rem;
 	}
 	.reading-toolbar button {
 		background: none;
@@ -1214,7 +1301,7 @@
 	}
 	.report-reading > details {
 		border-bottom: 1px solid var(--line);
-		scroll-margin-top: 140px;
+		scroll-margin-top: 1rem;
 	}
 	.report-reading > details > summary {
 		display: flex;
@@ -1294,7 +1381,7 @@
 	}
 	.chapter-copy :global(figure) {
 		margin: 2rem 0;
-		scroll-margin-top: 140px;
+		scroll-margin-top: 1rem;
 	}
 	.chapter-copy :global(img) {
 		width: 100%;
@@ -1331,8 +1418,48 @@
 	.chapter-copy :global(tr:nth-child(even)) {
 		background: var(--report-paper);
 	}
-	.chapter-copy :global([id]) {
-		scroll-margin-top: 140px;
+	.report-return-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		align-items: center;
+		margin-top: 2rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--line);
+	}
+	.report-return-bar--chapter {
+		margin: 0 0 1.75rem 3.5rem;
+	}
+	.report-return-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.75rem;
+		padding: 0.6rem 1.1rem;
+		border: 2px solid var(--color-surface-950);
+		border-radius: 0;
+		background: var(--color-surface-950);
+		color: var(--color-primary-500);
+		font-size: 0.75rem;
+		font-weight: 800;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		text-decoration: none;
+		transition:
+			background-color 150ms ease,
+			color 150ms ease;
+	}
+	.report-return-link:hover {
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
+	}
+	.report-return-link--secondary {
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
+	}
+	.report-return-link--secondary:hover {
+		background: var(--color-surface-950);
+		color: var(--color-primary-500);
 	}
 	.report-footer {
 		display: flex;
@@ -1463,6 +1590,9 @@
 			padding-left: 0;
 			font-size: 0.95rem;
 		}
+		.report-return-bar--chapter {
+			margin-left: 0;
+		}
 		.report-reading > details > summary {
 			gap: 0.65rem;
 		}
@@ -1519,7 +1649,8 @@
 		.evidence-section,
 		.assistant-section,
 		.report-footer,
-		.reading-toolbar {
+		.reading-toolbar,
+		.report-return-bar {
 			display: none;
 		}
 		.reading-section {
@@ -1533,12 +1664,6 @@
 		}
 		.chapter-copy :global(figure) {
 			break-inside: avoid;
-		}
-	}
-
-	@media (min-width: 721px) {
-		.report-page :global(#read [id]) {
-			scroll-margin-top: 240px;
 		}
 	}
 </style>

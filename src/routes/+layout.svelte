@@ -69,7 +69,7 @@
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
 	let showLogin = $state(false);
-	let headerHeight = $state(73);
+	let headerHeight = $state(0);
 	let loginIntent = $state(null);
 	const activeLoginIntent = $derived(
 		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
@@ -564,6 +564,18 @@
 
 	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
+
+	$effect(() => {
+		if (isMicrositeRoute || isEmbedRoute || !(headerHeight > 0)) return;
+		const root = document.documentElement;
+		const value = `${headerHeight}px`;
+		root.style.setProperty('--app-header-height', value);
+		return () => {
+			if (root.style.getPropertyValue('--app-header-height') === value) {
+				root.style.removeProperty('--app-header-height');
+			}
+		};
+	});
 </script>
 
 <svelte:head>
@@ -572,7 +584,7 @@
 
 <div
 	class="min-h-dvh {isMicrositeRoute ? '' : 'app-shell'}"
-	style:--app-header-height={`${headerHeight}px`}
+	style:--app-header-height={headerHeight > 0 ? `${headerHeight}px` : undefined}
 >
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
