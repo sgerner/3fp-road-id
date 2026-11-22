@@ -1,4 +1,5 @@
 import { fetchSingle, fetchList } from '#lib/server/internalApi';
+import { buildGroupPath, resolveGroupRoute } from '#lib/server/groupRouting';
 import { redirect } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { getGroupAssetsReadClient, listGroupAssetBuckets } from '#lib/server/groupAssets';
@@ -13,21 +14,12 @@ import { supabase } from '#lib/supabaseClient';
 import { publicAccountingReport } from '#lib/server/groupAccountingPublic';
 
 export const load = async ({ params, cookies, fetch, url }) => {
-	const slug = params.slug;
-
-	let group = null;
-	try {
-		group = await fetchSingle(fetch, 'groups', {
-			slug: `eq.${slug}`,
-			single: 'true'
-		});
-	} catch (err) {
-		console.warn('Failed to load group details', err);
-		return { error: err?.message ?? 'Failed to load group' };
-	}
-	if (!group) {
-		return { error: 'Group not found' };
-	}
+	const group = await resolveGroupRoute({
+		fetch,
+		slug: params.slug,
+		search: url.search
+	});
+	const slug = group.slug;
 
 	const { user: sessionUser, accessToken } = await resolveVerifiedSession(cookies);
 	const sessionUserId = sessionUser?.id ?? null;
@@ -216,7 +208,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			normalizedContributionMode !== 'paid' &&
 			membershipProgram?.access_mode !== 'private_request';
 
-		const nextUrl = new URL(`/groups/${encodeURIComponent(slug)}`, url.origin);
+		const nextUrl = new URL(buildGroupPath(slug), url.origin);
 		if (canAutoFollow) {
 			const followResult = await joinMembership({
 				cookies,
