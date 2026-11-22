@@ -690,7 +690,7 @@
 						class="border-primary-600-400/30 bg-primary-600-400/10 space-y-3 rounded border p-4"
 						transition:slide
 					>
-						<label class="text-surface-200 text-sm font-medium" for="immediate-email-ai-prompt">
+						<label class="text-surface-800-200 text-sm font-medium" for="immediate-email-ai-prompt">
 							Describe the immediate update
 						</label>
 						<textarea
@@ -973,7 +973,7 @@
 				</div>
 				<p class="opacity-70">Auto-send reminders and updates before or after the event</p>
 			{:else if scheduledEmails.length === 0}
-				<p class="text-surface-400 text-sm">
+				<p class="text-surface-600-400 text-sm">
 					No scheduled reminders yet. Add a reminder or follow-up template to send automatically
 					before or after the event.
 				</p>
@@ -1062,7 +1062,7 @@
 							transition:slide
 						>
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`email-ai-prompt-${email.id}`}
 							>
 								Describe the message
@@ -1107,7 +1107,7 @@
 					<div class="mt-4 grid gap-4 md:grid-cols-2">
 						<div class="border-surface-500/15 flex flex-col gap-1.5 md:border-r md:pr-4">
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`email-timing-hours-${email.id}`}>Send timing</label
 							>
 							<div class="flex flex-col gap-2">
@@ -1153,7 +1153,10 @@
 						</div>
 						{#if email.emailType === 'reminder'}
 							<div class="flex flex-col gap-1.5 md:pl-4">
-								<span class="text-surface-200 text-sm font-medium" id={`email-confirm-${email.id}`}>
+								<span
+									class="text-surface-800-200 text-sm font-medium"
+									id={`email-confirm-${email.id}`}
+								>
 									Require confirmation?
 								</span>
 								<div class="flex min-h-11 items-center gap-3">
@@ -1164,15 +1167,16 @@
 										onChange={(v) =>
 											handleConfirmationChange({ currentTarget: { checked: v } }, email)}
 									/>
-									<span class="text-surface-200 text-sm">Require attendance confirmation</span>
+									<span class="text-surface-800-200 text-sm">Require attendance confirmation</span>
 								</div>
 							</div>
 						{/if}
 					</div>
 
 					<div class="flex flex-col gap-1.5">
-						<label class="text-surface-200 text-sm font-medium" for={`email-subject-${email.id}`}
-							>Subject *</label
+						<label
+							class="text-surface-800-200 text-sm font-medium"
+							for={`email-subject-${email.id}`}>Subject *</label
 						>
 						<input
 							id={`email-subject-${email.id}`}
@@ -1197,7 +1201,7 @@
 					</div>
 
 					<div class="flex flex-col gap-1.5">
-						<label class="text-surface-200 text-sm font-medium" for={`email-body-${email.id}`}
+						<label class="text-surface-800-200 text-sm font-medium" for={`email-body-${email.id}`}
 							>Body *</label
 						>
 						<textarea

@@ -105,7 +105,7 @@
 	>
 		<div class="space-y-1">
 			<h2 class="!text-left text-xl font-semibold">Event details</h2>
-			<p class="text-surface-400 text-sm">
+			<p class="text-surface-600-400 text-sm">
 				Required details to publish your event, plus a public summary and description.
 			</p>
 		</div>
@@ -134,7 +134,7 @@
 	>
 		<div class="space-y-1">
 			<h2 class="!text-left text-xl font-semibold">Location &amp; contact</h2>
-			<p class="text-surface-400 text-sm">
+			<p class="text-surface-600-400 text-sm">
 				Where volunteers meet and how they can reach the organizing crew.
 			</p>
 		</div>
@@ -158,7 +158,7 @@
 		>
 			<div class="min-w-0 space-y-0.5">
 				<h2 class="!text-left text-lg font-semibold sm:text-xl">Capacity &amp; signup rules</h2>
-				<p class="text-surface-400 text-xs sm:text-sm">
+				<p class="text-surface-600-400 text-xs sm:text-sm">
 					Optional volunteer cap, host approval, and automated waitlist rules.
 				</p>
 			</div>
@@ -167,16 +167,16 @@
 					{capacitySummary}
 				</span>
 				{#if capacityOpen}
-					<IconChevronUp class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronUp class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{:else}
-					<IconChevronDown class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronDown class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{/if}
 			</div>
 		</summary>
 
 		<div class="border-surface-500/15 grid gap-4 border-t p-5 sm:p-6 md:grid-cols-2">
 			<div class="flex flex-col gap-1.5 md:col-span-2">
-				<label class="text-surface-200 text-sm font-medium" for="event-max-volunteers"
+				<label class="text-surface-800-200 text-sm font-medium" for="event-max-volunteers"
 					>Max volunteers</label
 				>
 				<input
@@ -190,7 +190,7 @@
 				/>
 			</div>
 			<div class="flex flex-col gap-1">
-				<span class="text-surface-200 text-sm font-medium">Signup approval</span>
+				<span class="text-surface-800-200 text-sm font-medium">Signup approval</span>
 				<label
 					for="event-require-approval"
 					class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
@@ -202,11 +202,11 @@
 						onchange={(e) =>
 							onEventDetailsChange({ requireSignupApproval: e.currentTarget.checked })}
 					/>
-					<span class="text-surface-300">Hold signups for host approval</span>
+					<span class="text-surface-700-300">Hold signups for host approval</span>
 				</label>
 			</div>
 			<div class="flex flex-col gap-1">
-				<span class="text-surface-200 text-sm font-medium">Waitlist</span>
+				<span class="text-surface-800-200 text-sm font-medium">Waitlist</span>
 				<label for="event-waitlist" class="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
 					<input
 						type="checkbox"
@@ -214,7 +214,7 @@
 						checked={eventDetails.waitlistEnabled}
 						onchange={(e) => onEventDetailsChange({ waitlistEnabled: e.currentTarget.checked })}
 					/>
-					<span class="text-surface-300">Allow automated waitlist when full</span>
+					<span class="text-surface-700-300">Allow automated waitlist when full</span>
 				</label>
 			</div>
 		</div>
@@ -231,16 +231,16 @@
 		>
 			<div class="min-w-0 space-y-0.5">
 				<h2 class="!text-left text-lg font-semibold sm:text-xl">Roles &amp; shifts</h2>
-				<p class="text-surface-400 text-xs sm:text-sm">
+				<p class="text-surface-600-400 text-xs sm:text-sm">
 					Define volunteer crew roles, shift windows, and per-role capacity.
 				</p>
 			</div>
 			<div class="flex shrink-0 items-center gap-3">
 				<span class="chip preset-tonal-surface text-xs">{rolesSummary}</span>
 				{#if rolesOpen}
-					<IconChevronUp class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronUp class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{:else}
-					<IconChevronDown class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronDown class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{/if}
 			</div>
 		</summary>
@@ -270,16 +270,16 @@
 		>
 			<div class="min-w-0 space-y-0.5">
 				<h2 class="!text-left text-lg font-semibold sm:text-xl">Signup questions</h2>
-				<p class="text-surface-400 text-xs sm:text-sm">
+				<p class="text-surface-600-400 text-xs sm:text-sm">
 					Custom intake fields asked when volunteers register for this event.
 				</p>
 			</div>
 			<div class="flex shrink-0 items-center gap-3">
 				<span class="chip preset-tonal-surface text-xs">{questionsSummary}</span>
 				{#if questionsOpen}
-					<IconChevronUp class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronUp class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{:else}
-					<IconChevronDown class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronDown class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{/if}
 			</div>
 		</summary>
@@ -308,16 +308,16 @@
 		>
 			<div class="min-w-0 space-y-0.5">
 				<h2 class="!text-left text-lg font-semibold sm:text-xl">Scheduled reminders</h2>
-				<p class="text-surface-400 text-xs sm:text-sm">
+				<p class="text-surface-600-400 text-xs sm:text-sm">
 					Automated reminder and follow-up email templates scheduled around the event.
 				</p>
 			</div>
 			<div class="flex shrink-0 items-center gap-3">
 				<span class="chip preset-tonal-surface text-xs">{remindersSummary}</span>
 				{#if remindersOpen}
-					<IconChevronUp class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronUp class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{:else}
-					<IconChevronDown class="text-surface-300 h-5 w-5 shrink-0" />
+					<IconChevronDown class="text-surface-700-300 h-5 w-5 shrink-0" />
 				{/if}
 			</div>
 		</summary>
@@ -368,28 +368,28 @@
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 			<div class="min-w-0 space-y-0.5 text-sm">
 				{#if isEditMode}
-					<p class="text-surface-200 flex items-center gap-2 font-medium">
+					<p class="text-surface-800-200 flex items-center gap-2 font-medium">
 						{#if saving}
-							<IconLoader class="text-primary-400 h-4 w-4 shrink-0 animate-spin" />
+							<IconLoader class="text-primary-600-400 h-4 w-4 shrink-0 animate-spin" />
 							<span>Saving changes…</span>
 						{:else}
-							<IconCheck class="text-success-400 h-4 w-4 shrink-0" />
+							<IconCheck class="text-success-600-400 h-4 w-4 shrink-0" />
 							<span>Changes save automatically</span>
 						{/if}
 					</p>
-					<p class="text-surface-400 text-xs">
-						Current status: <strong class="text-surface-200 capitalize"
+					<p class="text-surface-600-400 text-xs">
+						Current status: <strong class="text-surface-800-200 capitalize"
 							>{eventDetails.status}</strong
 						>
 					</p>
 				{:else if isFormValid}
-					<p class="text-surface-200 font-medium">Ready to publish</p>
-					<p class="text-surface-400 text-xs">
+					<p class="text-surface-800-200 font-medium">Ready to publish</p>
+					<p class="text-surface-600-400 text-xs">
 						Publish immediately or save a draft — optional sections can be updated anytime.
 					</p>
 				{:else}
-					<p class="text-surface-200 font-medium">Complete required fields to publish</p>
-					<p class="text-surface-400 text-xs">
+					<p class="text-surface-800-200 font-medium">Complete required fields to publish</p>
+					<p class="text-surface-600-400 text-xs">
 						Enter an event title and start date/time at the top of the form.
 					</p>
 				{/if}

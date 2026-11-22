@@ -256,7 +256,7 @@
 <div class="grid gap-4 md:grid-cols-2">
 	{#if showDateTimeFields}
 		<div class="flex flex-col gap-1.5">
-			<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
+			<label class="text-surface-800-200 text-sm font-medium" for="event-start">Start *</label>
 			<input
 				id="event-start"
 				type="datetime-local"
@@ -266,7 +266,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
-			<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
+			<label class="text-surface-800-200 text-sm font-medium" for="event-end">End</label>
 			<input
 				id="event-end"
 				type="datetime-local"
@@ -276,7 +276,7 @@
 			/>
 		</div>
 		<div class="flex flex-col gap-1.5">
-			<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
+			<label class="text-surface-800-200 text-sm font-medium" for="event-timezone">Timezone</label>
 			<select
 				id="event-timezone"
 				class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -290,7 +290,8 @@
 		</div>
 	{/if}
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-location-name">Address</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-location-name">Address</label
+		>
 		<input
 			id="event-location-name"
 			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -301,7 +302,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-location-address"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-location-address"
 			>Location notes</label
 		>
 		<textarea
@@ -313,7 +314,7 @@
 		></textarea>
 	</div>
 	<div class="space-y-3 md:col-span-2">
-		<span id="event-map-search-label" class="text-surface-200 block text-sm font-medium"
+		<span id="event-map-search-label" class="text-surface-800-200 block text-sm font-medium"
 			>Pin on map</span
 		>
 		<div
@@ -323,31 +324,31 @@
 			bind:this={placesContainer}
 		>
 			{#if placesLoading}
-				<span class="text-surface-400 text-xs">Loading search…</span>
+				<span class="text-surface-600-400 text-xs">Loading search…</span>
 			{/if}
 		</div>
 		{#if placesError}
-			<p class="text-error-400 text-xs">{placesError}</p>
+			<p class="text-error-600-400 text-xs">{placesError}</p>
 		{/if}
 		<div
-			class="border-surface-500/20 bg-surface-900/60 isolate h-64 w-full overflow-hidden rounded-xl border"
+			class="border-surface-500/20 bg-surface-100-900/60 isolate h-64 w-full overflow-hidden rounded-xl border"
 			bind:this={mapContainer}
 		></div>
 		{#if eventDetails.latitude && eventDetails.longitude}
 			{#if Number.isFinite(Number(eventDetails.latitude)) && Number.isFinite(Number(eventDetails.longitude))}
-				<p class="text-surface-400 text-xs">
+				<p class="text-surface-600-400 text-xs">
 					Pinned at {Number(eventDetails.latitude).toFixed(6)},
 					{Number(eventDetails.longitude).toFixed(6)}
 				</p>
 			{:else}
-				<p class="text-surface-400 text-xs">Coordinates pending refinement.</p>
+				<p class="text-surface-600-400 text-xs">Coordinates pending refinement.</p>
 			{/if}
 		{:else}
-			<p class="text-surface-400 text-xs">Drop a pin or click the map to set coordinates.</p>
+			<p class="text-surface-600-400 text-xs">Drop a pin or click the map to set coordinates.</p>
 		{/if}
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-email"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-contact-email"
 			>Contact email</label
 		>
 		<input
@@ -360,7 +361,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-phone"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-contact-phone"
 			>Contact phone</label
 		>
 		<input

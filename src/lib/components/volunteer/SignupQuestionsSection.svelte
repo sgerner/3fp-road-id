@@ -62,14 +62,14 @@
 	{/if}
 
 	{#if customQuestions.length === 0}
-		<p class="text-surface-400 text-sm" transition:slide>
+		<p class="text-surface-600-400 text-sm" transition:slide>
 			Collect extra details like T-shirt size, certifications, or emergency contacts when volunteers
 			sign up.
 		</p>
 	{:else}
 		<div class="space-y-4">
 			{#each customQuestions as question, idx (question.id)}
-				<div class="card border-surface-500/15 bg-surface-800/20 border p-5">
+				<div class="card border-surface-500/15 bg-surface-200-800/20 border p-5">
 					<div class="mb-4 flex items-center justify-between">
 						<h3 class="text-base font-bold">Question {idx + 1}</h3>
 						<button
@@ -85,7 +85,7 @@
 					<div class="grid gap-4 md:grid-cols-2">
 						<div class="flex flex-col gap-1.5 md:col-span-2">
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`question-label-${question.id}`}>Label *</label
 							>
 							<input
@@ -98,7 +98,7 @@
 						</div>
 						<div class="flex flex-col gap-1.5">
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`question-type-${question.id}`}>Field type</label
 							>
 							<select
@@ -114,7 +114,7 @@
 							</select>
 						</div>
 						<div class="flex flex-col gap-1.5">
-							<span class="text-surface-200 text-sm font-medium">Required?</span>
+							<span class="text-surface-800-200 text-sm font-medium">Required?</span>
 							<div class="flex min-h-11 items-center gap-3">
 								<Toggle
 									name={`question-required-${question.id}`}
@@ -122,12 +122,12 @@
 									checked={question.isRequired}
 									onChange={(v) => onUpdateQuestion(question.id, { isRequired: v })}
 								/>
-								<span class="text-surface-200 text-sm">Required</span>
+								<span class="text-surface-800-200 text-sm">Required</span>
 							</div>
 						</div>
 						<div class="flex flex-col gap-1.5 md:col-span-2">
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`question-help-${question.id}`}>Help text</label
 							>
 							<textarea
@@ -141,7 +141,7 @@
 							<div class="space-y-2 md:col-span-2">
 								<div class="flex flex-col gap-1.5">
 									<label
-										class="text-surface-200 text-sm font-medium"
+										class="text-surface-800-200 text-sm font-medium"
 										for={`question-option-draft-${question.id}`}>Options</label
 									>
 									<div class="flex flex-col gap-2 py-1 md:flex-row md:items-center">
@@ -174,12 +174,12 @@
 									<div class="flex flex-wrap gap-2 pt-2">
 										{#each parseOptions(question.optionsRaw) as option (option)}
 											<span
-												class="bg-surface-800/40 text-surface-200 border-surface-500/15 inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-3 text-sm font-medium"
+												class="bg-surface-200-800/40 text-surface-800-200 border-surface-500/15 inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-3 text-sm font-medium"
 											>
 												{option}
 												<button
 													type="button"
-													class="text-error-400 hover:text-error-300 grid size-11 shrink-0 place-items-center transition-colors"
+													class="text-error-600-400 hover:text-error-500 grid size-11 shrink-0 place-items-center transition-colors"
 													aria-label={`Remove option ${option}`}
 													onclick={() => removeOption(question, option)}
 												>
@@ -189,13 +189,15 @@
 										{/each}
 									</div>
 								{:else}
-									<p class="text-surface-500 text-sm">Add at least one option for this field.</p>
+									<p class="text-surface-600-400 text-sm">
+										Add at least one option for this field.
+									</p>
 								{/if}
 							</div>
 						{/if}
 						<div class="flex flex-col gap-1.5 md:col-span-2">
 							<label
-								class="text-surface-200 text-sm font-medium"
+								class="text-surface-800-200 text-sm font-medium"
 								for={`question-role-${question.id}`}>Limit to role</label
 							>
 							<select

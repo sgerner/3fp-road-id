@@ -29,7 +29,8 @@
 				<div class="w-full flex-grow">
 					<input
 						id={`title-${opportunity.id}`}
-						class="input text-primary-500 border-primary-500 bg-primary-500/10 w-full rounded-md border-b text-3xl font-bold"
+						class="input text-primary-600-400 border-primary-500 bg-primary-500/10 min-h-11 w-full rounded-md border-b text-2xl font-bold sm:text-3xl"
+						aria-label={`Role ${idx + 1} title`}
 						value={opportunity.title}
 						oninput={(e) => onUpdateOpportunity(opportunity.id, { title: e.currentTarget.value })}
 						placeholder={`Role ${idx + 1} (e.g. Course Marshal)`}
@@ -62,8 +63,8 @@
 
 			<div class="grid gap-4 md:grid-cols-2">
 				<div class="flex flex-col gap-1.5 md:col-span-2">
-					<label class="text-surface-200 text-sm font-medium" for={`desc-${opportunity.id}`}
-						>Description <span class="text-surface-500 font-normal">(optional)</span></label
+					<label class="text-surface-800-200 text-sm font-medium" for={`desc-${opportunity.id}`}
+						>Description <span class="text-surface-600-400 font-normal">(optional)</span></label
 					>
 					<textarea
 						id={`desc-${opportunity.id}`}
@@ -79,7 +80,7 @@
 			<div class="mt-4 flex">
 				<button
 					type="button"
-					class="text-surface-300 hover:text-surface-100 inline-flex min-h-11 items-center gap-2 py-2 text-sm font-medium transition-colors"
+					class="text-surface-700-300 hover:text-surface-950-50 inline-flex min-h-11 items-center gap-2 py-2 text-sm font-medium transition-colors"
 					aria-expanded={Boolean(expandedSettings[opportunity.id])}
 					onclick={() => toggleAdvanced(opportunity.id)}
 				>
@@ -96,7 +97,7 @@
 			{#if expandedSettings[opportunity.id]}
 				<div class="bg-surface-500/5 mt-4 grid gap-4 rounded-xl p-4 md:grid-cols-3">
 					<div class="flex flex-col gap-1.5">
-						<label class="text-surface-200 text-sm font-medium" for={`min-${opportunity.id}`}
+						<label class="text-surface-800-200 text-sm font-medium" for={`min-${opportunity.id}`}
 							>Min volunteers</label
 						>
 						<input
@@ -110,7 +111,7 @@
 						/>
 					</div>
 					<div class="flex flex-col gap-1.5">
-						<label class="text-surface-200 text-sm font-medium" for={`max-${opportunity.id}`}
+						<label class="text-surface-800-200 text-sm font-medium" for={`max-${opportunity.id}`}
 							>Max volunteers</label
 						>
 						<input
@@ -125,8 +126,9 @@
 						/>
 					</div>
 					<div class="flex flex-col gap-1.5">
-						<label class="text-surface-200 text-sm font-medium" for={`waitlist-${opportunity.id}`}
-							>Waitlist limit</label
+						<label
+							class="text-surface-800-200 text-sm font-medium"
+							for={`waitlist-${opportunity.id}`}>Waitlist limit</label
 						>
 						<input
 							id={`waitlist-${opportunity.id}`}
@@ -140,7 +142,7 @@
 						/>
 					</div>
 					<div class="flex flex-col gap-1 md:col-span-3">
-						<span class="text-surface-200 text-sm font-medium">Signups require approval?</span>
+						<span class="text-surface-800-200 text-sm font-medium">Signups require approval?</span>
 						<label
 							for={`requires-approval-${opportunity.id}`}
 							class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
@@ -154,11 +156,11 @@
 										requiresApproval: e.currentTarget.checked
 									})}
 							/>
-							<span class="text-surface-300">Manually review signups for this role</span>
+							<span class="text-surface-700-300">Manually review signups for this role</span>
 						</label>
 					</div>
 					<div class="flex flex-col gap-1 md:col-span-3">
-						<span class="text-surface-200 text-sm font-medium">Auto-confirm attendance?</span>
+						<span class="text-surface-800-200 text-sm font-medium">Auto-confirm attendance?</span>
 						<label
 							for={`auto-confirm-${opportunity.id}`}
 							class="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
@@ -172,7 +174,7 @@
 										autoConfirmAttendance: e.currentTarget.checked
 									})}
 							/>
-							<span class="text-surface-300"
+							<span class="text-surface-700-300"
 								>Mark volunteers as 'attended' automatically when shift ends</span
 							>
 						</label>
@@ -182,7 +184,7 @@
 
 			<div class="mt-8 space-y-4">
 				<div class="flex items-center gap-4">
-					<h4 class="text-surface-200 text-sm font-bold">Shifts</h4>
+					<h4 class="text-surface-800-200 text-sm font-bold">Shifts</h4>
 					<div class="bg-surface-500/20 h-px flex-grow"></div>
 				</div>
 
@@ -190,12 +192,12 @@
 					{#each opportunity.shifts as shift, shiftIdx (shift.id)}
 						<div class="card preset-outlined-surface-500 relative flex flex-col gap-3 p-4">
 							<div class="flex items-center justify-between">
-								<p class="text-surface-400 text-xs font-semibold tracking-wider uppercase">
+								<p class="text-surface-600-400 text-xs font-semibold tracking-wider uppercase">
 									Shift {shiftIdx + 1}
 								</p>
 								<button
 									type="button"
-									class="text-error-600 hover:text-error-300 grid size-11 shrink-0 place-items-center transition-colors"
+									class="text-error-600 hover:text-error-400 grid size-11 shrink-0 place-items-center transition-colors"
 									onclick={() => onRemoveShift(opportunity.id, shift.id)}
 									aria-label="Remove shift"
 								>
@@ -204,39 +206,43 @@
 							</div>
 
 							<div class="flex flex-col gap-1.5">
-								<label class="text-surface-200 text-xs font-medium" for={`start-${shift.id}`}
+								<label class="text-surface-800-200 text-xs font-medium" for={`start-${shift.id}`}
 									>Starts</label
 								>
 								<input
 									id={`start-${shift.id}`}
 									type="datetime-local"
-									class="input preset-tonal-surface w-full rounded-lg px-3 py-1.5 text-sm"
+									class="input preset-tonal-surface min-h-11 w-full rounded-lg px-3 py-1.5 text-sm"
 									value={shift.startsAt}
 									oninput={(e) =>
+										onUpdateShift(opportunity.id, shift.id, { startsAt: e.currentTarget.value })}
+									onchange={(e) =>
 										onUpdateShift(opportunity.id, shift.id, { startsAt: e.currentTarget.value })}
 								/>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<label class="text-surface-200 text-xs font-medium" for={`end-${shift.id}`}
+								<label class="text-surface-800-200 text-xs font-medium" for={`end-${shift.id}`}
 									>Ends</label
 								>
 								<input
 									id={`end-${shift.id}`}
 									type="datetime-local"
-									class="input preset-tonal-surface w-full rounded-lg px-3 py-1.5 text-sm"
+									class="input preset-tonal-surface min-h-11 w-full rounded-lg px-3 py-1.5 text-sm"
 									value={shift.endsAt}
 									oninput={(e) =>
+										onUpdateShift(opportunity.id, shift.id, { endsAt: e.currentTarget.value })}
+									onchange={(e) =>
 										onUpdateShift(opportunity.id, shift.id, { endsAt: e.currentTarget.value })}
 								/>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<label class="text-surface-200 text-xs font-medium" for={`cap-${shift.id}`}
+								<label class="text-surface-800-200 text-xs font-medium" for={`cap-${shift.id}`}
 									>Capacity</label
 								>
 								<input
 									id={`cap-${shift.id}`}
 									type="number"
-									class="input preset-tonal-surface w-full rounded-lg px-3 py-1.5 text-sm"
+									class="input preset-tonal-surface min-h-11 w-full rounded-lg px-3 py-1.5 text-sm"
 									value={shift.capacity}
 									oninput={(e) =>
 										onUpdateShift(opportunity.id, shift.id, { capacity: e.currentTarget.value })}
@@ -245,8 +251,8 @@
 								/>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<label class="text-surface-200 text-xs font-medium" for={`notes-${shift.id}`}
-									>Notes <span class="text-surface-500 font-normal">(optional)</span></label
+								<label class="text-surface-800-200 text-xs font-medium" for={`notes-${shift.id}`}
+									>Notes <span class="text-surface-600-400 font-normal">(optional)</span></label
 								>
 								<textarea
 									id={`notes-${shift.id}`}
@@ -261,7 +267,7 @@
 
 					<button
 						type="button"
-						class="border-surface-500/20 text-surface-400 hover:text-surface-200 hover:border-surface-500/40 flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 transition-colors sm:min-h-[200px]"
+						class="border-surface-500/20 text-surface-600-400 hover:text-surface-800-200 hover:border-surface-500/40 flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 transition-colors sm:min-h-[200px]"
 						onclick={() => onAddShift(opportunity.id)}
 					>
 						<div class="bg-surface-500/10 rounded-full p-2">
@@ -275,7 +281,7 @@
 	{/each}
 
 	{#if opportunities.length === 0}
-		<p class="text-surface-400 text-sm">
+		<p class="text-surface-600-400 text-sm">
 			No volunteer roles configured yet. Add a role to organize volunteer shifts and capacity.
 		</p>
 	{/if}

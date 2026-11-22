@@ -18,7 +18,7 @@
 
 <div class="grid gap-4 md:grid-cols-2">
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-title">Event title *</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-title">Event title *</label>
 		<input
 			id="event-title"
 			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -29,7 +29,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-type">Event type *</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-type">Event type *</label>
 		<select
 			id="event-type"
 			class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -41,11 +41,11 @@
 			{/each}
 		</select>
 		{#if currentEventTypeDescription}
-			<p class="text-surface-400 text-xs">{currentEventTypeDescription}</p>
+			<p class="text-surface-600-400 text-xs">{currentEventTypeDescription}</p>
 		{/if}
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-start">Start *</label>
 		<input
 			id="event-start"
 			type="datetime-local"
@@ -57,7 +57,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-end">End</label>
 		<input
 			id="event-end"
 			type="datetime-local"
@@ -68,7 +68,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-timezone">Timezone</label>
 		<select
 			id="event-timezone"
 			class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -82,7 +82,7 @@
 	</div>
 	{#if showStatusField}
 		<div class="flex flex-col gap-1.5">
-			<label class="text-surface-200 text-sm font-medium" for="event-status">Status</label>
+			<label class="text-surface-800-200 text-sm font-medium" for="event-status">Status</label>
 			<select
 				id="event-status"
 				class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -113,18 +113,19 @@
 			<div>
 				<button
 					type="button"
-					class="text-primary-400 inline-flex min-h-11 items-center text-left text-xs underline"
+					class="text-primary-700-300 inline-flex min-h-11 items-center text-left text-xs underline"
 					onclick={onClearHostGroup}
 				>
 					Clear selection
 				</button>
 			</div>
 		{:else}
-			<p class="text-surface-500 text-xs">Leave blank if not tied to a host group.</p>
+			<p class="text-surface-600-400 text-xs">Leave blank if not tied to a host group.</p>
 		{/if}
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-summary">Short summary</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-summary">Short summary</label
+		>
 		<input
 			id="event-summary"
 			class="input preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
@@ -134,8 +135,8 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-description"
-			>Full description <span class="text-surface-500 font-normal">(optional)</span></label
+		<label class="text-surface-800-200 text-sm font-medium" for="event-description"
+			>Full description <span class="text-surface-600-400 font-normal">(optional)</span></label
 		>
 		<textarea
 			id="event-description"

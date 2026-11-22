@@ -29,7 +29,7 @@
 
 <div class="space-y-4">
 	<div class="preset-tonal-surface divide-y overflow-hidden rounded-xl">
-		<div class="bg-surface-800/30 flex min-h-12 items-center gap-4 px-4 py-3">
+		<div class="bg-surface-200-800/30 flex min-h-12 items-center gap-4 px-4 py-3">
 			<Toggle
 				name="host-register"
 				ariaLabel="Notify hosts when a volunteer signs up"
@@ -42,7 +42,7 @@
 			</p>
 		</div>
 
-		<div class="bg-surface-800/30 flex min-h-12 items-center gap-4 px-4 py-3">
+		<div class="bg-surface-200-800/30 flex min-h-12 items-center gap-4 px-4 py-3">
 			<Toggle
 				name="host-cancel"
 				ariaLabel="Notify hosts when a volunteer cancels"

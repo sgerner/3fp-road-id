@@ -1330,6 +1330,9 @@
 	function removeOpportunity(id) {
 		if (opportunities.length === 1) return;
 		opportunities = opportunities.filter((op) => op.id !== id);
+		customQuestions = customQuestions.map((q) =>
+			String(q.opportunityId) === String(id) ? { ...q, opportunityId: '' } : q
+		);
 		isDirty = true;
 	}
 
@@ -1477,15 +1480,22 @@
 				}
 			}
 
+			const createdOpportunityIds = new Map(
+				opportunityResults.map(({ local, remote }) => [String(local.id), remote.id])
+			);
+
 			for (const [index, question] of customQuestions.entries()) {
 				if (!question.label) continue;
 				const optionsArray = (question.optionsRaw || '')
 					.split(/\n|,/)
 					.map((item) => item.trim())
 					.filter(Boolean);
+				const resolvedOpportunityId = question.opportunityId
+					? (createdOpportunityIds.get(String(question.opportunityId)) ?? null)
+					: null;
 				const payload = {
 					event_id: eventId,
-					opportunity_id: question.opportunityId || null,
+					opportunity_id: resolvedOpportunityId,
 					field_key: ensureFieldKey(question.fieldKey, `question-${index + 1}`),
 					label: question.label,
 					help_text: question.helpText || null,

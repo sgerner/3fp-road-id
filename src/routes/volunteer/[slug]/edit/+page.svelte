@@ -313,6 +313,11 @@
 		try {
 			await deleteVolunteerOpportunity(id);
 			opportunities = opportunities.filter((op) => op.id !== id);
+			customQuestions = customQuestions.map((question) =>
+				String(question.opportunityId) === String(id)
+					? { ...question, opportunityId: null }
+					: question
+			);
 			opportunityAutosaves.delete(id);
 			for (const [shiftId] of shiftAutosaves.entries()) {
 				const belongsToRemoved = opportunities.every((op) =>
@@ -678,7 +683,7 @@
 				<h1 class="!text-left text-2xl font-bold tracking-tight sm:text-3xl">
 					Edit volunteer event
 				</h1>
-				<p class="text-surface-400 text-sm">
+				<p class="text-surface-600-400 text-sm">
 					Updates save automatically. Use Manage Event for live volunteer broadcasts and host
 					alerts.
 				</p>
