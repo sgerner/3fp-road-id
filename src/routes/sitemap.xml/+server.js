@@ -1,4 +1,9 @@
 import { loadGroupMicrosite } from '#lib/server/groupSites';
+import {
+	buildGroupNewsPath,
+	buildGroupPath,
+	buildVolunteerGroupPath
+} from '#lib/server/groupRouting';
 import { extractMicrositeSlugFromHostname, normalizeMicrositeSlug } from '#lib/microsites/host';
 import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
 import {
@@ -279,9 +284,8 @@ export const GET = async ({ fetch, url }) => {
 			]);
 
 		for (const { group, config } of publishedSites) {
-			const groupSlug = normalizeMicrositeSlug(group?.slug || '');
-			if (groupSlug) {
-				const groupPath = `/groups/${groupSlug}`;
+			const groupPath = buildGroupPath(group?.slug);
+			if (groupPath) {
 				addSitemapEntry(
 					entryMap,
 					toAbsoluteUrl(url.origin, groupPath),
@@ -388,25 +392,21 @@ export const GET = async ({ fetch, url }) => {
 		}
 
 		for (const group of publicGroups) {
-			const groupSlug = normalizeMicrositeSlug(group?.slug || '');
-			if (!groupSlug) continue;
-			addSitemapEntry(
-				entryMap,
-				toAbsoluteUrl(url.origin, `/groups/${groupSlug}`),
-				group?.updated_at || null
-			);
-			addSitemapEntry(
-				entryMap,
-				toAbsoluteUrl(url.origin, `/volunteer/groups/${groupSlug}`),
-				group?.updated_at || null
-			);
-			const newsLastmod = groupNewsLatestByGroupId.get(group.id) || null;
-			if (newsLastmod) {
+			const groupPath = buildGroupPath(group?.slug);
+			if (!groupPath) continue;
+			addSitemapEntry(entryMap, toAbsoluteUrl(url.origin, groupPath), group?.updated_at || null);
+			const volunteerGroupPath = buildVolunteerGroupPath(group?.slug);
+			if (volunteerGroupPath) {
 				addSitemapEntry(
 					entryMap,
-					toAbsoluteUrl(url.origin, `/groups/${groupSlug}/news`),
-					newsLastmod
+					toAbsoluteUrl(url.origin, volunteerGroupPath),
+					group?.updated_at || null
 				);
+			}
+			const newsLastmod = groupNewsLatestByGroupId.get(group.id) || null;
+			const groupNewsPath = buildGroupNewsPath(group?.slug);
+			if (newsLastmod && groupNewsPath) {
+				addSitemapEntry(entryMap, toAbsoluteUrl(url.origin, groupNewsPath), newsLastmod);
 			}
 		}
 
