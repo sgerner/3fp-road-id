@@ -9,6 +9,7 @@ import {
 import { parseBtwPhxCalendarData } from './btwphx-imports.js';
 import { mapGroupEventToSeedEvent } from './meetup-topic-imports.js';
 import { fetchExistingRideEventsBySourceId, importRideSeedData } from './ride-imports.js';
+import { normalizeRideListRow, queryPublishedUpcomingRides } from './rideDirectory.js';
 import { isValidExternalEventUrlInput, normalizeRidePayload } from './ridePayload.js';
 import { parseWeeklyRidesRssFeed } from './weeklyrides-imports.js';
 
@@ -626,4 +627,151 @@ test('formatRideCardLocation formats venue plus city and state across US and int
 		startLocationAddress: 'Westgate Square, 15810 W State Road 84, Sunrise, FL, US'
 	};
 	assert.equal(formatRideCardLocation(legacyPlaceholder), 'Westgate Square · Sunrise, FL');
+});
+
+test('rideDirectory exposes structured external fields and searches external_organizer_name', async () => {
+	const normalizedRow = normalizeRideListRow(
+		{
+			id: 'ride-ext-1',
+			source_event_id: 'meetup:12345',
+			title: 'Sunrise Social Roll',
+			slug: 'sunrise-social-roll',
+			summary: 'Morning loop',
+			description: 'Meet at Westgate Square',
+			timezone: 'America/New_York',
+			host_user_id: null,
+			host_group_id: null,
+			start_location_name: 'Westgate Square',
+			start_location_address: 'Westgate Square, Sunrise, FL, US',
+			start_latitude: 26.13,
+			start_longitude: -80.36,
+			next_occurrence_start: '2026-12-01T13:00:00.000Z',
+			next_occurrence_end: '2026-12-01T15:00:00.000Z',
+			ride_details: [
+				{
+					external_event_url: 'https://www.meetup.com/freewheelers/events/12345/',
+					external_organizer_name: 'South Florida Freewheelers',
+					image_urls: []
+				}
+			],
+			group: null,
+			difficulty_links: [],
+			discipline_links: []
+		},
+		new Set(['ride-ext-1'])
+	);
+
+	assert.equal(normalizedRow.source_event_id, 'meetup:12345');
+	assert.equal(normalizedRow.sourceEventId, 'meetup:12345');
+	assert.equal(
+		normalizedRow.external_event_url,
+		'https://www.meetup.com/freewheelers/events/12345/'
+	);
+	assert.equal(normalizedRow.externalEventUrl, 'https://www.meetup.com/freewheelers/events/12345/');
+	assert.equal(normalizedRow.external_organizer_name, 'South Florida Freewheelers');
+	assert.equal(normalizedRow.externalOrganizerName, 'South Florida Freewheelers');
+	assert.equal(normalizedRow.recurrenceEnabled, true);
+
+	let rideDetailsOrExpr = '';
+	let activitySelectCols = '';
+	let activityOrExpr = '';
+	const mockSupabase = {
+		from(table) {
+			const state = { ors: [] };
+			const builder = {
+				select(cols, opts) {
+					if (table === 'activity_events') activitySelectCols = cols;
+					state.countExact = opts?.count === 'exact';
+					return this;
+				},
+				eq() {
+					return this;
+				},
+				is() {
+					return this;
+				},
+				in() {
+					return this;
+				},
+				ilike() {
+					return this;
+				},
+				or(expr) {
+					state.ors.push(expr);
+					if (table === 'ride_details') rideDetailsOrExpr = expr;
+					if (table === 'activity_events') activityOrExpr = expr;
+					return this;
+				},
+				gte() {
+					return this;
+				},
+				order() {
+					return this;
+				},
+				limit() {
+					return this;
+				},
+				range() {
+					return this;
+				},
+				then(resolve, reject) {
+					if (table === 'ride_details') {
+						return Promise.resolve({
+							data: [{ activity_event_id: 'ride-ext-1' }],
+							error: null
+						}).then(resolve, reject);
+					}
+					if (table === 'activity_events') {
+						return Promise.resolve({
+							data: [
+								{
+									id: 'ride-ext-1',
+									source_event_id: 'meetup:12345',
+									title: 'Sunrise Social Roll',
+									slug: 'sunrise-social-roll',
+									summary: null,
+									description: null,
+									timezone: 'America/New_York',
+									host_user_id: null,
+									host_group_id: null,
+									start_location_name: 'Westgate Square',
+									start_location_address: 'Westgate Square, Sunrise, FL, US',
+									start_latitude: 26.13,
+									start_longitude: -80.36,
+									next_occurrence_start: '2026-12-01T13:00:00.000Z',
+									next_occurrence_end: '2026-12-01T15:00:00.000Z',
+									ride_details: [
+										{
+											external_event_url: 'https://www.meetup.com/freewheelers/events/12345/',
+											external_organizer_name: 'South Florida Freewheelers',
+											image_urls: []
+										}
+									],
+									group: null,
+									difficulty_links: [],
+									discipline_links: []
+								}
+							],
+							count: state.countExact ? 1 : null,
+							error: null
+						}).then(resolve, reject);
+					}
+					return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+				}
+			};
+			return builder;
+		}
+	};
+
+	const result = await queryPublishedUpcomingRides(
+		mockSupabase,
+		new URLSearchParams('q=Freewheelers'),
+		{ nowIso: '2026-11-22T00:00:00.000Z' }
+	);
+
+	assert.match(activitySelectCols, /\bsource_event_id\b/);
+	assert.match(rideDetailsOrExpr, /external_organizer_name\.ilike\."%Freewheelers%"/);
+	assert.match(activityOrExpr, /id\.in\.\(ride-ext-1\)/);
+	assert.equal(result.data.length, 1);
+	assert.equal(result.data[0].externalOrganizerName, 'South Florida Freewheelers');
 });
