@@ -1,11 +1,26 @@
 /**
+ * Format a Date as a local YYYY-MM-DD key, returning '' for nullish or invalid dates.
+ * @param {Date | null | undefined} date
+ * @returns {string}
+ */
+export function toLocalDateKey(date) {
+	if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
+		return '';
+	}
+	const year = String(date.getFullYear()).padStart(4, '0');
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+/**
  * Build six Sunday-first weeks for a month using the caller's date keys.
  * @template T
  * @param {Date} reference
- * @param {Record<string, T[]>} itemsByDate
- * @param {(date: Date) => string} toDateKey
+ * @param {Record<string, T[]>} [itemsByDate]
+ * @param {(date: Date) => string} [toDateKey]
  */
-export function buildMonthGrid(reference, itemsByDate, toDateKey) {
+export function buildMonthGrid(reference, itemsByDate = {}, toDateKey = toLocalDateKey) {
 	const month = reference.getMonth();
 	const year = reference.getFullYear();
 	const firstDate = new Date(year, month, 1);

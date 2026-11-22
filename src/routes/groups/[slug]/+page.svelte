@@ -38,7 +38,15 @@
 		toJsonLd
 	} from '#lib/seo';
 	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
-	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
+
+	// UI state
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 
 	// Leaflet map (loaded client-side)
 	let L;
@@ -56,16 +64,20 @@
 	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
 	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
 
-	const coverImage = $derived(
+	const rawCoverImage = $derived(
 		group?.cover_photo_url
 			? optimizedImageUrl(group.cover_photo_url, { width: 1200, height: 736, quality: 68 })
 			: ''
 	);
-	const logoImage = $derived(
+	const coverImage = $derived(
+		rawCoverImage && !failedImageUrls[rawCoverImage] ? rawCoverImage : ''
+	);
+	const rawLogoImage = $derived(
 		group?.logo_url
 			? optimizedImageUrl(group.logo_url, { width: 128, height: 128, quality: 68 })
 			: ''
 	);
+	const logoImage = $derived(rawLogoImage && !failedImageUrls[rawLogoImage] ? rawLogoImage : '');
 
 	async function initMap() {
 		if (!mapEl || map || mapInitialized) return;
@@ -684,6 +696,7 @@
 									width="96"
 									height="96"
 									decoding="async"
+									use:watchImageError={() => markImageFailed(logoImage)}
 								/>
 							</div>
 						{/if}
@@ -750,6 +763,7 @@
 						height="576"
 						decoding="async"
 						class="absolute inset-0 h-full w-full object-cover"
+						use:watchImageError={() => markImageFailed(coverImage)}
 					/>
 				{:else}
 					<div class="bg-secondary-500 absolute inset-0 flex items-center justify-center">
