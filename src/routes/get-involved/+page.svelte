@@ -16,7 +16,7 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconShare2 from '@lucide/svelte/icons/share-2';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle-2';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check';
 	import { slide } from 'svelte/transition';
 
 	let { data, form } = $props();

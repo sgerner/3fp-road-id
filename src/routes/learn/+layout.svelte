@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
-	import IconHistory from '@lucide/svelte/icons/history';
+	import IconHistory from '@lucide/svelte/icons/rotate-ccw-clock';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 
