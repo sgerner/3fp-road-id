@@ -7,6 +7,7 @@ import { requireGroupSiteManager } from '#lib/server/groupSiteAuth';
 import { createOwnerInviteState } from '#lib/server/groupOwnerInvites';
 import { TURNSTILE_SECRET_KEY } from '$app/env/private';
 import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
+import { normalizeRoadIdCodeInput, resolveConfirmRedirectDestination } from '#lib/server/roadId';
 
 // Expect a payload like:
 // {
@@ -35,7 +36,11 @@ export async function POST(event) {
 			return json({ error: 'Invalid request body.' }, { status: 400 });
 		}
 
-		const code = typeof body.code === 'string' ? body.code.trim().slice(0, 64) : '';
+		const rawCode = typeof body.code === 'string' ? body.code.trim() : '';
+		const code = rawCode ? normalizeRoadIdCodeInput(rawCode) : '';
+		if (rawCode && !code) {
+			return json({ error: 'Enter a valid bracelet code.' }, { status: 400 });
+		}
 		const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
 		const createProfile =
 			body.createProfile === true ||
@@ -86,7 +91,10 @@ export async function POST(event) {
 		}
 
 		// Build confirm URL with return_to so users land back where they started.
-		let safeReturn = isSafeInternalPath(returnTo) ? returnTo : '/';
+		let safeReturn = resolveConfirmRedirectDestination({
+			rid: code,
+			returnTo: isSafeInternalPath(returnTo) ? returnTo : '/'
+		});
 		let ownerInviteRequested = false;
 		let ownerInviteGroup = null;
 		let ownerInviteManager = null;
@@ -156,31 +164,7 @@ export async function POST(event) {
 			return json({ error: 'Unable to send login link. Please try again.' }, { status: 400 });
 		}
 
-		// If we are creating a new profile, insert it into the profiles table
-		// and update the qr_codes table to link the code to the new profile.
-		/*if (createProfile) {
-			const { data: profileData, error: profileError } = await supabase
-				.from('profiles')
-				.insert([{ full_name, user_id: authData.user.uid }])
-				.select()
-				.single();
-
-			if (profileError) {
-				return json({ error: profileError.message }, { status: 400 });
-			}
-
-			// Update the qr_codes record to associate the new profile.
-			const { error: qrError } = await supabase
-				.from('qr_codes')
-				.update({ profile_id: profileData.user_id })
-				.eq('code', code);
-
-			if (qrError) {
-				return json({ error: qrError.message }, { status: 400 });
-			}
-		}*/
-
-		// Return a message. The magic link email will be sent by Supabase.
+		// Bracelet code claiming runs atomically on /auth/confirm once identity is verified.
 		return json({ message: 'Magic link sent. Please check your email.' });
 	} catch (error) {
 		console.error('Unexpected error in auth login endpoint:', error);
