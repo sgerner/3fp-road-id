@@ -10,7 +10,28 @@ import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
 } from '#lib/server/supabaseClient';
+import {
+	PUBLIC_GROUP_NEWS_GROUP_COLUMNS,
+	PUBLIC_GROUP_NEWS_POST_COLUMNS,
+	PUBLIC_GROUP_NEWS_PROFILE_COLUMNS,
+	buildGroupNewsPreviewText,
+	getGroupNewsProfilesMap,
+	getPublicGroupBySlug,
+	listPublicGroupNewsPosts,
+	stripGroupNewsMarkdown
+} from '#lib/server/groupNewsPublic';
 import { resolveVerifiedSession } from '#lib/server/session';
+
+export {
+	PUBLIC_GROUP_NEWS_GROUP_COLUMNS,
+	PUBLIC_GROUP_NEWS_POST_COLUMNS,
+	PUBLIC_GROUP_NEWS_PROFILE_COLUMNS,
+	buildGroupNewsPreviewText,
+	getGroupNewsProfilesMap,
+	getPublicGroupBySlug,
+	listPublicGroupNewsPosts,
+	stripGroupNewsMarkdown
+};
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -43,27 +64,6 @@ export function slugifyGroupNews(value) {
 		.replace(/[^\w\s-]/g, '')
 		.replace(/[\s_-]+/g, '-')
 		.replace(/^-+|-+$/g, '');
-}
-
-export function stripGroupNewsMarkdown(markdown) {
-	return safeTrim(markdown)
-		.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
-		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-		.replace(/`([^`]+)`/g, '$1')
-		.replace(/^#{1,6}\s+/gm, '')
-		.replace(/^>\s?/gm, '')
-		.replace(/^[-*+]\s+/gm, '')
-		.replace(/^\d+\.\s+/gm, '')
-		.replace(/(\*\*|__|\*|_|~~)/g, '')
-		.replace(/\n{2,}/g, '\n')
-		.trim();
-}
-
-export function buildGroupNewsPreviewText(post, maxLength = 180) {
-	const summary = safeTrim(post?.summary);
-	const source = summary || stripGroupNewsMarkdown(post?.body_markdown || '');
-	if (!source) return '';
-	return source.length > maxLength ? `${source.slice(0, maxLength - 1).trimEnd()}…` : source;
 }
 
 export function isGroupNewsPublished(post) {
@@ -147,6 +147,14 @@ export async function getGroupNewsClient(cookies) {
 
 export function getGroupNewsServiceClient() {
 	return createServiceSupabaseClient();
+}
+
+export function getGroupNewsPublicReadClient() {
+	const client = createServiceSupabaseClient();
+	if (!client) {
+		throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured.');
+	}
+	return client;
 }
 
 export async function ensureUniqueGroupNewsSlug(supabase, groupId, source, excludeId = null) {
@@ -375,19 +383,6 @@ export async function getGroupNewsPostById(
 		is_published: isGroupNewsPublished(data),
 		preview_text: buildGroupNewsPreviewText(data)
 	};
-}
-
-export async function getGroupNewsProfilesMap(supabase, userIds) {
-	const uniqueIds = Array.from(new Set((userIds || []).filter(Boolean)));
-	if (!uniqueIds.length) return new Map();
-
-	const { data, error: queryError } = await supabase
-		.from('public_profiles')
-		.select('user_id, full_name, avatar_url')
-		.in('user_id', uniqueIds);
-
-	if (queryError) throw queryError;
-	return new Map((data ?? []).map((profile) => [profile.user_id, profile]));
 }
 
 function internalizeTbagArchiveHtml(html) {

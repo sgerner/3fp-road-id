@@ -7,13 +7,18 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconCheck from '@lucide/svelte/icons/check';
+	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUndo2 from '@lucide/svelte/icons/undo-2';
 	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import {
 		matchSafetyReportTemplates,
 		normalizeReportTopicLabel
 	} from '#lib/ai/assistantHelpers.js';
-	import { isSafeInternalPath } from '#lib/security/navigation';
+	import {
+		normalizeAssistantHref,
+		normalizeNavigationTarget,
+		renderAssistantMessageHtml
+	} from '#lib/ai/assistantMessage';
 	import { safeHttpUrl } from '#lib/security/urls';
 
 	const DEFAULT_WELCOME = {
@@ -22,7 +27,7 @@
 		synthetic: true,
 		mode: 'discover',
 		content:
-			'I can help you find rides, groups, volunteer events, and learn articles that match your interests and location. Ask for recommendations or say “I want to post my own ride” and I will route you to the right page.',
+			'Ask for **rides**, **cycling groups**, **volunteer shifts**, **safety guides**, **Road ID** (`/roadid`), **merch** (`/merch`), or **donations** (`/donate`)—or tell me your city and state to search nearby.',
 		recommendations: [],
 		navigationTarget: null,
 		followUpQuestion: null,
@@ -42,6 +47,7 @@
 	let statusBanner = $state(null);
 	let messages = $state([DEFAULT_WELCOME]);
 	let proposalStates = $state({});
+	let activeLocationHint = $state('');
 	let dialogEl = $state(null);
 	let chatBodyEl = $state(null);
 	let inputTextareaEl = $state(null);
@@ -70,6 +76,9 @@
 	);
 
 	const storageKey = $derived(userId ? `3fp-assistant-chat-${userId}` : '3fp-assistant-chat-guest');
+	const locationStorageKey = $derived(
+		userId ? `3fp-assistant-location-${userId}` : '3fp-assistant-location-guest'
+	);
 	const canSend = $derived(!sending && input.trim().length > 0);
 	const feedbackStorageKey = '3fp-assistant-session-id';
 	const feedbackEndpoint = '/api/ai/article-feedback';
@@ -215,51 +224,13 @@
 		}
 	}
 
-	function escapeHtml(value) {
-		return String(value)
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;')
-			.replace(/'/g, '&#39;');
-	}
-
-	function normalizeAssistantLink(raw) {
-		const candidate = String(raw || '').trim();
-		if (!candidate) return '';
-		if (isSafeInternalPath(candidate)) return candidate;
-		return safeHttpUrl(candidate);
-	}
-
-	function renderAssistantMessageHtml(content) {
-		const source = String(content || '');
-		const parts = [];
-		const tokenRegex =
-			/\((\/[^\s)]+|https?:\/\/[^\s)]+)\)|\b(https?:\/\/[^\s<>"')]+)|(\/(?:ride|groups|volunteer|learn|get-involved|profile|donate|roadid|merch)[^\s<>"')]+)/gi;
-		let cursor = 0;
-		let match;
-		while ((match = tokenRegex.exec(source)) !== null) {
-			const fullMatch = match[0];
-			const pathInParens = match[1] || '';
-			const absoluteUrl = match[2] || '';
-			const inlinePath = match[3] || '';
-			const href = normalizeAssistantLink(pathInParens || absoluteUrl || inlinePath);
-			if (!href) continue;
-			const start = match.index;
-			const end = start + fullMatch.length;
-			if (start > cursor) {
-				parts.push(escapeHtml(source.slice(cursor, start)));
-			}
-			const text = pathInParens || absoluteUrl || inlinePath;
-			parts.push(
-				`<a href="${escapeHtml(href)}" class="text-primary-500 hover:text-tertiary-500 font-bold underline">${escapeHtml(text)}</a>`
-			);
-			cursor = end;
+	function handleMessageBodyClick(event) {
+		const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+		if (!target) return;
+		const href = target.getAttribute('href') || '';
+		if (href.startsWith('/')) {
+			closeAssistant();
 		}
-		if (cursor < source.length) {
-			parts.push(escapeHtml(source.slice(cursor)));
-		}
-		return parts.join('').replace(/\n/g, '<br />');
 	}
 
 	function generateId(prefix = 'msg') {
@@ -276,6 +247,10 @@
 		return `${String(messageId || '')}:${baseId}`;
 	}
 
+	function formatIndexNumeral(index) {
+		return String(index + 1).padStart(2, '0');
+	}
+
 	function normalizeRecommendation(item) {
 		const type = String(item?.type || '')
 			.trim()
@@ -283,7 +258,7 @@
 		const articleId = item?.articleId ? String(item.articleId).trim() : null;
 		const id = item?.id ? String(item.id).trim() : articleId;
 		const rawUrl = String(item?.url || '').trim();
-		const url = isSafeInternalPath(rawUrl) ? rawUrl : safeHttpUrl(rawUrl);
+		const url = normalizeAssistantHref(rawUrl);
 		return {
 			id: id || null,
 			type,
@@ -416,17 +391,7 @@
 				const content = String(entry.content || '').trim();
 				if (!role || !content) return null;
 				const recommendations = normalizeRecommendations(entry.recommendations);
-				const rawNavigationUrl = String(entry.navigationTarget?.url || '').trim();
-				const navigationUrl = isSafeInternalPath(rawNavigationUrl)
-					? rawNavigationUrl
-					: safeHttpUrl(rawNavigationUrl);
-				const navigationTarget = navigationUrl
-					? {
-							url: navigationUrl,
-							label: String(entry.navigationTarget.label || 'Open'),
-							reason: String(entry.navigationTarget.reason || '')
-						}
-					: null;
+				const navigationTarget = normalizeNavigationTarget(entry.navigationTarget);
 				const followUpQuestion = entry.followUpQuestion
 					? String(entry.followUpQuestion).trim()
 					: null;
@@ -469,6 +434,11 @@
 				templates: entry.templates || []
 			}));
 			window.localStorage.setItem(storageKey, JSON.stringify(serializable));
+			if (activeLocationHint) {
+				window.localStorage.setItem(locationStorageKey, activeLocationHint);
+			} else {
+				window.localStorage.removeItem(locationStorageKey);
+			}
 		} catch {
 			// ignore persistence failures
 		}
@@ -479,8 +449,10 @@
 		try {
 			const saved = JSON.parse(window.localStorage.getItem(key) || '[]');
 			messages = normalizeSavedMessages(saved);
+			activeLocationHint = String(window.localStorage.getItem(locationStorageKey) || '').trim();
 		} catch {
 			messages = [DEFAULT_WELCOME];
+			activeLocationHint = '';
 		}
 		messageShownAt.clear();
 		for (const entry of messages) {
@@ -496,18 +468,19 @@
 		if (!chatBodyEl || !messageId) return;
 		const target = chatBodyEl.querySelector(`[data-message-id="${messageId}"]`);
 		if (!target) return;
+		const prefersReducedMotion =
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		chatBodyEl.scrollTo({
 			top: Math.max(0, target.offsetTop - 8),
-			behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
-				? 'instant'
-				: 'smooth'
+			behavior: prefersReducedMotion ? 'auto' : 'smooth'
 		});
 	}
 
 	function resizeInputTextarea() {
 		if (!inputTextareaEl) return;
 		inputTextareaEl.style.height = 'auto';
-		const nextHeight = Math.max(40, Math.min(inputTextareaEl.scrollHeight, 160));
+		const nextHeight = Math.max(40, Math.min(inputTextareaEl.scrollHeight, 180));
 		inputTextareaEl.style.height = `${nextHeight}px`;
 	}
 
@@ -904,6 +877,10 @@
 				}
 				return;
 			}
+			const nextHint = String(payload?.context?.locationHint || '').trim();
+			if (nextHint) {
+				activeLocationHint = nextHint;
+			}
 
 			const templates =
 				requestMode === 'safety-report' && pageConfig?.report
@@ -918,8 +895,10 @@
 				mode: payload?.mode || requestMode,
 				content: String(payload?.reply || 'Here is what I found.'),
 				recommendations: normalizeRecommendations(payload?.recommendations),
-				navigationTarget: payload?.navigationTarget || null,
-				followUpQuestion: payload?.followUpQuestion || null,
+				navigationTarget: normalizeNavigationTarget(payload?.navigationTarget),
+				followUpQuestion: payload?.followUpQuestion
+					? String(payload.followUpQuestion).trim()
+					: null,
 				reportEvidence,
 				templates,
 				proposal: payload?.proposal || null
@@ -965,6 +944,7 @@
 				content: activeModeMeta?.welcome || DEFAULT_WELCOME.content
 			}
 		];
+		activeLocationHint = '';
 		error = '';
 		statusBanner = null;
 		proposalStates = {};
@@ -1003,6 +983,7 @@
 
 	$effect(() => {
 		messages.length;
+		activeLocationHint;
 		saveMessages();
 	});
 
@@ -1022,55 +1003,72 @@
 	></button>
 {/if}
 
-<div class="md:fixed md:right-4 md:bottom-4 md:z-[80]">
+<div class="assistant-lane-root md:fixed md:right-4 md:bottom-4 md:z-[80]">
 	{#if isOpen}
 		<div
 			bind:this={dialogEl}
-			class="border-surface-500 border-t-primary-500 bg-surface-900 text-surface-50 fixed right-2 bottom-2 z-[80] flex h-[min(82dvh,44rem)] w-[min(30rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-none border-2 border-t-4 md:absolute md:right-0 md:bottom-[calc(100%+0.5rem)]"
+			class="assistant-lane-dialog border-surface-500 border-t-primary-500 bg-surface-900 text-surface-50 fixed right-2 bottom-2 z-[80] flex h-[min(82dvh,44rem)] w-[min(30rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-none border-2 border-t-4 md:absolute md:right-0 md:bottom-[calc(100%+0.5rem)]"
 			role="dialog"
 			aria-label="3FP assistant"
 			aria-modal="true"
 			tabindex="-1"
 			onkeydown={handleDialogKeydown}
 		>
-			<header
-				class="border-surface-800 bg-surface-950 flex shrink-0 items-center justify-between gap-3 border-b-2 px-4 py-3"
-			>
-				<div class="flex min-w-0 items-center gap-3">
+			<header class="border-surface-800 bg-surface-950 shrink-0 border-b-2 px-4 py-3">
+				<div class="flex items-center justify-between gap-3">
+					<div class="flex min-w-0 items-center gap-3">
+						<div
+							class="bg-primary-500 text-surface-950 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-none font-black"
+							aria-hidden="true"
+						>
+							<IconBot class="h-4 w-4" />
+						</div>
+						<div class="min-w-0">
+							<p class="text-primary-500 m-0 text-[10px] font-bold tracking-[0.22em] uppercase">
+								{activeModeMeta?.tabLabel || '3FP Assistant'}
+							</p>
+							<h2
+								class="text-surface-50! m-0 truncate text-sm leading-tight font-black uppercase italic"
+							>
+								3FP Assistant
+							</h2>
+							<p class="text-surface-300 m-0 truncate text-[11px]">
+								{activeModeMeta?.subtitle || 'Personalized rides, groups & guides'}
+							</p>
+						</div>
+					</div>
+					<div class="flex shrink-0 items-center gap-1.5">
+						<button
+							type="button"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 rounded-none border-2 px-2.5 py-1.5 text-[11px] font-black tracking-wider uppercase transition-colors"
+							onclick={clearChat}
+						>
+							Clear
+						</button>
+						<button
+							type="button"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-error-500 hover:bg-error-500 hover:text-surface-950 inline-flex h-8 w-8 items-center justify-center rounded-none border-2 transition-colors"
+							onclick={() => closeAssistant()}
+							aria-label="Close assistant"
+						>
+							<IconX class="h-4 w-4" />
+						</button>
+					</div>
+				</div>
+				{#if activeMode === 'discover' && activeLocationHint}
 					<div
-						class="bg-primary-500 text-surface-950 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-none font-black"
+						class="border-surface-800 mt-2.5 flex items-center gap-1.5 border-t pt-2 text-[11px]"
+						data-testid="assistant-location-hint"
 					>
-						<IconBot class="h-4 w-4" />
+						<span
+							class="bg-primary-500 text-surface-950 inline-flex items-center gap-1 px-2 py-0.5 font-black tracking-[0.16em] uppercase"
+						>
+							<IconMapPin class="h-3 w-3" aria-hidden="true" />
+							Area
+						</span>
+						<span class="text-surface-200 truncate font-bold">{activeLocationHint}</span>
 					</div>
-					<div class="min-w-0">
-						<p class="text-primary-500 m-0 text-[10px] font-bold tracking-[0.22em] uppercase">
-							{activeModeMeta?.tabLabel || '3FP Assistant'}
-						</p>
-						<h2 class="text-surface-50! m-0 truncate text-sm leading-tight font-black uppercase">
-							3FP Assistant
-						</h2>
-						<p class="text-surface-300 m-0 truncate text-[11px]">
-							{activeModeMeta?.subtitle || 'Personalized rides, groups & guides'}
-						</p>
-					</div>
-				</div>
-				<div class="flex shrink-0 items-center gap-1.5">
-					<button
-						type="button"
-						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 rounded-none border-2 px-2.5 py-1.5 text-[11px] font-black tracking-wider uppercase transition"
-						onclick={clearChat}
-					>
-						Clear
-					</button>
-					<button
-						type="button"
-						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-error-500 hover:bg-error-500 hover:text-surface-950 inline-flex h-8 w-8 items-center justify-center rounded-none border-2 transition"
-						onclick={() => closeAssistant()}
-						aria-label="Close assistant"
-					>
-						<IconX class="h-4 w-4" />
-					</button>
-				</div>
+				{/if}
 			</header>
 
 			{#if hasPageMode && pageModeMeta}
@@ -1138,14 +1136,18 @@
 				</div>
 			{/if}
 
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="bg-surface-900 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
 				bind:this={chatBodyEl}
+				onclick={handleMessageBodyClick}
 			>
 				{#each messages as entry (entry.id)}
 					<div
 						class={`flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}
 						data-message-id={entry.id}
+						data-message-role={entry.role}
 					>
 						<div
 							class={`w-[94%] rounded-none border-2 p-3 ${
@@ -1154,22 +1156,13 @@
 									: 'border-surface-800 border-l-primary-500 bg-surface-950 text-surface-50 border-l-4'
 							}`}
 						>
-							<p
-								class="m-0 text-sm leading-relaxed whitespace-pre-wrap"
-								onclick={(event) => {
-									const anchor = event.target?.closest?.('a[href]');
-									if (anchor && isSafeInternalPath(anchor.getAttribute('href') || '')) {
-										closeAssistant();
-									}
-								}}
-								role="presentation"
-							>
+							<div class="assistant-message-copy m-0 text-sm leading-relaxed break-words">
 								{#if entry.id === 'welcome' && messages.length === 1}
 									{@html renderAssistantMessageHtml(activeModeMeta?.welcome || entry.content)}
 								{:else}
 									{@html renderAssistantMessageHtml(entry.content)}
 								{/if}
-							</p>
+							</div>
 
 							{#if entry.followUpQuestion}
 								<p class="text-surface-300 m-0 mt-2 text-xs whitespace-pre-line">
@@ -1180,10 +1173,13 @@
 							{#if entry.navigationTarget}
 								<a
 									href={entry.navigationTarget.url}
-									class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 mt-3 inline-flex items-center gap-1.5 rounded-none px-3 py-2 text-xs font-black tracking-wider uppercase transition"
+									class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 mt-3 inline-flex items-center gap-1.5 rounded-none px-3 py-2 text-xs font-black tracking-wider uppercase transition"
+									data-testid="assistant-action-button"
 									onclick={() => closeAssistant()}
 								>
-									<IconArrowRight class="h-3.5 w-3.5" />
+									<IconArrowRight
+										class="h-3.5 w-3.5 transition-transform motion-safe:group-hover:translate-x-1"
+									/>
 									{entry.navigationTarget.label}
 								</a>
 								{#if entry.navigationTarget.reason}
@@ -1229,7 +1225,7 @@
 																<span
 																	class="text-tertiary-500 shrink-0 font-black italic tabular-nums"
 																>
-																	{String(sIdx + 1).padStart(2, '0')}
+																	{formatIndexNumeral(sIdx)}
 																</span>
 																<span class="truncate">{section.title}</span>
 															</span>
@@ -1513,7 +1509,7 @@
 													<span
 														class="text-tertiary-500 group-hover:text-secondary-500 shrink-0 text-sm font-black italic tabular-nums"
 													>
-														{String(recIdx + 1).padStart(2, '0')}
+														{formatIndexNumeral(recIdx)}
 													</span>
 													<div class="min-w-0 flex-1">
 														<div
@@ -1533,7 +1529,7 @@
 														{/if}
 													</div>
 													<IconArrowRight
-														class="mt-1 h-4 w-4 shrink-0 transition group-hover:translate-x-1"
+														class="mt-1 h-4 w-4 shrink-0 transition motion-safe:group-hover:translate-x-1"
 													/>
 												</div>
 											</a>
@@ -1573,7 +1569,7 @@
 							class="border-surface-800 border-l-primary-500 bg-surface-950 text-surface-50 w-[94%] rounded-none border-2 border-l-4 p-3"
 						>
 							<div class="text-surface-300 flex items-center gap-2 text-sm">
-								<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
+								<IconLoader class="text-primary-500 h-4 w-4 motion-safe:animate-spin" />
 								<span>
 									{activeLearnAction === 'takeaways'
 										? 'Preparing takeaway preview…'
@@ -1581,7 +1577,7 @@
 											? 'Reading the review & sources…'
 											: isAuthoringMode
 												? 'Preparing draft preview…'
-												: 'Thinking…'}
+												: 'Searching 3 Feet Please…'}
 								</span>
 							</div>
 						</div>
@@ -1667,21 +1663,28 @@
 					void sendMessage();
 				}}
 			>
+				<label
+					for="assistant-message-input"
+					class="text-surface-300 mb-1.5 block text-[10px] font-bold tracking-[0.18em] uppercase"
+				>
+					Ask 3FP Assistant
+				</label>
 				<div class="flex items-end gap-2">
 					<textarea
+						id="assistant-message-input"
 						bind:this={inputTextareaEl}
 						bind:value={input}
 						rows="1"
 						placeholder={activeModeMeta?.placeholder ||
 							'Ask for rides, groups, volunteer events, articles, or posting help'}
 						maxlength={maxInputLength}
-						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full resize-none rounded-none border-2 p-2.5 text-sm focus:outline-none"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full resize-none rounded-none border-2 p-2.5 text-sm focus:ring-0 focus:outline-none"
 						disabled={sending}
 						aria-label={`Message to 3FP Assistant (${activeModeMeta?.tabLabel || 'AI'})`}
 						onkeydown={handleInputKeydown}></textarea>
 					<button
 						type="submit"
-						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none font-black transition disabled:opacity-50"
+						class="bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:bg-surface-800 disabled:text-surface-400 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none font-black transition-colors"
 						disabled={!canSend}
 						aria-label="Send message"
 					>
@@ -1695,7 +1698,7 @@
 	<button
 		bind:this={toggleButtonEl}
 		type="button"
-		class="border-surface-500 bg-surface-950 text-primary-500 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase transition"
+		class="group border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase transition-colors"
 		onclick={toggleAssistant}
 		aria-label={isOpen
 			? 'Close 3FP assistant'
@@ -1704,10 +1707,51 @@
 		{#if isOpen}
 			<IconX class="h-4 w-4" />
 		{:else}
-			<IconSparkles class="h-3.5 w-3.5 shrink-0" />
+			<IconSparkles class="text-primary-500 group-hover:text-surface-950 h-3.5 w-3.5 shrink-0" />
 			<span class="text-xs font-black tracking-[0.16em] uppercase">
 				{activeModeMeta?.buttonBadge || 'AI'}
 			</span>
 		{/if}
 	</button>
 </div>
+
+<style>
+	.assistant-lane-root,
+	.assistant-lane-root * {
+		border-radius: 0 !important;
+		box-shadow: none !important;
+		backdrop-filter: none !important;
+	}
+
+	.assistant-message-copy :global(a.assistant-link) {
+		color: var(--color-primary-500);
+		font-weight: 700;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.assistant-message-copy :global(a.assistant-link:hover) {
+		background-color: var(--color-primary-500);
+		color: var(--color-surface-950);
+		text-decoration: none;
+	}
+
+	.assistant-message-copy :global(strong) {
+		color: var(--color-surface-50);
+		font-weight: 800;
+	}
+
+	.assistant-message-copy :global(code.assistant-inline-code) {
+		background-color: var(--color-surface-900);
+		border: 1px solid var(--color-surface-700);
+		color: var(--color-primary-500);
+		font-size: 0.8125rem;
+		padding: 0.05rem 0.3rem;
+	}
+
+	.assistant-message-copy :global(a.assistant-link code.assistant-inline-code) {
+		color: inherit;
+		border-color: currentColor;
+		background: transparent;
+	}
+</style>

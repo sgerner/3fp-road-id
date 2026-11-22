@@ -308,7 +308,7 @@ export function getContextualModeDefaults(mode, options = {}) {
 				placeholder: discovery.placeholder,
 				maxLength: 500,
 				welcome:
-					'I can help you find rides, groups, volunteer events, and learn articles that match your interests and location. Ask for recommendations or say “I want to post my own ride” and I will route you to the right page.',
+					'Ask for **rides**, **cycling groups**, **volunteer shifts**, **safety guides**, **Road ID** (`/roadid`), **merch** (`/merch`), or **donations** (`/donate`)—or tell me your city and state to search nearby.',
 				starterPrompts: discovery.starterPrompts
 			};
 		}
