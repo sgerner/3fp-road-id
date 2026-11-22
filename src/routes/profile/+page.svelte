@@ -6,7 +6,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconUsers from '@lucide/svelte/icons/users';
-	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import IconX from '@lucide/svelte/icons/x';
 
 	const { data } = $props();

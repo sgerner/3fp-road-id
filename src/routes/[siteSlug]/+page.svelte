@@ -9,7 +9,7 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconImage from '@lucide/svelte/icons/image';
-	import IconHelpCircle from '@lucide/svelte/icons/circle-help';
+	import IconHelpCircle from '@lucide/svelte/icons/circle-question-mark';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconSearch from '@lucide/svelte/icons/search';

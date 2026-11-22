@@ -12,11 +12,21 @@
 	import IconUser from '@lucide/svelte/icons/user';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconLock from '@lucide/svelte/icons/lock';
+	import IconMinus from '@lucide/svelte/icons/minus';
+	import IconPlus from '@lucide/svelte/icons/plus';
+	import IconX from '@lucide/svelte/icons/x';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { merchCart } from '#lib/merch/cart';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 	import { US_STATE_OPTIONS, normalizeUsStateCode } from '#lib/geo/usStates';
 
 	let { data } = $props();
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 
 	let customerName = $state('');
 	let customerEmail = $state('');
@@ -27,6 +37,7 @@
 	let printfulShippingOptionId = $state('');
 	let quote = $state(null);
 	let quoteLoading = $state(false);
+	let quotePending = $state(false);
 	let quoteError = $state('');
 	let submitError = $state('');
 	let submitSuccess = $state('');
@@ -40,6 +51,7 @@
 	let preparedSignature = $state('');
 	let cartLoaded = $state(false);
 	let quoteTimer = 0;
+	let quoteRequestSeq = 0;
 
 	let line1 = $state('');
 	let line2 = $state('');
@@ -73,11 +85,12 @@
 		Boolean(hasPrintfulItems || selectedManualMethod?.requires_address)
 	);
 	const checkoutDetailsComplete = $derived(
-		validateCheckoutForm() === '' && Boolean(quote) && !quoteLoading && !quoteError
+		validateCheckoutForm() === '' && Boolean(quote) && !quotePending && !quoteLoading && !quoteError
 	);
 	const payButtonDisabled = $derived(
 		submitting || preparingPayment || !checkoutDetailsComplete || !paymentFormReady
 	);
+	const cartControlsDisabled = $derived(submitting || preparingPayment);
 
 	const syncStateFromInput = (raw, { commitShortCode = false } = {}) => {
 		const trimmed = String(raw || '').trim();
@@ -161,6 +174,21 @@
 
 	onDestroy(() => {
 		teardownPaymentElement();
+	});
+
+	$effect(() => {
+		if (!cartLoaded || cartItems.length > 0) return;
+		if (quoteTimer) {
+			clearTimeout(quoteTimer);
+			quoteTimer = 0;
+		}
+		quotePending = false;
+		quoteLoading = false;
+		if (quote !== null) quote = null;
+		if (printfulShippingOptionId) printfulShippingOptionId = '';
+		if (paymentElement || paymentFormReady || paymentIntentId || preparedSignature) {
+			teardownPaymentElement();
+		}
 	});
 
 	$effect(() => {
@@ -264,9 +292,57 @@
 
 	function scheduleQuote() {
 		if (quoteTimer) clearTimeout(quoteTimer);
+		quotePending = true;
 		quoteTimer = setTimeout(() => {
+			quoteTimer = 0;
 			void refreshQuote();
 		}, 220);
+	}
+
+	function clearStaleCheckoutFeedback() {
+		preparedSignature = '';
+		quoteError = '';
+		submitError = '';
+		submitSuccess = '';
+	}
+
+	function setCartLineQuantity(variantId, nextQuantity) {
+		if (submitting || preparingPayment) return;
+		const clamped = Math.max(1, Math.min(20, Number(nextQuantity) || 1));
+		const existing = cartItems.find((line) => line.variantId === variantId);
+		if (!existing || Number(existing.quantity) === clamped) return;
+		clearStaleCheckoutFeedback();
+		merchCart.setQuantity(variantId, clamped);
+		scheduleQuote();
+	}
+
+	function removeCartLine(variantId) {
+		if (submitting || preparingPayment) return;
+		if (!cartItems.some((line) => line.variantId === variantId)) return;
+
+		clearStaleCheckoutFeedback();
+		const willBeEmpty = cartItems.every((line) => line.variantId === variantId);
+		if (willBeEmpty) {
+			if (quoteTimer) {
+				clearTimeout(quoteTimer);
+				quoteTimer = 0;
+			}
+			quoteRequestSeq += 1;
+			quotePending = false;
+			quoteLoading = false;
+			quote = null;
+			printfulShippingOptionId = '';
+			teardownPaymentElement();
+			merchCart.remove(variantId);
+			return;
+		}
+
+		merchCart.remove(variantId);
+		const stillHasPrintful = ($merchCart ?? []).some((line) => line.partnerProvider === 'printful');
+		if (!stillHasPrintful) {
+			printfulShippingOptionId = '';
+		}
+		scheduleQuote();
 	}
 
 	function teardownPaymentElement() {
@@ -283,13 +359,23 @@
 		preparedSignature = '';
 	}
 
-	async function refreshQuote() {
+	async function refreshQuote(options = {}) {
+		const { allowPrintfulRetry = true } = options;
+		const requestId = ++quoteRequestSeq;
+		quotePending = false;
 		quoteError = '';
 		const items = cartItemsPayload();
 		if (!items.length) {
 			quote = null;
+			quoteLoading = false;
+			printfulShippingOptionId = '';
+			teardownPaymentElement();
 			return;
 		}
+
+		const currentHasManual = cartItems.some((line) => line.partnerProvider !== 'printful');
+		const currentHasPrintful = cartItems.some((line) => line.partnerProvider === 'printful');
+		const requestedPrintfulOptionId = currentHasPrintful ? printfulShippingOptionId || null : null;
 
 		quoteLoading = true;
 		try {
@@ -299,14 +385,28 @@
 				body: JSON.stringify({
 					storeSlug: 'main',
 					items,
-					manualFulfillmentMethodId: hasManualItems ? manualFulfillmentMethodId || null : null,
-					printfulShippingOptionId: hasPrintfulItems ? printfulShippingOptionId || null : null,
+					manualFulfillmentMethodId: currentHasManual ? manualFulfillmentMethodId || null : null,
+					printfulShippingOptionId: requestedPrintfulOptionId,
 					shippingAddress: shippingAddressPayload(),
 					donationAmount: Number(donationAmount || 0)
 				})
 			});
 			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) throw new Error(payload?.error || 'Failed to calculate totals.');
+			if (requestId !== quoteRequestSeq) return;
+
+			if (!response.ok) {
+				const errorMessage = payload?.error || 'Failed to calculate totals.';
+				if (
+					allowPrintfulRetry &&
+					requestedPrintfulOptionId &&
+					errorMessage === 'Selected Printful shipping option is no longer available.'
+				) {
+					printfulShippingOptionId = '';
+					preparedSignature = '';
+					return await refreshQuote({ allowPrintfulRetry: false });
+				}
+				throw new Error(errorMessage);
+			}
 			quote = payload?.quote || null;
 
 			if (!manualFulfillmentMethodId && payload?.quote?.manual?.selectedMethod?.id) {
@@ -318,10 +418,13 @@
 				printfulShippingOptionId = '';
 			}
 		} catch (error) {
+			if (requestId !== quoteRequestSeq) return;
 			quoteError = error?.message || 'Failed to calculate totals.';
 			quote = null;
 		} finally {
-			quoteLoading = false;
+			if (requestId === quoteRequestSeq) {
+				quoteLoading = false;
+			}
 		}
 	}
 
@@ -1173,13 +1276,26 @@
 					{:else}
 						<ul class="border-surface-50 m-0 list-none border-t-2 p-0">
 							{#each cartItems as line (line.variantId)}
+								{@const qty = Number(line.quantity || 1)}
+								{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
+									width: 128,
+									quality: 64
+								})}
 								<li class="border-surface-800 flex items-start gap-3 border-b py-4">
-									{#if line.productImageUrl}
+									{#if thumbUrl && !failedImageUrls[thumbUrl]}
 										<img
-											src={line.productImageUrl}
+											src={thumbUrl}
 											alt={line.productName}
 											class="bg-surface-50 h-14 w-14 shrink-0 object-contain p-1"
+											use:watchImageError={() => markImageFailed(thumbUrl)}
 										/>
+									{:else}
+										<div
+											class="bg-surface-900 border-surface-700 flex h-14 w-14 shrink-0 items-center justify-center border"
+											aria-hidden="true"
+										>
+											<IconSparkles class="text-surface-300 h-5 w-5" />
+										</div>
 									{/if}
 									<div class="min-w-0 flex-1">
 										<p class="m-0 truncate text-sm leading-tight font-black uppercase">
@@ -1187,9 +1303,45 @@
 										</p>
 										<p class="text-surface-300 m-0 mt-0.5 truncate text-xs">{line.variantName}</p>
 										<p class="text-primary-500 m-0 mt-1 text-xs font-black tabular-nums">
-											{line.quantity} × {formatCurrency(line.priceCents)}
+											{qty} × {formatCurrency(line.priceCents)}
 										</p>
+										<div class="mt-2 flex items-center">
+											<div
+												class="border-surface-700 bg-surface-900 inline-flex items-center border-2"
+											>
+												<button
+													type="button"
+													class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+													disabled={cartControlsDisabled || qty <= 1}
+													onclick={() => setCartLineQuantity(line.variantId, qty - 1)}
+													aria-label={`Decrease quantity for ${line.productName}`}
+												>
+													<IconMinus class="h-3.5 w-3.5" />
+												</button>
+												<span class="min-w-8 px-1 text-center text-xs font-black tabular-nums">
+													{qty}
+												</span>
+												<button
+													type="button"
+													class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+													disabled={cartControlsDisabled || qty >= 20}
+													onclick={() => setCartLineQuantity(line.variantId, qty + 1)}
+													aria-label={`Increase quantity for ${line.productName}`}
+												>
+													<IconPlus class="h-3.5 w-3.5" />
+												</button>
+											</div>
+										</div>
 									</div>
+									<button
+										type="button"
+										class="border-surface-700 text-surface-300 enabled:hover:border-primary-500 enabled:hover:text-primary-500 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center border-2 transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+										disabled={cartControlsDisabled}
+										onclick={() => removeCartLine(line.variantId)}
+										aria-label={`Remove ${line.productName}`}
+									>
+										<IconX class="h-3.5 w-3.5" />
+									</button>
 								</li>
 							{/each}
 						</ul>
