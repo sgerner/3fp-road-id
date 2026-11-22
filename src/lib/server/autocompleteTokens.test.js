@@ -88,6 +88,34 @@ test('donate, profile, layout, and auth confirmation routes expose personal auto
 	const profile = parseRouteInputs('src/routes/profile/+page.svelte');
 	const fullNameInput = profile.inputs.find((entry) => entry.binds.value === 'fullName');
 	assert.equal(fullNameInput?.attrs.autocomplete, 'name');
+	const smsPhoneInput = profile.inputs.find((entry) => entry.binds.value === 'smsPhone');
+	assert.equal(smsPhoneInput?.attrs.autocomplete, 'tel');
+	const emergencyFullNameInput = profile.inputs.find(
+		(entry) => entry.binds.value === 'emergencyFullName'
+	);
+	assert.equal(emergencyFullNameInput?.attrs.autocomplete, 'name');
+	const emergencyPhoneInput = profile.inputs.find(
+		(entry) => entry.binds.value === 'emergencyPhone'
+	);
+	assert.equal(emergencyPhoneInput?.attrs.autocomplete, 'tel');
+
+	const emergencyContactIds = [
+		'{`contact-name-${contact.id}`}',
+		'{`contact-relationship-${contact.id}`}',
+		'{`contact-phone-${contact.id}`}',
+		'contact_name',
+		'contact_relationship',
+		'contact_phone'
+	];
+	for (const id of emergencyContactIds) {
+		const match = findById(profile.inputs, id)[0];
+		assert.ok(match, `expected emergency contact input ${id} in profile/#road-id`);
+		assert.equal(
+			match.attrs.autocomplete,
+			'off',
+			`emergency contact input ${id} must set autocomplete="off"`
+		);
+	}
 
 	const layout = parseRouteInputs('src/routes/+layout.svelte');
 	assert.equal(findById(layout.inputs, 'login-email-m')[0]?.attrs.autocomplete, 'email');
@@ -103,38 +131,11 @@ test('donate, profile, layout, and auth confirmation routes expose personal auto
 	assert.equal(confirmHoneypots[0]?.attrs.autocomplete, 'off');
 });
 
-test('Road ID scopes personal autocomplete to the rider and disables autofill on emergency contacts and honeypots', () => {
+test('Road ID responder route exposes email autocomplete on claim and owner login inputs while preserving honeypots', () => {
 	const roadId = parseRouteInputs('src/routes/roadid/[code]/+page.svelte');
 
-	const emailInputs = findById(roadId.inputs, 'email');
-	assert.equal(emailInputs.length, 2);
-	assert.ok(emailInputs.every((entry) => entry.attrs.autocomplete === 'email'));
-
-	const fullName = findById(roadId.inputs, 'full_name')[0];
-	assert.equal(fullName?.attrs.autocomplete, 'name');
-	assert.ok(fullName?.attrs.onchange, '#full_name should save on onchange for autofill');
-	assert.ok(fullName?.attrs.onblur, '#full_name should save on onblur');
-
-	const riderPhone = findById(roadId.inputs, 'phone')[0];
-	assert.equal(riderPhone?.attrs.autocomplete, 'tel');
-
-	const emergencyContactIds = [
-		'{`contact-name-${contact.id}`}',
-		'{`contact-relationship-${contact.id}`}',
-		'{`contact-phone-${contact.id}`}',
-		'contact_name',
-		'contact_relationship',
-		'contact_phone'
-	];
-	for (const id of emergencyContactIds) {
-		const match = findById(roadId.inputs, id)[0];
-		assert.ok(match, `expected emergency contact input ${id}`);
-		assert.equal(
-			match.attrs.autocomplete,
-			'off',
-			`emergency contact input ${id} must set autocomplete="off"`
-		);
-	}
+	assert.equal(findById(roadId.inputs, 'claim-email')[0]?.attrs.autocomplete, 'email');
+	assert.equal(findById(roadId.inputs, 'owner-email')[0]?.attrs.autocomplete, 'email');
 
 	const roadIdHoneypots = roadId.inputs.filter((entry) => entry.attrs.name === 'website');
 	assert.equal(roadIdHoneypots.length, 2);
