@@ -1,4 +1,10 @@
 import { supabase } from '#lib/supabaseClient';
+import { searchGeocode } from '#lib/server/geocoding';
+import {
+	applyGroupSearchFilter,
+	isPostalCodeQuery,
+	resolvePostalGeocodeBounds
+} from '#lib/server/groupSearch';
 import { fetchNearbyGroups, resolveGroupsDirectoryScope } from '#lib/server/proximity';
 import {
 	AU_STATES,
@@ -8,92 +14,8 @@ import {
 	normalizeRegionCode
 } from '#lib/server/visitorLocation';
 
-const SEARCH_STOP_WORDS = new Set([
-	'a',
-	'an',
-	'and',
-	'are',
-	'as',
-	'at',
-	'for',
-	'from',
-	'in',
-	'is',
-	'of',
-	'on',
-	'or',
-	'the',
-	'to',
-	'with'
-]);
-
-const SEARCH_SYNONYM_GROUPS = [
-	['bike', 'bikes', 'bicycle', 'bicycles', 'biking', 'cycling', 'cyclist', 'cyclists'],
-	['ride', 'rides', 'riding', 'rider', 'riders', 'peloton'],
-	['club', 'clubs', 'group', 'groups', 'community', 'communities', 'team', 'teams'],
-	['advocacy', 'advocate', 'advocates', 'activism', 'campaign'],
-	['mountain', 'mtb', 'trail'],
-	['road', 'gravel', 'commute', 'commuter', 'commuting']
-];
-
 const SEARCH_COLUMN_LIST =
 	'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude';
-
-const SEARCH_SYNONYMS = (() => {
-	const map = new Map();
-	for (const group of SEARCH_SYNONYM_GROUPS) {
-		const normalized = group.map((term) => normalizeSearchText(term)).filter(Boolean);
-		for (const term of normalized) {
-			if (!map.has(term)) map.set(term, new Set());
-			const set = map.get(term);
-			for (const candidate of normalized) set.add(candidate);
-		}
-	}
-	return map;
-})();
-
-function normalizeSearchText(text) {
-	return (text || '')
-		.toString()
-		.toLowerCase()
-		.normalize('NFKD')
-		.replace(/[\u0300-\u036f]/g, '')
-		.replace(/[^a-z0-9\s]/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim();
-}
-
-function tokenizeSearch(text) {
-	return normalizeSearchText(text)
-		.split(' ')
-		.map((token) => token.trim())
-		.filter((token) => token.length >= 2 && !SEARCH_STOP_WORDS.has(token));
-}
-
-function expandTokenVariants(token) {
-	const normalized = normalizeSearchText(token);
-	if (!normalized) return [];
-	const out = new Set([normalized]);
-	for (const key of [normalized]) {
-		if (!key) continue;
-		for (const synonym of SEARCH_SYNONYMS.get(key) || []) out.add(synonym);
-	}
-	return Array.from(out).filter(Boolean);
-}
-
-function buildSearchQueryText(input) {
-	const tokens = tokenizeSearch(input);
-	if (!tokens.length) return normalizeSearchText(input);
-	const tokenExpressions = tokens.map((token) => {
-		const variants = expandTokenVariants(token)
-			.filter((value) => value.length >= 2)
-			.slice(0, 8);
-		if (!variants.length) return '';
-		if (variants.length === 1) return variants[0];
-		return `(${variants.join(' OR ')})`;
-	});
-	return tokenExpressions.filter(Boolean).join(' ');
-}
 
 function buildStateFilterClauses(country, stateRegion) {
 	const trimmed = (stateRegion || '').trim();
@@ -117,7 +39,7 @@ function buildStateFilterClauses(country, stateRegion) {
 	return [`state_region.ilike.%${trimmed}%`];
 }
 
-export const load = async ({ url, locals, setHeaders }) => {
+export const load = async ({ url, fetch, locals, setHeaders }) => {
 	const q = (url.searchParams.get('q') || '').trim();
 	const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
 	const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '24', 10) || 24);
@@ -242,13 +164,10 @@ export const load = async ({ url, locals, setHeaders }) => {
 		};
 	}
 
-	function applyCommonFilters(qBuilder, { includeSearch = true } = {}) {
+	function applyCommonFilters(qBuilder, { includeSearch = true, postalBounds = null } = {}) {
 		let query = qBuilder;
 		if (includeSearch && q) {
-			const searchQuery = buildSearchQueryText(q);
-			if (searchQuery) {
-				query = query.textSearch('search_document', searchQuery, { type: 'websearch' });
-			}
+			query = applyGroupSearchFilter(query, { q, country, postalBounds });
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
@@ -287,7 +206,16 @@ export const load = async ({ url, locals, setHeaders }) => {
 		return map;
 	}
 
-	function buildMapChunkQuery(from, to, includeCount = false) {
+	function buildListQuery({ postalBounds = null } = {}) {
+		const query = supabase
+			.from('groups')
+			.select(SEARCH_COLUMN_LIST, { count: 'exact' })
+			.order('name')
+			.range((page - 1) * limit, page * limit - 1);
+		return applyCommonFilters(query, { includeSearch: true, postalBounds });
+	}
+
+	function buildMapChunkQuery(from, to, includeCount = false, postalBounds = null) {
 		let query = supabase
 			.from('groups')
 			.select(
@@ -298,11 +226,13 @@ export const load = async ({ url, locals, setHeaders }) => {
 			.not('longitude', 'is', null)
 			.order('id')
 			.range(from, to);
-		if (hasActiveFilters) query = applyCommonFilters(query, { includeSearch: true });
+		if (hasActiveFilters) {
+			query = applyCommonFilters(query, { includeSearch: true, postalBounds });
+		}
 		return query;
 	}
 
-	async function fetchAllMapPoints() {
+	async function fetchAllMapPoints(postalBounds = null) {
 		const pageSize = 1000;
 		let from = 0;
 		let total = null;
@@ -312,7 +242,8 @@ export const load = async ({ url, locals, setHeaders }) => {
 			const { data, error, count } = await buildMapChunkQuery(
 				from,
 				from + pageSize - 1,
-				includeCount
+				includeCount,
+				postalBounds
 			);
 			if (error) return { data: [], error, count: 0 };
 			if (includeCount && Number.isFinite(count)) total = count;
@@ -325,7 +256,7 @@ export const load = async ({ url, locals, setHeaders }) => {
 		return { data: points, error: null, count: Number.isFinite(total) ? total : points.length };
 	}
 
-	async function fetchCatalogOrderIds() {
+	async function fetchCatalogOrderIds(postalBounds = null) {
 		const pageSize = 1000;
 		let from = 0;
 		let total = null;
@@ -337,7 +268,9 @@ export const load = async ({ url, locals, setHeaders }) => {
 				.select('id, name', includeCount ? { count: 'exact' } : undefined)
 				.order('name')
 				.range(from, from + pageSize - 1);
-			if (hasActiveFilters) query = applyCommonFilters(query, { includeSearch: true });
+			if (hasActiveFilters) {
+				query = applyCommonFilters(query, { includeSearch: true, postalBounds });
+			}
 			const { data, error, count } = await query;
 			if (error) return { data: [], error };
 			if (includeCount && Number.isFinite(count)) total = count;
@@ -350,10 +283,21 @@ export const load = async ({ url, locals, setHeaders }) => {
 		return { data: rows, error: null };
 	}
 
-	async function fetchProximityOrderedPage() {
+	let nearbyGroupsPromise = null;
+	function getNearbyGroups() {
+		if (!nearbyGroupsPromise) {
+			nearbyGroupsPromise = fetchNearbyGroups(supabase, visitorLocation, {
+				maxMiles: 250,
+				limit: 5000
+			});
+		}
+		return nearbyGroupsPromise;
+	}
+
+	async function fetchProximityOrderedPage({ postalBounds = null } = {}) {
 		const [nearbyRes, catalogRes] = await Promise.all([
-			fetchNearbyGroups(supabase, visitorLocation, { maxMiles: 250, limit: 5000 }),
-			fetchCatalogOrderIds()
+			getNearbyGroups(),
+			fetchCatalogOrderIds(postalBounds)
 		]);
 		if (catalogRes.error) {
 			return { data: [], count: 0, error: catalogRes.error };
@@ -391,24 +335,38 @@ export const load = async ({ url, locals, setHeaders }) => {
 		return { data: pageRows, count: totalCount, error: null };
 	}
 
-	let listPromise;
-	if (proximityActive) {
-		listPromise = fetchProximityOrderedPage();
-	} else {
-		let listQuery = supabase
-			.from('groups')
-			.select(SEARCH_COLUMN_LIST, { count: 'exact' })
-			.order('name')
-			.range((page - 1) * limit, page * limit - 1);
-		listQuery = applyCommonFilters(listQuery, { includeSearch: true });
-		listPromise = listQuery;
+	function fetchListPage({ postalBounds = null } = {}) {
+		if (proximityActive) {
+			return fetchProximityOrderedPage({ postalBounds });
+		}
+		return buildListQuery({ postalBounds });
 	}
 
-	const [groupsRes, mapRes, facetResults] = await Promise.all([
-		listPromise,
+	let [groupsRes, mapRes, facetResults] = await Promise.all([
+		fetchListPage(),
 		fetchAllMapPoints(),
 		fetchFacets()
 	]);
+
+	if (
+		q &&
+		!groupsRes.error &&
+		(groupsRes.count ?? (groupsRes.data || []).length) === 0 &&
+		isPostalCodeQuery(q, country)
+	) {
+		const postalBounds = await resolvePostalGeocodeBounds(q, {
+			country,
+			geocode: searchGeocode,
+			fetchImpl: fetch
+		});
+		if (postalBounds) {
+			[groupsRes, mapRes] = await Promise.all([
+				fetchListPage({ postalBounds }),
+				fetchAllMapPoints(postalBounds)
+			]);
+		}
+	}
+
 	const [levelsRes, typesAllRes, afRes, rdRes] = facetResults;
 
 	const groups = groupsRes.data || [];

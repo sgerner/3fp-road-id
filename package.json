@@ -11,6 +11,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "node --test src/lib/server/*.test.js",
+		"test:stripe-webhook": "node scripts/with-webhook-test-server.mjs",
 		"test:server-sanitizer": "node --no-experimental-require-module scripts/check-server-sanitizer.mjs",
 		"prepare": "svelte-kit sync",
 		"seed:rides": "node scripts/seed-rides.mjs",
@@ -22,16 +23,18 @@
 		"geocode:weeklyrides": "node scripts/geocode-weeklyrides-imported.mjs",
 		"backfill:learn-search": "node scripts/backfill-learn-search-index.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:ci": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check --cache --cache-strategy content --cache-location .cache/prettier . && eslint --cache --cache-strategy content --cache-location .cache/eslint .",
+		"audit": "npm audit"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@skeletonlabs/skeleton": "^5.0.1",
 		"@skeletonlabs/skeleton-svelte": "^5.0.1",
-		"@sveltejs/adapter-auto": "^8.0.0",
 		"@sveltejs/adapter-node": "^6.0.5",
+		"@sveltejs/adapter-vercel": "^7.0.4",
 		"@sveltejs/kit": "^3.1.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/forms": "^0.5.11",
@@ -63,7 +66,6 @@
 		"@toast-ui/editor": "3.2.2",
 		"@vercel/sdk": "^1.28.40",
 		"date-fns": "^4.4.0",
-		"gray-matter": "^4.0.3",
 		"htmlparser2": "12.0.0",
 		"leaflet": "^1.9.4",
 		"leaflet.markercluster": "^1.5.3",
@@ -80,7 +82,6 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"overrides": {
-		"argparse": "2.0.1",
 		"dompurify": "3.4.18",
 		"htmlparser2": "12.0.0",
 		"postcss-selector-parser": "7.1.6"

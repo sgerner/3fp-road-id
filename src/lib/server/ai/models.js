@@ -267,43 +267,10 @@ function getGoogleFallbackModel(model) {
 	)?.fallbackModel;
 }
 
-function removeDeprecatedGeminiGenerationParameters(config = {}) {
-	const normalizedConfig = { ...config };
-	for (const key of [
-		'temperature',
-		'topP',
-		'topK',
-		'top_p',
-		'top_k',
-		'thinkingBudget',
-		'thinking_budget'
-	]) {
-		delete normalizedConfig[key];
-	}
-
-	for (const key of ['thinkingConfig', 'thinking_config']) {
-		const thinkingConfig = normalizedConfig[key];
-		if (!thinkingConfig || typeof thinkingConfig !== 'object' || Array.isArray(thinkingConfig)) {
-			continue;
-		}
-
-		const normalizedThinkingConfig = { ...thinkingConfig };
-		delete normalizedThinkingConfig.thinkingBudget;
-		delete normalizedThinkingConfig.thinking_budget;
-		if (Object.keys(normalizedThinkingConfig).length > 0) {
-			normalizedConfig[key] = normalizedThinkingConfig;
-		} else {
-			delete normalizedConfig[key];
-		}
-	}
-
-	return normalizedConfig;
-}
-
 function createGoogleProviderClient(ai) {
 	return {
 		async generateContent({ model, contents, config }) {
-			const generationConfig = removeDeprecatedGeminiGenerationParameters(config);
+			const generationConfig = config ?? {};
 			try {
 				return await ai.models.generateContent({
 					model,
