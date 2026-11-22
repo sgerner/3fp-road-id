@@ -1,7 +1,7 @@
 <script>
 	import IconImage from '@lucide/svelte/icons/image';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 
 	let {
 		sponsors = [],
