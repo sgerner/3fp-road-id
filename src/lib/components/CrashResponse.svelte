@@ -53,7 +53,7 @@
 	];
 </script>
 
-<div class="flex flex-col gap-5 sm:gap-8">
+<div class="bg-surface-950 text-surface-50 flex flex-col gap-5 sm:gap-8">
 	<div class="flex flex-col gap-2">
 		<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
 			Five Critical Steps
