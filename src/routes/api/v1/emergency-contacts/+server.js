@@ -6,6 +6,7 @@ import {
 } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
+import { ensureRoadIdProfileExists } from '#lib/server/roadId';
 
 export async function POST({ request, cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -13,13 +14,6 @@ export async function POST({ request, cookies }) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
 
-	// Expect a JSON payload like:
-	// {
-	//   profile_id: "<profile-uuid>",
-	//   contact_name: "Contact Name",
-	//   contact_phone: "Contact Phone",
-	//   contact_relationship: "Relationship"
-	// }
 	const parsedBody = await readJsonBody(request, { maxBytes: 8 * 1024 });
 	if (!parsedBody.ok) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
@@ -36,6 +30,18 @@ export async function POST({ request, cookies }) {
 	const requestSupabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();
 	const client = serviceSupabase ?? requestSupabase;
+
+	const ensured = await ensureRoadIdProfileExists({
+		client,
+		userId: user.id,
+		fallbackFullName:
+			typeof user.user_metadata?.full_name === 'string'
+				? user.user_metadata.full_name.trim().slice(0, 200)
+				: ''
+	});
+	if (!ensured.ok) {
+		return json({ error: ensured.error }, { status: 400 });
+	}
 
 	const { data, error } = await client
 		.from('emergency_contacts')

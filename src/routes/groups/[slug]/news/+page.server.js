@@ -4,18 +4,27 @@ import {
 	getGroupBySlug,
 	getGroupNewsClient,
 	getGroupNewsProfilesMap,
+	getGroupNewsPublicReadClient,
+	getPublicGroupBySlug,
+	listPublicGroupNewsPosts,
 	listPublishedGroupNewsPosts
 } from '#lib/server/groupNews';
 
 export const load = async ({ params, cookies, url }) => {
-	const { supabase } = await getGroupNewsClient(cookies);
-	const group = await getGroupBySlug(supabase, params.slug);
+	const { user, supabase } = await getGroupNewsClient(cookies);
+	const isAuthenticated = Boolean(user?.id);
+	const readClient = isAuthenticated ? supabase : getGroupNewsPublicReadClient();
+	const group = isAuthenticated
+		? await getGroupBySlug(supabase, params.slug)
+		: await getPublicGroupBySlug(readClient, params.slug);
 
 	if (!group) {
 		throw error(404, 'Group not found.');
 	}
 
-	const posts = await listPublishedGroupNewsPosts(supabase, group.id);
+	const posts = isAuthenticated
+		? await listPublishedGroupNewsPosts(supabase, group.id)
+		: await listPublicGroupNewsPosts(readClient, group.id);
 	const profileIds = Array.from(
 		new Set(
 			posts
@@ -23,7 +32,7 @@ export const load = async ({ params, cookies, url }) => {
 				.filter((value) => Boolean(value))
 		)
 	);
-	const profiles = await getGroupNewsProfilesMap(supabase, profileIds);
+	const profiles = await getGroupNewsProfilesMap(readClient, profileIds);
 	const postViews = await Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
 	const requestedSlug = (url.searchParams.get('open') || '').trim();
 	const initialOpenSlug = postViews.some((post) => post.slug === requestedSlug)

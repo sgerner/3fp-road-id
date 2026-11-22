@@ -1,4 +1,5 @@
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus.js';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots.js';
 
 const VALID_EVENT_TYPES = new Set(['ride', 'volunteer']);
 const MAX_MESSAGE_LENGTH = 1000;
@@ -744,6 +745,7 @@ export async function reviewEventSponsorshipRequestCore({
 	decisionNote = '',
 	fetchImpl = undefined,
 	sendEmailFn = null,
+	invalidateGroupCacheFn = invalidateGroupSnapshotCache,
 	publicOrigin = 'https://3fp.org'
 } = {}) {
 	if (!user?.id) {
@@ -845,6 +847,10 @@ export async function reviewEventSponsorshipRequestCore({
 				status: 500,
 				error: 'Request marked approved, but linking the organization to the event failed.'
 			};
+		}
+
+		if (typeof invalidateGroupCacheFn === 'function') {
+			invalidateGroupCacheFn({ groupId: group.id, slug: group.slug });
 		}
 	}
 

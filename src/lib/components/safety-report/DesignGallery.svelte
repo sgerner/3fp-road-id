@@ -2,16 +2,23 @@
 	import { tick, onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-	let { report, onAsk = undefined } = $props();
-	let library = $state('visuals');
-	let query = $state('');
-	let type = $state('All');
-	let topic = $state('All');
-	let visible = $state(12);
+
+	/** @type {{ report: Record<string, any>, type?: string, topic?: string, active?: boolean, onAsk?: (question: string) => void }} */
+	let {
+		report,
+		type = $bindable('All'),
+		topic = $bindable('All'),
+		active = true,
+		onAsk = undefined
+	} = $props();
+
 	let activeIndex = $state(0);
+	let activePageIndex = $state(0);
+	let cardPages = $state(/** @type {Record<string, number>} */ ({}));
 	let dialog = $state();
 	let trigger;
 	let reducedMotion = $state(true);
+
 	onMount(() => {
 		const preference = matchMedia('(prefers-reduced-motion: reduce)');
 		const update = () => (reducedMotion = preference.matches);
@@ -19,25 +26,63 @@
 		preference.addEventListener('change', update);
 		return () => preference.removeEventListener('change', update);
 	});
+
+	$effect(() => {
+		if (!active && dialog?.open) {
+			dialog.close();
+		}
+	});
+
 	const bytes = (size) =>
 		size >= 1000000 ? `${(size / 1000000).toFixed(1)} MB` : `${Math.ceil(size / 1000)} KB`;
+
 	const campaignName = (value) =>
 		value === 'All'
-			? 'All'
+			? 'All campaigns'
 			: value
 					.split(', ')
 					.map((name) =>
 						name === '03-a-person-on-a-bike'
 							? 'Family, friends & everyday rides'
-							: name.replace(/^\d+-/, '').replaceAll('-', ' ')
+							: name === '02-why-im-here'
+								? 'Why I’m here'
+								: name.replace(/^\d+-/, '').replaceAll('-', ' ')
 					)
 					.join(' + ');
+
 	const formatSize = (item) =>
 		item.kind === 'social'
 			? `${item.pixelWidth || 1080} × ${item.pixelHeight || 1080} px`
-			: item.dimensions
-				? `${item.dimensions.join(' × ')} in`
+			: item.dimensions?.length
+				? `${item.dimensions.map((size) => Number(size.toFixed(1))).join(' × ')} in`
 				: '';
+
+	const assetCustomTitles = {
+		'3fp-driver-handout-letter-2up-space-v9': 'Give People Space — Driver Handout (2-up Letter)',
+		'lights-ready-practice-card-4x6-v3-v9': 'Light The Ride — Practice Card (4 × 6 in)',
+		'3fp-poster-look-before-you-open-letter-native-v9': 'Before The Door — Poster (8.5 × 11 in)',
+		'3fp-poster-look-before-you-open-11x17-native-v9': 'Before The Door — Poster (11 × 17 in)',
+		'3fp-poster-check-before-you-turn-letter-native-v9':
+			'Check Before You Turn — Poster (8.5 × 11 in)',
+		'3fp-poster-check-before-you-turn-11x17-native-v9':
+			'Check Before You Turn — Poster (11 × 17 in)',
+		'3fp-welcoming-group-ride-card-4x6-rev2-native-v9':
+			'Find Your People — Welcoming Group Ride Card (4 × 6 in)',
+		'3fp-local-groups-rides-rack-card-4x9-rev2-native-v9':
+			'Find Your People — Local Rides Rack Card (4 × 9 in)',
+		'3fp-public-display-pair-letter-rev2-native-v9':
+			'Find Your People — Public Display Pair (8.5 × 11 in)',
+		'relationships-poster-11x17-v9': 'Family, Friends & Everyday Rides — Poster (11 × 17 in)',
+		'relationships-poster-letter-v9': 'Family, Friends & Everyday Rides — Poster (8.5 × 11 in)'
+	};
+
+	function formatSetTitle(item) {
+		if (item.assetId && assetCustomTitles[item.assetId]) return assetCustomTitles[item.assetId];
+		return (item.title || item.assetId || '')
+			.replace(/\s*\(page \d+\)$/i, '')
+			.replace(/\bWhy Im Here\b/, 'Why I’m Here');
+	}
+
 	const campaignUses = {
 		'01-give-people-space': {
 			audience: 'Drivers and fleet teams',
@@ -100,6 +145,7 @@
 			customize: 'Local routes, rules, climate, and support resources'
 		}
 	};
+
 	const suggestedUse = (campaign) =>
 		campaignUses[campaign] || {
 			audience: 'Local riders and road users',
@@ -108,235 +154,280 @@
 			customize: 'Local people, road rules, routes, and working links'
 		};
 
-	const items = $derived(library === 'visuals' ? report.figures : report.campaignGallery);
-	const types = $derived([...new Set(items.map((item) => item.kind))].sort());
-	const topics = $derived(
-		[...new Set(items.map((item) => (library === 'visuals' ? item.topic : item.campaign)))].sort()
-	);
-	const results = $derived.by(() => {
-		const term = query.trim().toLowerCase();
-		return items.filter((item) => {
-			const search = [
-				item.id,
-				item.title,
-				item.caption,
-				item.alt,
-				item.topic,
-				item.campaign,
-				item.kind
-			]
-				.join(' ')
-				.toLowerCase();
-			return (
-				(!term || search.includes(term)) &&
-				(type === 'All' || item.kind === type) &&
-				(topic === 'All' || (library === 'visuals' ? item.topic : item.campaign) === topic)
-			);
+	const designSets = $derived.by(() => {
+		const grouped = new Map();
+		for (const item of report.campaignGallery ?? []) {
+			const key = item.assetId || item.id;
+			if (!grouped.has(key)) grouped.set(key, []);
+			grouped.get(key).push(item);
+		}
+		return [...grouped.entries()].map(([assetId, rawPages]) => {
+			const pages = [...rawPages].sort((a, b) => (a.page ?? 1) - (b.page ?? 1));
+			const first = pages[0];
+			return {
+				id: `asset-${assetId}`,
+				assetId,
+				title: formatSetTitle(first),
+				campaign: first.campaign,
+				kind: first.kind,
+				pageCount: pages.length,
+				pages,
+				pdfUrl: first.pdfUrl,
+				pdfBytes: first.pdfBytes,
+				editableUrl: first.editableUrl,
+				editableBytes: first.editableBytes,
+				canvaTemplateUrl: first.canvaTemplateUrl,
+				dimensions: first.dimensions,
+				pixelWidth: first.pixelWidth,
+				pixelHeight: first.pixelHeight
+			};
 		});
 	});
-	const active = $derived(results[activeIndex]);
+
+	const types = $derived([...new Set(designSets.map((set) => set.kind))].sort());
+	const topics = $derived([...new Set(designSets.map((set) => set.campaign))].sort());
+
+	const results = $derived(
+		designSets.filter(
+			(set) => (type === 'All' || set.kind === type) && (topic === 'All' || set.campaign === topic)
+		)
+	);
+
+	const totalMatchingPages = $derived(results.reduce((sum, set) => sum + set.pageCount, 0));
+	const activeSet = $derived(results[activeIndex] ?? results[0]);
+	const activePage = $derived(
+		activeSet ? activeSet.pages[Math.min(activePageIndex, activeSet.pages.length - 1)] : undefined
+	);
+
 	const displayType = (value) =>
-		value === 'figure'
-			? 'Figure'
-			: value === 'print'
-				? 'Print example'
-				: value.replaceAll('-', ' ');
-	function reset() {
-		visible = 12;
+		value === 'All'
+			? 'All formats'
+			: value.replace(/^\w/, (char) => char.toUpperCase()).replaceAll('-', ' ');
+
+	function cardPageIndex(set) {
+		const current = cardPages[set.assetId] ?? 0;
+		return Math.min(Math.max(0, current), set.pages.length - 1);
 	}
-	function switchLibrary(value) {
-		library = value;
-		type = 'All';
-		topic = 'All';
-		query = '';
-		reset();
+
+	function stepCardPage(set, delta) {
+		const next = (cardPageIndex(set) + delta + set.pages.length) % set.pages.length;
+		cardPages = { ...cardPages, [set.assetId]: next };
 	}
-	function openImage(index, event) {
+
+	function openImage(index, pageIdx, event) {
 		trigger = event.currentTarget;
 		activeIndex = index;
+		activePageIndex = pageIdx;
 		dialog?.showModal();
 	}
+
 	function closeImage() {
 		dialog?.close();
 	}
+
 	function restoreFocus() {
 		trigger?.focus();
 	}
+
 	function move(delta) {
-		activeIndex = (activeIndex + delta + results.length) % results.length;
+		if (!results.length) return;
+		if (activeSet && activeSet.pages.length > 1) {
+			const nextPage = activePageIndex + delta;
+			if (nextPage >= 0 && nextPage < activeSet.pages.length) {
+				activePageIndex = nextPage;
+				return;
+			}
+		}
+		const nextSetIndex = (activeIndex + delta + results.length) % results.length;
+		activeIndex = nextSetIndex;
+		activePageIndex = delta < 0 ? (results[nextSetIndex]?.pages.length ?? 1) - 1 : 0;
 	}
+
+	function moveSet(delta) {
+		if (!results.length) return;
+		activeIndex = (activeIndex + delta + results.length) % results.length;
+		activePageIndex = 0;
+	}
+
 	function keydown(event) {
 		if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
 			event.preventDefault();
 			move(event.key === 'ArrowLeft' ? -1 : 1);
 		}
 	}
-	async function readChapter(id) {
-		closeImage();
-		await tick();
-		const target = document.getElementById(id);
-		if (!target) return;
-		let parent = target.parentElement;
-		while (parent) {
-			if (parent instanceof HTMLDetailsElement) parent.open = true;
-			parent = parent.parentElement;
-		}
-		if (target instanceof HTMLDetailsElement) target.open = true;
-		target.scrollIntoView({ behavior: 'auto', block: 'start' });
-		history.replaceState(null, '', `#${id}`);
-	}
 </script>
 
 <div class="gallery">
-	<p class="eyebrow">Examples and campaign materials</p>
-	<h2>See the ideas in action.</h2>
-	<p class="intro">
-		Explore the report’s draft examples and the current campaign library. Poster A and B pages are
-		alternatives; card pages may form duplex pairs. Page numbers identify each proof without
-		assuming every page is a front or back.
-	</p>
-	<div class="free-assets">
-		<div>
-			<span class="free-label">Free campaign library</span>
-			<p>
-				Campaign images are AI generated. Images, logos, website addresses and QR codes are design
-				placeholders. Customize each template for local people, road rules and working links before
-				distribution.
-			</p>
-			<h3>Take an idea.<br />Make it your own.</h3>
-			<p>
-				Download a PDF proof to review, or customize a Canva template for your community. No email
-				or form required for downloads.
-			</p>
-		</div>
-		<div class="free-actions">
-			<button type="button" onclick={() => switchLibrary('campaigns')}
-				>Explore {report.meta.campaignAssetCount || 28} free design sets
-				<span aria-hidden="true">↗</span></button
+	<div class="gallery-header">
+		<p class="eyebrow">TEMPLATE LIBRARY · {designSets.length} DESIGN SETS</p>
+		<h2>Adapt a complete design set.</h2>
+		<p class="intro">
+			Each card groups all proof pages for one downloadable template set. Poster A and B pages are
+			alternatives; card pages may form duplex pairs. Preview every page before downloading the PDF,
+			PowerPoint, or Canva copy.
+		</p>
+	</div>
+
+	<aside class="customization-notice" aria-label="Template customization notice">
+		<p class="notice-label">PLACEHOLDER NOTICE · CUSTOMIZE BEFORE SHARING</p>
+		<p>
+			Campaign images are AI generated. Images, logos, website addresses, and QR codes are design
+			placeholders—replace them with local people, verified road rules, and working links in Canva
+			or PowerPoint before distribution. No email or form is required for downloads.
+		</p>
+	</aside>
+
+	<div class="controls" aria-label="Filter template sets">
+		<label
+			>Format
+			<select
+				bind:value={type}
+				onchange={() => {
+					activeIndex = 0;
+					activePageIndex = 0;
+				}}
 			>
-			<p>Canva sign-in is required to make a copy. Editable PowerPoint files are available too.</p>
-		</div>
-	</div>
-	<div class="switcher" aria-label="Choose a library">
-		<button
-			type="button"
-			class:active={library === 'visuals'}
-			aria-pressed={library === 'visuals'}
-			onclick={() => switchLibrary('visuals')}
-			>Report visuals <span>{report.figures.length}</span></button
-		>
-		<button
-			type="button"
-			class:active={library === 'campaigns'}
-			aria-pressed={library === 'campaigns'}
-			onclick={() => switchLibrary('campaigns')}
-			>Campaign library <span>{report.campaignGallery.length}</span></button
-		>
-	</div>
-	<div class="controls">
+				<option value="All">All formats</option>
+				{#each types as value (value)}<option {value}>{displayType(value)}</option>{/each}
+			</select>
+		</label>
 		<label
-			>Search <input
-				type="search"
-				bind:value={query}
-				oninput={reset}
-				placeholder="Search title, topic, or source ID"
-			/></label
-		>
-		<label
-			>Type <select bind:value={type} onchange={reset}
-				><option>All</option>{#each types as value}<option {value}>{displayType(value)}</option
-					>{/each}</select
-			></label
-		>
-		<label
-			>{library === 'visuals' ? 'Topic' : 'Campaign'}
-			<select bind:value={topic} onchange={reset}
-				><option>All</option>{#each topics as value}<option {value}>{campaignName(value)}</option
-					>{/each}</select
-			></label
-		>
+			>Campaign
+			<select
+				bind:value={topic}
+				onchange={() => {
+					activeIndex = 0;
+					activePageIndex = 0;
+				}}
+			>
+				<option value="All">All campaigns</option>
+				{#each topics as value (value)}<option {value}>{campaignName(value)}</option>{/each}
+			</select>
+		</label>
+		{#if type !== 'All' || topic !== 'All'}
+			<button
+				type="button"
+				class="reset-filters"
+				onclick={() => {
+					type = 'All';
+					topic = 'All';
+					activeIndex = 0;
+					activePageIndex = 0;
+				}}>Reset filters</button
+			>
+		{/if}
 	</div>
+
 	<p class="count" aria-live="polite">
 		{results.length}
-		{results.length === 1 ? 'result' : 'results'}
+		{results.length === 1 ? 'design set' : 'design sets'} · {totalMatchingPages}
+		{totalMatchingPages === 1 ? 'proof page' : 'proof pages'}
 	</p>
+
 	<div class="grid">
-		{#each results.slice(0, visible) as item, index (item.id)}
-			{@const guidance = suggestedUse(item.campaign)}
+		{#each results as set, index (set.assetId)}
+			{@const guidance = suggestedUse(set.campaign)}
+			{@const pageIdx = cardPageIndex(set)}
+			{@const currentPage = set.pages[pageIdx]}
 			<article
-				in:fly={{ y: reducedMotion ? 0 : 14, duration: reducedMotion ? 0 : 250 }}
-				animate:flip={{ duration: reducedMotion ? 0 : 220 }}
+				id={set.id}
+				class="set-card"
+				in:fly={{ y: reducedMotion ? 0 : 12, duration: reducedMotion ? 0 : 220 }}
+				animate:flip={{ duration: reducedMotion ? 0 : 200 }}
 			>
-				<button
-					type="button"
-					class="image-button"
-					aria-label={'Open ' + item.title}
-					onclick={(event) => openImage(index, event)}
-				>
-					<img
-						src={item.src}
-						alt={item.alt}
-						loading="lazy"
-						decoding="async"
-						width="600"
-						height="450"
-					/>
-				</button>
+				<div class="preview-frame">
+					<button
+						type="button"
+						class="image-button"
+						aria-label={`Preview ${set.title} (${set.pageCount === 1 ? '1 page' : `page ${pageIdx + 1} of ${set.pageCount}`})`}
+						onclick={(event) => openImage(index, pageIdx, event)}
+					>
+						<img
+							src={currentPage.src}
+							alt={currentPage.alt}
+							loading="lazy"
+							decoding="async"
+							width="600"
+							height="450"
+						/>
+						<span class="set-badge"
+							>{set.pageCount === 1 ? '1 page' : `${set.pageCount}-page set`}</span
+						>
+					</button>
+					{#if set.pageCount > 1}
+						<div class="page-stepper" aria-label={`Pages in ${set.title}`}>
+							<button
+								type="button"
+								aria-label={`Previous page of ${set.title}`}
+								onclick={() => stepCardPage(set, -1)}>‹</button
+							>
+							<span>Page {pageIdx + 1} of {set.pageCount}</span>
+							<button
+								type="button"
+								aria-label={`Next page of ${set.title}`}
+								onclick={() => stepCardPage(set, 1)}>›</button
+							>
+						</div>
+					{/if}
+				</div>
+
 				<p class="item-label">
-					{library === 'visuals'
-						? `${displayType(item.kind)} ${item.number}`
-						: `${displayType(item.kind)} · page ${item.page} of ${item.pageCount}`}
+					{displayType(set.kind)} · {formatSize(set)}
 				</p>
-				<h3>{item.title}</h3>
-				{#if library === 'campaigns'}<p class="asset-meta">
-						{formatSize(item)} · {item.pageCount}-page set
-					</p>
-					<details class="campaign-guidance">
-						<summary>Suggested use</summary>
-						<dl>
-							<div>
-								<dt>Audience</dt>
-								<dd>{guidance.audience}</dd>
-							</div>
-							<div>
-								<dt>Action</dt>
-								<dd>{guidance.action}</dd>
-							</div>
-							<div>
-								<dt>Placement</dt>
-								<dd>{guidance.placement}</dd>
-							</div>
-							<div>
-								<dt>Customize</dt>
-								<dd>{guidance.customize}</dd>
-							</div>
-						</dl>
-					</details>
-					<div class="card-actions">
-						{#if item.pdfUrl}<a
-								href={item.pdfUrl}
-								download
-								aria-label={`Download PDF set: ${item.title}`}>PDF ↓</a
-							>{/if}
-						{#if item.pngUrl}<a
-								href={item.pngUrl}
-								download
-								aria-label={`Download PNG: ${item.title}`}>PNG ↓</a
-							>{/if}
-						{#if item.canvaTemplateUrl}<a
-								href={item.canvaTemplateUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								aria-label={`Make your own Canva copy: ${item.title}`}>Make a Canva copy ↗</a
-							>{/if}
-					</div>{/if}
+				<h3>{set.title}</h3>
+
+				<details class="campaign-guidance">
+					<summary>Suggested use</summary>
+					<dl>
+						<div>
+							<dt>Audience</dt>
+							<dd>{guidance.audience}</dd>
+						</div>
+						<div>
+							<dt>Action</dt>
+							<dd>{guidance.action}</dd>
+						</div>
+						<div>
+							<dt>Placement</dt>
+							<dd>{guidance.placement}</dd>
+						</div>
+						<div>
+							<dt>Customize</dt>
+							<dd>{guidance.customize}</dd>
+						</div>
+					</dl>
+				</details>
+
+				<div class="card-actions">
+					{#if set.pdfUrl}<a
+							href={set.pdfUrl}
+							download
+							aria-label={`Download PDF set: ${set.title}`}>PDF set ↓</a
+						>{/if}
+					{#if currentPage.pngUrl}<a
+							href={currentPage.pngUrl}
+							download
+							aria-label={`Download PNG page ${currentPage.page}: ${set.title}`}>PNG ↓</a
+						>{/if}
+					{#if set.editableUrl}<a
+							href={set.editableUrl}
+							download
+							aria-label={`Download PowerPoint: ${set.title}`}>PPTX ↓</a
+						>{/if}
+					{#if set.canvaTemplateUrl}<a
+							href={set.canvaTemplateUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label={`Make your own Canva copy: ${set.title}`}>Make a Canva copy ↗</a
+						>{/if}
+				</div>
 			</article>
 		{/each}
 	</div>
-	{#if results.length === 0}<p>No matches. Try another search or reset a filter.</p>{/if}
-	{#if visible < results.length}<button class="more" type="button" onclick={() => (visible += 12)}
-			>Load more <span aria-hidden="true">↓</span></button
-		>{/if}
+
+	{#if results.length === 0}
+		<p class="empty">No template sets match those filters. Reset a dropdown to see all sets.</p>
+	{/if}
 </div>
 
 <dialog
@@ -346,138 +437,277 @@
 	onclick={(event) => event.target === event.currentTarget && closeImage()}
 	aria-labelledby="gallery-dialog-title"
 >
-	{#if active}
+	{#if activeSet && activePage}
 		<div class="dialog-top">
 			<p class="eyebrow">
-				{activeIndex + 1} / {results.length} · {library === 'visuals'
-					? `${displayType(active.kind)} ${active.number}`
-					: `${displayType(active.kind)} · page ${active.page} of ${active.pageCount}`}
+				Set {activeIndex + 1} / {results.length} · {displayType(activeSet.kind)} · Page {activePage.page}
+				of {activeSet.pageCount}
 			</p>
-			<button type="button" class="close" onclick={closeImage} aria-label="Close image">×</button>
+			<button type="button" class="close" onclick={closeImage} aria-label="Close preview">×</button>
 		</div>
-		<h2 id="gallery-dialog-title">{active.title}</h2>
-		{#key active.id}<img
+		<h2 id="gallery-dialog-title">{activeSet.title}</h2>
+		{#if activeSet.pageCount > 1}
+			<div class="dialog-pages" role="group" aria-label="Select page in design set">
+				{#each activeSet.pages as pageItem, idx (pageItem.id)}
+					<button
+						type="button"
+						aria-pressed={activePageIndex === idx}
+						onclick={() => (activePageIndex = idx)}>Page {pageItem.page}</button
+					>
+				{/each}
+			</div>
+		{/if}
+		{#key activePage.id}<img
 				class="full-image"
-				src={active.src}
-				alt={active.alt}
-				in:fade={{ duration: reducedMotion ? 0 : 200 }}
+				src={activePage.src}
+				alt={activePage.alt}
+				in:fade={{ duration: reducedMotion ? 0 : 180 }}
 			/>{/key}
-		{#if active.caption}<p class="caption">{active.caption}</p>{:else}<p class="caption">
-				{active.alt}
-			</p>{/if}
+		<p class="caption">{activePage.alt}</p>
 		<div class="actions">
-			{#if active.chapterId}<button type="button" onclick={() => readChapter(active.chapterId)}
-					>Read chapter ↓</button
+			{#if activeSet.pdfUrl}<a class="download-primary" href={activeSet.pdfUrl} download
+					>Download PDF set ↓ <small>{bytes(activeSet.pdfBytes)}</small></a
 				>{/if}
-			{#if active.downloadUrl}<a href={active.downloadUrl} download>Download editable SVG ↓</a>{/if}
-			{#if active.pdfUrl}<a class="download-primary" href={active.pdfUrl} download
-					>Download PDF set ↓ <small>{bytes(active.pdfBytes)}</small></a
+			{#if activePage.pngUrl}<a href={activePage.pngUrl} download
+					>Download PNG (page {activePage.page}) ↓ <small>{bytes(activePage.pngBytes)}</small></a
 				>{/if}
-			{#if active.pngUrl}<a href={active.pngUrl} download
-					>Download PNG ↓ <small>{bytes(active.pngBytes)}</small></a
-				>{/if}
-			{#if active.canvaTemplateUrl}<a
+			{#if activeSet.canvaTemplateUrl}<a
 					class="template-link"
-					href={active.canvaTemplateUrl}
+					href={activeSet.canvaTemplateUrl}
 					target="_blank"
 					rel="noopener noreferrer">Make your own Canva copy ↗</a
 				>{/if}
-			{#if active.editableUrl}<a href={active.editableUrl} download
-					>Download editable PowerPoint ↓ <small>{bytes(active.editableBytes)}</small></a
+			{#if activeSet.editableUrl}<a href={activeSet.editableUrl} download
+					>Download editable PowerPoint ↓ <small>{bytes(activeSet.editableBytes)}</small></a
 				>{/if}
 			{#if onAsk}<button
 					type="button"
 					onclick={async () => {
-						const question = `Explain this example: ${active.title}. ${active.caption || active.alt}`;
+						const question = `Help me adapt this template set for our community: ${activeSet.title} (${activePage.alt}).`;
 						closeImage();
 						await tick();
 						onAsk(question);
-					}}>Ask about this example →</button
+					}}>Ask about this template →</button
 				>{/if}
 		</div>
-		{#if active.pdfUrl}<p class="download-note">
-				The PDF and PowerPoint include all {active.pageCount} pages in this design set. {formatSize(
-					active
-				)}. Canva opens a template so you can edit your own copy. Check the final layout and QR code
-				after making changes.
-			</p>{/if}
+		<p class="download-note">
+			The PDF and PowerPoint downloads include {activeSet.pageCount === 1
+				? 'the complete design'
+				: `all ${activeSet.pageCount} pages in this set`} ({formatSize(activeSet)}). Canva opens a
+			copy-safe template; check final layout, local rules, and QR links after editing.
+		</p>
 		<div class="navigation">
-			<button type="button" onclick={() => move(-1)}>← Previous</button><span
-				>Use arrow keys to browse</span
-			><button type="button" onclick={() => move(1)}>Next →</button>
+			<button type="button" onclick={() => moveSet(-1)}>← Previous set</button><span
+				>Use Left / Right arrow keys to step pages</span
+			><button type="button" onclick={() => moveSet(1)}>Next set →</button>
 		</div>
 	{/if}
 </dialog>
 
 <style>
-	.free-assets {
-		display: grid;
-		grid-template-columns: 1.2fr 1fr;
-		gap: 2rem;
-		align-items: center;
-		background: var(--report-soft);
-		color: var(--color-surface-700);
-		padding: clamp(1.3rem, 3vw, 2.3rem);
-		margin: 2rem 0;
-		border-top: 6px solid var(--color-tertiary-700-300);
+	h2,
+	h3 {
+		color: var(--color-secondary-950) !important;
 	}
-	.free-label {
+	.gallery {
+		color: var(--color-secondary-950);
+	}
+	.gallery h2,
+	.gallery h3 {
+		text-transform: none;
+	}
+	.gallery p {
+		line-height: 1.6;
+	}
+	.eyebrow,
+	.item-label,
+	.notice-label {
+		color: var(--color-secondary-700-300);
+		letter-spacing: 0.08em;
+		font-size: 0.78rem;
+		font-weight: 800;
+		text-transform: uppercase;
+	}
+	h2 {
+		font-size: clamp(2rem, 4.5vw, 3.4rem);
+		line-height: 1.04;
+		letter-spacing: -0.04em;
+		margin: 0.5rem 0 0.85rem;
+	}
+	.intro {
+		max-width: 52rem;
+	}
+	.customization-notice {
+		background: var(--report-soft);
+		border-left: 4px solid var(--color-tertiary-700-300);
+		padding: 1.15rem 1.35rem;
+		margin: 1.75rem 0;
+	}
+	.customization-notice .notice-label {
+		color: var(--color-secondary-950);
+		margin-bottom: 0.35rem;
+	}
+	.customization-notice p:last-child {
+		font-size: 0.92rem;
+		color: var(--color-surface-700);
+		max-width: 60rem;
+	}
+	button,
+	select {
+		font: inherit;
+		border-radius: 0;
+	}
+	button {
+		cursor: pointer;
+	}
+	button:focus-visible,
+	a:focus-visible,
+	select:focus-visible,
+	summary:focus-visible {
+		outline: 3px solid var(--color-tertiary-700-300);
+		outline-offset: 3px;
+	}
+	.controls {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) auto;
+		gap: 1rem;
+		align-items: end;
+	}
+	.controls label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
 		font-size: 0.82rem;
 		font-weight: 800;
-		color: var(--color-primary-contrast-500);
-		letter-spacing: 0.02em;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
-	.free-assets h3 {
-		color: var(--color-surface-700) !important;
-		font-size: clamp(1.8rem, 3vw, 2.7rem);
-		line-height: 1.05;
-		margin: 0.8rem 0 1rem;
+	select {
+		min-width: 0;
+		width: 100%;
+		box-sizing: border-box;
+		min-height: 44px;
+		padding: 0.7rem 2rem 0.7rem 0.8rem;
+		color: var(--color-secondary-950);
+		border: 2px solid var(--color-secondary-400);
+		background-color: var(--report-paper);
+		font-size: 0.95rem;
+		font-weight: 600;
+		text-transform: none;
 	}
-	.free-assets p {
-		font-size: 0.9rem;
-		line-height: 1.6;
-		max-width: 32rem;
-	}
-	.free-actions button {
+	.reset-filters {
+		min-height: 44px;
+		padding: 0.7rem 1rem;
+		border: 2px solid var(--color-secondary-950);
 		background: var(--color-primary-500);
 		color: var(--color-primary-contrast-500);
-		border: 0;
-		padding: 1.1rem;
+		font-size: 0.82rem;
 		font-weight: 800;
+		text-transform: uppercase;
+	}
+	.count {
+		font-weight: 800;
+		margin: 1.5rem 0 1rem;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1.5rem 1.25rem;
+	}
+	.set-card {
 		display: flex;
-		justify-content: space-between;
-		gap: 1.2rem;
+		flex-direction: column;
+		border: 1px solid var(--report-border);
+		border-top: 4px solid var(--color-secondary-700-300);
+		background: var(--report-paper);
+		padding: 1rem;
+		scroll-margin-top: 140px;
+	}
+	.preview-frame {
+		background: var(--report-soft);
+	}
+	.image-button {
+		position: relative;
+		display: block;
 		width: 100%;
+		padding: 0;
+		border: 0;
+		background: var(--report-soft);
 	}
-	.free-actions p {
-		margin: 1rem 0 0;
-		color: var(--color-surface-700);
-		font-size: 0.85rem;
+	.image-button img {
+		display: block;
+		width: 100%;
+		height: auto;
+		aspect-ratio: 4 / 3;
+		object-fit: contain;
+		transition: transform 0.25s ease;
 	}
-	.asset-meta {
-		font-size: 0.85rem;
-		color: var(--color-surface-700);
-		margin: 0.6rem 0;
+	.image-button:hover {
+		box-shadow: inset 0 0 0 3px var(--color-tertiary-700-300);
+	}
+	.image-button:hover img {
+		transform: scale(1.02);
+	}
+	.set-badge {
+		position: absolute;
+		top: 0;
+		left: 0;
+		background: var(--color-secondary-950);
+		color: var(--color-primary-500);
+		padding: 0.28rem 0.55rem;
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.page-stepper {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		border-top: 1px solid var(--report-border);
+		background: var(--report-paper);
+		font-size: 0.78rem;
+		font-weight: 750;
+	}
+	.page-stepper button {
+		border: 0;
+		background: var(--report-soft);
+		color: var(--color-secondary-950);
+		padding: 0.35rem 0.7rem;
+		font-size: 1rem;
+		font-weight: 800;
+	}
+	.page-stepper button:hover {
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
+	}
+	.item-label {
+		margin: 0.85rem 0 0.3rem;
+		font-size: 0.74rem;
+	}
+	h3 {
+		margin: 0;
+		font-size: 1.05rem;
+		line-height: 1.3;
 	}
 	.campaign-guidance {
 		margin-top: 0.75rem;
-		padding-top: 0.7rem;
-		border-top: 1px solid var(--color-secondary-300);
+		padding-top: 0.65rem;
+		border-top: 1px solid var(--color-secondary-200);
 		font-size: 0.85rem;
 		line-height: 1.45;
 	}
 	.campaign-guidance > summary {
 		cursor: pointer;
-		padding-block: 0.4rem;
-		margin: 0 0 0.45rem;
+		padding-block: 0.3rem;
 		color: var(--color-surface-700);
-		font-size: 0.85rem;
+		font-size: 0.84rem;
 		font-weight: 750;
 	}
 	.campaign-guidance dl {
 		display: grid;
 		gap: 0.35rem;
-		margin: 0;
+		margin: 0.45rem 0 0;
 	}
 	.campaign-guidance dl div {
 		display: grid;
@@ -494,229 +724,61 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
-		margin-top: 0.8rem;
+		margin-top: auto;
+		padding-top: 0.9rem;
 	}
 	.card-actions a {
-		font-size: 0.8rem;
-		padding: 0.5rem 0.6rem;
+		font-size: 0.78rem;
+		padding: 0.48rem 0.6rem;
 		background: var(--report-soft);
 		color: var(--color-secondary-700-300);
+		border: 1px solid var(--report-border);
 		text-decoration: none;
 		font-weight: 800;
 	}
 	.card-actions a:last-child {
 		background: var(--color-secondary-700-300);
+		border-color: var(--color-secondary-700-300);
 		color: var(--color-surface-50);
 	}
 	.card-actions a:hover {
 		background: var(--color-primary-500);
+		border-color: var(--color-secondary-950);
 		color: var(--color-primary-contrast-500);
 	}
-	.actions small {
-		display: block;
-		font-size: 0.75rem;
-		font-weight: 400;
-		opacity: 0.8;
-	}
-	.actions .download-primary {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
-	}
-	.actions .template-link {
-		background: var(--color-primary-500);
-		color: var(--color-primary-contrast-500);
-	}
-	.download-note {
-		font-size: 0.85rem;
-		line-height: 1.6;
+	.empty {
+		padding: 1.25rem 0;
 		color: var(--color-surface-700);
-		margin: 1rem 0;
+	}
+	dialog {
+		box-sizing: border-box;
+		margin: auto;
+		width: min(1100px, calc(100% - 2rem));
+		max-width: 1100px;
+		max-height: 90vh;
+		overflow: auto;
+		padding: clamp(1rem, 4vw, 2.25rem);
+		color: var(--color-secondary-950);
+		background: var(--report-paper);
+		border: 2px solid var(--color-secondary-950);
+		border-top: 6px solid var(--color-tertiary-700-300);
+		border-radius: 0;
 	}
 	dialog[open] {
-		animation: gallery-arrive 0.22s ease-out;
+		animation: gallery-arrive 0.18s ease-out;
 	}
 	@keyframes gallery-arrive {
 		from {
 			opacity: 0;
-			transform: translateY(12px) scale(0.99);
+			transform: translateY(8px);
 		}
 		to {
 			opacity: 1;
 			transform: none;
 		}
 	}
-	.image-button img {
-		transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
-	}
-	.image-button:hover img {
-		transform: scale(1.035);
-	}
-	@media (max-width: 650px) {
-		.free-assets {
-			grid-template-columns: 1fr;
-			gap: 1.5rem;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		dialog[open] {
-			animation: none;
-		}
-		.image-button img {
-			transition: none;
-		}
-		.image-button:hover img {
-			transform: none;
-		}
-	}
-
-	h2,
-	h3 {
-		color: var(--color-secondary-950) !important;
-	}
-	.gallery {
-		color: var(--color-secondary-950);
-	}
-	.eyebrow,
-	.item-label {
-		color: var(--color-secondary-700-300);
-		letter-spacing: 0.02em;
-		font-size: 0.82rem;
-		font-weight: 800;
-	}
-	.gallery h2,
-	.gallery h3 {
-		text-transform: none;
-	}
-	.gallery p {
-		line-height: 1.6;
-	}
-	h2 {
-		font-size: clamp(2rem, 5vw, 3.5rem);
-		line-height: 1.05;
-		letter-spacing: -0.04em;
-		margin: 0.5rem 0 1rem;
-	}
-	.intro {
-		max-width: 48rem;
-		line-height: 1.6;
-	}
-	button,
-	select,
-	input {
-		font: inherit;
-	}
-	button {
-		cursor: pointer;
-	}
-	button:focus-visible,
-	a:focus-visible,
-	input:focus-visible,
-	select:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
-		outline-offset: 3px;
-	}
-	.switcher {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin: 2rem 0;
-	}
-	.switcher button {
-		padding: 0.75rem 1rem;
-		border: 2px solid var(--color-secondary-700-300);
-		background: transparent;
-		color: var(--color-secondary-700-300);
-		border-radius: 0.3rem;
-		font-weight: 800;
-	}
-	.switcher button.active {
-		background: var(--color-secondary-700-300);
-		color: var(--color-surface-50);
-	}
-	.switcher span {
-		opacity: 0.8;
-		margin-left: 0.3rem;
-	}
-	.controls {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr;
-		gap: 1rem;
-	}
-	.controls label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-		font-size: 0.9rem;
-		font-weight: 800;
-	}
-	input,
-	select {
-		min-width: 0;
-		width: 100%;
-		box-sizing: border-box;
-		padding: 0.8rem;
-		color: var(--color-secondary-950);
-		border: 1px solid var(--color-secondary-300);
-		border-radius: 0.3rem;
-		background: var(--report-paper);
-	}
-	.count {
-		font-weight: 700;
-		margin: 1.5rem 0 1rem;
-	}
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 2rem 1.25rem;
-	}
-	.image-button {
-		display: block;
-		width: 100%;
-		padding: 0;
-		border: 0;
-		background: var(--report-paper);
-	}
-	.image-button img {
-		display: block;
-		width: 100%;
-		height: auto;
-		aspect-ratio: 4 / 3;
-		object-fit: contain;
-	}
-	.image-button:hover {
-		box-shadow: 0 0 0 4px var(--color-tertiary-700-300);
-	}
-	.item-label {
-		margin: 0.8rem 0 0.35rem;
-	}
-	h3 {
-		margin: 0;
-		font-size: 1.05rem;
-		line-height: 1.3;
-	}
-	.more {
-		margin: 2rem 0;
-		padding: 0.85rem 1.2rem;
-		border: 2px solid var(--color-secondary-700-300);
-		border-radius: 0.3rem;
-		background: transparent;
-		color: var(--color-secondary-700-300);
-		font-weight: 800;
-	}
-	dialog {
-		box-sizing: border-box;
-		width: min(1100px, calc(100% - 2rem));
-		max-width: 1100px;
-		max-height: 90vh;
-		overflow: auto;
-		padding: clamp(1rem, 4vw, 2.5rem);
-		color: var(--color-secondary-950);
-		background: var(--report-paper);
-		border: 0;
-		border-top: 6px solid var(--color-tertiary-700-300);
-	}
 	dialog::backdrop {
-		background: rgb(35 20 58 / 0.78);
+		background: rgb(35 20 58 / 0.8);
 	}
 	.dialog-top {
 		display: flex;
@@ -728,31 +790,53 @@
 		border: 0;
 		background: transparent;
 		color: var(--color-secondary-950);
-		font-size: 2.5rem;
+		font-size: 2.25rem;
 		line-height: 1;
+		padding: 0.1rem 0.4rem;
 	}
 	dialog h2 {
-		font-size: clamp(1.5rem, 3vw, 2.4rem);
+		font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+		margin-bottom: 0.75rem;
+	}
+	.dialog-pages {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0.75rem 0;
+	}
+	.dialog-pages button {
+		padding: 0.4rem 0.7rem;
+		border: 2px solid var(--report-border);
+		background: var(--report-paper);
+		color: var(--color-secondary-950);
+		font-size: 0.82rem;
+		font-weight: 800;
+	}
+	.dialog-pages button[aria-pressed='true'] {
+		background: var(--color-primary-500);
+		border-color: var(--color-secondary-950);
+		color: var(--color-primary-contrast-500);
 	}
 	.full-image {
 		display: block;
 		max-width: 100%;
-		max-height: 65vh;
+		max-height: 60vh;
 		width: auto;
 		height: auto;
-		margin: 1.5rem auto;
+		margin: 1.25rem auto;
 		object-fit: contain;
 	}
 	.caption {
 		max-width: 65rem;
 		line-height: 1.6;
+		margin-bottom: 1rem;
 	}
 	.actions,
 	.navigation {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem 1.5rem;
+		gap: 0.75rem 1.25rem;
 	}
 	.actions a,
 	.actions button {
@@ -761,41 +845,78 @@
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
 	}
+	.actions .download-primary,
+	.actions .template-link {
+		padding: 0.55rem 0.85rem;
+		text-decoration: none;
+	}
+	.actions .download-primary {
+		background: var(--color-secondary-700-300);
+		color: var(--color-surface-50);
+	}
+	.actions .template-link {
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
+	}
+	.actions small {
+		display: block;
+		font-size: 0.74rem;
+		font-weight: 400;
+		opacity: 0.85;
+	}
 	.actions button {
 		border: 0;
 		background: none;
 		padding: 0;
 	}
+	.download-note {
+		font-size: 0.85rem;
+		line-height: 1.6;
+		color: var(--color-surface-700);
+		margin: 1rem 0;
+	}
 	.navigation {
 		justify-content: space-between;
-		margin-top: 2rem;
+		margin-top: 1.5rem;
 		padding-top: 1rem;
 		border-top: 1px solid var(--report-border);
 	}
 	.navigation button {
-		border: 0;
+		border: 2px solid var(--color-secondary-950);
 		background: var(--color-primary-500);
 		color: var(--color-primary-contrast-500);
-		padding: 0.65rem 0.9rem;
+		padding: 0.6rem 0.9rem;
 		font-weight: 800;
 	}
 	.navigation span {
 		font-size: 0.85rem;
 	}
-	@media (max-width: 700px) {
+	@media (max-width: 860px) {
 		.controls {
-			grid-template-columns: 1fr;
+			grid-template-columns: 1fr 1fr;
 		}
 		.grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
-	@media (max-width: 420px) {
+	@media (max-width: 580px) {
+		.controls,
 		.grid {
 			grid-template-columns: 1fr;
 		}
 		.navigation span {
 			display: none;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		dialog[open] {
+			animation: none;
+		}
+		.image-button img {
+			transition: none;
+		}
+		.image-button:hover img {
+			transform: none;
 		}
 	}
 </style>

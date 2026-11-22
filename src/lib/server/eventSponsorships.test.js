@@ -293,6 +293,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 	});
 	assert.equal(first.ok, true);
 
+	const invalidatedTargets = [];
 	const declined = await reviewEventSponsorshipRequestCore({
 		supabase: db.client,
 		serviceSupabase: db.client,
@@ -300,11 +301,13 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		groupSlug: 'desert-wheelmen',
 		requestId: first.data.id,
 		decision: 'decline',
-		decisionNote: 'Schedule conflict this weekend'
+		decisionNote: 'Schedule conflict this weekend',
+		invalidateGroupCacheFn: (target) => invalidatedTargets.push(target)
 	});
 	assert.equal(declined.ok, true);
 	assert.equal(declined.data.status, 'declined');
 	assert.equal(db.state.activity_events[0].host_group_id, null);
+	assert.deepEqual(invalidatedTargets, []);
 
 	const second = await createOrUpdateEventSponsorshipRequestCore({
 		supabase: db.client,
@@ -322,6 +325,26 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 	});
 	assert.equal(cancelled.ok, true);
 	assert.equal(cancelled.data.cancelled, true);
+
+	const third = await createOrUpdateEventSponsorshipRequestCore({
+		supabase: db.client,
+		serviceSupabase: db.client,
+		user: { id: 'organizer-1' },
+		eventType: 'ride',
+		eventId: 'ride-1',
+		groupId: 'group-claimed'
+	});
+	const approved = await reviewEventSponsorshipRequestCore({
+		supabase: db.client,
+		serviceSupabase: db.client,
+		user: { id: 'club-owner-1' },
+		groupSlug: 'desert-wheelmen',
+		requestId: third.data.id,
+		decision: 'approve',
+		invalidateGroupCacheFn: (target) => invalidatedTargets.push(target)
+	});
+	assert.equal(approved.ok, true);
+	assert.deepEqual(invalidatedTargets, [{ groupId: 'group-claimed', slug: 'desert-wheelmen' }]);
 });
 
 test('co-host ride update helpers preserve unchanged host_group_id and primary host_user_id', () => {
