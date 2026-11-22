@@ -24,9 +24,10 @@
 		"geocode:weeklyrides": "node scripts/geocode-weeklyrides-imported.mjs",
 		"backfill:learn-search": "node scripts/backfill-learn-search-index.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:ci": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint .",
+		"lint": "prettier --check --cache --cache-strategy content --cache-location .cache/prettier . && eslint --cache --cache-strategy content --cache-location .cache/eslint .",
 		"audit": "npm audit"
 	},
 	"devDependencies": {
