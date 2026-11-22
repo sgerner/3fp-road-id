@@ -39,11 +39,18 @@
 		{#each items as item}
 			<li>
 				<a
-					class="hover:bg-primary-500 hover:text-surface-950 flex flex-wrap gap-x-3 gap-y-1 px-2 py-3 font-semibold hover:no-underline"
+					class="hover:bg-primary-500 hover:text-surface-950 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-3 font-semibold hover:no-underline"
 					href={item.href}
 				>
 					<span class="shrink-0 tabular-nums">{item.time}</span>
-					<span>{item.title}</span>
+					{#if item.timezoneBadge}
+						<span
+							class="border-surface-600 bg-surface-950 text-primary-500 shrink-0 border px-1.5 py-0.5 text-[10px] leading-none font-black tracking-[0.14em] uppercase"
+						>
+							{item.timezoneBadge}
+						</span>
+					{/if}
+					<span class="min-w-0 wrap-anywhere">{item.title}</span>
 				</a>
 			</li>
 		{/each}
