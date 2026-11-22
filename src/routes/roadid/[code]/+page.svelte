@@ -4,6 +4,7 @@
 	import { Tabs } from '@skeletonlabs/skeleton-svelte';
 	import IconUserCircle2 from '@lucide/svelte/icons/user-circle-2';
 	import { normalizePhoneNumber, formatPhoneNumber } from '#lib/utils/phone';
+	import { isValidRoadIdEmail, normalizeRoadIdProfile } from '#lib/utils/roadId';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
 	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
@@ -13,7 +14,9 @@
 	const code = $derived(data?.code ?? '');
 	const notFound = $derived(Boolean(data?.notFound));
 	const user = $derived(data?.user ?? null);
-	const profile = $derived(data?.qrData?.profile ?? null);
+	const profile = $derived(
+		data?.qrData?.profile ? normalizeRoadIdProfile(data.qrData.profile, user) : null
+	);
 	const isClaimed = $derived(Boolean(profile?.claimed));
 	const isOwner = $derived(Boolean(profile?.is_owner));
 
@@ -32,7 +35,8 @@
 	let turnstileEl = $state(null);
 	let turnstileWidgetId = $state(null);
 
-	let emailIsValid = $derived(/^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(newProfile.email.trim()));
+	// Email validation
+	let emailIsValid = $derived(isValidRoadIdEmail(newProfile.email));
 
 	const medicationList = $derived.by(() => {
 		if (!profile?.medication) return '';

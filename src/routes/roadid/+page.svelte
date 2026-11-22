@@ -235,8 +235,8 @@
 			</h2>
 		</div>
 
-		<details class="border-surface-500 bg-surface-900 border-2 p-4 sm:p-6">
-			<summary class="flex min-h-11 cursor-pointer items-center text-base font-black uppercase">
+		<details class="bg-surface-950 text-surface-50 border-surface-800 border-2 p-4 sm:p-6">
+			<summary class="text-surface-50 flex min-h-11 cursor-pointer items-center font-bold">
 				Crash response checklist
 			</summary>
 			<div class="mt-4">
@@ -244,8 +244,8 @@
 			</div>
 		</details>
 
-		<details class="border-surface-500 bg-surface-900 border-2 p-4 sm:p-6">
-			<summary class="flex min-h-11 cursor-pointer items-center text-base font-black uppercase">
+		<details class="bg-surface-950 text-surface-50 border-surface-800 border-2 p-4 sm:p-6">
+			<summary class="text-surface-50 flex min-h-11 cursor-pointer items-center font-bold">
 				Cycling safety tips
 			</summary>
 			<div class="mt-4">
