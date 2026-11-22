@@ -150,7 +150,11 @@ export function getGroupNewsServiceClient() {
 }
 
 export function getGroupNewsPublicReadClient() {
-	return createServiceSupabaseClient() ?? createRequestSupabaseClient(null);
+	const client = createServiceSupabaseClient();
+	if (!client) {
+		throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured.');
+	}
+	return client;
 }
 
 export async function ensureUniqueGroupNewsSlug(supabase, groupId, source, excludeId = null) {
