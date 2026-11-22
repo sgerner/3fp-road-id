@@ -5,7 +5,7 @@
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { toaster } from './toaster-svelte';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
@@ -23,6 +23,7 @@
 	import IconLogOut from '@lucide/svelte/icons/log-out';
 	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
+	import IconCheck from '@lucide/svelte/icons/check';
 	import IconMoon from '@lucide/svelte/icons/moon';
 	import IconSun from '@lucide/svelte/icons/sun';
 	// Branding / social icons
@@ -68,6 +69,7 @@
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
+	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
 	let loginIntent = $state(null);
@@ -75,8 +77,13 @@
 		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
 	);
 	let showUserMenu = $state(false);
+	let userMenuFocusIndex = $state(0);
 	let email = $state('');
-	let loading = $state(false);
+	let mobileLoginBusy = $state(false);
+	let desktopLoginBusy = $state(false);
+	let mobileLoginTurnstile = $state(null);
+	let desktopLoginTurnstile = $state(null);
+	const loading = $derived(mobileLoginBusy || desktopLoginBusy);
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
@@ -92,10 +99,13 @@
 	let supabaseClient = null;
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
-	const turnstileEnabled = $derived(
-		Boolean(PUBLIC_TURNSTILE_SITE_KEY) && data.turnstileEnabled !== false
-	);
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
+	const canManageSms = $derived(
+		Boolean(user) &&
+			(userProfile?.admin === true ||
+				ownedGroups.length > 0 ||
+				(profileCanManageSms ?? (data?.user?.id === user?.id && Boolean(data?.canManageSms))))
+	);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -206,6 +216,61 @@
 		};
 	});
 
+	function getUserMenuItems() {
+		return Array.from(userMenuEl?.querySelectorAll('[role^="menuitem"]') || []);
+	}
+
+	function focusUserMenuItem(targetIndex, shouldScroll = true) {
+		const items = getUserMenuItems();
+		if (!items.length) return;
+		const nextIndex = ((targetIndex % items.length) + items.length) % items.length;
+		userMenuFocusIndex = nextIndex;
+		items.forEach((item, idx) => {
+			item.setAttribute('tabindex', idx === nextIndex ? '0' : '-1');
+		});
+		const activeItem = items[nextIndex];
+		activeItem?.focus();
+		if (shouldScroll) {
+			activeItem?.scrollIntoView({ block: 'nearest' });
+		}
+	}
+
+	function onUserMenuTriggerKeydown(event) {
+		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+		event.preventDefault();
+		event.stopPropagation();
+		const targetIndex =
+			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 5 : 4);
+		userMenuFocusIndex = targetIndex;
+		if (showUserMenu) {
+			focusUserMenuItem(targetIndex);
+		} else {
+			showUserMenu = true;
+		}
+	}
+
+	function onUserMenuFocusIn(event) {
+		const item =
+			event.target instanceof Element ? event.target.closest('[role^="menuitem"]') : null;
+		if (!item) return;
+		const idx = getUserMenuItems().indexOf(item);
+		if (idx !== -1) {
+			userMenuFocusIndex = idx;
+		}
+	}
+
+	$effect(() => {
+		if (!showUserMenu) return;
+		let cancelled = false;
+		void tick().then(() => {
+			if (cancelled) return;
+			focusUserMenuItem(userMenuFocusIndex);
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	function onMobileMenuKeydown(event) {
 		if (event.key === 'Escape') {
 			event.preventDefault();
@@ -236,18 +301,24 @@
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
+			profileCanManageSms = false;
 			return;
 		}
 		try {
 			const response = await fetch('/api/profile');
 			if (!response.ok) {
 				userProfile = null;
+				profileCanManageSms = false;
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
 			userProfile = payload?.profile ?? null;
+			if (typeof payload?.canManageSms === 'boolean') {
+				profileCanManageSms = payload.canManageSms;
+			}
 		} catch {
 			userProfile = null;
+			profileCanManageSms = false;
 		}
 	}
 
@@ -360,6 +431,8 @@
 				: null;
 			error = '';
 			success = '';
+			mobileLoginTurnstile?.clearError();
+			desktopLoginTurnstile?.clearError();
 			showMobileMenu = false;
 			showLogin = true;
 			void initSession();
@@ -371,7 +444,7 @@
 			if (e.key === 'Tab') {
 				const controls = Array.from(
 					loginContainerEl?.querySelectorAll(
-						'input:not([tabindex="-1"]), button:not(:disabled), a[href]'
+						'input:not([tabindex="-1"]), button:not(:disabled), a[href], [data-turnstile-interactive="true"]'
 					) || []
 				).filter((el) => el.getClientRects().length);
 				const first = controls[0];
@@ -392,7 +465,43 @@
 			showUserMenu = false;
 		}
 		function onKeyUserMenu(e) {
-			if (e.key === 'Escape') showUserMenu = false;
+			if (!showUserMenu || e.defaultPrevented) return;
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				showUserMenu = false;
+				if (userMenuBtnEl?.isConnected && userMenuBtnEl.getClientRects().length) {
+					userMenuBtnEl.focus();
+				}
+				return;
+			}
+			if (e.key === 'Tab') {
+				showUserMenu = false;
+				return;
+			}
+			const items = getUserMenuItems();
+			if (!items.length) return;
+			const activeIdx = items.indexOf(document.activeElement);
+			const currentIdx = activeIdx !== -1 ? activeIdx : userMenuFocusIndex;
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				focusUserMenuItem(currentIdx + 1);
+			} else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				focusUserMenuItem(currentIdx - 1);
+			} else if (e.key === 'Home') {
+				e.preventDefault();
+				focusUserMenuItem(0);
+			} else if (e.key === 'End') {
+				e.preventDefault();
+				focusUserMenuItem(items.length - 1);
+			} else if (
+				e.key === ' ' &&
+				document.activeElement instanceof HTMLAnchorElement &&
+				userMenuEl?.contains(document.activeElement)
+			) {
+				e.preventDefault();
+				document.activeElement.click();
+			}
 		}
 		function onProfileUpdated(event) {
 			const profile = event?.detail?.profile;
@@ -402,6 +511,9 @@
 			}
 			if (profile?.user_id && user?.id && String(profile.user_id) !== String(user.id)) return;
 			userProfile = profile;
+			if (typeof event?.detail?.canManageSms === 'boolean') {
+				profileCanManageSms = event.detail.canManageSms;
+			}
 		}
 		// Also close mobile menu on outside click / escape
 		const onDocClickMenu = (e) => {
@@ -435,65 +547,61 @@
 		};
 	});
 
-	async function doLogin(e) {
+	async function doLogin(e, turnstileControl) {
 		e.preventDefault();
-		if (loading) return;
-		const verificationEl = e.currentTarget.querySelector('[data-login-verification]');
+		if (loading || !turnstileControl) return;
 		error = '';
 		success = '';
-		loading = true;
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		const intent = activeLoginIntent;
-		try {
-			void initSession();
-			if (honeypot.trim()) {
-				error = 'Invalid submission.';
-				return;
-			}
-			if (!emailValid) {
-				error = 'Enter a valid email address.';
-				return;
-			}
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				const { requestTurnstileToken } = await import('#lib/security/turnstile');
-				turnstileToken = await requestTurnstileToken(verificationEl, PUBLIC_TURNSTILE_SITE_KEY);
-				if (!turnstileToken) {
-					error = 'Verification failed. Please try again.';
-					return;
+		await turnstileControl.submit({
+			validate: () => {
+				void initSession();
+				if (honeypot.trim()) {
+					error = 'Invalid submission.';
+					return false;
+				}
+				if (!emailValid) {
+					error = 'Enter a valid email address.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					let rt = '/';
+					if (typeof window !== 'undefined') {
+						const currentUrl = new URL(window.location.href);
+						const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
+						rt =
+							currentUrl.searchParams.get('auth') === 'required' &&
+							isSafeInternalPath(requestedReturnTo)
+								? requestedReturnTo
+								: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+					}
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email,
+							createProfile: true,
+							returnTo: intent?.returnTo ?? rt,
+							honeypot,
+							turnstileToken
+						})
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send magic link');
+					}
+					success = `We sent a login link to ${email}.`;
+					honeypot = '';
+				} catch (err) {
+					error = err.message || 'Login failed.';
 				}
 			}
-			let rt = '/';
-			if (typeof window !== 'undefined') {
-				const currentUrl = new URL(window.location.href);
-				const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
-				rt =
-					currentUrl.searchParams.get('auth') === 'required' &&
-					isSafeInternalPath(requestedReturnTo)
-						? requestedReturnTo
-						: currentUrl.pathname + currentUrl.search + currentUrl.hash;
-			}
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email,
-					createProfile: true,
-					returnTo: intent?.returnTo ?? rt,
-					honeypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send magic link');
-			}
-			success = `We sent a login link to ${email}.`;
-			honeypot = '';
-		} catch (err) {
-			error = err.message || 'Login failed.';
-		} finally {
-			loading = false;
-		}
+		});
 	}
 
 	async function doLogout() {
@@ -505,6 +613,7 @@
 		email = '';
 		userProfile = null;
 		ownedGroups = [];
+		profileCanManageSms = false;
 	}
 
 	function toggleLogin() {
@@ -515,6 +624,8 @@
 		loginIntent = null;
 		error = '';
 		success = '';
+		mobileLoginTurnstile?.clearError();
+		desktopLoginTurnstile?.clearError();
 		showLogin = true;
 		void initSession();
 	}
@@ -641,9 +752,14 @@
 						{#if user}
 							<div class="relative flex items-center gap-2">
 								<button
+									type="button"
 									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center gap-2 rounded-full border px-2 py-1 transition"
 									bind:this={userMenuBtnEl}
-									onclick={() => (showUserMenu = !showUserMenu)}
+									onclick={() => {
+										if (!showUserMenu) userMenuFocusIndex = 0;
+										showUserMenu = !showUserMenu;
+									}}
+									onkeydown={onUserMenuTriggerKeydown}
 									aria-label="Open profile menu"
 									aria-expanded={showUserMenu}
 									aria-haspopup="menu"
@@ -666,78 +782,108 @@
 								</button>
 								{#if showUserMenu}
 									<div
-										class="profile-menu border-surface-300-700 bg-surface-100-900 absolute top-[calc(100%+0.55rem)] right-0 z-50 w-56 rounded-xl border p-1.5 shadow-xl"
+										class="profile-menu border-surface-300-700 bg-surface-100-900 absolute top-[calc(100%+0.55rem)] right-0 z-50 max-h-[calc(100dvh-var(--app-header-height)-1rem)] w-56 overflow-y-auto rounded-xl border p-1.5 shadow-xl"
 										bind:this={userMenuEl}
 										role="menu"
+										aria-label="Profile menu"
+										tabindex="-1"
+										onfocusin={onUserMenuFocusIn}
 									>
-										<div class="border-surface-500/10 mb-1 border-b px-1 pb-2" role="presentation">
-											<button
-												type="button"
-												class="profile-menu-item w-full"
-												role="menuitem"
-												aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
-												onclick={toggleColorMode}
+										<button
+											type="button"
+											class="profile-menu-item w-full justify-between"
+											role="menuitemcheckbox"
+											aria-checked={colorMode === 'light'}
+											tabindex={userMenuFocusIndex === 0 ? 0 : -1}
+											onclick={toggleColorMode}
+										>
+											<span class="flex items-center gap-2">
+												<IconSun class="h-4 w-4 shrink-0" aria-hidden="true" />
+												<span>Light mode</span>
+											</span>
+											{#if colorMode === 'light'}
+												<IconCheck class="h-4 w-4 shrink-0" aria-hidden="true" />
+											{/if}
+										</button>
+										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
+										<div role="group" aria-labelledby="profile-menu-theme-label">
+											<div
+												id="profile-menu-theme-label"
+												role="presentation"
+												class="text-surface-700-300 px-2.5 py-1 text-xs font-semibold"
 											>
-												{#if colorMode === 'dark'}
-													<IconSun class="h-4 w-4" />
-													Light mode
-												{:else}
-													<IconMoon class="h-4 w-4" />
-													Dark mode
-												{/if}
-											</button>
-											<label class="mt-1 flex flex-col gap-1 px-2 py-1.5">
-												<span class="text-surface-700-300 text-xs font-semibold">Color theme</span>
-												<select
-													class="select bg-surface-50-950/80 w-full text-sm"
-													value={theme}
-													onchange={(e) => applyTheme(e.currentTarget.value)}
-													aria-label="Select theme"
+												Color theme
+											</div>
+											{#each themeOptions as option, idx}
+												<button
+													type="button"
+													class="profile-menu-item w-full justify-between"
+													role="menuitemradio"
+													aria-checked={theme === option.value}
+													tabindex={userMenuFocusIndex === idx + 1 ? 0 : -1}
+													onclick={() => applyTheme(option.value)}
 												>
-													{#each themeOptions as option}
-														<option value={option.value}>{option.label}</option>
-													{/each}
-												</select>
-											</label>
+													<span>{option.label}</span>
+													{#if theme === option.value}
+														<IconCheck class="h-4 w-4 shrink-0" aria-hidden="true" />
+													{/if}
+												</button>
+											{/each}
 										</div>
+										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
 										<a
 											href="/profile"
 											class="profile-menu-item"
 											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 1 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
-											<IconUserCircle2 class="h-4 w-4" />
+											<IconUserCircle2 class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Profile
 										</a>
 										<a
 											href={myGroupsMenuHref}
 											class="profile-menu-item"
 											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
-											<IconUsers class="h-4 w-4" />
+											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
 											{myGroupsMenuLabel}
 										</a>
 										<a
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
-											<IconHandHeart class="h-4 w-4" />
+											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Volunteer shifts
 										</a>
-										<a
-											href="/messages"
-											class="profile-menu-item"
+										{#if canManageSms}
+											<a
+												href="/messages"
+												class="profile-menu-item"
+												role="menuitem"
+												tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
+												SMS inbox
+											</a>
+										{/if}
+										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
+										<button
+											type="button"
+											class="profile-menu-item w-full"
+											onclick={doLogout}
 											role="menuitem"
-											onclick={() => (showUserMenu = false)}
+											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 5 : 4)
+												? 0
+												: -1}
 										>
-											<IconMessageCircle class="h-4 w-4" />
-											SMS inbox
-										</a>
-										<button class="profile-menu-item w-full" onclick={doLogout} role="menuitem">
-											<IconLogOut class="h-4 w-4" />
+											<IconLogOut class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Log out
 										</button>
 									</div>
@@ -768,7 +914,7 @@
 								<div bind:this={loginContainerEl}>
 									<form
 										class="border-surface-300-700 bg-surface-100-900 fixed top-1/2 left-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-2xl md:hidden"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, mobileLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -801,7 +947,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={mobileLoginTurnstile}
+											bind:busy={mobileLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -824,7 +975,7 @@
 
 									<form
 										class="border-surface-300-700 bg-surface-100-900 absolute right-0 z-50 mt-3 hidden w-80 rounded-xl border p-4 shadow-lg md:block"
-										onsubmit={doLogin}
+										onsubmit={(e) => doLogin(e, desktopLoginTurnstile)}
 									>
 										<input
 											type="text"
@@ -849,7 +1000,12 @@
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
 											required
 										/>
-										<div data-login-verification></div>
+										<TurnstileVerification
+											bind:this={desktopLoginTurnstile}
+											bind:busy={desktopLoginBusy}
+											variant="modal"
+											enabled={data.turnstileEnabled !== false}
+										/>
 										{#if error}
 											<div class="text-error-600-400 mt-2 text-xs">{error}</div>
 										{/if}
@@ -1110,6 +1266,8 @@
 		border-radius: 0.65rem;
 		padding: 0.55rem 0.6rem;
 		font-size: 0.9rem;
+		text-align: left;
+		cursor: pointer;
 		color: inherit;
 		text-decoration: none;
 		background: transparent;
@@ -1121,6 +1279,17 @@
 	.profile-menu-item:hover {
 		background: color-mix(in oklab, var(--color-primary-500) 14%, transparent);
 		color: light-dark(var(--color-primary-700), var(--color-primary-300));
+	}
+
+	.profile-trigger:focus-visible,
+	.profile-menu-item:focus-visible {
+		outline: 2px solid light-dark(var(--color-surface-950), var(--color-surface-50));
+		outline-offset: -2px;
+		box-shadow: inset 0 0 0 1px var(--color-primary-500);
+	}
+
+	.profile-trigger:focus-visible {
+		outline-offset: 2px;
 	}
 
 	/* ── Rail: Get Involved link ── */

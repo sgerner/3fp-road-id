@@ -1,11 +1,11 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, untrack } from 'svelte';
 	import '#lib/map/leaflet.css';
 	import * as env from '$app/env/public';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
 	import IconAlertTriangle from '@lucide/svelte/icons/triangle-alert';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -84,7 +84,7 @@
 		pageBlock
 	} from '#lib/microsites/pages';
 	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '#lib/microsites/templates';
-	import { executeTurnstile, renderTurnstile, resetTurnstile } from '#lib/security/turnstile';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 
 	let { data, form } = $props();
 
@@ -366,9 +366,7 @@
 	let ownerSuccess = $state('');
 	const ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let ownerTurnstileEl = $state(null);
-	let ownerTurnstileWidgetId = $state(null);
+	let ownerTurnstile = $state(null);
 
 	// Ride widget state
 	let rideFilterMode = $state(initialEditorSiteState.rideFilterMode);
@@ -1541,79 +1539,50 @@
 		}
 	}
 
-	async function initOwnerTurnstile() {
-		if (!turnstileEnabled || !ownerTurnstileEl || ownerTurnstileWidgetId) return;
-		try {
-			ownerTurnstileWidgetId = await renderTurnstile(ownerTurnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-		} catch (error) {
-			console.error('Failed to initialize Turnstile widget', error);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && ownerTurnstileEl && !ownerTurnstileWidgetId) {
-			initOwnerTurnstile();
-		}
-	});
-
 	async function inviteOwner(event) {
 		event?.preventDefault?.();
+		if (ownerLoading || !ownerTurnstile) return;
 		ownerError = '';
 		ownerSuccess = '';
-		if (!ownerValid) {
-			ownerError = 'Enter a valid email address.';
-			return;
-		}
-		if (ownerHoneypot.trim()) {
-			ownerError = 'Invalid submission.';
-			return;
-		}
-		ownerLoading = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initOwnerTurnstile();
-				if (!ownerTurnstileWidgetId) {
-					ownerError = 'Verification failed. Please reload and try again.';
-					return;
+		await ownerTurnstile.submit({
+			validate: () => {
+				if (!ownerValid) {
+					ownerError = 'Enter a valid email address.';
+					return false;
 				}
-				turnstileToken = await executeTurnstile(ownerTurnstileWidgetId);
-				if (!turnstileToken) {
-					ownerError = 'Verification failed. Please try again.';
-					return;
+				if (ownerHoneypot.trim()) {
+					ownerError = 'Invalid submission.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const rtUrl = new URL(window.location.href);
+					rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
+					const response = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email: ownerEmail,
+							createProfile: true,
+							returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash,
+							honeypot: ownerHoneypot,
+							turnstileToken
+						})
+					});
+					if (!response.ok) {
+						const payload = await response.json().catch(() => ({}));
+						throw new Error(payload.error || 'Failed to send invite');
+					}
+					ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
+					ownerEmail = '';
+					ownerHoneypot = '';
+				} catch (error) {
+					ownerError = error?.message || 'Failed to send invite.';
 				}
 			}
-			const rtUrl = new URL(window.location.href);
-			rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
-			const response = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: ownerEmail,
-					createProfile: true,
-					returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash,
-					honeypot: ownerHoneypot,
-					turnstileToken
-				})
-			});
-			if (!response.ok) {
-				const payload = await response.json().catch(() => ({}));
-				throw new Error(payload.error || 'Failed to send invite');
-			}
-			ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
-			ownerEmail = '';
-			ownerHoneypot = '';
-		} catch (error) {
-			ownerError = error?.message || 'Failed to send invite.';
-		} finally {
-			ownerLoading = false;
-			if (turnstileEnabled && ownerTurnstileWidgetId) {
-				resetTurnstile(ownerTurnstileWidgetId);
-			}
-		}
+		});
 	}
 
 	async function removeOwner(uid, email) {
@@ -3183,12 +3152,6 @@
 								aria-hidden="true"
 								style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 							/>
-							<div
-								aria-hidden="true"
-								style="position: absolute; width: 0; height: 0; overflow: hidden;"
-							>
-								<div bind:this={ownerTurnstileEl}></div>
-							</div>
 							<button
 								type="button"
 								class="btn preset-filled-primary-500 text-surface-950 font-bold {ownerLoading
@@ -3200,6 +3163,12 @@
 								Send Invite
 							</button>
 						</div>
+						<TurnstileVerification
+							bind:this={ownerTurnstile}
+							bind:busy={ownerLoading}
+							variant="editor"
+							enabled={(data?.turnstileEnabled ?? page.data?.turnstileEnabled) !== false}
+						/>
 						{#if ownerError}<p class="text-error-400 text-xs">{ownerError}</p>{/if}
 						{#if ownerSuccess}<p class="text-success-400 text-xs">{ownerSuccess}</p>{/if}
 
