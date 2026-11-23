@@ -39,6 +39,7 @@
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconType from '@lucide/svelte/icons/type';
 	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
+	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';
 	import GroupSiteBlockEditor from '#lib/components/groups/GroupSiteBlockEditor.svelte';
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
@@ -95,8 +96,6 @@
 
 	const clone = (value) => JSON.parse(JSON.stringify(value));
 	const MAX_BYTES = 10 * 1024 * 1024;
-	const ZOOM_MIN = 0.1;
-	const ZOOM_MAX = 6;
 
 	const SOCIAL_FIELDS = [
 		{
@@ -327,23 +326,15 @@
 	let cropTarget = $state('');
 	let cropSrc = $state('');
 	let cropScale = $state(1);
-	let cropOffset = $state({ x: 0, y: 0 });
-	let cropDragging = false;
-	let cropStart = { x: 0, y: 0 };
-	let cropImgNatural = { w: 0, h: 0 };
+	let cropPanX = $state(0);
+	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	let cropFramer = $state(null);
 	/** @type {HTMLDialogElement | null} */
 	let cropDialogEl = $state(null);
 	/** @type {HTMLElement | null} */
 	let cropReturnFocusEl = null;
 	let coverFieldRef = $state(null);
-	let cropContainerEl = $state(null);
-	let activePointers = new Map();
-	let isPinching = false;
-	let pinchStartDistance = 0;
-	let pinchStartScale = 1;
-	let pinchStartOffset = { x: 0, y: 0 };
-	let pinchCenter = { x: 0, y: 0 };
 
 	// Admin Deep Enrich
 	const isAdminUser = $derived(Boolean(data.current_profile?.admin));
@@ -1170,16 +1161,17 @@
 	function openCropper(target, files) {
 		const file = Array.from(files || [])[0];
 		if (!file) return;
+		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		coverFieldRef?.closeStudio?.();
 		cropReturnFocusEl =
 			typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
 				? document.activeElement
 				: null;
-		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		cropSrc = URL.createObjectURL(file);
 		cropTarget = target;
 		cropScale = 1;
-		cropOffset = { x: 0, y: 0 };
+		cropPanX = 0;
+		cropPanY = 0;
 		cropReady = false;
 		cropping = true;
 	}
@@ -1192,65 +1184,6 @@
 			cropDialogEl.close();
 		}
 	});
-
-	function onCropImgLoad(event) {
-		const img = event.target;
-		cropImgNatural = { w: img.naturalWidth, h: img.naturalHeight };
-		cropScale = 1;
-		cropOffset = { x: 0, y: 0 };
-		cropReady = true;
-	}
-
-	function onCropPointerDown(event) {
-		activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-		try {
-			event.currentTarget?.setPointerCapture?.(event.pointerId);
-		} catch {}
-		if (activePointers.size === 2) {
-			const pts = Array.from(activePointers.values());
-			pinchStartDistance = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
-			pinchStartScale = cropScale;
-			pinchStartOffset = { ...cropOffset };
-			const rect = cropContainerEl?.getBoundingClientRect?.();
-			pinchCenter = {
-				x: (pts[0].x + pts[1].x) / 2 - (rect?.left || 0),
-				y: (pts[0].y + pts[1].y) / 2 - (rect?.top || 0)
-			};
-			isPinching = true;
-			cropDragging = false;
-		} else if (activePointers.size === 1) {
-			cropDragging = true;
-			cropStart = { x: event.clientX - cropOffset.x, y: event.clientY - cropOffset.y };
-		}
-		event.preventDefault();
-	}
-
-	function onCropPointerMove(event) {
-		if (activePointers.has(event.pointerId)) {
-			activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-		}
-		if (isPinching && activePointers.size >= 2) {
-			const pts = Array.from(activePointers.values());
-			const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
-			const factor = dist / (pinchStartDistance || 1);
-			const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, pinchStartScale * factor));
-			const imgX = (pinchCenter.x - pinchStartOffset.x) / pinchStartScale;
-			const imgY = (pinchCenter.y - pinchStartOffset.y) / pinchStartScale;
-			cropScale = newScale;
-			cropOffset = { x: pinchCenter.x - imgX * cropScale, y: pinchCenter.y - imgY * cropScale };
-		} else if (cropDragging) {
-			cropOffset = { x: event.clientX - cropStart.x, y: event.clientY - cropStart.y };
-		}
-	}
-
-	function onCropPointerUp(event) {
-		try {
-			event.currentTarget?.releasePointerCapture?.(event.pointerId);
-		} catch {}
-		cropDragging = false;
-		isPinching = false;
-		activePointers.clear();
-	}
 
 	function closeCropper() {
 		if (cropDialogEl?.open) {
@@ -1268,41 +1201,9 @@
 	}
 
 	async function applyCrop() {
-		const aspect = cropTarget === 'logo' ? 1 : 16 / 9;
-		const outW = cropTarget === 'logo' ? 800 : 1600;
-		const outH = Math.round(outW / aspect);
-		const img = document.getElementById('presence-crop-img');
-		if (!img) return;
-
-		const imgRect = img.getBoundingClientRect();
-		const contRect = cropContainerEl?.getBoundingClientRect?.() || {
-			left: 0,
-			top: 0,
-			width: 800,
-			height: 800
-		};
-		const left = imgRect.left - contRect.left;
-		const top = imgRect.top - contRect.top;
-		const scaleDom = imgRect.width / cropImgNatural.w || 1;
-		const sx = Math.max(0, -left / scaleDom);
-		const sy = Math.max(0, -top / scaleDom);
-		const sWidth = Math.min(cropImgNatural.w - sx, contRect.width / scaleDom);
-		const sHeight = Math.min(cropImgNatural.h - sy, contRect.height / scaleDom);
-
-		const canvas = document.createElement('canvas');
-		canvas.width = outW;
-		canvas.height = outH;
-		const ctx = canvas.getContext('2d');
-		ctx.imageSmoothingQuality = 'high';
-		ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
-
-		const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-		if (!blob) return;
-		const dataUrl = await new Promise((resolve) => {
-			const reader = new FileReader();
-			reader.onload = () => resolve(String(reader.result || ''));
-			reader.readAsDataURL(blob);
-		});
+		const exported = await cropFramer?.exportCroppedImage({ quality: 0.9 });
+		if (!exported?.blob || !exported?.dataUrl) return;
+		const { blob, dataUrl } = exported;
 
 		if (cropTarget === 'logo') {
 			if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
@@ -4150,100 +4051,60 @@
 	</div>
 </div>
 
-<!-- Image Crop Modal -->
-{#if cropping}
-	<dialog
-		bind:this={cropDialogEl}
-		class="crop-dialog"
-		aria-labelledby="presence-crop-title"
-		onclose={closeCropper}
-		onpointermove={onCropPointerMove}
-		onpointerup={onCropPointerUp}
-		onpointercancel={onCropPointerUp}
-	>
-		<div class="border-surface-700 bg-surface-900 w-full max-w-4xl border p-5">
-			<div class="mb-4 flex items-center justify-between">
-				<h3 id="presence-crop-title" class="text-surface-50 text-xl font-bold">
-					Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover Photo (16:9)'}
+<!-- Image Framing Modal -->
+<dialog
+	bind:this={cropDialogEl}
+	aria-labelledby="presence-crop-heading"
+	onclose={closeCropper}
+	class="bg-surface-950 text-surface-50 border-surface-700 border-t-primary-500 backdrop:bg-surface-950/80 m-auto max-h-[92dvh] w-full max-w-[min(44rem,calc(100%-2rem))] flex-col overflow-hidden border-2 border-t-4 p-0 open:flex"
+>
+	{#if cropping}
+		<div class="flex min-h-0 flex-1 flex-col">
+			<div
+				class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between gap-3 border-b-2 px-5 py-4"
+			>
+				<h3 id="presence-crop-heading" class="text-surface-50! m-0 text-xl font-black uppercase">
+					Frame {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover Photo (16:9)'}
 				</h3>
 				<button
 					type="button"
-					class="btn btn-sm border-surface-700 bg-surface-950 border"
+					class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center border-2 px-3 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
 					onclick={closeCropper}
 				>
 					Cancel
 				</button>
 			</div>
-			<div
-				bind:this={cropContainerEl}
-				class="border-surface-700 bg-surface-950 relative mx-auto w-full overflow-hidden border"
-				style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
-			>
-				<img
-					id="presence-crop-img"
+			<div class="flex-1 overflow-y-auto p-5">
+				<SliderImageFramer
+					bind:this={cropFramer}
 					src={cropSrc}
-					alt="Crop source"
-					onload={onCropImgLoad}
-					onpointerdown={onCropPointerDown}
-					style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
-					class={cropReady ? '' : 'opacity-0'}
+					target={cropTarget === 'logo' ? 'logo' : 'cover'}
+					alt={cropTarget === 'logo' ? 'Group logo framing preview' : 'Group cover framing preview'}
+					bind:zoom={cropScale}
+					bind:panX={cropPanX}
+					bind:panY={cropPanY}
+					bind:ready={cropReady}
 				/>
-				{#if !cropReady}
-					<div class="text-surface-300 absolute inset-0 grid place-items-center">Loading…</div>
-				{/if}
-				<div class="pointer-events-none absolute inset-0">
-					<div class="bg-surface-50/30 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
-					<div class="bg-surface-50/30 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
-					<div class="bg-surface-50/30 absolute top-[33.333%] right-0 left-0 h-px"></div>
-					<div class="bg-surface-50/30 absolute top-[66.666%] right-0 left-0 h-px"></div>
-				</div>
 			</div>
-			<div class="mt-4 flex flex-wrap items-center gap-3">
-				<label class="sr-only" for="presence-crop-zoom">Zoom</label>
-				<input
-					id="presence-crop-zoom"
-					type="range"
-					min={ZOOM_MIN}
-					max={ZOOM_MAX}
-					step="0.01"
-					bind:value={cropScale}
-					aria-label="Crop zoom"
-					class="range flex-1"
-				/>
+			<div
+				class="border-surface-800 bg-surface-900 flex shrink-0 justify-end gap-2.5 border-t-2 px-5 py-4"
+			>
 				<button
 					type="button"
-					class="btn border-surface-700 bg-surface-950 border"
-					onclick={() => {
-						cropScale = 1;
-						cropOffset = { x: 0, y: 0 };
-					}}
+					class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-5 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+					onclick={closeCropper}
 				>
-					Reset
+					Cancel
 				</button>
 				<button
 					type="button"
-					class="btn preset-filled-primary-500 text-surface-950 font-bold"
+					disabled={!cropReady}
+					class="border-primary-500 bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:border-tertiary-500 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-6 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40"
 					onclick={applyCrop}
 				>
-					Apply Crop
+					Apply
 				</button>
 			</div>
 		</div>
-	</dialog>
-{/if}
-
-<style>
-	.crop-dialog {
-		margin: auto;
-		width: min(100% - 2rem, 56rem);
-		max-height: 92dvh;
-		padding: 0;
-		border: none;
-		background: transparent;
-		color: inherit;
-	}
-
-	.crop-dialog::backdrop {
-		background: rgb(0 0 0 / 85%);
-	}
-</style>
+	{/if}
+</dialog>
