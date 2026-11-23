@@ -12,7 +12,8 @@
 	import * as env from '$app/env/public';
 	import { geocodeAddress } from '#lib/groups/geocoding';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
+	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -28,8 +29,7 @@
 	import BrandThreads from '#lib/icons/BrandThreads.svelte';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconMountain from '@lucide/svelte/icons/mountain';
-	import { renderTurnstile, executeTurnstile, resetTurnstile } from '#lib/security/turnstile';
-	import { PUBLIC_TURNSTILE_SITE_KEY } from '$app/env/public';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	function getPageData() {
 		return data ?? {};
 	}
@@ -38,8 +38,6 @@
 	let L; // loaded dynamically on client
 
 	const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-	const ZOOM_MIN = 0.1;
-	const ZOOM_MAX = 6;
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let submitError = $state('');
@@ -53,13 +51,20 @@
 	let cropTarget = $state(''); // 'logo' | 'cover'
 	let cropSrc = $state('');
 	let cropScale = $state(1);
-	let cropMinScale = $state(1);
-	let cropOffset = $state({ x: 0, y: 0 });
-	let cropDragging = false;
-	let cropStart = { x: 0, y: 0 };
-	let cropImgNatural = { w: 0, h: 0 };
+	let cropPanX = $state(0);
+	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	let cropFramer = $state(null);
+	let cropDialogEl = $state(null);
+	let cropReturnFocusEl = null;
+	let coverFieldRef = $state(null);
 	let formEl = $state();
+
+	$effect(() => {
+		if (!cropDialogEl) return;
+		if (cropping && !cropDialogEl.open) cropDialogEl.showModal();
+		else if (!cropping && cropDialogEl.open) cropDialogEl.close();
+	});
 	let stripeAccount = $state(pageData.donation_account || null);
 	let stripeBusy = $state(false);
 	let stripeError = $state('');
@@ -72,9 +77,6 @@
 	);
 	let stripeConnected = $derived(Boolean(stripeAccount?.stripe_account_id));
 	let stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
-
-	// Crop viewport container ref (no measurements used)
-	let cropContainerEl = $state(null);
 
 	// Server logs now print profile; no client logging needed
 
@@ -372,127 +374,23 @@
 		const arr = Array.from(file instanceof FileList || Array.isArray(file) ? file : [file]);
 		const f = arr[0];
 		if (!f) return;
+		if (cropSrc) URL.revokeObjectURL(cropSrc);
+		coverFieldRef?.closeStudio?.();
+		cropReturnFocusEl = typeof document !== 'undefined' ? document.activeElement : null;
 		const url = URL.createObjectURL(f);
 		cropSrc = url;
 		cropTarget = target;
 		cropScale = 1;
-		cropMinScale = 1;
-		cropOffset = { x: 0, y: 0 };
+		cropPanX = 0;
+		cropPanY = 0;
 		cropReady = false;
 		cropping = true;
 	}
 
-	function onCropImgLoad(e) {
-		const img = e.target;
-		cropImgNatural = { w: img.naturalWidth, h: img.naturalHeight };
-		// Load at 1x and centered via CSS transform; user will zoom as needed
-		cropScale = 1;
-		cropOffset = { x: 0, y: 0 };
-		cropReady = true;
-	}
-
-	// Pinch + drag handling
-	let activePointers = new Map(); // id -> { x, y }
-	let isPinching = false;
-	let pinchStartDistance = 0;
-	let pinchStartScale = 1;
-	let pinchStartOffset = { x: 0, y: 0 };
-	let pinchCenter = { x: 0, y: 0 };
-
-	function onCropPointerDown(e) {
-		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		// Capture pointer to this element for consistent move/up events
-		try {
-			e.currentTarget?.setPointerCapture?.(e.pointerId);
-		} catch {}
-		if (activePointers.size === 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			pinchStartDistance = Math.hypot(dx, dy) || 1;
-			pinchStartScale = cropScale;
-			pinchStartOffset = { ...cropOffset };
-			const rect = cropContainerEl?.getBoundingClientRect?.();
-			const cx = (pts[0].x + pts[1].x) / 2 - (rect?.left || 0);
-			const cy = (pts[0].y + pts[1].y) / 2 - (rect?.top || 0);
-			pinchCenter = { x: cx, y: cy };
-			isPinching = true;
-			cropDragging = false;
-		} else if (activePointers.size === 1) {
-			cropDragging = true;
-			cropStart = { x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y };
-		}
-		e.preventDefault();
-	}
-	function onCropPointerMove(e) {
-		if (activePointers.has(e.pointerId)) {
-			activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		}
-		if (isPinching && activePointers.size >= 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			const dist = Math.hypot(dx, dy) || 1;
-			const factor = dist / (pinchStartDistance || 1);
-			const maxScale = ZOOM_MAX;
-			const newScale = Math.max(ZOOM_MIN, Math.min(maxScale, pinchStartScale * factor));
-			const imgX = (pinchCenter.x - pinchStartOffset.x) / pinchStartScale;
-			const imgY = (pinchCenter.y - pinchStartOffset.y) / pinchStartScale;
-			cropScale = newScale;
-			cropOffset = { x: pinchCenter.x - imgX * cropScale, y: pinchCenter.y - imgY * cropScale };
-			// no clamping without measurements
-		} else if (cropDragging) {
-			cropOffset = { x: e.clientX - cropStart.x, y: e.clientY - cropStart.y };
-		}
-	}
-	function onCropPointerUp(e) {
-		// Release pointer capture if held
-		try {
-			e.currentTarget?.releasePointerCapture?.(e.pointerId);
-		} catch {}
-		cropDragging = false;
-		isPinching = false;
-		activePointers.clear();
-	}
-
 	async function applyCrop() {
-		// Render to canvas with desired aspect
-		const ar = cropTarget === 'logo' ? 1 : 16 / 9;
-		const outW = cropTarget === 'logo' ? 800 : 1600;
-		const outH = Math.round(outW / ar);
-		const img = document.getElementById('crop-img');
-		if (!img) return;
-
-		// Compute the visible area in image coordinates using DOM rects (robust to any CSS/layout)
-		const imgRect = img.getBoundingClientRect();
-		const contRect = cropContainerEl?.getBoundingClientRect?.() || {
-			left: 0,
-			top: 0,
-			width: 800,
-			height: 800
-		};
-		const left = imgRect.left - contRect.left; // image top-left within viewport (CSS px)
-		const top = imgRect.top - contRect.top;
-		const scaleDom = imgRect.width / cropImgNatural.w || 1; // CSS px per image px
-		const sx = Math.max(0, -left / scaleDom);
-		const sy = Math.max(0, -top / scaleDom);
-		const sWidth = Math.min(cropImgNatural.w - sx, contRect.width / scaleDom);
-		const sHeight = Math.min(cropImgNatural.h - sy, contRect.height / scaleDom);
-
-		const canvas = document.createElement('canvas');
-		canvas.width = outW;
-		canvas.height = outH;
-		const ctx = canvas.getContext('2d');
-		ctx.imageSmoothingQuality = 'high';
-		ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
-
-		const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-		if (!blob) return;
-		const dataUrl = await new Promise((resolve) => {
-			const fr = new FileReader();
-			fr.onload = () => resolve(fr.result);
-			fr.readAsDataURL(blob);
-		});
+		const exported = await cropFramer?.exportCroppedImage({ quality: 0.9 });
+		if (!exported?.blob || !exported?.dataUrl) return;
+		const { blob, dataUrl } = exported;
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
@@ -517,10 +415,12 @@
 				saving = false;
 			}
 		} else if (cropTarget === 'cover') {
-			if (coverPreview) URL.revokeObjectURL(coverPreview);
+			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = URL.createObjectURL(blob);
 			const input = document.getElementById('cover_file_cropped');
 			if (input) input.value = dataUrl;
+			const clear = document.getElementById('clear_cover');
+			if (clear) clear.value = '';
 			// Autosave cropped cover immediately
 			try {
 				saving = true;
@@ -544,10 +444,18 @@
 	}
 
 	function closeCropper() {
+		if (cropDialogEl?.open) {
+			cropDialogEl.close();
+		}
 		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		cropSrc = '';
 		cropping = false;
 		cropTarget = '';
+		const focusTarget = cropReturnFocusEl;
+		cropReturnFocusEl = null;
+		if (focusTarget && typeof focusTarget.focus === 'function') {
+			queueMicrotask(() => focusTarget.focus());
+		}
 	}
 
 	// AUTOSAVE: debounced field updates
@@ -955,7 +863,13 @@
 	function applyGeneratedGroupCover(result) {
 		const url = result?.url || '';
 		if (!url) return;
+		if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		coverTooLarge = false;
+		const croppedInput = document.getElementById('cover_file_cropped');
+		if (croppedInput) croppedInput.value = '';
+		const clearInput = document.getElementById('clear_cover');
+		if (clearInput) clearInput.value = '';
 		queueSave({ fields: { cover_photo_url: url } });
 	}
 
@@ -1039,87 +953,54 @@
 	let ownerSuccess = $state('');
 	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
-	const turnstileEnabled = Boolean(PUBLIC_TURNSTILE_SITE_KEY);
-	let ownerTurnstileEl = $state(null);
-	let ownerTurnstileWidgetId = $state(null);
+	let ownerTurnstile = $state(null);
 	// Local reactive owners list so UI updates on removal
 	let owners = $state((pageData.owners || []).slice());
 
-	async function initOwnerTurnstile() {
-		if (!turnstileEnabled || !ownerTurnstileEl || ownerTurnstileWidgetId) return;
-		try {
-			const widgetId = await renderTurnstile(ownerTurnstileEl, {
-				sitekey: PUBLIC_TURNSTILE_SITE_KEY,
-				size: 'invisible'
-			});
-			ownerTurnstileWidgetId = widgetId;
-		} catch (err) {
-			console.error('Failed to initialize Turnstile widget', err);
-		}
-	}
-
-	$effect(() => {
-		if (turnstileEnabled && ownerTurnstileEl && !ownerTurnstileWidgetId) {
-			initOwnerTurnstile();
-		}
-	});
 	async function inviteOwner(e) {
 		e?.preventDefault?.();
+		if (ownerLoading || !ownerTurnstile) return;
 		ownerError = '';
 		ownerSuccess = '';
-		if (!ownerValid) {
-			ownerError = 'Enter a valid email address.';
-			return;
-		}
-		if (ownerHoneypot.trim()) {
-			ownerError = 'Invalid submission.';
-			return;
-		}
-		ownerLoading = true;
-		try {
-			let turnstileToken = '';
-			if (turnstileEnabled) {
-				await initOwnerTurnstile();
-				if (!ownerTurnstileWidgetId) {
-					ownerError = 'Verification failed. Please reload and try again.';
-					ownerLoading = false;
-					return;
+		await ownerTurnstile.submit({
+			validate: () => {
+				if (!ownerValid) {
+					ownerError = 'Enter a valid email address.';
+					return false;
 				}
-				turnstileToken = await executeTurnstile(ownerTurnstileWidgetId);
-				if (!turnstileToken) {
-					ownerError = 'Verification failed. Please try again.';
-					ownerLoading = false;
-					return;
+				if (ownerHoneypot.trim()) {
+					ownerError = 'Invalid submission.';
+					return false;
+				}
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const rtUrl = new URL(window.location.href);
+					rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
+					const res = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email: ownerEmail,
+							createProfile: true,
+							returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash,
+							honeypot: ownerHoneypot,
+							turnstileToken
+						})
+					});
+					if (!res.ok) {
+						const j = await res.json().catch(() => ({}));
+						throw new Error(j.error || 'Failed to send invite');
+					}
+					ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
+					ownerEmail = '';
+					ownerHoneypot = '';
+				} catch (err) {
+					ownerError = err.message || 'Failed to send invite.';
 				}
 			}
-			const rtUrl = new URL(window.location.href);
-			rtUrl.searchParams.set('auto_add_owner', data.group?.slug || '');
-			const res = await fetch('/api/v1/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					email: ownerEmail,
-					createProfile: true,
-					returnTo: rtUrl.pathname + rtUrl.search + rtUrl.hash,
-					honeypot: ownerHoneypot,
-					turnstileToken
-				})
-			});
-			if (!res.ok) {
-				const j = await res.json().catch(() => ({}));
-				throw new Error(j.error || 'Failed to send invite');
-			}
-			ownerSuccess = `Invite sent to ${ownerEmail}. They will be added when they sign in.`;
-			ownerEmail = '';
-			ownerHoneypot = '';
-		} catch (err) {
-			ownerError = err.message || 'Failed to send invite.';
-		} finally {
-			ownerLoading = false;
-			if (turnstileEnabled && ownerTurnstileWidgetId) {
-				resetTurnstile(ownerTurnstileWidgetId);
-			}
-		}
+		});
 	}
 
 	async function removeOwner(uid, email) {
@@ -1290,20 +1171,20 @@
 		setPreview('logo', files);
 		if (files.length) openCropper('logo', files);
 	}
-	function onCoverChange(details) {
-		const files = details?.acceptedFiles || [];
-		coverFiles = files;
-		coverTooLarge = tooLarge(files);
-		setPreview('cover', files);
-		if (files.length) openCropper('cover', files);
+	function onCoverFilesSelected(files) {
+		const selected = Array.from(files || []);
+		coverFiles = selected;
+		coverTooLarge = tooLarge(selected);
+		if (coverTooLarge || !selected.length) return;
+		openCropper('cover', selected);
 	}
-	function onReject(err) {
+	function onReject() {
 		// Just surface a generic message; Skeleton will handle UI for rejection
 		submitError = 'One or more files were rejected. Ensure they are images under 10MB.';
 	}
 	function removeImage(which) {
 		if (which === 'logo') {
-			if (logoPreview) URL.revokeObjectURL(logoPreview);
+			if (logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
 			logoPreview = '';
 			logoFiles = [];
 			logoUploadKey += 1;
@@ -1311,17 +1192,18 @@
 			if (input) input.value = '';
 			const clear = document.getElementById('clear_logo');
 			if (clear) clear.value = '1';
-			// Do not mutate data.group; leave server to persist on submit
+			queueSave({ fields: { logo_url: null } });
 		} else if (which === 'cover') {
-			if (coverPreview) URL.revokeObjectURL(coverPreview);
+			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = '';
 			coverFiles = [];
+			coverTooLarge = false;
 			coverUploadKey += 1;
 			const input = document.getElementById('cover_file_cropped');
 			if (input) input.value = '';
 			const clear = document.getElementById('clear_cover');
 			if (clear) clear.value = '1';
-			// Do not mutate data.group; leave server to persist on submit
+			queueSave({ fields: { cover_photo_url: null } });
 		}
 	}
 </script>
@@ -1946,18 +1828,7 @@
 		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Photos</h2>
-			<div class="mt-4">
-				<ImageGeneratorPanel
-					target="group"
-					heading="Generate group cover art"
-					description="Create a fresh comic-style banner from the current group details and save it directly to the cover photo."
-					helperText="This updates the live cover image immediately through autosave."
-					currentImageUrl={coverPreview}
-					buildContext={buildGroupImageContext}
-					onApply={applyGeneratedGroupCover}
-				/>
-			</div>
-			<div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+			<div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
 				<!-- Logo -->
 				<div class="flex flex-col gap-2">
 					<label class="label" for="logo_url"
@@ -1991,6 +1862,7 @@
 							<button
 								type="button"
 								class="absolute top-1 right-1 bg-black/60 p-0.5"
+								aria-label="Remove logo"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -2000,47 +1872,27 @@
 				</div>
 				<!-- Cover -->
 				<div class="flex flex-col gap-2">
-					<label class="label" for="cover_photo_url"
-						>Cover Photo <span class="text-surface-500 text-xs font-normal">(16:9)</span></label
-					>
-					{#key coverUploadKey}
-						<FileUpload
-							name="cover_file"
-							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-							maxFiles={1}
-							maxFileSize={MAX_BYTES}
-							classes="w-full"
-							onFileChange={onCoverChange}
-							onFileReject={onReject}
-						>
-							<FileUpload.HiddenInput />
-							<FileUpload.Dropzone
-								class="edit-dropzone border-2 border-dashed p-6"
-								aria-label="Select cover image or drag here"
-							>
-								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
-								<p class="text-sm">Select or drag a file</p>
-								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
-							</FileUpload.Dropzone>
-						</FileUpload>
-					{/key}
-					{#if coverTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
-					{#if coverPreview}
-						<div class="relative mt-1 aspect-[16/9] overflow-hidden border border-white/10">
-							<img
-								src={coverPreview}
-								alt="Cover preview"
-								class="absolute inset-0 h-full w-full object-cover"
-							/>
-							<button
-								type="button"
-								class="absolute top-1 right-1 bg-black/60 p-0.5"
-								onclick={() => removeImage('cover')}
-							>
-								<IconRemove class="h-4 w-4 text-white" />
-							</button>
-						</div>
-					{/if}
+					<CoverMediaField
+						bind:this={coverFieldRef}
+						label="Cover photo"
+						description="Upload and crop a 16:9 photo, or open the studio to explore generated banners before saving."
+						helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
+						accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+						imageUrl={coverPreview}
+						uploading={saving}
+						error={coverTooLarge ? 'File exceeds 10MB limit.' : ''}
+						target="group"
+						studioHeading="Create group cover art"
+						studioDescription="Explore generated banners from your group details. Your live cover photo only updates when you click Apply artwork."
+						studioHelperText="Confirming artwork updates the live cover photo via autosave."
+						buildContext={buildGroupImageContext}
+						onSelectFiles={onCoverFilesSelected}
+						onRemove={coverPreview ? () => removeImage('cover') : null}
+						onApplyArtwork={applyGeneratedGroupCover}
+						onStudioOpenChange={(isOpen) => {
+							if (isOpen && cropping) closeCropper();
+						}}
+					/>
 				</div>
 			</div>
 
@@ -2079,9 +1931,6 @@
 					aria-hidden="true"
 					style="position: absolute; left: -10000px; width: 1px; height: 1px; opacity: 0;"
 				/>
-				<div aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;">
-					<div bind:this={ownerTurnstileEl}></div>
-				</div>
 				<button
 					type="button"
 					class="btn preset-filled-primary-500 {ownerLoading ? 'motion-safe:animate-pulse' : ''}"
@@ -2089,6 +1938,12 @@
 					onclick={inviteOwner}>Send Invite</button
 				>
 			</div>
+			<TurnstileVerification
+				bind:this={ownerTurnstile}
+				bind:busy={ownerLoading}
+				variant="editor"
+				enabled={(data?.turnstileEnabled ?? page.data?.turnstileEnabled) !== false}
+			/>
 			{#if ownerError}<div class="text-error-600-400 mt-2 text-sm">{ownerError}</div>{/if}
 			{#if ownerSuccess}<div class="text-success-600-400 mt-2 text-sm">{ownerSuccess}</div>{/if}
 
@@ -2148,79 +2003,64 @@
 	</section>
 
 	<!-- ── Crop modal ── -->
-	{#if cropping}
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
-			onpointermove={onCropPointerMove}
-			onpointerup={onCropPointerUp}
-			onpointercancel={onCropPointerUp}
-		>
-			<div class="edit-card w-full max-w-4xl p-5">
-				<div class="mb-4 flex items-center justify-between">
-					<h3 class="text-xl font-bold">
-						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
+	<dialog
+		bind:this={cropDialogEl}
+		aria-labelledby="group-crop-heading"
+		onclose={closeCropper}
+		class="bg-surface-950 text-surface-50 border-surface-700 border-t-primary-500 backdrop:bg-surface-950/80 m-auto max-h-[92dvh] w-full max-w-[min(44rem,calc(100%-2rem))] flex-col overflow-hidden border-2 border-t-4 p-0 open:flex"
+	>
+		{#if cropping}
+			<div class="flex min-h-0 flex-1 flex-col">
+				<div
+					class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between gap-3 border-b-2 px-5 py-4"
+				>
+					<h3 id="group-crop-heading" class="text-surface-50! m-0 text-xl font-black uppercase">
+						Frame {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
 					</h3>
 					<button
 						type="button"
-						class="btn btn-sm preset-outlined-surface-400"
-						onclick={closeCropper}>Cancel</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center border-2 px-3 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
+						Cancel
+					</button>
+				</div>
+				<div class="flex-1 overflow-y-auto p-5">
+					<SliderImageFramer
+						bind:this={cropFramer}
+						src={cropSrc}
+						target={cropTarget === 'logo' ? 'logo' : 'cover'}
+						alt={cropTarget === 'logo'
+							? 'Group logo framing preview'
+							: 'Group cover framing preview'}
+						bind:zoom={cropScale}
+						bind:panX={cropPanX}
+						bind:panY={cropPanY}
+						bind:ready={cropReady}
+					/>
 				</div>
 				<div
-					bind:this={cropContainerEl}
-					class="relative mx-auto w-full overflow-hidden border border-white/10"
-					style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
+					class="border-surface-800 bg-surface-900 flex shrink-0 justify-end gap-2.5 border-t-2 px-5 py-4"
 				>
-					<img
-						id="crop-img"
-						src={cropSrc}
-						alt="Crop source"
-						onload={onCropImgLoad}
-						onpointerdown={onCropPointerDown}
-						style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
-						class={cropReady ? '' : 'opacity-0'}
-					/>
-					{#if !cropReady}<div
-							class="text-surface-700-300 absolute inset-0 grid place-items-center"
-						>
-							Loading…
-						</div>{/if}
-					<div class="pointer-events-none absolute inset-0">
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
-						<div class="border-surface-950-50/50 absolute inset-0 border"></div>
-					</div>
-				</div>
-				<div class="mt-4 flex flex-wrap items-center gap-3">
-					<input
-						id="crop-zoom"
-						type="range"
-						min={ZOOM_MIN}
-						max={ZOOM_MAX}
-						step="0.01"
-						bind:value={cropScale}
-						class="range flex-1"
-					/>
 					<button
 						type="button"
-						class="btn preset-outlined-surface-400"
-						onclick={() => {
-							cropScale = 1;
-							cropOffset = { x: 0, y: 0 };
-						}}>Reset</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-5 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
-					<button type="button" class="btn preset-filled-primary-500" onclick={applyCrop}
-						>Apply</button
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={!cropReady}
+						class="border-primary-500 bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:border-tertiary-500 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-6 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40"
+						onclick={applyCrop}
 					>
+						Apply
+					</button>
 				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</dialog>
 </div>
 
 <style>

@@ -1,7 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	let { report, onAsk = undefined } = $props();
+
+	/** @type {{ report: Record<string, any>, outcome?: string, onNavigate?: (target: string) => void, onAsk?: (question: string) => void }} */
+	let { report, outcome = $bindable('All'), onNavigate = undefined, onAsk = undefined } = $props();
+
 	let motionDuration = $state(140);
 	onMount(() => {
 		const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -10,9 +13,7 @@
 		preference.addEventListener('change', update);
 		return () => preference.removeEventListener('change', update);
 	});
-	let query = $state('');
-	let outcome = $state('All');
-	let visible = $state(10);
+
 	let selected = $state(0);
 
 	const filters = [
@@ -28,66 +29,95 @@
 		['Injuries', /injur|crash|accident|fatalit/i],
 		['Planning', /guidance|framework|toolkit|planning|implementation/i]
 	];
+
 	const outcomes = [
 		{ label: 'All multi-party accidents', estimate: 0.7, low: 0.39, high: 1.28 },
 		{ label: 'Multi-party injury accidents', estimate: 0.75, low: 0.23, high: 2.47 },
 		{ label: 'Multi-party accidents in darkness', estimate: 0.29, low: 0.1, high: 0.84 }
 	];
+
 	const matches = $derived.by(() => {
-		const term = query.trim().toLowerCase();
 		const pattern = filters.find(([label]) => label === outcome)?.[1];
-		return (report?.sources ?? []).filter((source) => {
-			const text = Object.values(source).join(' ').toLowerCase();
-			return (
-				(!term || text.includes(term)) &&
-				(!pattern || pattern.test(`${source.endpoint} ${source.design}`))
-			);
-		});
+		return (report?.sources ?? []).filter(
+			(source) => !pattern || pattern.test(`${source.endpoint} ${source.design}`)
+		);
 	});
+
 	const current = $derived(outcomes[selected]);
 	const source42 = $derived(report?.sources?.find((source) => source.id === 'R42'));
 	const axis = (value) =>
 		48 + ((Math.log(value) - Math.log(0.1)) / (Math.log(3) - Math.log(0.1))) * 504;
-	function resetResults() {
-		visible = 10;
+
+	function citingChapter(recordId) {
+		const chapter = (report?.sections ?? []).find(
+			(section) => section.id !== 'references' && section.sourceIds?.includes(recordId)
+		);
+		return chapter
+			? { id: chapter.id, label: chapter.title }
+			: { id: `citation-${recordId}`, label: 'References' };
+	}
+
+	function setAllStudiesOpen(open) {
+		document.querySelectorAll('.evidence-explorer .records > details').forEach((el) => {
+			if (el instanceof HTMLDetailsElement) el.open = open;
+		});
 	}
 </script>
 
 <div class="evidence-explorer">
 	<div class="intro">
-		<p class="eyebrow">The evidence register</p>
+		<p class="eyebrow">THE EVIDENCE REGISTER · 68 CITED SOURCES</p>
 		<h2>Find the study behind the claim.</h2>
 		<p>
-			Search by study ID, topic, author, or outcome. Filters group records by words in their methods
-			and measured endpoints; studies can appear in more than one group.
+			Inspect all 68 studies, reviews, and planning toolkits cited in this report. Outcome filters
+			group records by measured endpoints and study designs; studies can appear in more than one
+			outcome category. Use the search bar above to jump directly to a study ID, author, or topic.
 		</p>
-		<a class="download" href={report.meta.csvUrl} download
-			>Download the full evidence register <span aria-hidden="true">↗</span></a
-		>
 	</div>
 
 	<div class="controls">
-		<label for="evidence-search">Search the evidence</label>
-		<input
-			id="evidence-search"
-			type="search"
-			placeholder="Try R42, passing, or helmets"
-			bind:value={query}
-			oninput={resetResults}
-		/>
-		<label for="evidence-outcome">Filter by outcome</label>
-		<select id="evidence-outcome" bind:value={outcome} onchange={resetResults}>
-			<option>All</option>
-			{#each filters as [label]}<option>{label}</option>{/each}
-		</select>
+		<div class="filter-field">
+			<label for="evidence-outcome">Filter by measured outcome</label>
+			<select id="evidence-outcome" bind:value={outcome}>
+				<option value="All">All outcomes ({report?.sources?.length ?? 68})</option>
+				{#each filters as [label] (label)}<option value={label}>{label}</option>{/each}
+			</select>
+		</div>
+		<div class="toolbar-actions">
+			<a class="download" href={report.meta.csvUrl} download
+				>Export CSV register <span aria-hidden="true">↓</span></a
+			>
+			<a
+				class="chart-link"
+				href="#r42-chart"
+				onclick={(event) => {
+					if (onNavigate) {
+						event.preventDefault();
+						onNavigate('r42-chart');
+					}
+				}}>Inspect R42 confidence intervals ↓</a
+			>
+		</div>
 	</div>
-	<p class="count" aria-live="polite">
-		{matches.length}
-		{matches.length === 1 ? 'study' : 'studies'} found
-	</p>
+
+	<div class="register-bar">
+		<p class="count" aria-live="polite">
+			{matches.length}
+			{matches.length === 1 ? 'study' : 'studies'} shown
+		</p>
+		<div class="bulk-controls">
+			<button type="button" onclick={() => setAllStudiesOpen(true)}>Expand all +</button>
+			<button type="button" onclick={() => setAllStudiesOpen(false)}>Collapse all −</button>
+			{#if outcome !== 'All'}
+				<button type="button" onclick={() => (outcome = 'All')}>Show all 68</button>
+			{/if}
+		</div>
+	</div>
+
 	<div class="records">
-		{#each matches.slice(0, visible) as source (source.id)}
-			<details in:fade={{ duration: motionDuration }}>
+		{#each matches as source (source.id)}
+			{@const chapterTarget = citingChapter(source.id)}
+			<details id={`ref-${source.id}`} in:fade={{ duration: motionDuration }}>
 				<summary
 					><span class="record-id">{source.id}</span><span
 						><strong>{source.title}</strong><small>{source.authors} · {source.year}</small></span
@@ -121,9 +151,17 @@
 						</div>
 					</dl>
 					<div class="links">
-						<a href={source.url} target="_blank" rel="noopener noreferrer">Original source ↗</a><a
-							href={'#ref-' + source.id}>Reference in report ↓</a
-						>{#if onAsk}<button
+						<a href={source.url} target="_blank" rel="noopener noreferrer">Original source ↗</a>
+						<a
+							href={`#${chapterTarget.id}`}
+							onclick={(event) => {
+								if (onNavigate) {
+									event.preventDefault();
+									onNavigate(chapterTarget.id);
+								}
+							}}>Read in report ({chapterTarget.label.replace(/^\d+\.\s*/, '')}) →</a
+						>
+						{#if onAsk}<button
 								type="button"
 								onclick={() =>
 									onAsk(`What does ${source.id} tell us, and what are its limitations?`)}
@@ -134,16 +172,16 @@
 			</details>
 		{/each}
 	</div>
-	{#if matches.length === 0}<p class="empty" transition:fade={{ duration: motionDuration }}>
-			No studies match. Try another word or choose All.
-		</p>{/if}
-	{#if visible < matches.length}<button class="more" type="button" onclick={() => (visible += 10)}
-			>Show more studies <span aria-hidden="true">↓</span></button
-		>{/if}
 
-	<div class="interval">
-		<p class="eyebrow">Reading a result · R42</p>
-		<h3>One equipment study, three outcomes.</h3>
+	{#if matches.length === 0}
+		<p class="empty" transition:fade={{ duration: motionDuration }}>
+			No studies match this outcome filter. Choose All outcomes to see all 68 studies.
+		</p>
+	{/if}
+
+	<section id="r42-chart" class="interval" aria-labelledby="r42-chart-heading">
+		<p class="eyebrow">READING A RESULT · STUDY R42</p>
+		<h3 id="r42-chart-heading">One equipment study, three outcomes.</h3>
 		<p>
 			This trial compared bicycle light use with usual light routines. It tested equipment use, not
 			the effect of a message encouraging it. Choose an outcome to see its estimated rate ratio and
@@ -151,7 +189,7 @@
 		</p>
 		<label for="interval-outcome">Outcome</label>
 		<select id="interval-outcome" bind:value={selected}>
-			{#each outcomes as item, index}<option value={index}>{item.label}</option>{/each}
+			{#each outcomes as item, index (item.label)}<option value={index}>{item.label}</option>{/each}
 		</select>
 		<svg viewBox="0 0 600 150" role="img" aria-labelledby="interval-title interval-desc">
 			<title id="interval-title">{current.label}: rate ratio {current.estimate.toFixed(2)}</title>
@@ -167,7 +205,7 @@
 						y1="15"
 						x2={axis(1)}
 						y2="103"
-						stroke="#7926cb"
+						class="chart-reference"
 						stroke-width="2"
 						stroke-dasharray="5 5"
 					/>
@@ -177,7 +215,7 @@
 						y1="60"
 						x2={axis(current.high)}
 						y2="60"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="6"
 					/>
 					<line
@@ -185,7 +223,7 @@
 						y1="49"
 						x2={axis(current.low)}
 						y2="71"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="3"
 					/>
 					<line
@@ -193,11 +231,11 @@
 						y1="49"
 						x2={axis(current.high)}
 						y2="71"
-						stroke="#ff0180"
+						class="chart-interval"
 						stroke-width="3"
 					/>
-					<circle cx={axis(current.estimate)} cy="60" r="8" fill="#23143a" />
-					{#each [0.1, 0.3, 1, 3] as tick}<line
+					<circle cx={axis(current.estimate)} cy="60" r="8" class="chart-point" />
+					{#each [0.1, 0.3, 1, 3] as tick (tick)}<line
 							x1={axis(tick)}
 							y1="95"
 							x2={axis(tick)}
@@ -222,19 +260,40 @@
 				is below 1. This darkness subgroup result has limitations, including incomplete responses
 				and possible differences in nighttime lighting.{/if}
 		</p>
-		{#if source42}<a href={source42.url} target="_blank" rel="noopener noreferrer"
-				>Read study R42 ↗</a
-			>{/if}
-	</div>
+		{#if source42}
+			<div class="links">
+				<a href={source42.url} target="_blank" rel="noopener noreferrer">Read study R42 ↗</a>
+				<a
+					href="#ref-R42"
+					onclick={(event) => {
+						if (onNavigate) {
+							event.preventDefault();
+							onNavigate('ref-R42');
+						}
+					}}>Open R42 register entry ↑</a
+				>
+			</div>
+		{/if}
+	</section>
 </div>
 
 <style>
 	h2,
 	h3 {
-		color: var(--color-secondary-950) !important;
+		color: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50))) !important;
 	}
 	.evidence-explorer {
-		color: var(--color-secondary-950);
+		--ee-ink: var(--ink, light-dark(var(--color-secondary-950), var(--color-surface-50)));
+		--ee-muted: var(--muted, light-dark(var(--color-surface-700), var(--color-surface-200)));
+		--ee-purple: var(--purple, light-dark(var(--color-secondary-700), var(--color-secondary-200)));
+		--ee-pink: var(--pink, light-dark(var(--color-tertiary-700), var(--color-tertiary-300)));
+		--ee-border: var(
+			--report-border,
+			light-dark(var(--color-secondary-400), var(--color-surface-400))
+		);
+		--ee-line: var(--line, light-dark(var(--color-secondary-200), var(--color-surface-700)));
+		--ee-paper: var(--report-paper, light-dark(var(--color-surface-50), var(--color-surface-950)));
+		color: var(--ee-ink);
 	}
 	.evidence-explorer h2,
 	.evidence-explorer h3 {
@@ -245,91 +304,146 @@
 		line-height: 1.6;
 	}
 	.intro {
-		max-width: 48rem;
+		max-width: 52rem;
 	}
 	.eyebrow {
-		color: var(--color-secondary-700-300);
-		letter-spacing: 0.02em;
-		font-size: 0.82rem;
+		color: var(--ee-purple);
+		letter-spacing: 0.08em;
+		font-size: 0.78rem;
 		font-weight: 800;
+		text-transform: uppercase;
 	}
 	h2 {
-		font-size: clamp(2rem, 5vw, 3.6rem);
+		font-size: clamp(2rem, 4.5vw, 3.5rem);
 		line-height: 1.04;
 		letter-spacing: -0.04em;
-		margin: 0.5rem 0 1rem;
+		margin: 0.5rem 0 0.85rem;
 	}
 	h3 {
-		font-size: clamp(1.6rem, 3vw, 2.5rem);
+		font-size: clamp(1.6rem, 3vw, 2.4rem);
 		line-height: 1.08;
 		letter-spacing: -0.03em;
 		margin: 0.5rem 0 1rem;
 	}
-	p {
-		line-height: 1.6;
-	}
 	a {
-		color: var(--color-secondary-700-300);
-		font-weight: 700;
+		color: var(--ee-purple);
+		font-weight: 750;
+		text-decoration: underline;
 		text-underline-offset: 0.2em;
 	}
-	.download {
-		display: inline-block;
-		margin: 0.5rem 0 2rem;
-	}
 	.controls {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.4rem 1rem;
-		align-items: end;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: flex-end;
+		gap: 1rem 1.5rem;
+		margin: 1.75rem 0 1.25rem;
+		padding: 1.15rem;
+		background: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
+		border-top: 3px solid var(--ee-ink);
 	}
-	.controls label:first-child {
-		grid-column: 1;
-		grid-row: 1;
+	.filter-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		min-width: min(100%, 20rem);
+		flex: 1 1 20rem;
+		max-width: 28rem;
 	}
-	.controls label:nth-of-type(2) {
-		grid-column: 2;
-		grid-row: 1;
+	.toolbar-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem 1.25rem;
+	}
+	.download {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		padding: 0.65rem 1rem;
+		border: 2px solid var(--ee-ink);
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
+		text-decoration: none;
+		font-weight: 800;
+		font-size: 0.88rem;
+	}
+	.download:hover {
+		background: var(--ee-purple);
+		color: light-dark(var(--color-surface-50), var(--color-surface-950));
+	}
+	.chart-link {
+		font-size: 0.9rem;
 	}
 	label {
-		font-size: 0.9rem;
+		font-size: 0.82rem;
 		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
-	input,
 	select {
 		box-sizing: border-box;
 		width: 100%;
-		border: 1px solid var(--color-secondary-300);
-		border-radius: 0.35rem;
-		background: var(--report-paper);
-		padding: 0.8rem;
-		color: var(--color-secondary-950);
+		min-height: 44px;
+		border: 2px solid var(--ee-border);
+		border-radius: 0;
+		background-color: var(--ee-paper);
+		padding: 0.7rem 2rem 0.7rem 0.8rem;
+		color: var(--ee-ink);
 		font: inherit;
+		font-weight: 600;
 	}
-	input:focus-visible,
 	select:focus-visible,
 	a:focus-visible,
 	button:focus-visible,
 	summary:focus-visible {
-		outline: 3px solid var(--color-tertiary-700-300);
+		outline: 3px solid var(--ee-pink);
 		outline-offset: 3px;
 	}
+	.register-bar {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.75rem 1.25rem;
+		margin: 1rem 0 0.6rem;
+	}
 	.count {
-		font-weight: 700;
-		margin: 1.4rem 0 0.5rem;
+		font-weight: 800;
+	}
+	.bulk-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.85rem;
+	}
+	.bulk-controls button {
+		border: 0;
+		background: none;
+		padding: 0;
+		color: var(--ee-purple);
+		font-size: 0.84rem;
+		font-weight: 800;
 	}
 	details {
-		border-top: 1px solid var(--color-secondary-300);
+		border-top: 1px solid var(--ee-line);
+		scroll-margin-top: 140px;
 	}
 	details:last-child {
-		border-bottom: 1px solid var(--color-secondary-300);
+		border-bottom: 1px solid var(--ee-line);
 	}
 	summary {
 		display: grid;
 		grid-template-columns: 4rem 1fr 1.5rem;
 		gap: 0.7rem;
 		align-items: start;
-		padding: 1.15rem 0;
+		padding: 1.1rem 0;
 		cursor: pointer;
 		list-style: none;
 	}
@@ -337,21 +451,22 @@
 		display: none;
 	}
 	summary strong {
-		font-size: 1.05rem;
+		font-size: 1.03rem;
 	}
 	summary small {
 		display: block;
-		margin-top: 0.3rem;
-		font-size: 0.9rem;
+		margin-top: 0.28rem;
+		font-size: 0.88rem;
 		line-height: 1.5;
-		color: var(--color-surface-700);
+		color: var(--ee-muted);
 	}
 	.record-id {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		font-weight: 800;
+		font-variant-numeric: tabular-nums;
 	}
 	.expand {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		font-size: 1.5rem;
 		line-height: 1;
 	}
@@ -366,7 +481,7 @@
 		margin: 0;
 	}
 	dl div {
-		margin: 0 0 1rem;
+		margin: 0 0 0.95rem;
 	}
 	dt {
 		font-weight: 800;
@@ -379,13 +494,15 @@
 	.links {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem 1.5rem;
+		gap: 0.85rem 1.5rem;
 		align-items: center;
+		margin-top: 0.75rem;
 	}
 	button {
 		cursor: pointer;
 		font: inherit;
 		font-weight: 800;
+		border-radius: 0;
 	}
 	button,
 	a,
@@ -395,35 +512,30 @@
 			background-color 140ms ease,
 			border-color 140ms ease;
 	}
-	button:hover,
-	a:hover {
-		color: var(--color-secondary-700-300);
-	}
 	.links button {
-		color: var(--color-secondary-700-300);
+		color: var(--ee-purple);
 		border: 0;
 		background: none;
 		padding: 0;
 		text-decoration: underline;
 		text-underline-offset: 0.2em;
 	}
-	.more {
-		margin: 1.5rem 0;
-		padding: 0.85rem 1.2rem;
-		border: 2px solid var(--color-secondary-700-300);
-		border-radius: 0.35rem;
-		background: transparent;
-		color: var(--color-secondary-700-300);
-	}
 	.interval {
-		margin-top: 4rem;
-		padding: clamp(1.25rem, 4vw, 2.5rem);
-		background: var(--report-paper);
-		border-top: 5px solid var(--color-tertiary-700-300);
+		margin-top: 3.5rem;
+		padding: clamp(1.25rem, 4vw, 2.25rem);
+		background: var(
+			--report-soft,
+			light-dark(
+				color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+				var(--color-surface-900)
+			)
+		);
+		border-top: 4px solid var(--ee-pink);
+		scroll-margin-top: 140px;
 	}
 	.interval label {
 		display: block;
-		margin: 1.5rem 0 0.4rem;
+		margin: 1.35rem 0 0.4rem;
 	}
 	.interval select {
 		max-width: 30rem;
@@ -435,22 +547,24 @@
 		margin: 1rem auto;
 		overflow: visible;
 	}
+	.chart-reference {
+		stroke: var(--ee-purple);
+	}
+	.chart-interval {
+		stroke: var(--ee-pink);
+	}
+	.chart-point {
+		fill: var(--ee-ink);
+	}
 	.chart-label {
-		fill: var(--color-secondary-950);
+		fill: var(--ee-ink);
 		font: 14px sans-serif;
 	}
 	.result {
 		font-size: 1.1rem;
+		margin-bottom: 0.5rem;
 	}
 	@media (max-width: 600px) {
-		.controls {
-			display: flex;
-			flex-direction: column;
-			align-items: stretch;
-		}
-		.controls label:nth-of-type(2) {
-			margin-top: 0.7rem;
-		}
 		summary {
 			grid-template-columns: 3rem 1fr 1rem;
 		}

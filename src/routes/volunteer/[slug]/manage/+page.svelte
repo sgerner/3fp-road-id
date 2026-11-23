@@ -5,7 +5,19 @@
 	import ApprovedRoster from '#lib/components/volunteer/manage/ApprovedRoster.svelte';
 	import EventHostManagement from '#lib/components/volunteer/manage/EventHostManagement.svelte';
 	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
-	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
+	import SmsInlineSection from '#lib/components/sms/SmsInlineSection.svelte';
+	import {
+		SMS_INLINE_DEFAULT_CONSENT_TEXT,
+		VOLUNTEER_MANAGE_SMS_CATEGORIES,
+		createSingleFlightPreferencesLoader,
+		emptySmsPreferences,
+		getInlineSmsMode,
+		getSelectedNewCategoryKeys,
+		resolveInlineConsentSource,
+		saveInlineSmsPreferences,
+		validateInlineSmsInput
+	} from '#lib/sms/inlineEnrollment';
+	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { sendEmail } from '#lib/services/email';
 	import {
@@ -52,7 +64,7 @@
 	const eventEmailsRaw = pageData.eventEmails ?? [];
 	const customQuestions = customQuestionsRaw ?? [];
 	let profileRecords = $state(pageData.profiles ?? []);
-	const eventHosts = pageData.eventHosts ?? [];
+	let eventHosts = $state(pageData.eventHosts ?? []);
 	const groupOwners = pageData.groupOwners ?? [];
 	const primaryHost =
 		pageData.primaryHost ?? (event?.host_user_id ? { user_id: event.host_user_id } : null);
@@ -71,6 +83,91 @@
 		cancel: Boolean(initialCancelNotifications)
 	});
 	let hostNotificationSaving = $state(false);
+
+	const smsPreferencesLoader = createSingleFlightPreferencesLoader();
+	let manageSmsLoading = $state(false);
+	let manageSmsSaving = $state(false);
+	let manageSmsPreferences = $state(emptySmsPreferences());
+	let manageSmsConsentText = $state(SMS_INLINE_DEFAULT_CONSENT_TEXT);
+	let manageSmsSelected = $state({ admin_messages: false });
+	let manageSmsPhone = $state('');
+	let manageSmsPhoneDirty = $state(false);
+	let manageSmsConsent = $state(false);
+	let manageSmsPhoneError = $state('');
+	let manageSmsConsentError = $state('');
+	let manageSmsError = $state('');
+	let manageSmsSuccess = $state('');
+	const manageSmsMode = $derived(
+		getInlineSmsMode(manageSmsPreferences, VOLUNTEER_MANAGE_SMS_CATEGORIES)
+	);
+	const selectedManageSmsKeys = $derived(
+		getSelectedNewCategoryKeys(manageSmsMode.availableCategories, manageSmsSelected)
+	);
+
+	onMount(async () => {
+		if (!(pageData.user?.id || data?.session?.user?.id)) return;
+		manageSmsLoading = true;
+		try {
+			const loaded = await smsPreferencesLoader.load();
+			manageSmsPreferences = loaded.preferences;
+			manageSmsConsentText = loaded.consentText;
+			if (!manageSmsPhoneDirty && loaded.preferences.phone) {
+				manageSmsPhone = loaded.preferences.phone;
+			}
+		} catch (loadErr) {
+			manageSmsError = loadErr?.message || 'Unable to load SMS preferences.';
+		} finally {
+			manageSmsLoading = false;
+		}
+	});
+
+	async function saveManageSmsPreferences() {
+		if (manageSmsSaving) return;
+		manageSmsPhoneError = '';
+		manageSmsConsentError = '';
+		manageSmsError = '';
+		manageSmsSuccess = '';
+
+		const validation = validateInlineSmsInput({
+			selectedKeys: selectedManageSmsKeys,
+			phone: manageSmsPhone,
+			consentChecked: manageSmsConsent,
+			requireSelection: true
+		});
+		if (!validation.ok) {
+			manageSmsPhoneError = validation.phoneError;
+			manageSmsConsentError = validation.consentError;
+			manageSmsError = validation.error;
+			return;
+		}
+
+		manageSmsSaving = true;
+		try {
+			const result = await saveInlineSmsPreferences({
+				phone: manageSmsPhone,
+				selectedKeys: selectedManageSmsKeys,
+				source: resolveInlineConsentSource('volunteer-management', selectedManageSmsKeys)
+			});
+			if (!result.ok) {
+				manageSmsError = result.retryMessage;
+				if (result.phoneInvalid) {
+					manageSmsPhoneError = result.error;
+				}
+				return;
+			}
+			manageSmsPreferences = result.preferences;
+			manageSmsConsentText = result.consentText || manageSmsConsentText;
+			smsPreferencesLoader.setCached({
+				preferences: manageSmsPreferences,
+				consentText: manageSmsConsentText
+			});
+			manageSmsSelected = { admin_messages: false };
+			manageSmsConsent = false;
+			manageSmsSuccess = 'Organizer text messages are enabled.';
+		} finally {
+			manageSmsSaving = false;
+		}
+	}
 
 	function toNumber(value) {
 		const numeric = Number(value);
@@ -1717,6 +1814,9 @@
 	];
 
 	let activeSection = $state(sections[0].id);
+	let rosterSelectedShift = $state('all');
+	let rosterSearchTerm = $state('');
+	let rosterCheckInMode = $state(false);
 
 	function setActiveSection(id) {
 		if (sections.some((section) => section.id === id)) {
@@ -1727,6 +1827,20 @@
 	function isSectionActive(id) {
 		return activeSection === id;
 	}
+
+	function openMobileCheckIn() {
+		rosterCheckInMode = true;
+		activeSection = 'roster';
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('checkin') === '1' || params.get('mode') === 'checkin') {
+			rosterCheckInMode = true;
+			activeSection = 'roster';
+		}
+	});
 
 	$effect(() => {
 		if (!sections.some((section) => section.id === activeSection)) {
@@ -1754,23 +1868,15 @@
 			description={eventDescription}
 			counts={volunteerCounts}
 		/>
-		<div class="mt-4 max-w-2xl">
-			<SmsContextOptIn
-				category="admin_messages"
-				source="volunteer-management"
-				title="Text me volunteer admin messages"
-				description="Receive concise updates and replies related to this volunteer event."
-			/>
-		</div>
 
 		<!-- Tab navigation -->
-		<nav class="mt-3 -mb-px flex gap-0" aria-label="Management sections">
+		<nav class="mt-3 -mb-px flex flex-wrap gap-1 sm:gap-2" aria-label="Management sections">
 			{#each sections as section}
 				{@const active = isSectionActive(section.id)}
 				{@const Icon = section.icon}
 				<button
 					type="button"
-					class="flex items-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors
+					class="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-none! border-b-2 px-3 py-2.5 text-sm font-black tracking-wide uppercase transition-colors
 						{active
 						? 'border-primary-500 bg-primary-500 text-surface-950'
 						: 'text-surface-700-300 hover:text-surface-950-50 hover:border-surface-500 border-transparent'}"
@@ -1778,7 +1884,7 @@
 					aria-label={section.label}
 					onclick={() => setActiveSection(section.id)}
 				>
-					<Icon class="h-4 w-4 flex-shrink-0" />
+					<Icon class="h-4 w-4 flex-shrink-0" aria-hidden="true" />
 					<span class="hidden sm:inline">{section.label}</span>
 				</button>
 			{/each}
@@ -1839,6 +1945,10 @@
 				{volunteers}
 				{event}
 				{shiftMap}
+				shifts={shiftOptions}
+				bind:selectedShift={rosterSelectedShift}
+				bind:searchTerm={rosterSearchTerm}
+				bind:checkInMode={rosterCheckInMode}
 				onStatusChange={setAssignmentPresent}
 				onBulkStatusChange={setAssignmentsPresent}
 			/>
@@ -1846,7 +1956,48 @@
 	{/if}
 
 	{#if activeSection === 'communications'}
-		<section id="section-communications" transition:slide>
+		<section id="section-communications" class="space-y-8" transition:slide>
+			<div class="border-surface-300-700 bg-surface-100-900 border-primary-500 border-t-4 p-6">
+				<SmsInlineSection
+					categories={VOLUNTEER_MANAGE_SMS_CATEGORIES}
+					preferences={manageSmsPreferences}
+					consentText={manageSmsConsentText}
+					loading={manageSmsLoading}
+					saving={manageSmsSaving}
+					tone="surface"
+					eyebrow="Organizer SMS alerts"
+					heading="Volunteer admin text messages"
+					selected={manageSmsSelected}
+					phone={manageSmsPhone}
+					consentChecked={manageSmsConsent}
+					showPhoneInput={true}
+					phoneError={manageSmsPhoneError}
+					consentError={manageSmsConsentError}
+					errorMessage={manageSmsError}
+					successMessage={manageSmsSuccess}
+					standalone={true}
+					submitLabel="Enable admin texts"
+					savingLabel="Enabling…"
+					onToggleCategory={(key, checked) => {
+						manageSmsSelected = { ...manageSmsSelected, [key]: checked };
+						manageSmsPhoneError = '';
+						manageSmsConsentError = '';
+						manageSmsError = '';
+					}}
+					onPhoneChange={(value) => {
+						manageSmsPhone = value;
+						manageSmsPhoneDirty = true;
+						manageSmsPhoneError = '';
+						manageSmsError = '';
+					}}
+					onConsentChange={(checked) => {
+						manageSmsConsent = checked;
+						manageSmsConsentError = '';
+						manageSmsError = '';
+					}}
+					onSubmit={saveManageSmsPreferences}
+				/>
+			</div>
 			<CommunicationsStep
 				showAdvancedCommunications={true}
 				showCustomQuestionsSection={false}
@@ -1873,14 +2024,55 @@
 	{/if}
 
 	{#if activeSection === 'hosts'}
-		<section id="section-hosts" transition:slide>
+		<section id="section-hosts" class="space-y-6" transition:slide>
 			<EventHostManagement
 				{event}
 				{groupOwners}
-				hosts={eventHosts}
+				bind:hosts={eventHosts}
 				{primaryHost}
 				currentUser={data.session?.user}
 			/>
+			<div class="border-surface-300-700 bg-surface-100-900 border-primary-500 border-t-4 p-6">
+				<SmsInlineSection
+					categories={VOLUNTEER_MANAGE_SMS_CATEGORIES}
+					preferences={manageSmsPreferences}
+					consentText={manageSmsConsentText}
+					loading={manageSmsLoading}
+					saving={manageSmsSaving}
+					tone="surface"
+					eyebrow="Organizer SMS alerts"
+					heading="Volunteer admin text messages"
+					selected={manageSmsSelected}
+					phone={manageSmsPhone}
+					consentChecked={manageSmsConsent}
+					showPhoneInput={true}
+					phoneError={manageSmsPhoneError}
+					consentError={manageSmsConsentError}
+					errorMessage={manageSmsError}
+					successMessage={manageSmsSuccess}
+					standalone={true}
+					submitLabel="Enable admin texts"
+					savingLabel="Enabling…"
+					onToggleCategory={(key, checked) => {
+						manageSmsSelected = { ...manageSmsSelected, [key]: checked };
+						manageSmsPhoneError = '';
+						manageSmsConsentError = '';
+						manageSmsError = '';
+					}}
+					onPhoneChange={(value) => {
+						manageSmsPhone = value;
+						manageSmsPhoneDirty = true;
+						manageSmsPhoneError = '';
+						manageSmsError = '';
+					}}
+					onConsentChange={(checked) => {
+						manageSmsConsent = checked;
+						manageSmsConsentError = '';
+						manageSmsError = '';
+					}}
+					onSubmit={saveManageSmsPreferences}
+				/>
+			</div>
 		</section>
 	{/if}
 </div>
