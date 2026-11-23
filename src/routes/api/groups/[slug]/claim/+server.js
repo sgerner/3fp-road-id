@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { enforceRateLimit } from '#lib/server/security';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 export async function POST(event) {
 	const limited = enforceRateLimit(event, {
@@ -49,6 +50,7 @@ export async function POST(event) {
 		}
 		if (claimed !== true) return json({ error: 'Group already claimed' }, { status: 409 });
 
+		invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
 		return json({ ok: true, slug: group.slug });
 	} catch (e) {
 		console.error('Claim group error', e);

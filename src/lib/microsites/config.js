@@ -1,12 +1,17 @@
 import { normalizeRideWidgetConfig } from '../rides/widgetConfig.js';
 import { isSafeInternalPath } from '../security/navigation.js';
 import { safeHttpUrl } from '../security/urls.js';
-import { buildDefaultGroupSiteBlocks, normalizeGroupSiteBlocks } from './blocks.js';
+import {
+	buildDefaultGroupSiteBlocks,
+	hasGroupSiteBlock,
+	normalizeGroupSiteBlocks
+} from './blocks.js';
 import { normalizeGroupSitePages } from './pages.js';
 import {
 	buildTempeBicycleActionGroupSite,
 	ensureTempeBicycleActionGroupPages,
-	isTempeBicycleActionGroup
+	isTempeBicycleActionGroup,
+	TBAG_FOLLOW_CALENDAR_REVISION
 } from './tempeBicycleActionGroup.js';
 
 export const GROUP_SITE_THEME_OPTIONS = [
@@ -281,8 +286,12 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 }
 
 export function normalizeGroupSiteConfig(value, { group = null } = {}) {
-	const base = buildDefaultGroupSiteConfig(group || {});
 	const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+	const isTbagGroup =
+		isTempeBicycleActionGroup(group) || cleanText(source.site_variant).toLowerCase() === 'tbag';
+	const base = isTbagGroup
+		? buildTempeBicycleActionGroupSite(group || {})
+		: buildDefaultGroupSiteConfig(group || {});
 	const themeMode = normalizeChoice(source.theme_mode, GROUP_SITE_THEME_MODES, base.theme_mode);
 	const themeName = hasThemeName(source.theme_name) ? cleanText(source.theme_name) : '';
 	const sponsorItems = normalizeSponsorItems(source.sponsor_items, source.sponsor_links);
@@ -291,22 +300,62 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		.filter(Boolean)
 		.slice(0, MAX_SPONSOR_ITEMS);
 	const sections = normalizeSections(source.sections);
-	const rideWidgetEnabled = normalizeBoolean(source.ride_widget_enabled, base.ride_widget_enabled);
+	const requestedRideWidgetEnabled = normalizeBoolean(
+		source.ride_widget_enabled,
+		base.ride_widget_enabled
+	);
 
 	const pageBlocks = normalizeGroupSiteBlocks(source.page_blocks, {
 		sections,
-		rideWidgetEnabled
+		rideWidgetEnabled: requestedRideWidgetEnabled
 	});
-	const isTbagGroup = isTempeBicycleActionGroup(group);
 	const rawSitePages =
 		isTbagGroup && (!Array.isArray(source.site_pages) || !source.site_pages.length)
 			? base.site_pages.map((page, index) => (index === 0 ? { ...page, blocks: pageBlocks } : page))
 			: source.site_pages;
+	const tbagCalendarNeedsWidgetUpgrade =
+		isTbagGroup &&
+		(!normalizeBoolean(source.ride_widget_enabled, false) ||
+			(Array.isArray(source.site_pages) &&
+				source.site_pages.some(
+					(page) =>
+						(page?.id === 'calendar' || page?.slug === 'calendar') &&
+						page?.source_revision !== TBAG_FOLLOW_CALENDAR_REVISION
+				))) &&
+		!cleanText(source.ride_widget_config?.location) &&
+		!cleanText(source.ride_widget_config?.city) &&
+		!cleanText(source.ride_widget_config?.near);
 	let sitePages = normalizeGroupSitePages(rawSitePages, { homeBlocks: pageBlocks });
 	if (isTbagGroup) {
-		sitePages = ensureTempeBicycleActionGroupPages(sitePages, { group, homeBlocks: pageBlocks });
+		sitePages = ensureTempeBicycleActionGroupPages(sitePages, {
+			group: group || {},
+			homeBlocks: pageBlocks
+		});
 	}
 	const homePageBlocks = sitePages[0]?.blocks || pageBlocks;
+	const anyPageHasRideCalendar = sitePages.some((page) =>
+		hasGroupSiteBlock(page?.blocks, 'ride_calendar')
+	);
+	const rideWidgetEnabled = Boolean(requestedRideWidgetEnabled || anyPageHasRideCalendar);
+	const resolvedRideWidgetTitle =
+		tbagCalendarNeedsWidgetUpgrade &&
+		(!cleanText(source.ride_widget_title) ||
+			cleanText(source.ride_widget_title) === 'Ride calendar')
+			? base.ride_widget_title
+			: clampText(source.ride_widget_title || base.ride_widget_title, 120);
+	const resolvedRideWidgetHostScope =
+		tbagCalendarNeedsWidgetUpgrade &&
+		(!cleanText(source.ride_widget_host_scope) ||
+			cleanText(source.ride_widget_host_scope).toLowerCase() === 'group_only')
+			? base.ride_widget_host_scope
+			: normalizeChoice(
+					source.ride_widget_host_scope,
+					GROUP_SITE_RIDE_WIDGET_HOST_SCOPES,
+					base.ride_widget_host_scope
+				);
+	const resolvedRideWidgetConfig = tbagCalendarNeedsWidgetUpgrade
+		? normalizeRideWidgetConfig(base.ride_widget_config)
+		: normalizeRideWidgetConfig(source.ride_widget_config || base.ride_widget_config || {});
 
 	return {
 		site_title: clampText(source.site_title || base.site_title, 120) || base.site_title,
@@ -350,12 +399,8 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 		sponsor_links: sponsorLinks,
 		sponsor_items: sponsorItems,
 		ride_widget_enabled: rideWidgetEnabled,
-		ride_widget_title: clampText(source.ride_widget_title || base.ride_widget_title, 120),
-		ride_widget_host_scope: normalizeChoice(
-			source.ride_widget_host_scope,
-			GROUP_SITE_RIDE_WIDGET_HOST_SCOPES,
-			base.ride_widget_host_scope
-		),
+		ride_widget_title: resolvedRideWidgetTitle,
+		ride_widget_host_scope: resolvedRideWidgetHostScope,
 		ride_widget_group_ids: Array.from(
 			new Set(
 				(Array.isArray(source.ride_widget_group_ids) ? source.ride_widget_group_ids : [])
@@ -365,7 +410,7 @@ export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 					)
 			)
 		).slice(0, 48),
-		ride_widget_config: normalizeRideWidgetConfig(source.ride_widget_config || {}),
+		ride_widget_config: resolvedRideWidgetConfig,
 		announcement_expires_at: normalizeIsoDateTime(source.announcement_expires_at),
 		sections,
 		page_blocks: homePageBlocks,
