@@ -1,23 +1,145 @@
-<script>
+<script lang="ts">
 	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
-	import IconMail from '@lucide/svelte/icons/mail';
-	import IconPhone from '@lucide/svelte/icons/phone';
-	import IconSearch from '@lucide/svelte/icons/search';
-	import IconFilter from '@lucide/svelte/icons/funnel';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconUserPlus from '@lucide/svelte/icons/user-plus';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconSend from '@lucide/svelte/icons/send';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { slide, fly } from 'svelte/transition';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { slide } from 'svelte/transition';
+	import ManageActionButton from './ManageActionButton.svelte';
+	import ManageActionGrid from './ManageActionGrid.svelte';
+	import ManageContactRow from './ManageContactRow.svelte';
+	import ManageFilterToolbar, {
+		type ToolbarFilterOption,
+		type ToolbarPillOption,
+		type ToolbarSelectFilter
+	} from './ManageFilterToolbar.svelte';
+	import ManageShiftHeader, { type ShiftHeaderBadge } from './ManageShiftHeader.svelte';
+
+	type FilterOption = {
+		value: string | number;
+		label?: string;
+	};
+
+	type ShiftOptionRecord = {
+		id: string;
+		groupId?: string | number | null;
+		opportunityId?: string | number | null;
+		opportunityTitle?: string;
+		optionLabel?: string;
+		windowLabel?: string;
+		startsAt?: string | null;
+		timezone?: string | null;
+		time_zone?: string | null;
+	};
+
+	type SignupAssignmentRecord = {
+		id: string | null;
+		shiftId?: string | null;
+		status: string;
+		attended?: boolean;
+		confirmedAt?: string | Date | null;
+	};
+
+	type VolunteerRecord = {
+		id?: string;
+		name: string;
+		email?: string;
+		phone?: string;
+		status: string;
+		attended?: boolean;
+		shiftIds?: string[];
+		emergencyContactName?: string;
+		emergencyContactPhone?: string;
+		signup?: {
+			created_at?: string | Date | null;
+		} | null;
+		assignments?: SignupAssignmentRecord[];
+	};
+
+	type ProfileRowInput = {
+		id?: string | number | null;
+		user_id?: string | number | null;
+		email?: string | null;
+		full_name?: string | null;
+		phone?: string | null;
+		emergency_contact_name?: string | null;
+		emergency_contact_phone?: string | null;
+	};
+
+	type NormalizedProfile = {
+		id: string | null;
+		userId: string | null;
+		email: string;
+		name: string;
+		phone: string;
+		emergencyContactName: string;
+		emergencyContactPhone: string;
+	};
+
+	type AddVolunteerPayload = {
+		email: string;
+		name: string;
+		phone: string;
+		emergencyContactName: string;
+		emergencyContactPhone: string;
+		shiftId: string;
+		status: string;
+		profileId: string | null;
+		userId: string | null;
+	};
+
+	type EmailQueueItem = {
+		id: string;
+		volunteerName: string;
+		volunteerEmail: string;
+		status: string;
+		shiftLabel?: string;
+	};
+
+	type Props = {
+		volunteers?: VolunteerRecord[];
+		statusFilters?: FilterOption[];
+		activityFilters?: FilterOption[];
+		shiftFilters?: FilterOption[];
+		shifts?: ShiftOptionRecord[];
+		profiles?: ProfileRowInput[];
+		eventId?: string | number | null;
+		selectedStatus?: string;
+		selectedActivity?: string;
+		selectedShift?: string;
+		searchTerm?: string;
+		onStatusChange?: (value: string) => void;
+		onActivityChange?: (value: string) => void;
+		onShiftChange?: (value: string) => void;
+		onSearch?: (value: string) => void;
+		onApprove?: (assignmentId: string) => void;
+		onDecline?: (assignmentId: string) => void;
+		onWaitlist?: (assignmentId: string) => void;
+		onMoveShift?: (volunteerId: string, shiftId: string | null) => void;
+		onPresent?: (assignmentId: string, status: string | boolean) => void;
+		onAddVolunteer?: (payload: AddVolunteerPayload) => Promise<{
+			ok?: boolean;
+			error?: string;
+			message?: string;
+		}>;
+		emailQueue?: EmailQueueItem[];
+		emailQueueSending?: boolean;
+		emailQueueError?: string;
+		onSendQueuedEmail?: (queueId: string) => void;
+		onRemoveQueuedEmail?: (queueId: string) => void;
+		onSendAllQueuedEmails?: () => void;
+		onClearEmailQueue?: () => void;
+	};
 
 	const {
 		volunteers = [],
-		statusFilters = [],
+		statusFilters: _statusFilters = [],
 		activityFilters = [],
 		shiftFilters = [],
 		shifts = [],
-		profiles = [],
+		profiles: _profiles = [],
 		eventId = null,
 		selectedStatus = 'all',
 		selectedActivity = 'all',
@@ -27,22 +149,26 @@
 		onActivityChange = () => {},
 		onShiftChange = () => {},
 		onSearch = () => {},
-		onApprove = (/** @type {string} */ assignmentId) => {},
-		onDecline = (/** @type {string} */ assignmentId) => {},
-		onWaitlist = (/** @type {string} */ assignmentId) => {},
-		onMoveShift = (/** @type {string} */ volunteerId, /** @type {string | null} */ shiftId) => {},
-		onPresent = (/** @type {string} */ assignmentId, /** @type {boolean} */ isPresent) => {},
+		onApprove = () => {},
+		onDecline = () => {},
+		onWaitlist = () => {},
+		onMoveShift: _onMoveShift = () => {},
+		onPresent: _onPresent = () => {},
 		onAddVolunteer = async () => ({ ok: false, error: 'Not implemented' }),
 		emailQueue = [],
 		emailQueueSending = false,
 		emailQueueError = '',
-		onSendQueuedEmail = (/** @type {string} */ queueId) => {},
-		onRemoveQueuedEmail = (/** @type {string} */ queueId) => {},
+		onSendQueuedEmail = () => {},
+		onRemoveQueuedEmail = () => {},
 		onSendAllQueuedEmails = () => {},
 		onClearEmailQueue = () => {}
-	} = $props();
+	}: Props = $props();
 
-	const shiftMap = $derived(new SvelteMap(shifts.map((shift) => [shift.id, shift])));
+	const uid = $props.id();
+	const sectionHeadingId = `${uid}-heading`;
+	const queueHeadingId = `${uid}-queue-heading`;
+
+	const shiftMap = $derived(new SvelteMap(shifts.map((shift) => [String(shift.id), shift])));
 
 	const statusOptions = [
 		{ value: 'approved', label: 'Approved' },
@@ -50,45 +176,17 @@
 		{ value: 'waitlisted', label: 'Waitlisted' }
 	];
 
-	// ── Status pill definitions ──────────────────────────────────────────────
-	const statusPills = [
-		{ value: 'all', label: 'All' },
-		{ value: 'approved', label: 'Approved' },
-		{ value: 'pending', label: 'Pending' },
-		{ value: 'waitlisted', label: 'Waitlisted' },
-		{ value: 'declined', label: 'Declined' },
-		{ value: 'cancelled', label: 'Cancelled' }
+	const statusPills: ToolbarPillOption[] = [
+		{ value: 'all', label: 'All', tone: 'primary' },
+		{ value: 'approved', label: 'Approved', tone: 'success' },
+		{ value: 'pending', label: 'Pending', tone: 'warning' },
+		{ value: 'waitlisted', label: 'Waitlisted', tone: 'surface' },
+		{ value: 'declined', label: 'Declined', tone: 'error' },
+		{ value: 'cancelled', label: 'Cancelled', tone: 'error' }
 	];
 
-	function pillClass(value) {
-		const active = selectedStatus === value;
-		switch (value) {
-			case 'approved':
-				return active
-					? 'bg-success-500 text-surface-950'
-					: 'border border-success-500 text-success-700-300 hover:bg-success-500 hover:text-surface-950';
-			case 'pending':
-				return active
-					? 'bg-warning-500 text-surface-950'
-					: 'border border-warning-500 text-warning-700-300 hover:bg-warning-500 hover:text-surface-950';
-			case 'waitlisted':
-				return active
-					? 'bg-surface-500 text-surface-950'
-					: 'border border-surface-500 text-surface-800-200 hover:bg-surface-500 hover:text-surface-950';
-			case 'declined':
-			case 'cancelled':
-				return active
-					? 'bg-error-600 text-surface-50'
-					: 'border border-error-500 text-error-700-300 hover:bg-error-500 hover:text-surface-950';
-			default:
-				return active
-					? 'bg-primary-500 text-surface-950'
-					: 'border border-surface-500 text-surface-800-200 hover:bg-primary-500 hover:text-surface-950';
-		}
-	}
-
 	// ── Add volunteer form ────────────────────────────────────────────────────
-	let selectedProfile = $state(null);
+	let selectedProfile = $state<NormalizedProfile | null>(null);
 	let addForm = $state({
 		email: '',
 		name: '',
@@ -105,25 +203,84 @@
 	let addVolunteer = $state(false);
 	let profileLookupLoading = $state(false);
 	let profileLookupError = $state('');
-	let profileLookupTimeout = null;
+	let profileLookupTimeout: ReturnType<typeof setTimeout> | null = null;
 	let profileLookupRequestId = 0;
-	let emailSuggestions = $state([]);
-	let suggestionTimeout = null;
+	let emailSuggestions = $state<NormalizedProfile[]>([]);
+	let suggestionTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	// ── Email queue panel ─────────────────────────────────────────────────────
-	let emailQueueOpen = $state(false);
+	// ── Email queue bottom sheet dialog ───────────────────────────────────────
+	let queueDialog = $state<HTMLDialogElement | undefined>(undefined);
 
-	let expandedRows = $state(new Set());
-
-	function toggleRow(key) {
-		const next = new Set(expandedRows);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		expandedRows = next;
+	function openQueueSheet() {
+		if (queueDialog && !queueDialog.open) {
+			queueDialog.showModal();
+		}
 	}
 
+	function closeQueueSheet() {
+		if (queueDialog?.open) {
+			queueDialog.close();
+		}
+	}
+
+	$effect(() => {
+		if (!emailQueue.length && !emailQueueError && queueDialog?.open) {
+			queueDialog.close();
+		}
+	});
+
+	const expandedRows = new SvelteSet<string>();
+
+	function toggleRow(key: string) {
+		if (expandedRows.has(key)) {
+			expandedRows.delete(key);
+		} else {
+			expandedRows.add(key);
+		}
+	}
+
+	const toolbarFilters = $derived.by<ToolbarSelectFilter[]>(() => {
+		const list: ToolbarSelectFilter[] = [];
+
+		if (activityFilters.length > 1) {
+			const activityOpts: ToolbarFilterOption[] = [
+				{ value: 'all', label: 'All activities' },
+				...activityFilters.map((opt) => ({
+					value: String(opt.value),
+					label: String(opt.label ?? 'Activity')
+				}))
+			];
+			list.push({
+				id: 'activity',
+				label: 'Activity',
+				value: String(selectedActivity),
+				options: activityOpts,
+				onChange: onActivityChange
+			});
+		}
+
+		if (selectedActivity !== 'all' && shiftFilters.length > 0) {
+			const shiftOpts: ToolbarFilterOption[] = [
+				{ value: 'all', label: 'All times' },
+				...shiftFilters.map((opt) => ({
+					value: String(opt.value),
+					label: String(opt.label ?? 'Shift')
+				}))
+			];
+			list.push({
+				id: 'shift-time',
+				label: 'Shift Time',
+				value: String(selectedShift),
+				options: shiftOpts,
+				onChange: onShiftChange
+			});
+		}
+
+		return list;
+	});
+
 	const activityLabelMap = $derived.by(() => {
-		const map = new SvelteMap();
+		const map = new SvelteMap<string, string>();
 		for (const option of activityFilters) {
 			if (!option) continue;
 			const rawValue = option.value;
@@ -136,7 +293,7 @@
 	});
 
 	const shiftsByActivity = $derived.by(() => {
-		const map = new SvelteMap();
+		const map = new SvelteMap<string, ShiftOptionRecord[]>();
 		for (const shift of shifts) {
 			if (!shift) continue;
 			const rawActivityId = shift.groupId ?? shift.opportunityId ?? null;
@@ -161,8 +318,8 @@
 	});
 
 	const addActivityOptions = $derived.by(() => {
-		const options = [];
-		const usedIds = new Set();
+		const options: { value: string; label: string; shifts: ShiftOptionRecord[] }[] = [];
+		const usedIds = new Set<string>();
 
 		for (const option of activityFilters) {
 			if (!option) continue;
@@ -202,7 +359,8 @@
 
 		if (options.length === 1 && options[0]?.value !== currentActivityId) {
 			const onlyOption = options[0];
-			const onlyShiftId = onlyOption.shifts.length === 1 ? (onlyOption.shifts[0]?.id ?? '') : '';
+			const onlyShiftId =
+				onlyOption.shifts.length === 1 ? String(onlyOption.shifts[0]?.id ?? '') : '';
 			addForm = {
 				...addForm,
 				shiftActivityId: onlyOption.value,
@@ -220,38 +378,40 @@
 			return;
 		}
 
-		const hasValidShift = activeOption.shifts.some((shift) => shift.id === addForm.shiftId);
+		const hasValidShift = activeOption.shifts.some((shift) => String(shift.id) === addForm.shiftId);
 		if (!hasValidShift) {
 			const defaultShiftId =
-				activeOption.shifts.length === 1 ? (activeOption.shifts[0]?.id ?? '') : '';
+				activeOption.shifts.length === 1 ? String(activeOption.shifts[0]?.id ?? '') : '';
 			if (addForm.shiftId !== defaultShiftId) {
 				addForm = { ...addForm, shiftId: defaultShiftId };
 			}
 		}
 	});
 
-	async function fetchEmailSuggestions(term) {
+	async function fetchEmailSuggestions(term: string) {
 		if (term.length < 2) {
 			emailSuggestions = [];
 			return;
 		}
 		try {
-			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(eventId || '')}&lookup_email=${encodeURIComponent(term)}`;
+			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(String(eventId || ''))}&lookup_email=${encodeURIComponent(term)}`;
 			const response = await fetch(url);
 			if (!response.ok) {
 				emailSuggestions = [];
 				return;
 			}
 			const result = await response.json();
-			emailSuggestions = (result.data || []).map(normalizeProfileRow).filter(Boolean);
-		} catch (error) {
+			emailSuggestions = (result.data || [])
+				.map(normalizeProfileRow)
+				.filter((item: NormalizedProfile | null): item is NormalizedProfile => Boolean(item));
+		} catch {
 			emailSuggestions = [];
 		}
 	}
 
-	function normalizeProfileRow(row) {
+	function normalizeProfileRow(row: ProfileRowInput | null | undefined): NormalizedProfile | null {
 		if (!row) return null;
-		const email = (row.email ?? '').trim();
+		const email = String(row.email ?? '').trim();
 		if (!email) return null;
 		return {
 			id: row.id ? String(row.id) : null,
@@ -273,7 +433,7 @@
 		profileLookupRequestId += 1;
 	}
 
-	async function lookupProfileByEmail(email) {
+	async function lookupProfileByEmail(email: string) {
 		const normalizedEmail = email.trim().toLowerCase();
 		if (!normalizedEmail) return;
 		const currentEmail = addForm.email.trim().toLowerCase();
@@ -282,7 +442,7 @@
 		profileLookupError = '';
 		const requestId = ++profileLookupRequestId;
 		try {
-			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(eventId || '')}&lookup_email=${encodeURIComponent(normalizedEmail)}`;
+			const url = `/api/v1/volunteer-event-hosts?event_id=${encodeURIComponent(String(eventId || ''))}&lookup_email=${encodeURIComponent(normalizedEmail)}`;
 			const response = await fetch(url);
 			if (requestId !== profileLookupRequestId) return;
 			if (!response.ok) {
@@ -298,9 +458,10 @@
 			} else {
 				selectedProfile = null;
 			}
-		} catch (error) {
+		} catch (error: unknown) {
 			if (requestId === profileLookupRequestId) {
-				profileLookupError = error?.message || 'Unable to look up volunteer profile.';
+				profileLookupError =
+					error instanceof Error ? error.message : 'Unable to look up volunteer profile.';
 			}
 		} finally {
 			if (requestId === profileLookupRequestId) {
@@ -309,7 +470,7 @@
 		}
 	}
 
-	function applyProfileToForm(profile) {
+	function applyProfileToForm(profile: NormalizedProfile) {
 		if (!profile) return;
 		clearProfileLookup();
 		selectedProfile = profile;
@@ -325,7 +486,7 @@
 		if (suggestionTimeout) clearTimeout(suggestionTimeout);
 	}
 
-	function handleEmailInput(value) {
+	function handleEmailInput(value: string) {
 		const email = value.trim();
 		addForm = { ...addForm, email };
 		if (selectedProfile && selectedProfile.email === email) return;
@@ -363,7 +524,7 @@
 		}, 250);
 	}
 
-	async function submitAddVolunteer(event) {
+	async function submitAddVolunteer(event?: SubmitEvent) {
 		event?.preventDefault?.();
 		addError = '';
 		addSuccess = '';
@@ -407,14 +568,15 @@
 				shiftId: currentShiftId,
 				status: currentStatus
 			};
-		} catch (error) {
-			addError = error?.message || 'Unable to add volunteer. Please try again.';
+		} catch (error: unknown) {
+			addError =
+				error instanceof Error ? error.message : 'Unable to add volunteer. Please try again.';
 		} finally {
 			addLoading = false;
 		}
 	}
 
-	function formatRelativeTime(date) {
+	function formatRelativeTime(date: Date | null): string {
 		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
 		const now = new Date();
 		let diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -439,14 +601,14 @@
 		return '—';
 	}
 
-	function parseDateValue(value) {
+	function parseDateValue(value: unknown): Date | null {
 		if (!value) return null;
-		const date = value instanceof Date ? value : new Date(value);
+		const date = value instanceof Date ? value : new Date(String(value));
 		if (Number.isNaN(date.getTime())) return null;
 		return date;
 	}
 
-	function formatExactDate(date, timezone) {
+	function formatExactDate(date: Date | null, timezone: string | null): string {
 		if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
 		try {
 			const formatter = new Intl.DateTimeFormat(undefined, {
@@ -460,7 +622,7 @@
 		}
 	}
 
-	function buildConfirmationDisplay(confirmedAt, timezone) {
+	function buildConfirmationDisplay(confirmedAt: unknown, timezone: string | null) {
 		const date = parseDateValue(confirmedAt);
 		if (!date) return null;
 		const relative = formatRelativeTime(date);
@@ -472,15 +634,34 @@
 		};
 	}
 
-	function buildSignupInfo(createdAt) {
+	function buildSignupInfo(createdAt: unknown) {
 		if (!createdAt) return { createdAt: null, timestamp: 0, relative: '—' };
-		const parsed = new Date(createdAt);
+		const parsed = new Date(String(createdAt));
 		if (Number.isNaN(parsed.getTime())) return { createdAt, timestamp: 0, relative: '—' };
 		return { createdAt, timestamp: parsed.getTime(), relative: formatRelativeTime(parsed) };
 	}
 
-	const individualShifts = $derived.by(() => {
-		const flattened = [];
+	type FlattenedSignupItem = {
+		key: string;
+		volunteer: VolunteerRecord;
+		assignment: SignupAssignmentRecord;
+		shiftDetails: Partial<ShiftOptionRecord>;
+		hasMultipleShifts: boolean;
+		signup: {
+			createdAt: unknown;
+			timestamp: number;
+			relative: string;
+		};
+		confirmation: {
+			date: Date;
+			timestamp: number;
+			relative: string;
+			exact: string;
+		} | null;
+	};
+
+	const individualShifts = $derived.by<FlattenedSignupItem[]>(() => {
+		const flattened: FlattenedSignupItem[] = [];
 		for (const volunteer of volunteers) {
 			const signupInfo = buildSignupInfo(volunteer.signup?.created_at ?? null);
 			const assignments = volunteer.assignments ?? [];
@@ -496,7 +677,8 @@
 				});
 			} else {
 				for (const assignment of assignments) {
-					const shiftDetails = shiftMap.get(assignment.shiftId ?? '') ?? {};
+					const shiftDetails: Partial<ShiftOptionRecord> =
+						shiftMap.get(String(assignment.shiftId ?? '')) ?? {};
 					flattened.push({
 						key: `${volunteer.id}-${assignment.id}`,
 						volunteer,
@@ -525,11 +707,20 @@
 		return flattened;
 	});
 
-	const groupedShiftBlocks = $derived.by(() => {
-		const groups = [];
-		let currentGroup = null;
+	type ShiftGroupBlock = {
+		key: string;
+		activityLabel: string;
+		timeLabel: string;
+		approvedCount: number;
+		waitlistedCount: number;
+		items: FlattenedSignupItem[];
+	};
 
-		const ensureLabel = (value, fallback) => {
+	const groupedShiftBlocks = $derived.by<ShiftGroupBlock[]>(() => {
+		const groups: ShiftGroupBlock[] = [];
+		let currentGroup: ShiftGroupBlock | null = null;
+
+		const ensureLabel = (value: unknown, fallback: string) => {
 			if (typeof value === 'string' && value.trim().length > 0) return value.trim();
 			return fallback;
 		};
@@ -567,26 +758,42 @@
 		return groups;
 	});
 
-	function statusBadgeClass(status) {
+	function buildGroupHeaderBadges(group: ShiftGroupBlock): ShiftHeaderBadge[] {
+		const badges: ShiftHeaderBadge[] = [];
+		if (group.approvedCount > 0) {
+			badges.push({
+				label: `${group.approvedCount} approved`,
+				tone: 'success'
+			});
+		}
+		if (group.waitlistedCount > 0) {
+			badges.push({
+				label: `${group.waitlistedCount} waitlisted`,
+				tone: 'surface'
+			});
+		}
+		return badges;
+	}
+
+	function statusBadgeClass(status: string): string {
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
-				return 'border border-success-500 text-success-700-300';
+				return 'border-success-500 bg-surface-950 text-success-300';
 			case 'pending':
-				return 'border border-warning-500 text-warning-700-300';
+				return 'border-warning-500 bg-surface-950 text-warning-300';
 			case 'waitlisted':
-				return 'border border-surface-500 text-surface-800-200';
+				return 'border-surface-400 bg-surface-950 text-surface-200';
 			case 'declined':
 			case 'cancelled':
-				return 'border border-error-500 text-error-700-300';
 			case 'no_show':
-				return 'border border-error-600 text-error-700-300';
+				return 'border-error-400 bg-surface-950 text-error-200';
 			default:
-				return 'border border-surface-500 text-surface-800-200';
+				return 'border-surface-400 bg-surface-950 text-surface-200';
 		}
 	}
 
-	function orbClass(status) {
+	function initialTileClass(status: string): string {
 		switch (status) {
 			case 'approved':
 			case 'checked_in':
@@ -594,7 +801,7 @@
 			case 'pending':
 				return 'bg-warning-500 text-surface-950';
 			case 'waitlisted':
-				return 'bg-surface-500 text-surface-950';
+				return 'bg-surface-300 text-surface-950';
 			case 'declined':
 			case 'cancelled':
 			case 'no_show':
@@ -604,7 +811,7 @@
 		}
 	}
 
-	function statusLabel(status) {
+	function statusLabel(status: string): string {
 		switch (status) {
 			case 'checked_in':
 				return 'Checked In';
@@ -615,219 +822,198 @@
 		}
 	}
 
-	function formatQueueStatus(s) {
+	function formatQueueStatus(s: string): string {
 		return (s || '').replace(/_/g, ' ');
 	}
 </script>
 
-<!-- ── Email queue floating button ──────────────────────────────────────────── -->
+<!-- ── Email queue trigger bar ─────────────────────────────────────────────── -->
 {#if emailQueue.length > 0 || emailQueueError}
-	<div class="fixed right-6 bottom-16 z-50" transition:fly={{ y: 16, duration: 200 }}>
-		<!-- Queue panel (open) -->
-		{#if emailQueueOpen}
-			<div
-				class="bg-surface-100-900 border-surface-300-700 mb-3 w-80 border"
-				transition:slide={{ duration: 200 }}
-			>
-				<div class="border-surface-300-700 flex items-center justify-between border-b px-4 py-3">
-					<div>
-						<span class="text-surface-950-50 text-sm font-semibold">Queued Emails</span>
-						<p class="text-surface-600-400 text-xs">Review before sending</p>
-					</div>
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							class="preset-filled-primary-500 rounded-none! px-3 py-1 text-xs font-semibold disabled:opacity-50"
-							disabled={!emailQueue.length || emailQueueSending}
-							onclick={() => onSendAllQueuedEmails()}
-						>
-							{emailQueueSending ? 'Sending…' : `Send all (${emailQueue.length})`}
-						</button>
-						<button
-							type="button"
-							class="text-surface-600-400 hover:text-surface-950-50 rounded-none! p-1 transition-colors"
-							onclick={() => (emailQueueOpen = false)}
-						>
-							<IconX class="h-4 w-4" />
-						</button>
-					</div>
-				</div>
-				{#if emailQueueError}
-					<div
-						class="bg-error-500 text-surface-950 border-surface-300-700 border-b px-4 py-2 text-xs"
-					>
-						{emailQueueError}
-					</div>
-				{/if}
-				<ul class="divide-surface-300-700 max-h-64 divide-y overflow-y-auto">
-					{#each emailQueue as queueItem (queueItem.id)}
-						<li class="px-4 py-3">
-							<div class="flex items-start justify-between gap-2">
-								<div class="min-w-0 flex-1">
-									<div class="text-surface-950-50 truncate text-xs font-semibold">
-										{queueItem.volunteerName}
-									</div>
-									<div class="text-surface-700-300 truncate text-xs">
-										{queueItem.volunteerEmail}
-									</div>
-									<div class="text-surface-600-400 mt-0.5 text-xs capitalize">
-										{formatQueueStatus(queueItem.status)}
-										{#if queueItem.shiftLabel}
-											· {queueItem.shiftLabel}
-										{/if}
-									</div>
-								</div>
-								<div class="flex flex-shrink-0 gap-1">
-									<button
-										type="button"
-										class="preset-filled-primary-500 rounded-none! px-2 py-0.5 text-xs disabled:opacity-50"
-										disabled={emailQueueSending}
-										onclick={() => onSendQueuedEmail(queueItem.id)}
-									>
-										Send
-									</button>
-									<button
-										type="button"
-										class="text-surface-600-400 hover:text-error-500 rounded-none! p-0.5 transition-colors"
-										onclick={() => onRemoveQueuedEmail(queueItem.id)}
-									>
-										<IconX class="h-3.5 w-3.5" />
-									</button>
-								</div>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-
-		<!-- Floating badge button -->
-		<button
-			type="button"
-			class="preset-filled-secondary-500 relative flex h-12 w-12 items-center justify-center rounded-none! transition-transform hover:scale-105 active:scale-95"
-			onclick={() => (emailQueueOpen = !emailQueueOpen)}
-			title="Email queue"
-		>
-			<IconSend class="h-5 w-5" />
-			{#if emailQueue.length}
-				<span
-					class="text-surface-950 bg-primary-500 absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-none! text-xs font-bold"
-				>
-					{emailQueue.length}
-				</span>
-			{/if}
-		</button>
+	<div class="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-6 sm:bottom-6">
+		<ManageActionButton
+			label={emailQueue.length > 0 ? `Queued Emails (${emailQueue.length})` : 'Email Queue Error'}
+			ariaLabel={emailQueue.length > 0
+				? `Queued Emails (${emailQueue.length}): open review sheet`
+				: 'Email Queue Error: open review sheet'}
+			icon={IconSend}
+			tone={emailQueueError ? 'error' : 'secondary'}
+			variant="filled"
+			fullWidth={true}
+			class="min-h-12 px-4 sm:w-auto"
+			onclick={openQueueSheet}
+		/>
 	</div>
 {/if}
 
+<!-- ── Email queue mobile bottom sheet (<dialog>) ─────────────────────────── -->
+<dialog
+	bind:this={queueDialog}
+	aria-labelledby={queueHeadingId}
+	onclick={(e) => {
+		if (e.target === e.currentTarget) closeQueueSheet();
+	}}
+	class="border-primary-500 bg-surface-950 text-surface-50 backdrop:bg-surface-950/80 sm:border-surface-700 sm:border-t-primary-500 fixed inset-x-0 top-auto bottom-0 m-0 max-h-[85dvh] w-full max-w-none flex-col rounded-none border-t-4 p-0 open:flex sm:inset-0 sm:m-auto sm:w-[min(34rem,calc(100%-2rem))] sm:border-2 sm:border-t-4"
+>
+	<div class="border-surface-800 flex items-start justify-between gap-3 border-b-2 px-4 py-3">
+		<div class="min-w-0 flex-1">
+			<h2
+				id={queueHeadingId}
+				class="text-surface-50! m-0 text-left! text-base font-black uppercase"
+			>
+				Queued Emails ({emailQueue.length})
+			</h2>
+			<p class="text-surface-300 m-0 mt-0.5 text-xs">
+				Review volunteer shift status emails before sending.
+			</p>
+		</div>
+		<ManageActionButton
+			label="Close"
+			ariaLabel="Close queued emails sheet"
+			icon={IconX}
+			tone="surface"
+			variant="outlined"
+			onclick={closeQueueSheet}
+		/>
+	</div>
+
+	{#if emailQueueError}
+		<div
+			role="alert"
+			class="bg-error-500 text-surface-950 border-surface-800 border-b-2 px-4 py-3 text-xs font-black"
+		>
+			{emailQueueError}
+		</div>
+	{/if}
+
+	{#if emailQueue.length > 0}
+		<div class="border-surface-800 bg-surface-900 border-b-2 px-4 py-3">
+			<ManageActionGrid columns={2} ariaLabel="Bulk queued email actions">
+				<ManageActionButton
+					label={emailQueueSending ? 'Sending…' : `Send All (${emailQueue.length})`}
+					ariaLabel={emailQueueSending
+						? 'Sending all queued emails'
+						: `Send All (${emailQueue.length}) queued emails`}
+					icon={IconSend}
+					tone="primary"
+					variant="filled"
+					disabled={!emailQueue.length || emailQueueSending}
+					fullWidth={true}
+					onclick={() => onSendAllQueuedEmails()}
+				/>
+				<ManageActionButton
+					label="Clear All"
+					ariaLabel="Clear All queued emails"
+					icon={IconTrash2}
+					tone="error"
+					variant="outlined"
+					disabled={!emailQueue.length || emailQueueSending}
+					fullWidth={true}
+					onclick={() => onClearEmailQueue()}
+				/>
+			</ManageActionGrid>
+		</div>
+
+		<ul class="divide-surface-800 m-0 list-none divide-y overflow-y-auto p-0">
+			{#each emailQueue as queueItem (queueItem.id)}
+				<li class="flex min-w-0 flex-col gap-3 px-4 py-3">
+					<div class="min-w-0">
+						<div class="text-surface-50 truncate text-sm font-black">
+							{queueItem.volunteerName}
+						</div>
+						<div class="text-surface-300 truncate text-xs font-medium">
+							{queueItem.volunteerEmail}
+						</div>
+						<div class="text-primary-500 mt-1 text-xs font-bold tracking-wide uppercase">
+							{formatQueueStatus(queueItem.status)}
+							{#if queueItem.shiftLabel}
+								· {queueItem.shiftLabel}
+							{/if}
+						</div>
+					</div>
+					<ManageActionGrid columns={2} ariaLabel={`Email actions for ${queueItem.volunteerName}`}>
+						<ManageActionButton
+							label="Send"
+							ariaLabel={`Send queued email to ${queueItem.volunteerName}`}
+							icon={IconSend}
+							tone="primary"
+							variant="filled"
+							disabled={emailQueueSending}
+							fullWidth={true}
+							onclick={() => onSendQueuedEmail(queueItem.id)}
+						/>
+						<ManageActionButton
+							label="Remove"
+							ariaLabel={`Remove queued email for ${queueItem.volunteerName}`}
+							icon={IconX}
+							tone="error"
+							variant="outlined"
+							disabled={emailQueueSending}
+							fullWidth={true}
+							onclick={() => onRemoveQueuedEmail(queueItem.id)}
+						/>
+					</ManageActionGrid>
+				</li>
+			{/each}
+		</ul>
+	{:else}
+		<p class="text-surface-300 m-0 px-4 py-6 text-center text-sm">No queued emails remaining.</p>
+	{/if}
+</dialog>
+
 <!-- ── Main panel ─────────────────────────────────────────────────────────── -->
 <section
-	class="border-surface-300-700 bg-surface-100-900 border-tertiary-500 overflow-clip border-t-4"
+	aria-labelledby={sectionHeadingId}
+	class="border-tertiary-500 bg-surface-900 text-surface-50 flex w-full min-w-0 flex-col border-t-4"
 >
-	<!-- ── Filter bar ──────────────────────────────────────────────────────── -->
-	<div class="border-surface-300-700 border-b px-4 py-3">
-		<!-- Status pills row (desktop) -->
-		<div class="flex flex-wrap items-center gap-2">
-			<!-- Status pills: hidden on smallest screens, shown sm+ -->
-			<div class="hidden flex-wrap gap-1.5 sm:flex">
-				{#each statusPills as pill (pill.value)}
-					<button
-						type="button"
-						class={`rounded-none! px-3 py-1 text-xs font-medium transition-all ${pillClass(pill.value)}`}
-						aria-pressed={selectedStatus === pill.value}
-						onclick={() => onStatusChange(pill.value)}
-					>
-						{pill.label}
-					</button>
-				{/each}
-			</div>
+	<h2 id={sectionHeadingId} class="sr-only">Volunteer Signups</h2>
 
-			<!-- Status dropdown: mobile only -->
-			<div class="flex sm:hidden">
-				<select
-					class="border-surface-400-600 bg-surface-50-950 rounded-none! border px-3 py-1.5 text-sm"
-					aria-label="Filter volunteer signups by status"
-					value={selectedStatus}
-					onchange={(e) => onStatusChange(e.currentTarget.value)}
-				>
-					{#each statusPills as pill (pill.value)}
-						<option value={pill.value}>{pill.label}</option>
-					{/each}
-				</select>
-			</div>
-
-			<!-- Shift filter (only if multiple activities) -->
-			{#if activityFilters.length > 1}
-				<select
-					class="border-surface-400-600 bg-surface-50-950 ml-1 rounded-none! border px-3 py-1.5 text-xs"
-					aria-label="Filter volunteer signups by activity"
-					value={selectedActivity}
-					onchange={(e) => onActivityChange(e.currentTarget.value)}
-				>
-					<option value="all">All activities</option>
-					{#each activityFilters as option (option.value)}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
-			{/if}
-
-			{#if selectedActivity !== 'all' && shiftFilters.length > 0}
-				<select
-					class="border-surface-400-600 bg-surface-50-950 rounded-none! border px-3 py-1.5 text-xs"
-					aria-label="Filter volunteer signups by shift time"
-					value={selectedShift}
-					onchange={(e) => onShiftChange(e.currentTarget.value)}
-				>
-					<option value="all">All times</option>
-					{#each shiftFilters as option (option.value)}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
-			{/if}
-
-			<!-- Search – pushes to right -->
-			<div class="relative ml-auto flex items-center">
-				<IconSearch class="text-surface-500 pointer-events-none absolute left-2.5 h-3.5 w-3.5" />
-				<input
-					type="search"
-					class="border-surface-400-600 bg-surface-50-950 w-40 rounded-none! border py-1.5 pr-3 pl-8 text-sm transition-all focus:w-56"
-					aria-label="Search volunteer signups"
-					value={searchTerm}
-					oninput={(e) => onSearch(e.currentTarget.value)}
-					placeholder="Search…"
-				/>
-			</div>
-
-			<!-- Add volunteer button -->
-			<button
-				type="button"
-				class="flex items-center gap-1.5 rounded-none! px-3 py-1.5 text-xs font-medium transition-all
-					{addVolunteer
-					? 'preset-tonal-tertiary'
-					: 'bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50'}"
+	<!-- ── Shared Filter Toolbar ───────────────────────────────────────────── -->
+	<ManageFilterToolbar
+		pills={statusPills}
+		selectedPill={selectedStatus}
+		pillGroupLabel="Filter volunteer signups by status"
+		onPillChange={onStatusChange}
+		filters={toolbarFilters}
+		searchValue={searchTerm}
+		searchLabel="Search Signups"
+		searchPlaceholder="Search name, email, phone…"
+		{onSearch}
+	>
+		{#snippet actions()}
+			<ManageActionButton
+				label={addVolunteer ? 'Close Add' : 'Add Volunteer'}
+				ariaLabel={addVolunteer
+					? 'Close Add: hide manual volunteer signup form'
+					: 'Add Volunteer: open manual volunteer signup form'}
+				icon={IconUserPlus}
+				tone={addVolunteer ? 'tertiary' : 'primary'}
+				variant="filled"
+				selected={addVolunteer}
+				fullWidth={true}
+				class="sm:w-auto"
 				onclick={() => (addVolunteer = !addVolunteer)}
-			>
-				<IconUserPlus class="h-3.5 w-3.5" />
-				<span class="hidden sm:inline">Add</span>
-			</button>
-		</div>
-	</div>
+			/>
+		{/snippet}
+	</ManageFilterToolbar>
 
 	<!-- ── Add volunteer drawer ─────────────────────────────────────────────── -->
 	{#if addVolunteer}
-		<div class="border-surface-300-700 bg-surface-50-950 border-b px-4 py-4" transition:slide>
-			<h3 class="text-surface-950-50! mb-3 !text-left text-sm font-black uppercase">
+		<div class="border-surface-800 bg-surface-950 border-b-2 px-4 py-4" transition:slide>
+			<h3 class="text-surface-50! m-0 mb-3 text-left! text-sm font-black uppercase">
 				Add a volunteer
 			</h3>
-			<form class="grid gap-3 md:grid-cols-2" onsubmit={submitAddVolunteer}>
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-email">
+			<form class="grid min-w-0 gap-3 md:grid-cols-2" onsubmit={submitAddVolunteer}>
+				<div class="min-w-0 md:col-span-1">
+					<label
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
+						for="add-email"
+					>
 						Email *
 					</label>
 					<input
 						id="add-email"
 						type="email"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 min-h-11 w-full min-w-0 rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						placeholder="volunteer@example.com"
 						value={addForm.email}
 						oninput={(e) => handleEmailInput(e.currentTarget.value)}
@@ -837,50 +1023,53 @@
 					{#if emailSuggestions.length > 0 && addForm.email.trim() && (!selectedProfile || selectedProfile.email.toLowerCase() !== addForm.email
 									.trim()
 									.toLowerCase())}
-						<div class="bg-surface-100-900 border-surface-300-700 mt-1 rounded-none! border p-1.5">
+						<div class="bg-surface-900 border-surface-700 mt-1 flex flex-col gap-1 border-2 p-1.5">
 							{#each emailSuggestions as profile (profile.email)}
 								<button
 									type="button"
-									class="hover:bg-primary-500 hover:text-surface-950 text-surface-900-100 flex w-full items-center justify-between rounded-none! px-2 py-1 text-left text-xs"
+									class="hover:bg-primary-500 hover:text-surface-950 text-surface-50 flex min-h-11 w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left text-xs font-bold transition-colors"
 									onclick={() => applyProfileToForm(profile)}
 								>
-									<span class="font-medium">{profile.name || 'Unnamed'}</span>
-									<span class="text-surface-500">{profile.email}</span>
+									<span class="truncate">{profile.name || 'Unnamed'}</span>
+									<span class="truncate opacity-80">{profile.email}</span>
 								</button>
 							{/each}
 						</div>
 					{/if}
 					{#if profileLookupLoading}
-						<p class="text-surface-500 mt-1 text-xs">Looking up profile…</p>
+						<p class="text-surface-300 m-0 mt-1 text-xs">Looking up profile…</p>
 					{:else if profileLookupError}
-						<p class="text-error-400 mt-1 text-xs">{profileLookupError}</p>
+						<p class="text-error-200 m-0 mt-1 text-xs">{profileLookupError}</p>
 					{/if}
 				</div>
 
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-name">
+				<div class="min-w-0 md:col-span-1">
+					<label
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
+						for="add-name"
+					>
 						Full name
 					</label>
 					<input
 						id="add-name"
 						type="text"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 min-h-11 w-full min-w-0 rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						placeholder="Alex Smith"
 						value={addForm.name}
 						oninput={(e) => (addForm = { ...addForm, name: e.currentTarget.value })}
 					/>
 				</div>
 
-				<div class="md:col-span-1">
+				<div class="min-w-0 md:col-span-1">
 					<label
-						class="text-surface-800-200 mb-1 block text-xs font-medium"
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
 						for="add-shift-activity"
 					>
 						Activity
 					</label>
 					<select
 						id="add-shift-activity"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 min-h-11 w-full max-w-full min-w-0 truncate rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						value={addForm.shiftActivityId}
 						onchange={(e) =>
 							(addForm = { ...addForm, shiftActivityId: e.currentTarget.value, shiftId: '' })}
@@ -898,13 +1087,16 @@
 					</select>
 				</div>
 
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-shift-time">
+				<div class="min-w-0 md:col-span-1">
+					<label
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
+						for="add-shift-time"
+					>
 						Shift *
 					</label>
 					<select
 						id="add-shift-time"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 min-h-11 w-full max-w-full min-w-0 truncate rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						value={addForm.shiftId}
 						onchange={(e) => (addForm = { ...addForm, shiftId: e.currentTarget.value })}
 						required
@@ -922,13 +1114,16 @@
 					</select>
 				</div>
 
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-status">
+				<div class="min-w-0 md:col-span-1">
+					<label
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
+						for="add-status"
+					>
 						Initial status
 					</label>
 					<select
 						id="add-status"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 min-h-11 w-full max-w-full min-w-0 truncate rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						value={addForm.status}
 						onchange={(e) => (addForm = { ...addForm, status: e.currentTarget.value })}
 					>
@@ -938,14 +1133,17 @@
 					</select>
 				</div>
 
-				<div class="md:col-span-1">
-					<label class="text-surface-800-200 mb-1 block text-xs font-medium" for="add-phone">
+				<div class="min-w-0 md:col-span-1">
+					<label
+						class="text-surface-300 mb-1 block text-xs font-bold tracking-[0.18em] uppercase"
+						for="add-phone"
+					>
 						Phone (optional)
 					</label>
 					<input
 						id="add-phone"
 						type="tel"
-						class="border-surface-400-600 bg-surface-50-950 w-full rounded-none! border px-3 py-2 text-sm"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 min-h-11 w-full min-w-0 rounded-none border-2 px-3 py-2 text-sm focus:outline-none"
 						placeholder="(555) 555-1234"
 						value={addForm.phone}
 						oninput={(e) => (addForm = { ...addForm, phone: e.currentTarget.value })}
@@ -954,253 +1152,221 @@
 
 				{#if selectedProfile}
 					<div
-						class="bg-primary-500 text-surface-950 border-primary-500 rounded-none! border px-3 py-2 text-xs md:col-span-2"
+						class="bg-primary-500 text-surface-950 border-primary-500 border-2 px-3 py-2 text-xs font-bold md:col-span-2"
 					>
-						<span class="font-semibold">Existing profile:</span>
+						<span>Existing profile:</span>
 						<span class="ml-2">{selectedProfile.email}</span>
 					</div>
 				{:else if addForm.email.trim() && !profileLookupLoading && !profileLookupError}
 					<div
-						class="bg-surface-200-800 border-surface-500 text-surface-800-200 rounded-none! border px-3 py-2 text-xs md:col-span-2"
+						class="bg-surface-900 border-surface-500 text-surface-200 border-2 px-3 py-2 text-xs md:col-span-2"
 					>
-						No existing profile found — a new account will be created.
+						No existing profile found — a new signup contact will be recorded.
 					</div>
 				{/if}
 
 				{#if addError}
 					<div
-						class="bg-error-500 border-error-500 text-surface-950 rounded-none! border px-3 py-2 text-xs md:col-span-2"
+						role="alert"
+						class="bg-error-500 border-error-500 text-surface-950 border-2 px-3 py-2 text-xs font-black md:col-span-2"
 					>
 						{addError}
 					</div>
 				{/if}
 				{#if addSuccess}
 					<div
-						class="bg-success-500 border-success-500 text-surface-950 rounded-none! border px-3 py-2 text-xs md:col-span-2"
+						role="status"
+						class="bg-success-500 border-success-500 text-surface-950 border-2 px-3 py-2 text-xs font-black md:col-span-2"
 					>
 						{addSuccess}
 					</div>
 				{/if}
 
 				<div class="flex justify-end md:col-span-2">
-					<button
+					<ManageActionButton
 						type="submit"
-						class="preset-filled-primary-500 rounded-none! px-4 py-2 text-sm font-semibold disabled:opacity-60"
+						label={addLoading ? 'Adding…' : 'Add to shift'}
+						tone="primary"
+						variant="filled"
 						disabled={addLoading}
-					>
-						{addLoading ? 'Adding…' : 'Add to shift'}
-					</button>
+						fullWidth={true}
+						class="sm:w-auto sm:px-5"
+					/>
 				</div>
 			</form>
 		</div>
 	{/if}
 
 	<!-- ── Volunteer list ──────────────────────────────────────────────────── -->
-	<div class="divide-surface-300-700 divide-y">
+	<div class="flex w-full min-w-0 flex-col">
 		{#if !groupedShiftBlocks.length}
-			<div class="text-surface-500 px-4 py-10 text-center text-sm" transition:slide>
+			<div class="text-surface-300 px-4 py-10 text-center text-sm" transition:slide>
 				No volunteers match the selected filters.
 			</div>
 		{:else}
 			{#each groupedShiftBlocks as group, groupIdx (group.key)}
-				<!-- Shift group header -->
-				<div
-					class="bg-surface-200-800 border-surface-300-700 border-primary-500 flex flex-wrap items-center justify-between gap-2 border-b-2 px-4 py-2.5"
-				>
-					<div class="flex flex-wrap items-center gap-2">
-						<span class="text-surface-800-200 text-xs font-medium">{group.activityLabel}</span>
-						<span class="text-surface-950-50 text-sm font-bold">{group.timeLabel}</span>
-					</div>
-					<div class="flex items-center gap-2 text-xs">
-						{#if group.approvedCount > 0}
-							<span class="bg-success-500 text-surface-950 rounded-none! px-2 py-0.5 font-medium">
-								{group.approvedCount} approved
-							</span>
-						{/if}
-						{#if group.waitlistedCount > 0}
-							<span class="text-surface-950 bg-surface-500 rounded-none! px-2 py-0.5 font-medium">
-								{group.waitlistedCount} waitlisted
-							</span>
-						{/if}
-					</div>
-				</div>
+				<ManageShiftHeader
+					headingLevel="h3"
+					eyebrow={group.activityLabel}
+					title={group.timeLabel}
+					badges={buildGroupHeaderBadges(group)}
+					class="border-t-primary-500 border-t-2"
+				/>
 
 				<!-- Volunteer rows -->
 				{#each group.items as item, itemIdx (item.key)}
 					{@const isExpanded = expandedRows.has(item.key)}
-					{@const detailsId = `volunteer-details-${groupIdx}-${itemIdx}`}
+					{@const detailsId = `${uid}-volunteer-details-${groupIdx}-${itemIdx}`}
 					{@const volunteerLabel = item.volunteer.name || 'volunteer'}
 					{@const detailsAriaLabel =
 						item.hasMultipleShifts && group.timeLabel
-							? `Details for ${volunteerLabel}, ${group.timeLabel}`
-							: `Details for ${volunteerLabel}`}
+							? `${volunteerLabel} (${statusLabel(item.assignment.status)}), ${group.timeLabel} — ${isExpanded ? 'hide' : 'show'} contact details`
+							: `${volunteerLabel} (${statusLabel(item.assignment.status)}) — ${isExpanded ? 'hide' : 'show'} contact details`}
+					{@const canApprove =
+						item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
+					{@const canWaitlist =
+						item.assignment.status !== 'waitlisted' &&
+						item.assignment.status !== 'cancelled' &&
+						item.assignment.status !== 'checked_in' &&
+						item.assignment.status !== 'no_show'}
+					{@const canDecline =
+						item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
+					{@const hasActions =
+						Boolean(item.assignment.id) && (canApprove || canWaitlist || canDecline)}
 					<div
-						class="border-surface-300-700 hover:bg-primary-500 hover:text-surface-950 border-b transition-colors last:border-0"
+						class="border-surface-800 bg-surface-900 flex w-full min-w-0 flex-col border-b last:border-b-0"
 						transition:slide
 					>
 						<div
-							class="grid grid-cols-1 gap-x-2 px-4 py-3 text-sm md:grid-cols-[1fr_auto_auto_auto]"
+							class="flex w-full min-w-0 flex-col gap-3 px-3 py-3 sm:px-4 md:flex-row md:items-center md:justify-between"
 						>
-							<!-- Name + meta -->
-							<div class="flex min-w-0 items-start gap-2">
-								<!-- Avatar circle -->
-								<div
-									class={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-none! text-xs font-bold transition-colors ${orbClass(item.assignment.status)}`}
-								>
-									{(item.volunteer.name || '?')[0].toUpperCase()}
-								</div>
-								<div class="min-w-0 flex-1">
-									<div class="flex flex-wrap items-center gap-1.5">
-										<span class="text-surface-950-50 font-semibold">{item.volunteer.name}</span>
-										{#if item.hasMultipleShifts}
-											<span
-												class="chip preset-outlined-secondary-500 rounded-none! px-1.5 py-0.5 text-[10px]"
-											>
-												Multi-shift
-											</span>
-										{/if}
-										{#if item.confirmation}
-											<span
-												class="text-success-400 flex items-center gap-1 text-[10px]"
-												title={item.confirmation.exact
-													? `Confirmed ${item.confirmation.exact}`
-													: 'Confirmed'}
-											>
-												<IconCheckCircle class="h-3 w-3" />
-												Confirmed
-											</span>
-										{/if}
-									</div>
-									<!-- Shift info on mobile -->
-									<div
-										class="text-surface-600-400 flex flex-wrap items-center gap-2 text-xs md:hidden"
-									>
-										<span class="text-surface-500">{item.shiftDetails.optionLabel || ''}</span>
-									</div>
-								</div>
-							</div>
-
-							<!-- Status badge (desktop, pushed to right) -->
-							<div class="hidden items-center md:flex">
-								<span
-									class={`inline-flex rounded-none! px-2.5 py-0.5 text-xs font-medium capitalize transition-colors ${statusBadgeClass(item.assignment.status)}`}
-								>
-									{statusLabel(item.assignment.status)}
-								</span>
-							</div>
-
-							<!-- Signup time (desktop) -->
-							<div class="text-surface-500 hidden items-center text-xs md:flex">
-								{#if item.signup?.relative && item.signup.relative !== '—'}
-									{item.signup.relative}
-								{:else}
-									—
-								{/if}
-							</div>
-
-							<!-- Actions -->
-							<div class="mt-2 flex flex-wrap items-center gap-1.5 md:mt-0">
-								<!-- Mobile: status badge inline -->
-								<span
-									class={`inline-flex rounded-none! px-2 py-0.5 text-xs font-medium capitalize md:hidden ${statusBadgeClass(item.assignment.status)}`}
-								>
-									{statusLabel(item.assignment.status)}
-								</span>
-
-								<button
-									type="button"
-									class="border-surface-500 bg-surface-50-950 text-surface-950-50 hover:bg-surface-950 hover:text-primary-500 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 border px-3 py-2 text-xs font-semibold uppercase transition-colors"
-									aria-expanded={isExpanded}
-									aria-controls={isExpanded ? detailsId : undefined}
-									aria-label={detailsAriaLabel}
-									onclick={() => toggleRow(item.key)}
-								>
-									<span>Details</span>
-									<IconChevronDown
-										class={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+							<!-- Accessible row details disclosure button (no nested buttons) -->
+							<button
+								type="button"
+								aria-expanded={isExpanded}
+								aria-controls={isExpanded ? detailsId : undefined}
+								aria-label={detailsAriaLabel}
+								onclick={() => toggleRow(item.key)}
+								class="hover:bg-surface-800 focus-visible:outline-primary-500 flex min-h-[44px] min-w-[44px] flex-1 items-center justify-between gap-3 px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+							>
+								<span class="flex min-w-0 flex-1 items-start gap-2.5">
+									<span
 										aria-hidden="true"
-									/>
-								</button>
+										class={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-none text-xs font-black ${initialTileClass(item.assignment.status)}`}
+									>
+										{(item.volunteer.name || '?')[0].toUpperCase()}
+									</span>
+									<span class="min-w-0 flex-1">
+										<span class="flex flex-wrap items-center gap-1.5">
+											<span class="text-surface-50 text-sm font-black break-words">
+												{item.volunteer.name}
+											</span>
+											{#if item.hasMultipleShifts}
+												<span
+													class="border-secondary-300 bg-surface-950 text-surface-50 border px-1.5 py-0.5 text-[10px] font-black tracking-wide uppercase"
+												>
+													Multi-shift
+												</span>
+											{/if}
+											{#if item.confirmation}
+												<span
+													class="text-success-300 inline-flex items-center gap-1 text-[10px] font-bold uppercase"
+													title={item.confirmation.exact
+														? `Confirmed ${item.confirmation.exact}`
+														: 'Confirmed'}
+												>
+													<IconCheckCircle class="h-3 w-3" aria-hidden="true" />
+													Confirmed
+												</span>
+											{/if}
+										</span>
+										<span class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+											<span
+												class={`inline-flex border px-2 py-0.5 text-[11px] font-black tracking-wide uppercase ${statusBadgeClass(item.assignment.status)}`}
+											>
+												{statusLabel(item.assignment.status)}
+											</span>
+											{#if item.shiftDetails.optionLabel}
+												<span class="text-surface-300 md:hidden">
+													{item.shiftDetails.optionLabel}
+												</span>
+											{/if}
+											{#if item.signup?.relative && item.signup.relative !== '—'}
+												<span class="text-surface-300">{item.signup.relative}</span>
+											{/if}
+										</span>
+									</span>
+								</span>
+								<IconChevronDown
+									class={`text-surface-300 h-4 w-4 shrink-0 transition-transform ${
+										isExpanded ? 'rotate-180' : ''
+									}`}
+									aria-hidden="true"
+								/>
+							</button>
 
-								{#if item.assignment.id}
-									<div class="flex items-center gap-1">
-										{#if item.assignment.status !== 'approved' && item.assignment.status !== 'checked_in'}
-											<button
-												type="button"
-												class="chip preset-tonal-success min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
-												onclick={() => onApprove(item.assignment.id)}
-											>
-												Approve
-											</button>
-										{/if}
-										{#if item.assignment.status !== 'waitlisted' && item.assignment.status !== 'cancelled' && item.assignment.status !== 'checked_in' && item.assignment.status !== 'no_show'}
-											<button
-												type="button"
-												class="chip preset-tonal-surface min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
-												onclick={() => onWaitlist(item.assignment.id)}
-											>
-												Waitlist
-											</button>
-										{/if}
-										{#if item.assignment.status !== 'declined' && item.assignment.status !== 'no_show'}
-											<button
-												type="button"
-												class="chip preset-tonal-error min-h-[44px] min-w-[44px] rounded-none! px-3 py-2 text-xs"
-												onclick={() => onDecline(item.assignment.id)}
-											>
-												Decline
-											</button>
-										{/if}
-									</div>
-								{/if}
-							</div>
+							<!-- 3-Column Mobile Action Grid -->
+							{#if hasActions}
+								<ManageActionGrid
+									columns={3}
+									ariaLabel={`Signup actions for ${item.volunteer.name}`}
+								>
+									{#if canApprove}
+										<ManageActionButton
+											label="Approve"
+											ariaLabel={`Approve ${item.volunteer.name}`}
+											tone="success"
+											variant="filled"
+											fullWidth={true}
+											class="md:w-auto"
+											onclick={() => onApprove(String(item.assignment.id))}
+										/>
+									{/if}
+									{#if canWaitlist}
+										<ManageActionButton
+											label="Waitlist"
+											ariaLabel={`Waitlist ${item.volunteer.name}`}
+											tone="surface"
+											variant="outlined"
+											fullWidth={true}
+											class="md:w-auto"
+											onclick={() => onWaitlist(String(item.assignment.id))}
+										/>
+									{/if}
+									{#if canDecline}
+										<ManageActionButton
+											label="Decline"
+											ariaLabel={`Decline ${item.volunteer.name}`}
+											tone="error"
+											variant="outlined"
+											fullWidth={true}
+											class="md:w-auto"
+											onclick={() => onDecline(String(item.assignment.id))}
+										/>
+									{/if}
+								</ManageActionGrid>
+							{/if}
 						</div>
-						<!-- Expanded Details -->
+
+						<!-- Expanded Contact & Emergency Details -->
 						{#if isExpanded}
 							<div
 								id={detailsId}
-								class="bg-surface-50-950 cursor-auto px-4 pt-1 pb-3 text-xs"
+								class="border-surface-800 bg-surface-950 border-t px-3 py-3 sm:px-4"
 								transition:slide
 							>
-								<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-									<div class="flex flex-col gap-0.5">
-										<span class="text-surface-500 font-medium tracking-wide uppercase">Email</span>
-										<a
-											href="mailto:{item.volunteer.email}"
-											class="text-surface-100 hover:text-primary-400 truncate transition-colors"
-											>{item.volunteer.email || '—'}</a
-										>
-									</div>
-									<div class="flex flex-col gap-0.5">
-										<span class="text-surface-500 font-medium tracking-wide uppercase">Phone</span>
-										{#if item.volunteer.phone}
-											<a
-												href="tel:{item.volunteer.phone}"
-												class="text-surface-100 hover:text-primary-400 transition-colors"
-												>{item.volunteer.phone}</a
-											>
-										{:else}
-											<span class="text-surface-400">—</span>
-										{/if}
-									</div>
-									{#if item.volunteer.emergencyContactName || item.volunteer.emergencyContactPhone}
-										<div class="flex flex-col gap-0.5 sm:col-span-2 lg:col-span-2">
-											<span class="text-surface-500 font-medium tracking-wide uppercase"
-												>Emergency Contact</span
-											>
-											<span class="text-surface-100"
-												>{item.volunteer.emergencyContactName || '—'}</span
-											>
-											{#if item.volunteer.emergencyContactPhone}
-												<a
-													href="tel:{item.volunteer.emergencyContactPhone}"
-													class="text-surface-400 hover:text-primary-400 transition-colors"
-													>{item.volunteer.emergencyContactPhone}</a
-												>
-											{/if}
-										</div>
-									{/if}
-								</div>
+								{#if item.volunteer.email || item.volunteer.phone || item.volunteer.emergencyContactName || item.volunteer.emergencyContactPhone}
+									<ManageContactRow
+										name={item.volunteer.name}
+										email={item.volunteer.email}
+										phone={item.volunteer.phone}
+										emergencyContactName={item.volunteer.emergencyContactName}
+										emergencyContactPhone={item.volunteer.emergencyContactPhone}
+										collapsibleEmergency={false}
+									/>
+								{:else}
+									<p class="text-surface-300 m-0 text-xs">No contact details provided.</p>
+								{/if}
 							</div>
 						{/if}
 					</div>
