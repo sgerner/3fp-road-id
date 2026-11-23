@@ -9,7 +9,9 @@ import {
 	buildLearnImageMarkdownSnippet,
 	cleanMarkdownImageUrl,
 	extractMarkdownImages,
+	filterLearnAttachmentAssets,
 	isFilenameOrPlaceholderAlt,
+	isLearnAttachmentAsset,
 	LEARN_ALT_TEXT_MAX_LENGTH,
 	sanitizeAltText,
 	stripRedundantAltPrefix,
@@ -18,10 +20,14 @@ import {
 import { renderLearnMarkdown } from '../learn/markdown.js';
 import {
 	buildLearnImageAltPrompt,
+	canManageLearnAsset,
 	canUseLearnAiAction,
+	canUseLearnArticleForAiContext,
 	executeLearnMultimodalAltRequest,
 	normalizeLearnAiAltResult,
-	runLearnMarkdownAltAudit
+	resolveLearnUploadArticleContext,
+	runLearnMarkdownAltAudit,
+	updateLearnAssetAltAuthorized
 } from './learnAiCore.js';
 import {
 	applyReviewedManifestToDocs,
@@ -486,4 +492,291 @@ test('all 6 remediated 3ftwiki guides and 14 Canva image links render valid WCAG
 
 	assert.equal(renderedImgCount, 27);
 	assert.equal(renderedCanvaLinkCount, 14);
+});
+
+function createMockLearnSupabase({
+	assets = [],
+	articles = [],
+	adminUserIds = new Set(),
+	onCall = () => {}
+} = {}) {
+	return {
+		from(table) {
+			let pendingUpdate = null;
+			let selectedColumns = '*';
+			const filters = {};
+
+			const executeSelect = () => {
+				onCall({ op: 'select', table, columns: selectedColumns, filters: { ...filters } });
+				if (table === 'profiles') {
+					const isAdmin = adminUserIds.has(filters.user_id);
+					return { data: { admin: isAdmin }, error: null };
+				}
+				if (table === 'learn_assets') {
+					const found =
+						assets.find((row) =>
+							filters.id ? row.id === filters.id : row.public_url === filters.public_url
+						) ?? null;
+					return { data: found ? { ...found } : null, error: null };
+				}
+				if (table === 'learn_articles') {
+					const found = articles.find((row) => row.id === filters.id) ?? null;
+					if (!found) return { data: null, error: null };
+					return { data: { ...found }, error: null };
+				}
+				return { data: null, error: null };
+			};
+
+			const builder = {
+				select(columns = '*') {
+					selectedColumns = columns;
+					return builder;
+				},
+				update(values) {
+					pendingUpdate = values;
+					return builder;
+				},
+				eq(column, value) {
+					filters[column] = value;
+					return builder;
+				},
+				async maybeSingle() {
+					return executeSelect();
+				},
+				async single() {
+					if (pendingUpdate && table === 'learn_assets') {
+						onCall({
+							op: 'update',
+							table,
+							values: pendingUpdate,
+							filters: { ...filters }
+						});
+						const idx = assets.findIndex((row) => row.id === filters.id);
+						if (idx === -1) return { data: null, error: { message: 'Not found' } };
+						assets[idx] = { ...assets[idx], ...pendingUpdate };
+						return { data: { ...assets[idx] }, error: null };
+					}
+					return executeSelect();
+				}
+			};
+			return builder;
+		}
+	};
+}
+
+test('PATCH asset alt updates enforce owner or admin authorization without service-client bypass', async () => {
+	assert.equal(canManageLearnAsset({ uploaded_by_user_id: 'owner-1' }, null), false);
+	assert.equal(canManageLearnAsset({ uploaded_by_user_id: 'owner-1' }, { id: 'other-2' }), false);
+	assert.equal(canManageLearnAsset({ uploaded_by_user_id: 'owner-1' }, { id: 'owner-1' }), true);
+	assert.equal(
+		canManageLearnAsset(
+			{ uploaded_by_user_id: 'owner-1' },
+			{ id: 'admin-9' },
+			{
+				isAdmin: true
+			}
+		),
+		true
+	);
+
+	const calls = [];
+	const assets = [
+		{
+			id: 'asset-1',
+			uploaded_by_user_id: 'owner-1',
+			file_name: 'rodeo_flyer.png',
+			public_url: 'https://cdn.example.org/learn-media/owner-1/rodeo_flyer.png',
+			alt_text: 'Initial AI caption',
+			metadata: { generated: true, alt_generated: true, styleId: 'risograph' }
+		}
+	];
+	const userSupabase = createMockLearnSupabase({
+		assets,
+		adminUserIds: new Set(['admin-9']),
+		onCall: (entry) => calls.push(entry)
+	});
+
+	// Unauthenticated caller -> 401
+	const unauthResult = await updateLearnAssetAltAuthorized({
+		userSupabase,
+		user: null,
+		assetId: 'asset-1',
+		altText: 'Tampered description'
+	});
+	assert.equal(unauthResult.ok, false);
+	assert.equal(unauthResult.status, 401);
+
+	// Signed-in non-owner, non-admin caller -> 403 and zero updates
+	const forbiddenResult = await updateLearnAssetAltAuthorized({
+		userSupabase,
+		user: { id: 'intruder-2' },
+		assetId: 'asset-1',
+		altText: 'Tampered description'
+	});
+	assert.equal(forbiddenResult.ok, false);
+	assert.equal(forbiddenResult.status, 403);
+	assert.equal(
+		calls.some((entry) => entry.op === 'update'),
+		false
+	);
+	assert.equal(assets[0].alt_text, 'Initial AI caption');
+
+	// Asset owner -> 200, preserves existing metadata while marking alt_reviewed=true, alt_generated=false
+	const ownerResult = await updateLearnAssetAltAuthorized({
+		userSupabase,
+		user: { id: 'owner-1' },
+		assetId: 'asset-1',
+		altText: 'Youth bike rodeo safety obstacle course flyer'
+	});
+	assert.equal(ownerResult.ok, true);
+	assert.equal(ownerResult.status, 200);
+	assert.equal(ownerResult.asset.altText, 'Youth bike rodeo safety obstacle course flyer');
+	assert.equal(ownerResult.asset.altGenerated, false);
+	assert.equal(ownerResult.asset.metadata.styleId, 'risograph');
+	assert.equal(ownerResult.asset.metadata.alt_reviewed, true);
+
+	// Learn admin -> 200 when updating another user's asset
+	const adminResult = await updateLearnAssetAltAuthorized({
+		userSupabase,
+		user: { id: 'admin-9' },
+		assetId: 'asset-1',
+		altText: 'Reviewed youth bike rodeo flyer with Saturday schedule'
+	});
+	assert.equal(adminResult.ok, true);
+	assert.equal(adminResult.status, 200);
+	assert.equal(adminResult.asset.altText, 'Reviewed youth bike rodeo flyer with Saturday schedule');
+
+	// Verify route source never calls getLearnServiceClient inside PATCH or queries learn_articles via serviceSupabase
+	const routeSource = await fs.readFile(
+		new URL('../../routes/api/learn/assets/+server.js', import.meta.url),
+		'utf8'
+	);
+	const [, patchSection = ''] = routeSource.split('export async function PATCH');
+	assert.ok(patchSection.length > 0);
+	assert.equal(patchSection.includes('getLearnServiceClient'), false);
+	assert.equal(
+		/serviceSupabase\s*\.\s*from\(\s*['"]learn_articles['"]\s*\)/.test(routeSource),
+		false
+	);
+});
+
+test('POST upload article context enforces author/admin check before loading article text for Gemini', async () => {
+	assert.equal(canUseLearnArticleForAiContext({ created_by_user_id: 'author-1' }, null), false);
+	assert.equal(
+		canUseLearnArticleForAiContext({ created_by_user_id: 'author-1' }, { id: 'other-2' }),
+		false
+	);
+	assert.equal(
+		canUseLearnArticleForAiContext({ created_by_user_id: 'author-1' }, { id: 'author-1' }),
+		true
+	);
+	assert.equal(
+		canUseLearnArticleForAiContext(
+			{ created_by_user_id: 'author-1' },
+			{ id: 'admin-9' },
+			{ isAdmin: true }
+		),
+		true
+	);
+
+	const calls = [];
+	const articles = [
+		{
+			id: 'pub-article-1',
+			is_published: true,
+			created_by_user_id: 'author-1',
+			title: 'Published Author Title',
+			body_markdown: '## Author Section\nBody prose.'
+		},
+		{
+			id: 'draft-article-2',
+			is_published: false,
+			created_by_user_id: 'author-1',
+			title: 'Secret Draft Title',
+			body_markdown: '## Confidential Section\nUnpublished notes.'
+		}
+	];
+	const userSupabase = createMockLearnSupabase({
+		articles,
+		adminUserIds: new Set(['admin-9']),
+		onCall: (entry) => calls.push(entry)
+	});
+
+	// Non-author targeting an unpublished article -> 403 and never selects title/body_markdown
+	const draftForbidden = await resolveLearnUploadArticleContext({
+		userSupabase,
+		user: { id: 'other-2' },
+		articleId: 'draft-article-2'
+	});
+	assert.equal(draftForbidden.ok, false);
+	assert.equal(draftForbidden.status, 403);
+	assert.equal(
+		calls.some(
+			(entry) => entry.table === 'learn_articles' && entry.columns.includes('body_markdown')
+		),
+		false
+	);
+
+	// Non-author uploading to a published wiki article without form text -> allowed to link, but never loads stored title/body for Gemini
+	calls.length = 0;
+	const nonAuthorPublished = await resolveLearnUploadArticleContext({
+		userSupabase,
+		user: { id: 'other-2' },
+		articleId: 'pub-article-1',
+		articleTitle: '',
+		bodyMarkdown: ''
+	});
+	assert.equal(nonAuthorPublished.ok, true);
+	assert.equal(nonAuthorPublished.articleTitle, '');
+	assert.equal(nonAuthorPublished.bodyMarkdown, '');
+	assert.equal(
+		calls.some(
+			(entry) => entry.table === 'learn_articles' && entry.columns.includes('body_markdown')
+		),
+		false
+	);
+
+	// Article author -> loads title and body_markdown via userSupabase
+	const authorDraft = await resolveLearnUploadArticleContext({
+		userSupabase,
+		user: { id: 'author-1' },
+		articleId: 'draft-article-2'
+	});
+	assert.equal(authorDraft.ok, true);
+	assert.equal(authorDraft.articleTitle, 'Secret Draft Title');
+	assert.ok(authorDraft.bodyMarkdown.includes('Confidential Section'));
+
+	// Admin -> also allowed to resolve article context via userSupabase
+	const adminDraft = await resolveLearnUploadArticleContext({
+		userSupabase,
+		user: { id: 'admin-9' },
+		articleId: 'draft-article-2'
+	});
+	assert.equal(adminDraft.ok, true);
+	assert.equal(adminDraft.articleTitle, 'Secret Draft Title');
+});
+
+test('Learn article attachments exclude both embedded images and generated cover assets', async () => {
+	const sampleAssets = [
+		{ id: 'cover-1', file_name: 'crash-cover.webp', usage_kind: 'cover' },
+		{ id: 'embed-1', file_name: 'diagram.png', usage_kind: 'embedded' },
+		{ id: 'pdf-1', file_name: 'checklist.pdf', usage_kind: 'attachment' },
+		{ id: 'csv-1', file_name: 'counts.csv' }
+	];
+
+	assert.equal(isLearnAttachmentAsset(sampleAssets[0]), false);
+	assert.equal(isLearnAttachmentAsset(sampleAssets[1]), false);
+	assert.equal(isLearnAttachmentAsset(sampleAssets[2]), true);
+	assert.equal(isLearnAttachmentAsset(sampleAssets[3]), true);
+	assert.deepEqual(
+		filterLearnAttachmentAssets(sampleAssets).map((item) => item.id),
+		['pdf-1', 'csv-1']
+	);
+
+	const articlePageSource = await fs.readFile(
+		new URL('../../routes/learn/[slug]/+page.svelte', import.meta.url),
+		'utf8'
+	);
+	assert.ok(articlePageSource.includes('filterLearnAttachmentAssets(data.article.assets)'));
+	assert.equal(articlePageSource.includes("usage_kind !== 'embedded'"), false);
 });

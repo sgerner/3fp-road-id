@@ -10,7 +10,11 @@ import {
 	splitMarkdownIntoSections
 } from '#lib/learn/markdown';
 import { sanitizeAltText } from '#lib/learn/altText';
+import { canManageLearnAsset, isLearnAdminUser } from '#lib/server/learnAiCore';
 import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
+
+export { canManageLearnAsset };
+export const isLearnAdmin = isLearnAdminUser;
 
 const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 
@@ -214,6 +218,52 @@ export async function listLearnRecentAssets(
 	const { data, error: queryError } = await query;
 	if (queryError) throw queryError;
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
+}
+
+export async function syncLearnCoverAsset(
+	supabase,
+	{ articleId, coverImageUrl = '', coverImageAlt = '', user = null } = {}
+) {
+	const cleanUrl = safeTrim(coverImageUrl);
+	if (!supabase || !articleId || !cleanUrl || !user?.id) return;
+
+	const sanitizedCoverAlt = coverImageAlt
+		? sanitizeAltText(coverImageAlt, { imageUrl: cleanUrl })
+		: '';
+
+	try {
+		const { data: coverAsset } = await supabase
+			.from('learn_assets')
+			.select('id, uploaded_by_user_id, file_name')
+			.eq('public_url', cleanUrl)
+			.maybeSingle();
+
+		if (!coverAsset) return;
+
+		const isOwner = coverAsset.uploaded_by_user_id === user.id;
+		const isAdmin = isOwner ? false : await isLearnAdminUser(supabase, user.id);
+		if (canManageLearnAsset(coverAsset, user, { isAdmin })) {
+			await supabase
+				.from('learn_assets')
+				.update({
+					...(sanitizedCoverAlt ? { alt_text: sanitizedCoverAlt } : {}),
+					article_id: articleId
+				})
+				.eq('id', coverAsset.id);
+		}
+
+		await supabase.from('learn_article_asset_links').upsert(
+			{
+				article_id: articleId,
+				asset_id: coverAsset.id,
+				created_by_user_id: user.id,
+				usage_kind: 'cover'
+			},
+			{ onConflict: 'article_id,asset_id' }
+		);
+	} catch {
+		// Non-fatal cover metadata and link sync.
+	}
 }
 
 export async function buildLearnArticleView(

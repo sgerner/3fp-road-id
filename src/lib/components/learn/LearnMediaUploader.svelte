@@ -225,7 +225,7 @@
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					id: item.id,
+					assetId: item.id,
 					altText: sanitized,
 					isDecorative: nextDecorative
 				})

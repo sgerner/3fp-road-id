@@ -17,8 +17,10 @@ import {
 import {
 	buildLearnQuestionContext,
 	canAccessLearnAiArticle,
+	canManageLearnAsset,
 	canUseLearnAiAction,
 	cleanLearnAiString,
+	isLearnAdminUser,
 	LEARN_AI_SOURCE_LIMIT
 } from '#lib/server/learnAiCore';
 
@@ -164,18 +166,35 @@ export async function POST(event) {
 				isSoleLinkContent: Boolean(body.enclosingLinkUrl)
 			});
 			const assetId = cleanText(body.assetId, 80);
-			if (assetId && supabase) {
-				await supabase
-					.from('learn_assets')
-					.update({
-						alt_text: generated.altText,
-						metadata: {
-							alt_generated: true,
-							is_decorative: Boolean(generated.isDecorative)
+			if (assetId && supabase && user?.id) {
+				try {
+					const { data: existingAsset } = await supabase
+						.from('learn_assets')
+						.select('id, uploaded_by_user_id, metadata')
+						.eq('id', assetId)
+						.maybeSingle();
+					if (existingAsset) {
+						const isOwner = existingAsset.uploaded_by_user_id === user.id;
+						const isAdmin = isOwner ? false : await isLearnAdminUser(supabase, user.id);
+						if (canManageLearnAsset(existingAsset, user, { isAdmin })) {
+							await supabase
+								.from('learn_assets')
+								.update({
+									alt_text: generated.altText,
+									metadata: {
+										...(existingAsset.metadata && typeof existingAsset.metadata === 'object'
+											? existingAsset.metadata
+											: {}),
+										alt_generated: true,
+										is_decorative: Boolean(generated.isDecorative)
+									}
+								})
+								.eq('id', existingAsset.id);
 						}
-					})
-					.eq('id', assetId)
-					.catch(() => {});
+					}
+				} catch {
+					// Non-fatal persistence on user-owned or admin-managed assets.
+				}
 			}
 			return json(
 				{

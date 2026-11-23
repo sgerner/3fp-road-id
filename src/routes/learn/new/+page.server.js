@@ -1,8 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getLearnClient, requireLearnUser, learnFormDataValues } from '#lib/server/learn';
+import {
+	getLearnClient,
+	requireLearnUser,
+	learnFormDataValues,
+	syncLearnCoverAsset
+} from '#lib/server/learn';
 import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
 import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
-import { sanitizeAltText } from '#lib/learn/altText';
 
 export const load = async ({ cookies, url }) => {
 	const { user, supabase } = await getLearnClient(cookies);
@@ -56,20 +60,13 @@ export const actions = {
 				});
 			}
 
-			if (record.cover_image_url && values.coverImageAlt) {
-				const sanitizedCoverAlt = sanitizeAltText(values.coverImageAlt, {
-					imageUrl: record.cover_image_url
+			if (record.cover_image_url) {
+				await syncLearnCoverAsset(supabase, {
+					articleId: data.id,
+					coverImageUrl: record.cover_image_url,
+					coverImageAlt: values.coverImageAlt,
+					user
 				});
-				if (sanitizedCoverAlt) {
-					await supabase
-						.from('learn_assets')
-						.update({
-							alt_text: sanitizedCoverAlt,
-							article_id: data.id
-						})
-						.eq('public_url', record.cover_image_url)
-						.catch(() => {});
-				}
 			}
 
 			await syncLearnArticleChunks(supabase, {

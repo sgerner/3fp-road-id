@@ -12,7 +12,7 @@
 .app-shell h4,
 .app-shell h5,
 .app-shell h6 {
-	color: var(--color-primary-950-50);
+	color: light-dark(var(--color-surface-950), var(--color-primary-50));
 }
 
 html,

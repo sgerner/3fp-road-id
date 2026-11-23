@@ -1,9 +1,12 @@
 import path from 'node:path';
 import { json } from '@sveltejs/kit';
 import { extractMarkdownHeadings } from '#lib/learn/markdown';
-import { sanitizeAltText } from '#lib/learn/altText';
 import { getLearnServiceClient, requireLearnUser, slugifyLearn } from '#lib/server/learn';
 import { generateLearnImageAltText } from '#lib/server/learnAi';
+import {
+	resolveLearnUploadArticleContext,
+	updateLearnAssetAltAuthorized
+} from '#lib/server/learnAiCore';
 import { optimizeImageForStorage, replaceFileExtension } from '#lib/server/storageImages';
 import { enforceRateLimit, readFormData, readJsonBody } from '#lib/server/security';
 
@@ -28,7 +31,7 @@ function buildObjectPath(userId, fileName) {
 export async function POST(event) {
 	const { request, cookies } = event;
 	try {
-		const { user } = await requireLearnUser(cookies);
+		const { user, supabase: userSupabase } = await requireLearnUser(cookies);
 		const limited = enforceRateLimit(event, {
 			name: 'learn-asset-upload',
 			key: user.id,
@@ -46,16 +49,18 @@ export async function POST(event) {
 		if (!parsedForm.ok) {
 			return json({ error: parsedForm.error }, { status: parsedForm.status });
 		}
-		const supabase = getLearnServiceClient();
 		const formData = parsedForm.value;
-		const articleId = String(formData.get('articleId') || '').trim() || null;
-		let articleTitle = String(formData.get('articleTitle') || formData.get('title') || '')
+		const requestedArticleId = String(formData.get('articleId') || '').trim() || null;
+		const rawArticleTitle = String(formData.get('articleTitle') || formData.get('title') || '')
 			.trim()
 			.slice(0, 300);
-		let bodyMarkdown = String(formData.get('bodyMarkdown') || '').slice(0, 12_000);
+		const rawBodyMarkdown = String(formData.get('bodyMarkdown') || '').slice(0, 12_000);
 		const enclosingLinkUrl = String(formData.get('enclosingLinkUrl') || '')
 			.trim()
 			.slice(0, 500);
+		const requestedUsageKind = String(formData.get('usageKind') || '')
+			.trim()
+			.toLowerCase();
 		const files = formData.getAll('files').filter((entry) => entry instanceof File);
 
 		if (!files.length) {
@@ -65,21 +70,19 @@ export async function POST(event) {
 			return json({ error: `You can upload up to ${MAX_FILES} files at a time.` }, { status: 400 });
 		}
 
-		if (articleId && (!articleTitle || !bodyMarkdown)) {
-			const { data: articleRow } = await supabase
-				.from('learn_articles')
-				.select('title, body_markdown')
-				.eq('id', articleId)
-				.maybeSingle();
-			if (articleRow) {
-				if (!articleTitle && articleRow.title)
-					articleTitle = String(articleRow.title).slice(0, 300);
-				if (!bodyMarkdown && articleRow.body_markdown) {
-					bodyMarkdown = String(articleRow.body_markdown).slice(0, 12_000);
-				}
-			}
+		const articleContext = await resolveLearnUploadArticleContext({
+			userSupabase,
+			user,
+			articleId: requestedArticleId,
+			articleTitle: rawArticleTitle,
+			bodyMarkdown: rawBodyMarkdown
+		});
+		if (!articleContext.ok) {
+			return json({ error: articleContext.error }, { status: articleContext.status });
 		}
 
+		const { articleId, articleTitle, bodyMarkdown } = articleContext;
+		const serviceSupabase = getLearnServiceClient();
 		const headings = extractMarkdownHeadings(bodyMarkdown).map((heading) => heading.text);
 		const uploadedFiles = [];
 		let imageCount = 0;
@@ -105,7 +108,7 @@ export async function POST(event) {
 				? replaceFileExtension(file.name, optimized.extension)
 				: file.name;
 			const objectPath = buildObjectPath(user.id, storedFileName);
-			const uploadResult = await supabase.storage
+			const uploadResult = await serviceSupabase.storage
 				.from('learn-media')
 				.upload(objectPath, optimized.buffer, {
 					contentType: optimized.contentType,
@@ -116,7 +119,9 @@ export async function POST(event) {
 				return json({ error: uploadResult.error.message }, { status: 500 });
 			}
 
-			const { data: publicUrlData } = supabase.storage.from('learn-media').getPublicUrl(objectPath);
+			const { data: publicUrlData } = serviceSupabase.storage
+				.from('learn-media')
+				.getPublicUrl(objectPath);
 			const publicUrl = publicUrlData?.publicUrl || null;
 
 			let draftedAltText = '';
@@ -156,7 +161,7 @@ export async function POST(event) {
 				...(altModel ? { alt_model: altModel } : {})
 			};
 
-			const { data: assetRow, error: assetError } = await supabase
+			const { data: assetRow, error: assetError } = await serviceSupabase
 				.from('learn_assets')
 				.insert({
 					article_id: articleId,
@@ -179,13 +184,19 @@ export async function POST(event) {
 				return json({ error: assetError.message }, { status: 500 });
 			}
 
+			const resolvedUsageKind = file.type.startsWith('image/')
+				? requestedUsageKind === 'cover'
+					? 'cover'
+					: 'embedded'
+				: 'attachment';
+
 			if (articleId) {
-				const { error: linkError } = await supabase.from('learn_article_asset_links').upsert(
+				const { error: linkError } = await serviceSupabase.from('learn_article_asset_links').upsert(
 					{
 						article_id: articleId,
 						asset_id: assetRow.id,
 						created_by_user_id: user.id,
-						usage_kind: file.type.startsWith('image/') ? 'embedded' : 'attachment'
+						usage_kind: resolvedUsageKind
 					},
 					{ onConflict: 'article_id,asset_id' }
 				);
@@ -209,7 +220,7 @@ export async function POST(event) {
 				altGenerated: Boolean(assetRow.metadata?.alt_generated),
 				isDecorative: Boolean(assetRow.metadata?.is_decorative),
 				metadata: assetRow.metadata || {},
-				usageKind: file.type.startsWith('image/') ? 'embedded' : 'attachment'
+				usageKind: resolvedUsageKind
 			});
 		}
 
@@ -221,8 +232,13 @@ export async function POST(event) {
 					: generatedAltCount > 0
 						? 'partial'
 						: 'unavailable';
+		const aiAltSummary = {
+			totalImages: imageCount,
+			generated: generatedAltCount,
+			unavailable: Math.max(0, imageCount - generatedAltCount)
+		};
 
-		return json({ files: uploadedFiles, aiAltStatus });
+		return json({ files: uploadedFiles, aiAltStatus, aiAltSummary });
 	} catch (routeError) {
 		const status = routeError?.status || 500;
 		return json(
@@ -235,7 +251,7 @@ export async function POST(event) {
 export async function PATCH(event) {
 	const { request, cookies } = event;
 	try {
-		const { user } = await requireLearnUser(cookies);
+		const { user, supabase: userSupabase } = await requireLearnUser(cookies);
 		const limited = enforceRateLimit(event, {
 			name: 'learn-asset-alt-update',
 			key: user.id,
@@ -250,70 +266,22 @@ export async function PATCH(event) {
 		}
 
 		const body = parsed.value && typeof parsed.value === 'object' ? parsed.value : {};
-		const assetId = String(body.assetId || '').trim();
-		const publicUrl = String(body.publicUrl || '').trim();
-		if (!assetId && !publicUrl) {
-			return json({ error: 'Asset identifier is required.' }, { status: 400 });
-		}
+		const assetId = String(body.assetId || body.id || '').trim();
+		const publicUrl = String(body.publicUrl || body.url || '').trim();
 
-		const supabase = getLearnServiceClient();
-		let lookup = supabase
-			.from('learn_assets')
-			.select('id, uploaded_by_user_id, file_name, public_url, alt_text, metadata');
-		lookup = assetId ? lookup.eq('id', assetId) : lookup.eq('public_url', publicUrl);
-		const { data: existing, error: fetchError } = await lookup.maybeSingle();
-		if (fetchError) {
-			return json({ error: fetchError.message }, { status: 500 });
-		}
-		if (!existing) {
-			return json({ error: 'Asset not found.' }, { status: 404 });
-		}
-
-		const isDecorative = Boolean(body.isDecorative);
-		const nextAlt = isDecorative
-			? ''
-			: sanitizeAltText(String(body.altText ?? ''), {
-					fileName: existing.file_name || '',
-					imageUrl: existing.public_url || ''
-				});
-		if (!isDecorative && String(body.altText ?? '').trim() && !nextAlt) {
-			return json(
-				{ error: 'Enter descriptive alt text instead of a filename or placeholder.' },
-				{ status: 400 }
-			);
-		}
-
-		const nextMetadata = {
-			...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
-			is_decorative: isDecorative,
-			alt_reviewed: true
-		};
-
-		const { data: updated, error: updateError } = await supabase
-			.from('learn_assets')
-			.update({
-				alt_text: nextAlt || null,
-				metadata: nextMetadata
-			})
-			.eq('id', existing.id)
-			.select('id, public_url, file_name, alt_text, metadata')
-			.single();
-
-		if (updateError) {
-			return json({ error: updateError.message }, { status: 500 });
-		}
-
-		return json({
-			asset: {
-				id: updated.id,
-				url: updated.public_url,
-				fileName: updated.file_name,
-				altText: updated.alt_text || '',
-				altGenerated: Boolean(updated.metadata?.alt_generated),
-				isDecorative: Boolean(updated.metadata?.is_decorative),
-				metadata: updated.metadata || {}
-			}
+		const result = await updateLearnAssetAltAuthorized({
+			userSupabase,
+			user,
+			assetId,
+			publicUrl,
+			altText: body.altText,
+			isDecorative: body.isDecorative
 		});
+		if (!result.ok) {
+			return json({ error: result.error }, { status: result.status });
+		}
+
+		return json({ asset: result.asset });
 	} catch (routeError) {
 		const status = routeError?.status || 500;
 		return json(

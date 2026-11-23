@@ -4,7 +4,9 @@ import {
 	buildLearnImageMarkdownSnippet,
 	cleanMarkdownImageUrl,
 	extractMarkdownImages,
+	filterLearnAttachmentAssets,
 	isFilenameOrPlaceholderAlt,
+	isLearnAttachmentAsset,
 	LEARN_ALT_TEXT_MAX_LENGTH,
 	sanitizeAltText,
 	stripRedundantAltPrefix,
@@ -17,7 +19,9 @@ export {
 	buildLearnImageMarkdownSnippet,
 	cleanMarkdownImageUrl,
 	extractMarkdownImages,
+	filterLearnAttachmentAssets,
 	isFilenameOrPlaceholderAlt,
+	isLearnAttachmentAsset,
 	LEARN_ALT_TEXT_MAX_LENGTH,
 	sanitizeAltText,
 	stripRedundantAltPrefix,
@@ -299,6 +303,194 @@ export function canAccessLearnAiArticle(article, user) {
 		article &&
 		(article.is_published === true || (user?.id && article.created_by_user_id === user.id))
 	);
+}
+
+export function canManageLearnAsset(asset, user, { isAdmin = false } = {}) {
+	if (!asset || !user?.id) return false;
+	return asset.uploaded_by_user_id === user.id || Boolean(isAdmin);
+}
+
+export function canUseLearnArticleForAiContext(article, user, { isAdmin = false } = {}) {
+	if (!article || !user?.id) return false;
+	return article.created_by_user_id === user.id || Boolean(isAdmin);
+}
+
+export async function isLearnAdminUser(supabase, userId) {
+	if (!supabase || !userId) return false;
+	const { data: profile, error: profileError } = await supabase
+		.from('profiles')
+		.select('admin')
+		.eq('user_id', userId)
+		.maybeSingle();
+	if (profileError) throw profileError;
+	return Boolean(profile?.admin);
+}
+
+export async function resolveLearnUploadArticleContext({
+	userSupabase,
+	user,
+	articleId = null,
+	articleTitle = '',
+	bodyMarkdown = ''
+} = {}) {
+	const normalizedArticleId = typeof articleId === 'string' ? articleId.trim() : '';
+	let resolvedTitle = typeof articleTitle === 'string' ? articleTitle.trim().slice(0, 300) : '';
+	let resolvedBody = typeof bodyMarkdown === 'string' ? bodyMarkdown.slice(0, 12_000) : '';
+
+	if (!normalizedArticleId) {
+		return {
+			ok: true,
+			articleId: null,
+			articleTitle: resolvedTitle,
+			bodyMarkdown: resolvedBody
+		};
+	}
+
+	if (!userSupabase || !user?.id) {
+		return { ok: false, status: 401, error: 'Authentication required.' };
+	}
+
+	const { data: articleMeta, error: metaError } = await userSupabase
+		.from('learn_articles')
+		.select('id, is_published, created_by_user_id')
+		.eq('id', normalizedArticleId)
+		.maybeSingle();
+
+	if (metaError) {
+		return { ok: false, status: 500, error: metaError.message };
+	}
+	if (!articleMeta) {
+		return { ok: false, status: 404, error: 'Article not found.' };
+	}
+
+	const isAuthor = articleMeta.created_by_user_id === user.id;
+	const isAdmin = isAuthor ? false : await isLearnAdminUser(userSupabase, user.id);
+	const allowedForAi = canUseLearnArticleForAiContext(articleMeta, user, { isAdmin });
+
+	if (articleMeta.is_published !== true && !allowedForAi) {
+		return {
+			ok: false,
+			status: 403,
+			error: 'Only the article author or an admin can upload assets to an unpublished article.'
+		};
+	}
+
+	if (allowedForAi && (!resolvedTitle || !resolvedBody)) {
+		const { data: articleRow, error: bodyError } = await userSupabase
+			.from('learn_articles')
+			.select('title, body_markdown')
+			.eq('id', articleMeta.id)
+			.maybeSingle();
+		if (bodyError) {
+			return { ok: false, status: 500, error: bodyError.message };
+		}
+		if (articleRow) {
+			if (!resolvedTitle && articleRow.title) {
+				resolvedTitle = String(articleRow.title).trim().slice(0, 300);
+			}
+			if (!resolvedBody && articleRow.body_markdown) {
+				resolvedBody = String(articleRow.body_markdown).slice(0, 12_000);
+			}
+		}
+	}
+
+	return {
+		ok: true,
+		articleId: articleMeta.id,
+		articleTitle: resolvedTitle,
+		bodyMarkdown: resolvedBody
+	};
+}
+
+export async function updateLearnAssetAltAuthorized({
+	userSupabase,
+	user,
+	assetId = '',
+	publicUrl = '',
+	altText = '',
+	isDecorative = false
+} = {}) {
+	if (!userSupabase || !user?.id) {
+		return { ok: false, status: 401, error: 'Authentication required.' };
+	}
+	const cleanAssetId = typeof assetId === 'string' ? assetId.trim() : '';
+	const cleanPublicUrl = typeof publicUrl === 'string' ? publicUrl.trim() : '';
+	if (!cleanAssetId && !cleanPublicUrl) {
+		return { ok: false, status: 400, error: 'Asset identifier is required.' };
+	}
+
+	let lookup = userSupabase
+		.from('learn_assets')
+		.select('id, uploaded_by_user_id, file_name, public_url, alt_text, metadata');
+	lookup = cleanAssetId ? lookup.eq('id', cleanAssetId) : lookup.eq('public_url', cleanPublicUrl);
+	const { data: existing, error: fetchError } = await lookup.maybeSingle();
+	if (fetchError) {
+		return { ok: false, status: 500, error: fetchError.message };
+	}
+	if (!existing) {
+		return { ok: false, status: 404, error: 'Asset not found.' };
+	}
+
+	const isOwner = existing.uploaded_by_user_id === user.id;
+	const isAdmin = isOwner ? false : await isLearnAdminUser(userSupabase, user.id);
+	if (!canManageLearnAsset(existing, user, { isAdmin })) {
+		return {
+			ok: false,
+			status: 403,
+			error: 'Only the asset owner or an admin can update this asset.'
+		};
+	}
+
+	const decorative = Boolean(isDecorative);
+	const rawAlt = String(altText ?? '');
+	const nextAlt = decorative
+		? ''
+		: sanitizeAltText(rawAlt, {
+				fileName: existing.file_name || '',
+				imageUrl: existing.public_url || ''
+			});
+	if (!decorative && rawAlt.trim() && !nextAlt) {
+		return {
+			ok: false,
+			status: 400,
+			error: 'Enter descriptive alt text instead of a filename or placeholder.'
+		};
+	}
+
+	const nextMetadata = {
+		...(existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {}),
+		alt_generated: false,
+		is_decorative: decorative,
+		alt_reviewed: true
+	};
+
+	const { data: updated, error: updateError } = await userSupabase
+		.from('learn_assets')
+		.update({
+			alt_text: nextAlt || null,
+			metadata: nextMetadata
+		})
+		.eq('id', existing.id)
+		.select('id, public_url, file_name, alt_text, metadata')
+		.single();
+
+	if (updateError) {
+		return { ok: false, status: 500, error: updateError.message };
+	}
+
+	return {
+		ok: true,
+		status: 200,
+		asset: {
+			id: updated.id,
+			url: updated.public_url,
+			fileName: updated.file_name,
+			altText: updated.alt_text || '',
+			altGenerated: Boolean(updated.metadata?.alt_generated),
+			isDecorative: Boolean(updated.metadata?.is_decorative),
+			metadata: updated.metadata || {}
+		}
+	};
 }
 
 export function canUseLearnAiAction(action, user) {

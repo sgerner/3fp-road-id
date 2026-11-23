@@ -4,7 +4,8 @@ import {
 	getLearnClient,
 	listLearnAssetsForArticle,
 	requireLearnUser,
-	learnFormDataValues
+	learnFormDataValues,
+	syncLearnCoverAsset
 } from '#lib/server/learn';
 import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
 import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
@@ -116,20 +117,13 @@ export const actions = {
 				});
 			}
 
-			if (record.cover_image_url && values.coverImageAlt) {
-				const sanitizedCoverAlt = sanitizeAltText(values.coverImageAlt, {
-					imageUrl: record.cover_image_url
+			if (record.cover_image_url) {
+				await syncLearnCoverAsset(supabase, {
+					articleId: data.id,
+					coverImageUrl: record.cover_image_url,
+					coverImageAlt: values.coverImageAlt,
+					user
 				});
-				if (sanitizedCoverAlt) {
-					await supabase
-						.from('learn_assets')
-						.update({
-							alt_text: sanitizedCoverAlt,
-							article_id: data.id
-						})
-						.eq('public_url', record.cover_image_url)
-						.catch(() => {});
-				}
 			}
 
 			await syncLearnArticleChunks(supabase, {

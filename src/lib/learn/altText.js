@@ -543,3 +543,16 @@ export function applyMarkdownAltReplacements(markdown, replacements = []) {
 
 	return updated;
 }
+
+export function isLearnAttachmentAsset(asset) {
+	if (!asset || typeof asset !== 'object') return false;
+	const usageKind = safeString(asset.usage_kind ?? asset.usageKind ?? 'attachment')
+		.trim()
+		.toLowerCase();
+	return usageKind !== 'embedded' && usageKind !== 'cover';
+}
+
+export function filterLearnAttachmentAssets(assets) {
+	if (!Array.isArray(assets)) return [];
+	return assets.filter(isLearnAttachmentAsset);
+}
