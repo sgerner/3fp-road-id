@@ -405,10 +405,8 @@
 
 		<ManageActionGrid columns={3} ariaLabel="Roster tools" class="no-print md:w-auto">
 			<ManageActionButton
-				label={checkInMode ? 'Check-In On' : 'Check-In'}
-				ariaLabel={checkInMode
-					? 'Check-In On: exit mobile check-in mode'
-					: 'Check-In: enter mobile check-in mode'}
+				label="Check-In"
+				ariaLabel="Check-In mode"
 				icon={IconCheckCircle}
 				tone={checkInMode ? 'primary' : 'secondary'}
 				variant="filled"
