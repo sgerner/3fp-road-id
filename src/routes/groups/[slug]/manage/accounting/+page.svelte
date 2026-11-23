@@ -16,7 +16,6 @@
 	import IconListChecks from '@lucide/svelte/icons/list-checks';
 	import IconLockKeyhole from '@lucide/svelte/icons/lock-keyhole';
 	import IconPencil from '@lucide/svelte/icons/pencil';
-	import IconGripVertical from '@lucide/svelte/icons/grip-vertical';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconPrinter from '@lucide/svelte/icons/printer';
 	import IconReceipt from '@lucide/svelte/icons/receipt';
@@ -25,7 +24,6 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
-	import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -34,6 +32,7 @@
 	import { loadStripe } from '@stripe/stripe-js';
 	import { completeFormUpdate, refreshPageData } from '#lib/client/navigation';
 	import SearchableSelect from '#lib/components/ui/SearchableSelect.svelte';
+	import { buildAccountingBucketOptions } from '#lib/ui/formControlHelpers';
 	import ReconciliationWorkspace from '#lib/components/accounting/ReconciliationWorkspace.svelte';
 	import { escapeHtml } from '#lib/markdown';
 
@@ -169,6 +168,7 @@
 	let editingGroupValue = $state('');
 	/** @type {HTMLInputElement | null} */
 	let groupLabelInput = $state(null);
+	let bucketAnnouncement = $state('');
 	const reportPeriodOptions = [
 		{ value: 'all', label: 'All time' },
 		{ value: 'this_month', label: 'This month' },
@@ -1148,7 +1148,10 @@
 
 	function enhanceInlineAccount() {
 		return async ({ result, update }) => {
-			await completeFormUpdate(update, result);
+			const didComplete = await completeFormUpdate(update, result);
+			if (!didComplete && result.type === 'failure') {
+				accountGroups = groupAccountsByKind(accounts);
+			}
 		};
 	}
 
@@ -1575,29 +1578,52 @@
 		await goto(url.toString(), { replaceState: true, reset: false });
 	}
 
-	function updateAccountGroupZone(kind, displayGroup, items) {
+	async function handleAccountBucketChange(event, account, kind) {
+		const selectEl = event.currentTarget;
+		const nextGroup = String(selectEl.value || '').trim();
+		if (!nextGroup) return;
+
+		selectEl.form?.requestSubmit();
+
+		const currentGroups = accountGroups[kind] ?? [];
+		const movedAccount = { ...account, display_group: nextGroup };
+		const nextKindGroups = [];
+		let placed = false;
+
+		for (const group of currentGroups) {
+			const remaining = group.accounts.filter((item) => item.id !== account.id);
+			if (group.displayGroup === nextGroup) {
+				nextKindGroups.push({
+					...group,
+					accounts: [...remaining, movedAccount]
+				});
+				placed = true;
+			} else if (remaining.length > 0) {
+				nextKindGroups.push({
+					...group,
+					accounts: remaining
+				});
+			}
+		}
+
+		if (!placed) {
+			nextKindGroups.push({
+				displayGroup: nextGroup,
+				accounts: [movedAccount]
+			});
+		}
+
 		accountGroups = {
 			...accountGroups,
-			[kind]: (accountGroups[kind] ?? []).map((group) =>
-				group.displayGroup === displayGroup ? { ...group, accounts: items } : group
-			)
+			[kind]: nextKindGroups
 		};
-	}
+		bucketAnnouncement = `Moved ${account.name} to ${nextGroup} bucket.`;
 
-	function handleAccountConsider(kind, displayGroup, event) {
-		updateAccountGroupZone(kind, displayGroup, event.detail.items);
-	}
-
-	async function handleAccountFinalize(kind, displayGroup, event) {
-		const items = event.detail.items ?? [];
-		updateAccountGroupZone(kind, displayGroup, items);
-		const movedItems = items.filter((item) => item.display_group !== displayGroup);
-		if (!movedItems.length) return;
 		await tick();
-		for (const item of movedItems) {
-			const accountForm = document.querySelector(`form[data-account-id="${CSS.escape(item.id)}"]`);
-			if (accountForm instanceof HTMLFormElement) accountForm.requestSubmit();
-		}
+		const relocatedSelect = document.querySelector(
+			`select[data-bucket-select-id="${CSS.escape(String(account.id))}"]`
+		);
+		if (relocatedSelect instanceof HTMLElement) relocatedSelect.focus();
 	}
 
 	async function connectFinancialAccounts() {
@@ -2358,9 +2384,14 @@
 					</h2>
 				</div>
 
+				<p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+					{bucketAnnouncement}
+				</p>
+
 				<div class="grid gap-4 sm:grid-cols-2">
 					{#each accountKinds as kind}
-						<div class="bg-surface-500/5 border-surface-500/5 space-y-4 rounded-2xl border p-4">
+						{@const bucketOptions = buildAccountingBucketOptions(kind, accountGroups[kind])}
+						<div class="bg-surface-900 border-surface-700 space-y-4 border-2 p-4">
 							<h3 class="text-surface-700-300 text-xs font-bold tracking-wider uppercase">
 								{kind === 'asset'
 									? '💼 Where money lives (Assets)'
@@ -2412,13 +2443,13 @@
 														{group.displayGroup}
 													</div>
 													<button
-														class="text-surface-500 hover:text-surface-900-100 shrink-0"
+														class="border-surface-500 bg-surface-950 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 w-9 min-w-9 shrink-0 items-center justify-center border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2"
 														type="button"
 														onclick={() => startGroupEdit(kind, group.displayGroup)}
 														aria-label={`Edit ${group.displayGroup} label`}
 														title="Edit label"
 													>
-														<IconPencil class="h-3.5 w-3.5" />
+														<IconPencil class="h-3.5 w-3.5" aria-hidden="true" />
 													</button>
 												</div>
 											{/if}
@@ -2427,57 +2458,84 @@
 											</span>
 										</div>
 										<div
-											use:dragHandleZone={{
-												items: group.accounts,
-												flipDurationMs: 180,
-												type: `account-${kind}`
-											}}
-											onconsider={(event) => handleAccountConsider(kind, group.displayGroup, event)}
-											onfinalize={(event) => handleAccountFinalize(kind, group.displayGroup, event)}
+											role="list"
 											aria-label={`${group.displayGroup} accounts`}
 											class="space-y-2"
 										>
 											{#each group.accounts as account (account.id)}
+												{@const rowBucketOptions = buildAccountingBucketOptions(
+													kind,
+													bucketOptions,
+													group.displayGroup
+												)}
 												<form
 													method="POST"
 													action="?/updateAccount"
 													use:enhance={enhanceInlineAccount}
 													data-account-id={account.id}
-													class="bg-surface-500/5 hover:bg-surface-500/10 border-surface-500/5 grid gap-2 rounded-xl border p-3 transition-colors md:grid-cols-[minmax(0,1fr)_140px_auto]"
+													role="listitem"
+													class="bg-surface-950 border-surface-700 grid gap-2.5 border-2 p-3 md:grid-cols-[minmax(0,1fr)_110px_minmax(0,180px)]"
 												>
 													<input type="hidden" name="accountId" value={account.id} />
-													<input type="hidden" name="displayGroup" value={group.displayGroup} />
-													<input
-														class="input preset-tonal-surface"
-														type="text"
-														name="name"
-														value={account.name}
-														onchange={requestInlineSave}
-														autocomplete="off"
-														spellcheck="false"
-														aria-label="Account name"
-														title="Account name"
-													/>
-													<input
-														class="input preset-tonal-surface font-mono"
-														type="text"
-														name="code"
-														value={account.code}
-														onchange={requestInlineSave}
-														autocomplete="off"
-														spellcheck="false"
-														aria-label="Account number"
-														title="Account number"
-													/>
-													<button
-														class="text-surface-500 hover:text-surface-900-100 flex items-center justify-center rounded-lg border border-dashed border-transparent px-2"
-														type="button"
-														use:dragHandle
-														aria-label={`Drag ${account.name} to another label group`}
-														title="Drag to another group"
-													>
-														<IconGripVertical class="h-4 w-4" />
-													</button>
+													<div class="flex flex-col gap-1">
+														<label
+															for={`account-name-${account.id}`}
+															class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+														>
+															Account
+														</label>
+														<input
+															id={`account-name-${account.id}`}
+															class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 focus-visible:outline-primary-500 h-9 min-h-9 w-full border-2 px-2.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+															type="text"
+															name="name"
+															value={account.name}
+															onchange={requestInlineSave}
+															autocomplete="off"
+															spellcheck="false"
+															aria-label={`Account name for ${account.name}`}
+														/>
+													</div>
+													<div class="flex flex-col gap-1">
+														<label
+															for={`account-code-${account.id}`}
+															class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+														>
+															Code
+														</label>
+														<input
+															id={`account-code-${account.id}`}
+															class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 focus-visible:outline-primary-500 h-9 min-h-9 w-full border-2 px-2.5 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+															type="text"
+															name="code"
+															value={account.code}
+															onchange={requestInlineSave}
+															autocomplete="off"
+															spellcheck="false"
+															aria-label={`Account number for ${account.name}`}
+														/>
+													</div>
+													<div class="flex flex-col gap-1">
+														<label
+															for={`account-bucket-${account.id}`}
+															class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
+														>
+															Bucket
+														</label>
+														<select
+															id={`account-bucket-${account.id}`}
+															data-bucket-select-id={account.id}
+															name="displayGroup"
+															value={group.displayGroup}
+															aria-label={`Bucket for ${account.name}`}
+															onchange={(event) => handleAccountBucketChange(event, account, kind)}
+															class="border-surface-500 bg-surface-950 text-surface-50 focus:border-primary-500 focus-visible:outline-primary-500 h-9 min-h-9 w-full min-w-9 border-2 py-1 pr-8 pl-2.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+														>
+															{#each rowBucketOptions as option (option)}
+																<option value={option}>{option}</option>
+															{/each}
+														</select>
+													</div>
 												</form>
 											{/each}
 										</div>
