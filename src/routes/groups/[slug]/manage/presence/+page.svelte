@@ -38,7 +38,7 @@
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconType from '@lucide/svelte/icons/type';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';
 	import GroupSiteBlockEditor from '#lib/components/groups/GroupSiteBlockEditor.svelte';
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
@@ -320,7 +320,6 @@
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let logoUploadKey = $state(0);
-	let coverUploadKey = $state(0);
 	let logoFileInputEl = $state(null);
 	let coverFileInputEl = $state(null);
 
@@ -333,6 +332,11 @@
 	let cropStart = { x: 0, y: 0 };
 	let cropImgNatural = { w: 0, h: 0 };
 	let cropReady = $state(false);
+	/** @type {HTMLDialogElement | null} */
+	let cropDialogEl = $state(null);
+	/** @type {HTMLElement | null} */
+	let cropReturnFocusEl = null;
+	let coverFieldRef = $state(null);
 	let cropContainerEl = $state(null);
 	let activePointers = new Map();
 	let isPinching = false;
@@ -431,6 +435,11 @@
 
 	const selectedSitePage = $derived(
 		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
+	);
+	const hasAnyRideCalendarBlock = $derived(
+		sitePages.some((candidate) =>
+			(candidate?.blocks || []).some((block) => block?.type === 'ride_calendar')
+		) || pageBlocks.some((block) => block?.type === 'ride_calendar')
 	);
 	const navigationItems = $derived(sitePages[0]?.navigation?.items || []);
 	const primaryNavigationCount = $derived(
@@ -791,10 +800,13 @@
 		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
 			input.value = '';
 		}
+		if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		logoPreview = data.group?.logo_url || '';
 		coverPreview = data.group?.cover_photo_url || '';
+		logoTooLarge = false;
+		coverTooLarge = false;
 		logoUploadKey += 1;
-		coverUploadKey += 1;
 		localNotice = '';
 		localError = '';
 		previewVersion += 1;
@@ -1158,6 +1170,11 @@
 	function openCropper(target, files) {
 		const file = Array.from(files || [])[0];
 		if (!file) return;
+		coverFieldRef?.closeStudio?.();
+		cropReturnFocusEl =
+			typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+				? document.activeElement
+				: null;
 		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		cropSrc = URL.createObjectURL(file);
 		cropTarget = target;
@@ -1166,6 +1183,15 @@
 		cropReady = false;
 		cropping = true;
 	}
+
+	$effect(() => {
+		if (!cropDialogEl) return;
+		if (cropping && !cropDialogEl.open) {
+			cropDialogEl.showModal();
+		} else if (!cropping && cropDialogEl.open) {
+			cropDialogEl.close();
+		}
+	});
 
 	function onCropImgLoad(event) {
 		const img = event.target;
@@ -1227,10 +1253,18 @@
 	}
 
 	function closeCropper() {
+		if (cropDialogEl?.open) {
+			cropDialogEl.close();
+		}
 		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		cropSrc = '';
 		cropping = false;
 		cropTarget = '';
+		const focusTarget = cropReturnFocusEl;
+		cropReturnFocusEl = null;
+		if (focusTarget && typeof focusTarget.focus === 'function') {
+			queueMicrotask(() => focusTarget.focus());
+		}
 	}
 
 	async function applyCrop() {
@@ -1303,17 +1337,17 @@
 		openCropper('logo', files);
 	}
 
-	function onCoverChange(details) {
-		const files = details?.acceptedFiles || [];
-		coverTooLarge = tooLarge(files);
-		if (!files.length || coverTooLarge) return;
+	function onCoverFilesSelected(files) {
+		const selected = Array.from(files || []);
+		coverTooLarge = tooLarge(selected);
+		if (!selected.length || coverTooLarge) return;
 		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
-		coverRawFile = files[0];
-		coverPreview = URL.createObjectURL(files[0]);
+		coverRawFile = selected[0];
+		coverPreview = URL.createObjectURL(selected[0]);
 		profileDraft.clearCover = false;
 		profileDraft.coverCropped = '';
 		coverFileRevision += 1;
-		openCropper('cover', files);
+		openCropper('cover', selected);
 	}
 
 	function onFileReject() {
@@ -1325,6 +1359,7 @@
 			if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
 			logoPreview = '';
 			logoRawFile = null;
+			logoTooLarge = false;
 			profileDraft.logoCropped = '';
 			profileDraft.logoUrl = '';
 			profileDraft.clearLogo = true;
@@ -1334,10 +1369,10 @@
 			if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = '';
 			coverRawFile = null;
+			coverTooLarge = false;
 			profileDraft.coverCropped = '';
 			profileDraft.coverUrl = '';
 			profileDraft.clearCover = true;
-			coverUploadKey += 1;
 			coverFileRevision += 1;
 		}
 	}
@@ -1375,8 +1410,10 @@
 	function applyGeneratedGroupCover(result) {
 		const url = result?.url || '';
 		if (!url) return;
+		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
 		coverRawFile = null;
+		coverTooLarge = false;
 		profileDraft.coverCropped = '';
 		profileDraft.coverUrl = url;
 		profileDraft.clearCover = false;
@@ -1766,12 +1803,15 @@
 		);
 		const homeBlocks = sitePages[0]?.blocks || pageBlocks;
 		const legacy = deriveLegacySiteVisibility(homeBlocks, siteConfig.sections);
+		const anyRideCalendar = sitePages.some((candidate) =>
+			(candidate?.blocks || []).some((block) => block?.type === 'ride_calendar')
+		);
 		siteConfig = {
 			...siteConfig,
 			page_blocks: homeBlocks,
 			site_pages: sitePages,
 			sections: legacy.sections,
-			ride_widget_enabled: legacy.ride_widget_enabled
+			ride_widget_enabled: Boolean(legacy.ride_widget_enabled || anyRideCalendar)
 		};
 	}
 
@@ -2524,17 +2564,7 @@
 						</p>
 					</div>
 
-					<ImageGeneratorPanel
-						target="group"
-						heading="Generate group cover art"
-						description="Create a banner illustration from your group details and stage it for publishing."
-						helperText="Generated cover art is staged in your draft until you click Publish."
-						currentImageUrl={coverPreview}
-						buildContext={buildGroupImageContext}
-						onApply={applyGeneratedGroupCover}
-					/>
-
-					<div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+					<div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
 						<div class="flex flex-col gap-2">
 							<span class="text-surface-100 text-sm font-semibold">
 								Logo <span class="text-surface-400 text-xs font-normal">(1:1 square)</span>
@@ -2581,52 +2611,29 @@
 						</div>
 
 						<div class="flex flex-col gap-2">
-							<span class="text-surface-100 text-sm font-semibold">
-								Cover Photo <span class="text-surface-400 text-xs font-normal"
-									>(16:9 widescreen)</span
-								>
-							</span>
-							{#key coverUploadKey}
-								<FileUpload
-									name="studio_cover_picker"
-									accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-									maxFiles={1}
-									maxFileSize={MAX_BYTES}
-									classes="w-full"
-									onFileChange={onCoverChange}
-									{onFileReject}
-								>
-									<FileUpload.HiddenInput />
-									<FileUpload.Dropzone
-										class="border-surface-700 bg-surface-950 hover:border-primary-500 hover:bg-surface-800 w-full border-2 border-dashed p-6 text-center transition-colors"
-										aria-label="Select cover image or drag here"
-									>
-										<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-60" />
-										<p class="text-sm">Select or drag a cover image</p>
-										<small class="text-surface-400 text-xs">PNG · JPG · WEBP · Max 10MB</small>
-									</FileUpload.Dropzone>
-								</FileUpload>
-							{/key}
-							{#if coverTooLarge}
-								<p class="text-error-400 text-xs">Cover file exceeds 10MB limit.</p>
-							{/if}
-							{#if coverPreview && !profileDraft.clearCover}
-								<div class="border-surface-700 relative mt-1 aspect-[16/9] overflow-hidden border">
-									<img
-										src={coverPreview}
-										alt="Cover preview"
-										class="absolute inset-0 h-full w-full object-cover"
-									/>
-									<button
-										type="button"
-										class="bg-surface-950/80 hover:bg-error-500 absolute top-1 right-1 p-0.5 text-white"
-										aria-label="Remove cover photo"
-										onclick={() => removeImage('cover')}
-									>
-										<IconRemove class="h-4 w-4" />
-									</button>
-								</div>
-							{/if}
+							<CoverMediaField
+								bind:this={coverFieldRef}
+								label="Cover photo"
+								description="Upload and crop a 16:9 photo, or open the studio to explore generated banners before publishing."
+								helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
+								accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+								imageUrl={profileDraft.clearCover ? '' : coverPreview}
+								uploading={submitting}
+								error={coverTooLarge ? 'Cover file exceeds 10MB limit.' : ''}
+								target="group"
+								studioHeading="Create group cover art"
+								studioDescription="Explore generated banners from your group details. Your draft cover photo only updates when you click Apply artwork."
+								studioHelperText="Confirming artwork stages the cover photo in your draft until you click Publish changes."
+								buildContext={buildGroupImageContext}
+								onSelectFiles={onCoverFilesSelected}
+								onRemove={coverPreview && !profileDraft.clearCover
+									? () => removeImage('cover')
+									: null}
+								onApplyArtwork={applyGeneratedGroupCover}
+								onStudioOpenChange={(isOpen) => {
+									if (isOpen && cropping) closeCropper();
+								}}
+							/>
 						</div>
 					</div>
 				</section>
@@ -3816,7 +3823,7 @@
 				<section
 					class="border-surface-700 bg-surface-900 border-t-primary-500 grid gap-5 border border-t-4 p-4 sm:p-5"
 				>
-					{#if (sitePages[0]?.blocks || pageBlocks).some((block) => block.type === 'ride_calendar')}
+					{#if hasAnyRideCalendarBlock}
 						<div class="border-surface-700 bg-surface-950 flex items-start gap-3 border p-4">
 							<IconCalendar class="text-primary-400 mt-0.5 h-5 w-5 shrink-0" />
 							<div>
@@ -3999,7 +4006,7 @@
 						>
 							<div>
 								<p class="text-surface-50 font-bold">
-									Ride calendar section is not on the homepage
+									Ride calendar section is not on any website page
 								</p>
 								<p class="text-surface-300 text-sm">
 									Add the Ride Calendar section in Sections & Pages to configure its filters.
@@ -4145,19 +4152,18 @@
 
 <!-- Image Crop Modal -->
 {#if cropping}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
-		role="dialog"
-		aria-modal="true"
-		aria-label={`Crop ${cropTarget === 'logo' ? 'Logo' : 'Cover Photo'}`}
-		tabindex="-1"
+	<dialog
+		bind:this={cropDialogEl}
+		class="crop-dialog"
+		aria-labelledby="presence-crop-title"
+		onclose={closeCropper}
 		onpointermove={onCropPointerMove}
 		onpointerup={onCropPointerUp}
 		onpointercancel={onCropPointerUp}
 	>
 		<div class="border-surface-700 bg-surface-900 w-full max-w-4xl border p-5">
 			<div class="mb-4 flex items-center justify-between">
-				<h3 class="text-surface-50 text-xl font-bold">
+				<h3 id="presence-crop-title" class="text-surface-50 text-xl font-bold">
 					Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover Photo (16:9)'}
 				</h3>
 				<button
@@ -4201,6 +4207,7 @@
 					max={ZOOM_MAX}
 					step="0.01"
 					bind:value={cropScale}
+					aria-label="Crop zoom"
 					class="range flex-1"
 				/>
 				<button
@@ -4222,5 +4229,21 @@
 				</button>
 			</div>
 		</div>
-	</div>
+	</dialog>
 {/if}
+
+<style>
+	.crop-dialog {
+		margin: auto;
+		width: min(100% - 2rem, 56rem);
+		max-height: 92dvh;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: inherit;
+	}
+
+	.crop-dialog::backdrop {
+		background: rgb(0 0 0 / 85%);
+	}
+</style>

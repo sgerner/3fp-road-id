@@ -895,35 +895,43 @@
 		overflow-y: visible;
 	}
 
+	.report-page h2,
+	.report-page h3,
+	.report-page h4 {
+		color: var(--ink) !important;
+	}
+
 	.report-page {
-		--report-paper: var(--color-surface-50);
-		--report-soft: color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50));
-		--report-border: var(--color-secondary-300);
-		--purple: var(--color-secondary-700-300);
-		--pink: var(--color-tertiary-700-300);
+		--report-paper: light-dark(var(--color-surface-50), var(--color-surface-950));
+		--report-soft: light-dark(
+			color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50)),
+			var(--color-surface-900)
+		);
+		--report-border: light-dark(var(--color-secondary-400), var(--color-surface-400));
+		--purple: light-dark(var(--color-secondary-700), var(--color-secondary-200));
+		--pink: light-dark(var(--color-tertiary-700), var(--color-tertiary-300));
 		--lemon: var(--color-primary-500);
-		--ink: var(--color-secondary-950);
+		--ink: light-dark(var(--color-secondary-950), var(--color-surface-50));
 		--cream: var(--report-soft);
-		--muted: var(--color-surface-700);
-		--line: var(--color-secondary-200);
+		--muted: light-dark(var(--color-surface-700), var(--color-surface-200));
+		--line: light-dark(var(--color-secondary-200), var(--color-surface-700));
 		margin: -1rem;
 		background: var(--report-paper);
 		color: var(--ink);
 		font-family: Arial, Helvetica, sans-serif;
-		color-scheme: light;
 		overflow-wrap: anywhere;
 	}
 
 	.report-page :global(input),
 	.report-page :global(select),
 	.report-page :global(textarea) {
-		border-color: var(--color-secondary-400);
+		border-color: var(--report-border);
 		border-radius: 0;
 	}
 
 	.report-page :global(h4),
 	.report-page :global(h5) {
-		color: var(--color-secondary-950);
+		color: var(--ink) !important;
 	}
 
 	.report-page h1,
@@ -969,8 +977,8 @@
 		left: 1rem;
 		top: -5rem;
 		z-index: 99;
-		background: var(--color-primary-100);
-		color: var(--ink);
+		background: light-dark(var(--color-primary-100), var(--color-primary-500));
+		color: var(--color-secondary-950);
 		border: 2px solid var(--ink);
 		padding: 0.85rem 1.1rem;
 		font-weight: 800;
@@ -1195,8 +1203,8 @@
 
 	.search-chips button:hover {
 		border-color: var(--ink);
-		background: var(--color-primary-100);
-		color: var(--ink);
+		background: light-dark(var(--color-primary-100), var(--color-primary-500));
+		color: var(--color-secondary-950);
 	}
 
 	.search-results {
@@ -1303,7 +1311,7 @@
 		z-index: 20;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
-		background: var(--color-primary-100);
+		background: light-dark(var(--color-primary-100), var(--color-surface-900));
 		border-top: 1px solid var(--ink);
 		border-bottom: 2px solid var(--ink);
 	}
@@ -1485,8 +1493,8 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 1.25rem;
-		background: var(--color-primary-100);
-		color: var(--ink);
+		background: light-dark(var(--color-primary-100), var(--color-primary-500));
+		color: var(--color-secondary-950);
 		border: 2px solid var(--ink);
 		padding: 0.85rem 1.15rem;
 		font-weight: 800;
@@ -1496,6 +1504,7 @@
 
 	.primary-link:hover {
 		background: var(--report-paper);
+		color: var(--ink);
 	}
 
 	.secondary-mode-link {
@@ -1723,7 +1732,7 @@
 		width: 100%;
 		height: auto;
 		display: block;
-		background: var(--report-paper);
+		background: var(--color-surface-50);
 	}
 
 	.chapter-copy :global(figcaption) {
@@ -1963,9 +1972,45 @@
 	}
 
 	@media print {
+		:global(html:has(.report-page)),
+		:global(html.dark:has(.report-page)),
+		:global(body:has(.report-page)) {
+			color-scheme: light;
+			background: var(--color-surface-50) !important;
+		}
+		:global(body:has(.report-page))::before,
+		:global(body:has(.report-page))::after,
+		:global(body:has(.report-page) .app-header),
+		:global(body:has(.report-page) .app-rail) {
+			display: none !important;
+		}
+		:global(body:has(.report-page) div:has(> main)) {
+			display: block !important;
+		}
+		:global(body:has(.report-page) main) {
+			padding: 0 !important;
+		}
+		.report-page,
+		.report-page :global(*) {
+			visibility: visible;
+			color-scheme: light;
+			transition: none !important;
+			animation: none !important;
+		}
 		.report-page {
+			--report-paper: var(--color-surface-50);
+			--report-soft: color-mix(in srgb, var(--color-secondary-50) 24%, var(--color-surface-50));
+			--report-border: var(--color-secondary-400);
+			--purple: var(--color-secondary-700);
+			--pink: var(--color-tertiary-700);
+			--ink: var(--color-secondary-950);
+			--cream: var(--report-soft);
+			--muted: var(--color-surface-700);
+			--line: var(--color-secondary-200);
 			margin: 0;
 			background: var(--report-paper);
+			color: var(--ink);
+			color-scheme: light;
 		}
 
 		#panel-read.mode-panel.read-workspace[hidden] {

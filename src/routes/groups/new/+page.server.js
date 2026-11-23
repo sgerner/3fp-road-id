@@ -447,7 +447,15 @@ export const actions = {
 				incoming_cover_url,
 				`groups/${group_id}/cover`
 			);
-			if (publicUrl) updates.cover_photo_url = publicUrl;
+			const supabaseOrigin = String(process.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+			if (publicUrl) {
+				updates.cover_photo_url = publicUrl;
+			} else if (
+				supabaseOrigin &&
+				incoming_cover_url.startsWith(`${supabaseOrigin}/storage/v1/object/public/storage/groups/`)
+			) {
+				updates.cover_photo_url = incoming_cover_url;
+			}
 		}
 		if (Object.keys(updates).length) {
 			await requestSupabase.from('groups').update(updates).eq('id', group_id);

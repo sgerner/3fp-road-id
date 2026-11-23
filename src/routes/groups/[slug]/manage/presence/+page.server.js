@@ -457,13 +457,21 @@ async function publishPresenceChanges({ params, request, cookies }) {
 		incomingCover !== group.cover_photo_url &&
 		/^https?:\/\//i.test(incomingCover)
 	) {
-		const newCover = await mirrorRemoteImageToStorage(
-			supabase,
-			incomingCover,
-			`groups/${groupId}/cover`
-		);
-		if (newCover) groupPayload.cover_photo_url = newCover;
-		else groupPayload.cover_photo_url = incomingCover;
+		const supabaseOrigin = String(process.env.PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+		if (
+			supabaseOrigin &&
+			incomingCover.startsWith(`${supabaseOrigin}/storage/v1/object/public/storage/groups/`)
+		) {
+			groupPayload.cover_photo_url = incomingCover;
+		} else {
+			const newCover = await mirrorRemoteImageToStorage(
+				supabase,
+				incomingCover,
+				`groups/${groupId}/cover`
+			);
+			if (newCover) groupPayload.cover_photo_url = newCover;
+			else groupPayload.cover_photo_url = incomingCover;
+		}
 	}
 
 	let uploadedSponsorPaths = [];

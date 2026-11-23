@@ -52,36 +52,38 @@
 	];
 </script>
 
-<div class="bg-surface-950 text-surface-50 flex flex-col gap-5 sm:gap-8">
+<div class="bg-surface-50-950 text-surface-950-50 flex flex-col gap-5 sm:gap-8">
 	<div class="flex flex-col gap-2">
-		<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+		<p
+			class="text-secondary-700 dark:text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase"
+		>
 			Everyday Habits
 		</p>
 		<h2
-			class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
+			class="text-surface-950-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-5xl"
 		>
 			Stay A.L.E.R.T.
 		</h2>
-		<p class="text-surface-300! m-0 text-sm font-bold tracking-wider uppercase">
+		<p class="text-surface-700-300! m-0 text-sm font-bold tracking-wider uppercase">
 			Tips for cyclist safety
 		</p>
 	</div>
 
-	<div class="border-surface-50 flex flex-col border-t-2">
+	<div class="border-surface-950-50 flex flex-col border-t-2">
 		{#each ALERT_DATA as section (section.letter)}
 			<div
-				class="border-surface-800 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 border-b py-4 sm:grid-cols-[4.5rem_minmax(0,14rem)_minmax(0,1fr)] sm:gap-6 sm:py-6"
+				class="border-surface-200-800 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 border-b py-4 sm:grid-cols-[4.5rem_minmax(0,14rem)_minmax(0,1fr)] sm:gap-6 sm:py-6"
 			>
 				<span
 					class="bg-primary-500 text-surface-950 flex h-9 w-9 items-center justify-center text-3xl leading-none font-black italic sm:h-12 sm:w-12"
 				>
 					{section.letter}
 				</span>
-				<div class="text-surface-50 flex items-center text-2xl font-black uppercase italic">
+				<div class="text-surface-950-50 flex items-center text-2xl font-black uppercase italic">
 					{section.label}
 				</div>
 				<ul
-					class="text-surface-200 col-span-2 m-0 list-disc space-y-1 pl-5 text-base leading-snug sm:col-span-1 sm:space-y-1.5 sm:leading-relaxed"
+					class="text-surface-800-200 col-span-2 m-0 list-disc space-y-1 pl-5 text-base leading-snug sm:col-span-1 sm:space-y-1.5 sm:leading-relaxed"
 				>
 					{#each section.points as point (point)}
 						<li>{point}</li>

@@ -152,6 +152,11 @@ export function mergeAiProposalIntoPresenceDraft({
 	const merged = mergeGroupSiteEditorConfig(currentConfig, proposalConfig);
 	const homeBlocks = merged.site_pages?.[0]?.blocks || merged.page_blocks || [];
 	const visibility = deriveLegacySiteVisibility(homeBlocks, merged.sections);
+	const anyPageHasRideCalendar = Array.isArray(merged.site_pages)
+		? merged.site_pages.some((page) =>
+				(page?.blocks || []).some((block) => block?.type === 'ride_calendar')
+			)
+		: false;
 
 	const groupPatch = {};
 	const proposedTagline = cleanText(proposalConfig?.site_tagline, 180);
@@ -174,7 +179,7 @@ export function mergeAiProposalIntoPresenceDraft({
 			...merged,
 			page_blocks: homeBlocks,
 			sections: visibility.sections,
-			ride_widget_enabled: visibility.ride_widget_enabled
+			ride_widget_enabled: Boolean(visibility.ride_widget_enabled || anyPageHasRideCalendar)
 		},
 		nextGroup,
 		{ seoDescription: nextSeoDescription }
