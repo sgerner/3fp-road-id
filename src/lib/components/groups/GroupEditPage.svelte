@@ -13,6 +13,7 @@
 	import { geocodeAddress } from '#lib/groups/geocoding';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
+	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -37,8 +38,6 @@
 	let L; // loaded dynamically on client
 
 	const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-	const ZOOM_MIN = 0.1;
-	const ZOOM_MAX = 6;
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let submitError = $state('');
@@ -52,16 +51,20 @@
 	let cropTarget = $state(''); // 'logo' | 'cover'
 	let cropSrc = $state('');
 	let cropScale = $state(1);
-	let cropMinScale = $state(1);
-	let cropOffset = $state({ x: 0, y: 0 });
-	let cropDragging = false;
-	let cropStart = { x: 0, y: 0 };
-	let cropImgNatural = { w: 0, h: 0 };
+	let cropPanX = $state(0);
+	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	let cropFramer = $state(null);
 	let cropDialogEl = $state(null);
 	let cropReturnFocusEl = null;
 	let coverFieldRef = $state(null);
 	let formEl = $state();
+
+	$effect(() => {
+		if (!cropDialogEl) return;
+		if (cropping && !cropDialogEl.open) cropDialogEl.showModal();
+		else if (!cropping && cropDialogEl.open) cropDialogEl.close();
+	});
 	let stripeAccount = $state(pageData.donation_account || null);
 	let stripeBusy = $state(false);
 	let stripeError = $state('');
@@ -74,9 +77,6 @@
 	);
 	let stripeConnected = $derived(Boolean(stripeAccount?.stripe_account_id));
 	let stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
-
-	// Crop viewport container ref (no measurements used)
-	let cropContainerEl = $state(null);
 
 	// Server logs now print profile; no client logging needed
 
@@ -374,138 +374,23 @@
 		const arr = Array.from(file instanceof FileList || Array.isArray(file) ? file : [file]);
 		const f = arr[0];
 		if (!f) return;
+		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		coverFieldRef?.closeStudio?.();
 		cropReturnFocusEl = typeof document !== 'undefined' ? document.activeElement : null;
 		const url = URL.createObjectURL(f);
 		cropSrc = url;
 		cropTarget = target;
 		cropScale = 1;
-		cropMinScale = 1;
-		cropOffset = { x: 0, y: 0 };
+		cropPanX = 0;
+		cropPanY = 0;
 		cropReady = false;
 		cropping = true;
 	}
 
-	$effect(() => {
-		if (!cropDialogEl) return;
-		if (cropping && !cropDialogEl.open) {
-			cropDialogEl.showModal();
-		} else if (!cropping && cropDialogEl.open) {
-			cropDialogEl.close();
-		}
-	});
-
-	function onCropImgLoad(e) {
-		const img = e.target;
-		cropImgNatural = { w: img.naturalWidth, h: img.naturalHeight };
-		// Load at 1x and centered via CSS transform; user will zoom as needed
-		cropScale = 1;
-		cropOffset = { x: 0, y: 0 };
-		cropReady = true;
-	}
-
-	// Pinch + drag handling
-	let activePointers = new Map(); // id -> { x, y }
-	let isPinching = false;
-	let pinchStartDistance = 0;
-	let pinchStartScale = 1;
-	let pinchStartOffset = { x: 0, y: 0 };
-	let pinchCenter = { x: 0, y: 0 };
-
-	function onCropPointerDown(e) {
-		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		// Capture pointer to this element for consistent move/up events
-		try {
-			e.currentTarget?.setPointerCapture?.(e.pointerId);
-		} catch {}
-		if (activePointers.size === 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			pinchStartDistance = Math.hypot(dx, dy) || 1;
-			pinchStartScale = cropScale;
-			pinchStartOffset = { ...cropOffset };
-			const rect = cropContainerEl?.getBoundingClientRect?.();
-			const cx = (pts[0].x + pts[1].x) / 2 - (rect?.left || 0);
-			const cy = (pts[0].y + pts[1].y) / 2 - (rect?.top || 0);
-			pinchCenter = { x: cx, y: cy };
-			isPinching = true;
-			cropDragging = false;
-		} else if (activePointers.size === 1) {
-			cropDragging = true;
-			cropStart = { x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y };
-		}
-		e.preventDefault();
-	}
-	function onCropPointerMove(e) {
-		if (activePointers.has(e.pointerId)) {
-			activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		}
-		if (isPinching && activePointers.size >= 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			const dist = Math.hypot(dx, dy) || 1;
-			const factor = dist / (pinchStartDistance || 1);
-			const maxScale = ZOOM_MAX;
-			const newScale = Math.max(ZOOM_MIN, Math.min(maxScale, pinchStartScale * factor));
-			const imgX = (pinchCenter.x - pinchStartOffset.x) / pinchStartScale;
-			const imgY = (pinchCenter.y - pinchStartOffset.y) / pinchStartScale;
-			cropScale = newScale;
-			cropOffset = { x: pinchCenter.x - imgX * cropScale, y: pinchCenter.y - imgY * cropScale };
-			// no clamping without measurements
-		} else if (cropDragging) {
-			cropOffset = { x: e.clientX - cropStart.x, y: e.clientY - cropStart.y };
-		}
-	}
-	function onCropPointerUp(e) {
-		// Release pointer capture if held
-		try {
-			e.currentTarget?.releasePointerCapture?.(e.pointerId);
-		} catch {}
-		cropDragging = false;
-		isPinching = false;
-		activePointers.clear();
-	}
-
 	async function applyCrop() {
-		// Render to canvas with desired aspect
-		const ar = cropTarget === 'logo' ? 1 : 16 / 9;
-		const outW = cropTarget === 'logo' ? 800 : 1600;
-		const outH = Math.round(outW / ar);
-		const img = document.getElementById('crop-img');
-		if (!img) return;
-
-		// Compute the visible area in image coordinates using DOM rects (robust to any CSS/layout)
-		const imgRect = img.getBoundingClientRect();
-		const contRect = cropContainerEl?.getBoundingClientRect?.() || {
-			left: 0,
-			top: 0,
-			width: 800,
-			height: 800
-		};
-		const left = imgRect.left - contRect.left; // image top-left within viewport (CSS px)
-		const top = imgRect.top - contRect.top;
-		const scaleDom = imgRect.width / cropImgNatural.w || 1; // CSS px per image px
-		const sx = Math.max(0, -left / scaleDom);
-		const sy = Math.max(0, -top / scaleDom);
-		const sWidth = Math.min(cropImgNatural.w - sx, contRect.width / scaleDom);
-		const sHeight = Math.min(cropImgNatural.h - sy, contRect.height / scaleDom);
-
-		const canvas = document.createElement('canvas');
-		canvas.width = outW;
-		canvas.height = outH;
-		const ctx = canvas.getContext('2d');
-		ctx.imageSmoothingQuality = 'high';
-		ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
-
-		const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-		if (!blob) return;
-		const dataUrl = await new Promise((resolve) => {
-			const fr = new FileReader();
-			fr.onload = () => resolve(fr.result);
-			fr.readAsDataURL(blob);
-		});
+		const exported = await cropFramer?.exportCroppedImage({ quality: 0.9 });
+		if (!exported?.blob || !exported?.dataUrl) return;
+		const { blob, dataUrl } = exported;
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
@@ -2118,96 +2003,67 @@
 	</section>
 
 	<!-- ── Crop modal ── -->
-	{#if cropping}
-		<dialog
-			bind:this={cropDialogEl}
-			class="crop-dialog"
-			aria-labelledby="group-crop-title"
-			onclose={closeCropper}
-			onpointermove={onCropPointerMove}
-			onpointerup={onCropPointerUp}
-			onpointercancel={onCropPointerUp}
-		>
-			<div class="edit-card w-full max-w-4xl p-5">
-				<div class="mb-4 flex items-center justify-between">
-					<h3 id="group-crop-title" class="text-xl font-bold">
-						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
+	<dialog
+		bind:this={cropDialogEl}
+		aria-labelledby="group-crop-heading"
+		onclose={closeCropper}
+		class="bg-surface-950 text-surface-50 border-surface-700 border-t-primary-500 backdrop:bg-surface-950/80 m-auto max-h-[92dvh] w-full max-w-[min(44rem,calc(100%-2rem))] flex-col overflow-hidden border-2 border-t-4 p-0 open:flex"
+	>
+		{#if cropping}
+			<div class="flex min-h-0 flex-1 flex-col">
+				<div
+					class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between gap-3 border-b-2 px-5 py-4"
+				>
+					<h3 id="group-crop-heading" class="text-surface-50! m-0 text-xl font-black uppercase">
+						Frame {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
 					</h3>
 					<button
 						type="button"
-						class="btn btn-sm preset-outlined-surface-400"
-						onclick={closeCropper}>Cancel</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center border-2 px-3 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
+						Cancel
+					</button>
+				</div>
+				<div class="flex-1 overflow-y-auto p-5">
+					<SliderImageFramer
+						bind:this={cropFramer}
+						src={cropSrc}
+						target={cropTarget === 'logo' ? 'logo' : 'cover'}
+						alt={cropTarget === 'logo'
+							? 'Group logo framing preview'
+							: 'Group cover framing preview'}
+						bind:zoom={cropScale}
+						bind:panX={cropPanX}
+						bind:panY={cropPanY}
+						bind:ready={cropReady}
+					/>
 				</div>
 				<div
-					bind:this={cropContainerEl}
-					class="relative mx-auto w-full overflow-hidden border border-white/10"
-					style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
+					class="border-surface-800 bg-surface-900 flex shrink-0 justify-end gap-2.5 border-t-2 px-5 py-4"
 				>
-					<img
-						id="crop-img"
-						src={cropSrc}
-						alt="Crop source"
-						onload={onCropImgLoad}
-						onpointerdown={onCropPointerDown}
-						style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
-						class={cropReady ? '' : 'opacity-0'}
-					/>
-					{#if !cropReady}<div
-							class="text-surface-700-300 absolute inset-0 grid place-items-center"
-						>
-							Loading…
-						</div>{/if}
-					<div class="pointer-events-none absolute inset-0">
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
-						<div class="border-surface-950-50/50 absolute inset-0 border"></div>
-					</div>
-				</div>
-				<div class="mt-4 flex flex-wrap items-center gap-3">
-					<input
-						id="crop-zoom"
-						type="range"
-						min={ZOOM_MIN}
-						max={ZOOM_MAX}
-						step="0.01"
-						bind:value={cropScale}
-						aria-label="Crop zoom"
-						class="range flex-1"
-					/>
 					<button
 						type="button"
-						class="btn preset-outlined-surface-400"
-						onclick={() => {
-							cropScale = 1;
-							cropOffset = { x: 0, y: 0 };
-						}}>Reset</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-5 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
-					<button type="button" class="btn preset-filled-primary-500" onclick={applyCrop}
-						>Apply</button
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={!cropReady}
+						class="border-primary-500 bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:border-tertiary-500 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-6 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40"
+						onclick={applyCrop}
 					>
+						Apply
+					</button>
 				</div>
 			</div>
-		</dialog>
-	{/if}
+		{/if}
+	</dialog>
 </div>
 
 <style>
-	.crop-dialog {
-		margin: auto;
-		width: min(100% - 2rem, 56rem);
-		max-height: 92dvh;
-		padding: 0;
-		border: none;
-		background: transparent;
-		color: inherit;
-	}
-
-	.crop-dialog::backdrop {
-		background: rgb(0 0 0 / 82%);
-	}
 	/* ── Edit page header ── */
 	.edit-header {
 		background: var(--color-surface-900);
