@@ -1,7 +1,7 @@
 <script>
 	import { buildMonthGrid } from '#lib/calendar/monthGrid';
 	import { onMount } from 'svelte';
-	import { IMAGE_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/imageTones';
+	import { SOCIAL_TONE_OPTIONS as AI_TONE_OPTIONS } from '#lib/ai/socialTones';
 	import { fade, slide } from 'svelte/transition';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
@@ -28,18 +28,16 @@
 	import IconEdit3 from '@lucide/svelte/icons/pen-line';
 	import IconMoreVertical from '@lucide/svelte/icons/ellipsis-vertical';
 	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
+	import ArtworkStyleFields from '#lib/components/ai/ArtworkStyleFields.svelte';
 	import {
-		BIKE_VIBE_STYLE_ID,
 		IMAGE_STYLE_PRESETS,
-		IMAGE_STYLE_GROUPS,
-		STATE_MASCOT_STYLE_ID
-	} from '#lib/ai/imageStyles';
+		buildArtworkStyleOptions,
+		validateArtworkStyleSelection
+	} from '#lib/ai/artworkStudio';
 	import {
 		DEFAULT_SOCIAL_IMAGE_GENERATION_MODEL_ID,
 		SOCIAL_IMAGE_GENERATION_MODELS
 	} from '#lib/ai/imageGenerationModels';
-	import { BIKE_VIBE_OPTIONS, getBikeVibeById } from '#lib/ai/bikeVibes';
-	import { getUsStateName, normalizeUsStateCode, US_STATE_OPTIONS } from '#lib/geo/usStates';
 	import { toaster } from '../../../routes/toaster-svelte';
 
 	/** @type {Record<string, any>} */
@@ -179,7 +177,13 @@
 	/** @type {any} */
 	let aiSelectedBikeVibeId = $state('');
 	/** @type {any} */
-	let aiResolvingState = $state(false);
+	let socialStudioComponent = $state(null);
+	let socialStudioLoading = $state(false);
+	let socialStudioOpen = $state(false);
+	/** @type {any} */
+	let socialStudioCandidates = $state([]);
+	/** @type {any} */
+	let socialStudioTriggerEl = $state(null);
 	/** @type {any} */
 	const composerPreviewHasImage = $derived.by(() => Boolean(getDraftPreviewImage()?.url));
 	/** @type {any} */
@@ -204,10 +208,6 @@
 	const minimumSchedulableInputValue = $derived.by(() =>
 		formatLocalDateTimeInput(minimumSchedulableDate)
 	);
-	/** @type {any} */
-	const requiresAiStateSelection = $derived(aiStyleId === STATE_MASCOT_STYLE_ID);
-	/** @type {any} */
-	const requiresAiBikeVibeSelection = $derived(aiStyleId === BIKE_VIBE_STYLE_ID);
 
 	/** @type {any} */
 	const connectedPlatforms = $derived.by(() =>
@@ -409,63 +409,50 @@
 		}
 	});
 
-	function inferGroupStateCode() {
-		/** @type {any} */
-		const directCandidates = [
-			groupProfile?.state_region,
-			group?.state_region,
-			groupProfile?.state,
-			group?.state
-		];
-		for (const value of directCandidates) {
-			const normalized = normalizeUsStateCode(value);
-			if (normalized) return normalized;
-		}
-		/** @type {any} */
-		const locationCandidates = [
-			[groupProfile?.city, groupProfile?.state_region, groupProfile?.country]
+	function buildSocialArtworkContext() {
+		return {
+			name: groupProfile?.name || group?.name || '',
+			tagline: groupProfile?.tagline || group?.tagline || '',
+			description: composerCaption || groupProfile?.description || group?.description || '',
+			groupState: groupProfile?.state_region || group?.state_region || '',
+			groupLocation: [
+				groupProfile?.city || group?.city,
+				groupProfile?.state_region || group?.state_region,
+				groupProfile?.country || group?.country
+			]
 				.filter(Boolean)
-				.join(', '),
-			[group?.city, group?.state_region, group?.country].filter(Boolean).join(', ')
-		];
-		for (const value of locationCandidates) {
-			const parts = String(value ?? '')
-				.split(/[,\u00b7|/]+/g)
-				.map((part) => part.trim())
-				.filter(Boolean);
-			for (const part of parts.reverse()) {
-				const normalized = normalizeUsStateCode(part);
-				if (normalized) return normalized;
-			}
-		}
-		return '';
+				.join(', ')
+		};
 	}
 
-	async function resolveAiDefaultStateSelection() {
-		if (aiSelectedStateCode || !requiresAiStateSelection || aiResolvingState) return;
-		aiResolvingState = true;
-		try {
-			const fromGroup = inferGroupStateCode();
-			if (fromGroup) {
-				aiSelectedStateCode = fromGroup;
+	async function openSocialArtworkStudio() {
+		if (composerReadOnly || socialStudioLoading) return;
+		if (!socialStudioComponent) {
+			socialStudioLoading = true;
+			try {
+				const mod = await import('#lib/components/ai/ArtworkStudioModal.svelte');
+				socialStudioComponent = mod.default;
+			} catch (loadError) {
+				showActionError(loadError?.message || 'Unable to load artwork studio.');
 				return;
+			} finally {
+				socialStudioLoading = false;
 			}
-			const response = await fetch('/api/location/region');
-			const payload = await response.json().catch(() => ({}));
-			const fromIp = normalizeUsStateCode(payload?.stateCode);
-			if (response.ok && fromIp) aiSelectedStateCode = fromIp;
-		} catch {
-			// Best effort only.
-		} finally {
-			aiResolvingState = false;
 		}
+		socialStudioOpen = true;
 	}
 
-	$effect(() => {
-		if (requiresAiStateSelection) {
-			void resolveAiDefaultStateSelection();
-		}
-	});
+	function applySocialStudioImage(generated) {
+		const uploaded = normalizeGeneratedSocialImage(generated, `ai-social-studio-${Date.now()}`);
+		if (!uploaded?.url) return;
+		const imageEntry = {
+			...uploaded,
+			aspect_ratio: composerAspectRatio(),
+			platform: 'instagram,facebook'
+		};
+		rememberGeneratedImage(imageEntry);
+		selectGeneratedImage(imageEntry);
+	}
 
 	/**
 	 * @param {any} value
@@ -633,6 +620,7 @@
 	}
 
 	function closeComposerModal() {
+		socialStudioOpen = false;
 		if (composerDialog?.open) composerDialog.close();
 		composerReadOnly = false;
 		composerPreviewExpanded = false;
@@ -1685,12 +1673,13 @@
 			showActionError('Enter a prompt before generating content.');
 			return;
 		}
-		if (requiresAiStateSelection && !aiSelectedStateCode) {
-			showActionError('Select a state or territory for this style.');
-			return;
-		}
-		if (requiresAiBikeVibeSelection && !aiSelectedBikeVibeId) {
-			showActionError('Select a bike type or vibe for this style.');
+		const styleError = validateArtworkStyleSelection({
+			styleId: aiStyleId,
+			stateCode: aiSelectedStateCode,
+			bikeVibeId: aiSelectedBikeVibeId
+		});
+		if (styleError) {
+			showActionError(styleError);
 			return;
 		}
 
@@ -1747,21 +1736,11 @@
 					aspectRatio: composerAspectRatio(),
 					styleId: aiStyleId,
 					toneId: aiToneId,
-					styleOptions: {
-						...(requiresAiStateSelection
-							? {
-									stateCode: aiSelectedStateCode,
-									stateName: getUsStateName(aiSelectedStateCode)
-								}
-							: {}),
-						...(requiresAiBikeVibeSelection
-							? {
-									bikeVibeId: aiSelectedBikeVibeId,
-									bikeVibeLabel: getBikeVibeById(aiSelectedBikeVibeId)?.label || '',
-									bikeVibePrompt: getBikeVibeById(aiSelectedBikeVibeId)?.promptCue || ''
-								}
-							: {})
-					},
+					styleOptions: buildArtworkStyleOptions({
+						styleId: aiStyleId,
+						stateCode: aiSelectedStateCode,
+						bikeVibeId: aiSelectedBikeVibeId
+					}),
 					prompt: userMessage,
 					allowTextInImage: storyTarget || composerAiAddPageText,
 					textOverlay: storyTarget
@@ -2799,9 +2778,16 @@
 				<dialog
 					bind:this={composerDialog}
 					class="composer-dialog"
+					class:composer-dialog--studio-open={socialStudioOpen}
 					aria-labelledby="social-composer-title"
-					onclose={closeComposerModal}
-					onclick={(event) => event.target === event.currentTarget && closeComposerModal()}
+					oncancel={(event) => {
+						if (socialStudioOpen) event.preventDefault();
+					}}
+					onclose={() => {
+						if (!socialStudioOpen) closeComposerModal();
+					}}
+					onclick={(event) =>
+						event.target === event.currentTarget && !socialStudioOpen && closeComposerModal()}
 				>
 					<div class="composer-panel">
 						<!-- Header -->
@@ -3003,10 +2989,10 @@
 										<!-- AI Settings Row -->
 										<div class="ai-settings-panel">
 											<div class="ai-settings-row">
-												<!-- Tone -->
+												<!-- Voice / Tone (Social Copywriting) -->
 												<div class="ai-setting">
 													<label class="ai-setting__label" for="ai-tone"
-														>Tone · caption & image</label
+														>Voice · caption & image</label
 													>
 													<select
 														id="ai-tone"
@@ -3014,30 +3000,24 @@
 														bind:value={aiToneId}
 														disabled={composerReadOnly}
 													>
-														{#each AI_TONE_OPTIONS as tone}
+														{#each AI_TONE_OPTIONS as tone (tone.id)}
 															<option value={tone.id}>{tone.label}</option>
 														{/each}
 													</select>
 												</div>
 
-												<!-- Style -->
-												<div class="ai-setting ai-setting--grow">
-													<label class="ai-setting__label" for="ai-style">Style</label>
-													<select
-														id="ai-style"
-														class="ai-setting__select"
-														bind:value={aiStyleId}
-														disabled={composerReadOnly}
-													>
-														{#each IMAGE_STYLE_GROUPS as styleGroup}
-															<optgroup label={styleGroup.label}>
-																{#each styleGroup.presets as style}
-																	<option value={style.id}>{style.label}</option>
-																{/each}
-															</optgroup>
-														{/each}
-													</select>
-												</div>
+												<!-- Shared Style, State, and Bike Theme Controls -->
+												<ArtworkStyleFields
+													compact
+													bind:styleId={aiStyleId}
+													bind:stateCode={aiSelectedStateCode}
+													bind:bikeVibeId={aiSelectedBikeVibeId}
+													disabled={composerReadOnly}
+													showStyleDescription={false}
+													idPrefix="social-ai-style"
+													buildContext={buildSocialArtworkContext}
+												/>
+
 												<!-- Model Toggle -->
 												<div class="ai-setting ai-setting--model">
 													<span class="ai-setting__label">Model</span>
@@ -3079,47 +3059,9 @@
 										{#if selectedAiStyle?.description}
 											<p class="ai-tone-hint">{selectedAiStyle.description}</p>
 										{/if}
-										<!-- Optional: Tone description hint -->
+										<!-- Voice guidance hint (social copywriting only) -->
 										{#if selectedAiTone?.guidance}
 											<p class="ai-tone-hint">{selectedAiTone.guidance}</p>
-										{/if}
-
-										<!-- Conditional Options -->
-										{#if requiresAiStateSelection || requiresAiBikeVibeSelection}
-											<div class="ai-conditional-row">
-												{#if requiresAiStateSelection}
-													<div class="ai-setting">
-														<label class="ai-setting__label" for="ai-state">State</label>
-														<select
-															id="ai-state"
-															class="ai-setting__select"
-															bind:value={aiSelectedStateCode}
-															disabled={composerReadOnly}
-														>
-															<option value="">Select...</option>
-															{#each US_STATE_OPTIONS as option}
-																<option value={option.code}>{option.code}</option>
-															{/each}
-														</select>
-													</div>
-												{/if}
-												{#if requiresAiBikeVibeSelection}
-													<div class="ai-setting ai-setting--grow">
-														<label class="ai-setting__label" for="ai-bike">Bike Vibe</label>
-														<select
-															id="ai-bike"
-															class="ai-setting__select"
-															bind:value={aiSelectedBikeVibeId}
-															disabled={composerReadOnly}
-														>
-															<option value="">Select...</option>
-															{#each BIKE_VIBE_OPTIONS as option}
-																<option value={option.id}>{option.label}</option>
-															{/each}
-														</select>
-													</div>
-												{/if}
-											</div>
 										{/if}
 									</div>
 
@@ -3228,7 +3170,26 @@
 
 								<!-- Media Uploads -->
 								<div class="field-group">
-									<div class="field-label">Media</div>
+									<div class="flex flex-wrap items-center justify-between gap-2">
+										<div class="field-label">Media</div>
+										{#if !composerReadOnly}
+											<button
+												bind:this={socialStudioTriggerEl}
+												type="button"
+												class="btn btn-sm preset-tonal-surface gap-1.5 text-xs"
+												disabled={socialStudioLoading}
+												onclick={openSocialArtworkStudio}
+											>
+												{#if socialStudioLoading}
+													<IconLoader class="h-3.5 w-3.5 animate-spin" />
+													<span>Opening studio…</span>
+												{:else}
+													<IconSparkles class="h-3.5 w-3.5" />
+													<span>Create cover art</span>
+												{/if}
+											</button>
+										{/if}
+									</div>
 									<label
 										class="media-drop-zone"
 										class:media-drop-zone--active={mediaDropActive}
@@ -3465,6 +3426,27 @@
 					</div>
 					<!-- /composer-panel -->
 				</dialog>
+			{/if}
+
+			{#if socialStudioComponent}
+				{@const SocialStudio = socialStudioComponent}
+				<SocialStudio
+					bind:open={socialStudioOpen}
+					bind:candidates={socialStudioCandidates}
+					target="group"
+					storageBucket="group-social-media"
+					aspectRatio={composerAspectRatio()}
+					heading="Create post artwork"
+					description="Generate textless social visuals, compare candidates from this session, and apply the one you want."
+					currentImageUrl={aiSelectedImageUrl || composerMedia[0]?.url || ''}
+					returnFocusEl={socialStudioTriggerEl}
+					stacked={true}
+					buildContext={buildSocialArtworkContext}
+					onApply={applySocialStudioImage}
+					onClose={() => {
+						socialStudioOpen = false;
+					}}
+				/>
 			{/if}
 
 			<section class="space-y-3">
@@ -3972,6 +3954,15 @@
 
 	.composer-dialog::backdrop {
 		background: rgb(0 0 0 / 85%);
+	}
+
+	.composer-dialog--studio-open::backdrop {
+		background: transparent;
+	}
+
+	.composer-dialog--studio-open .composer-panel {
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	.composer-panel {

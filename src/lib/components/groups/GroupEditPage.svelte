@@ -12,7 +12,7 @@
 	import * as env from '$app/env/public';
 	import { geocodeAddress } from '#lib/groups/geocoding';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -58,6 +58,12 @@
 	let cropStart = { x: 0, y: 0 };
 	let cropImgNatural = { w: 0, h: 0 };
 	let cropReady = $state(false);
+	/** @type {HTMLDialogElement | null} */
+	let cropDialogEl = $state(null);
+	/** @type {HTMLElement | null} */
+	let cropReturnFocusEl = null;
+	/** @type {any} */
+	let coverFieldRef = $state(null);
 	/** @type {HTMLFormElement | undefined} */
 	let formEl = $state();
 	let stripeAccount = $state(pageData.donation_account || null);
@@ -381,6 +387,11 @@
 		const arr = Array.from(file instanceof FileList || Array.isArray(file) ? file : [file]);
 		const f = arr[0];
 		if (!f) return;
+		coverFieldRef?.closeStudio?.();
+		cropReturnFocusEl =
+			typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+				? document.activeElement
+				: null;
 		const url = URL.createObjectURL(f);
 		cropSrc = url;
 		cropTarget = target;
@@ -390,6 +401,15 @@
 		cropReady = false;
 		cropping = true;
 	}
+
+	$effect(() => {
+		if (!cropDialogEl) return;
+		if (cropping && !cropDialogEl.open) {
+			cropDialogEl.showModal();
+		} else if (!cropping && cropDialogEl.open) {
+			cropDialogEl.close();
+		}
+	});
 
 	function onCropImgLoad(e) {
 		const img = e.target;
@@ -528,10 +548,12 @@
 				saving = false;
 			}
 		} else if (cropTarget === 'cover') {
-			if (coverPreview) URL.revokeObjectURL(coverPreview);
+			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = URL.createObjectURL(blob);
 			const input = document.getElementById('cover_file_cropped');
 			if (input instanceof HTMLInputElement) input.value = dataUrl;
+			const clear = document.getElementById('clear_cover');
+			if (clear instanceof HTMLInputElement) clear.value = '';
 			// Autosave cropped cover immediately
 			try {
 				saving = true;
@@ -555,10 +577,18 @@
 	}
 
 	function closeCropper() {
+		if (cropDialogEl?.open) {
+			cropDialogEl.close();
+		}
 		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		cropSrc = '';
 		cropping = false;
 		cropTarget = '';
+		const focusTarget = cropReturnFocusEl;
+		cropReturnFocusEl = null;
+		if (focusTarget && typeof focusTarget.focus === 'function') {
+			queueMicrotask(() => focusTarget.focus());
+		}
 	}
 
 	// AUTOSAVE: debounced field updates
@@ -973,7 +1003,13 @@
 	function applyGeneratedGroupCover(result) {
 		const url = result?.url || '';
 		if (!url) return;
+		if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		coverTooLarge = false;
+		const croppedInput = document.getElementById('cover_file_cropped');
+		if (croppedInput instanceof HTMLInputElement) croppedInput.value = '';
+		const clearInput = document.getElementById('clear_cover');
+		if (clearInput instanceof HTMLInputElement) clearInput.value = '';
 		queueSave({ fields: { cover_photo_url: url } });
 	}
 
@@ -1276,20 +1312,20 @@
 		setPreview('logo', files);
 		if (files.length) openCropper('logo', files);
 	}
-	function onCoverChange(details) {
-		const files = details?.acceptedFiles || [];
-		coverFiles = files;
-		coverTooLarge = tooLarge(files);
-		setPreview('cover', files);
-		if (files.length) openCropper('cover', files);
+	function onCoverFilesSelected(files) {
+		const selected = Array.from(files || []);
+		coverFiles = selected;
+		coverTooLarge = tooLarge(selected);
+		if (coverTooLarge || !selected.length) return;
+		openCropper('cover', selected);
 	}
-	function onReject(err) {
+	function onReject() {
 		// Just surface a generic message; Skeleton will handle UI for rejection
 		submitError = 'One or more files were rejected. Ensure they are images under 10MB.';
 	}
 	function removeImage(which) {
 		if (which === 'logo') {
-			if (logoPreview) URL.revokeObjectURL(logoPreview);
+			if (logoPreview?.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
 			logoPreview = '';
 			logoFiles = [];
 			logoUploadKey += 1;
@@ -1297,17 +1333,18 @@
 			if (input instanceof HTMLInputElement) input.value = '';
 			const clear = document.getElementById('clear_logo');
 			if (clear instanceof HTMLInputElement) clear.value = '1';
-			// Do not mutate data.group; leave server to persist on submit
+			queueSave({ fields: { logo_url: null } });
 		} else if (which === 'cover') {
-			if (coverPreview) URL.revokeObjectURL(coverPreview);
+			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = '';
 			coverFiles = [];
+			coverTooLarge = false;
 			coverUploadKey += 1;
 			const input = document.getElementById('cover_file_cropped');
 			if (input instanceof HTMLInputElement) input.value = '';
 			const clear = document.getElementById('clear_cover');
 			if (clear instanceof HTMLInputElement) clear.value = '1';
-			// Do not mutate data.group; leave server to persist on submit
+			queueSave({ fields: { cover_photo_url: null } });
 		}
 	}
 </script>
@@ -1934,18 +1971,7 @@
 		<section class="edit-card relative overflow-hidden p-5">
 			<div class="edit-card-accent-bar primary" aria-hidden="true"></div>
 			<h2 class="edit-section-title">Photos</h2>
-			<div class="mt-4">
-				<ImageGeneratorPanel
-					target="group"
-					heading="Generate group cover art"
-					description="Create a fresh comic-style banner from the current group details and save it directly to the cover photo."
-					helperText="This updates the live cover image immediately through autosave."
-					currentImageUrl={coverPreview}
-					buildContext={buildGroupImageContext}
-					onApply={applyGeneratedGroupCover}
-				/>
-			</div>
-			<div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+			<div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
 				<!-- Logo -->
 				<div class="flex flex-col gap-2">
 					<label class="label" for="logo_url"
@@ -1979,6 +2005,7 @@
 							<button
 								type="button"
 								class="absolute top-1 right-1 bg-black/60 p-0.5"
+								aria-label="Remove logo"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -1988,47 +2015,27 @@
 				</div>
 				<!-- Cover -->
 				<div class="flex flex-col gap-2">
-					<label class="label" for="cover_photo_url"
-						>Cover Photo <span class="text-surface-500 text-xs font-normal">(16:9)</span></label
-					>
-					{#key coverUploadKey}
-						<FileUpload
-							name="cover_file"
-							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-							maxFiles={1}
-							maxFileSize={MAX_BYTES}
-							class="w-full"
-							onFileChange={onCoverChange}
-							onFileReject={onReject}
-						>
-							<FileUpload.HiddenInput />
-							<FileUpload.Dropzone
-								class="edit-dropzone border-2 border-dashed p-6"
-								aria-label="Select cover image or drag here"
-							>
-								<IconDropzone class="mx-auto mb-2 h-8 w-8 opacity-50" />
-								<p class="text-sm">Select or drag a file</p>
-								<small class="text-xs opacity-50">PNG · JPG · WEBP · Max 10MB</small>
-							</FileUpload.Dropzone>
-						</FileUpload>
-					{/key}
-					{#if coverTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
-					{#if coverPreview}
-						<div class="relative mt-1 aspect-[16/9] overflow-hidden border border-white/10">
-							<img
-								src={coverPreview}
-								alt="Cover preview"
-								class="absolute inset-0 h-full w-full object-cover"
-							/>
-							<button
-								type="button"
-								class="absolute top-1 right-1 bg-black/60 p-0.5"
-								onclick={() => removeImage('cover')}
-							>
-								<IconRemove class="h-4 w-4 text-white" />
-							</button>
-						</div>
-					{/if}
+					<CoverMediaField
+						bind:this={coverFieldRef}
+						label="Cover photo"
+						description="Upload and crop a 16:9 photo, or open the studio to explore generated banners before saving."
+						helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
+						accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+						imageUrl={coverPreview}
+						uploading={saving}
+						error={coverTooLarge ? 'File exceeds 10MB limit.' : ''}
+						target="group"
+						studioHeading="Create group cover art"
+						studioDescription="Explore generated banners from your group details. Your live cover photo only updates when you click Apply artwork."
+						studioHelperText="Confirming artwork updates the live cover photo via autosave."
+						buildContext={buildGroupImageContext}
+						onSelectFiles={onCoverFilesSelected}
+						onRemove={coverPreview ? () => removeImage('cover') : null}
+						onApplyArtwork={applyGeneratedGroupCover}
+						onStudioOpenChange={(isOpen) => {
+							if (isOpen && cropping) closeCropper();
+						}}
+					/>
 				</div>
 			</div>
 
@@ -2140,18 +2147,18 @@
 
 	<!-- ── Crop modal ── -->
 	{#if cropping}
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
+		<dialog
+			bind:this={cropDialogEl}
+			class="crop-dialog"
+			aria-labelledby="group-crop-title"
+			onclose={closeCropper}
 			onpointermove={onCropPointerMove}
 			onpointerup={onCropPointerUp}
 			onpointercancel={onCropPointerUp}
 		>
 			<div class="edit-card w-full max-w-4xl p-5">
 				<div class="mb-4 flex items-center justify-between">
-					<h3 class="text-xl font-bold">
+					<h3 id="group-crop-title" class="text-xl font-bold">
 						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
 					</h3>
 					<button
@@ -2195,6 +2202,7 @@
 						max={ZOOM_MAX}
 						step="0.01"
 						bind:value={cropScale}
+						aria-label="Crop zoom"
 						class="range flex-1"
 					/>
 					<button
@@ -2210,11 +2218,24 @@
 					>
 				</div>
 			</div>
-		</div>
+		</dialog>
 	{/if}
 </div>
 
 <style>
+	.crop-dialog {
+		margin: auto;
+		width: min(100% - 2rem, 56rem);
+		max-height: 92dvh;
+		padding: 0;
+		border: none;
+		background: transparent;
+		color: inherit;
+	}
+
+	.crop-dialog::backdrop {
+		background: rgb(0 0 0 / 82%);
+	}
 	/* ── Edit page header ── */
 	.edit-header {
 		background: var(--color-surface-900);

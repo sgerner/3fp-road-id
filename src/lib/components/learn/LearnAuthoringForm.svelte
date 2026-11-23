@@ -3,7 +3,7 @@
 	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
 	import LearnMediaUploader from '#lib/components/learn/LearnMediaUploader.svelte';
 	import LearnWritingAssistant from '#lib/components/learn/LearnWritingAssistant.svelte';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import IconBookPlus from '@lucide/svelte/icons/book-plus';
 	import IconPencil from '@lucide/svelte/icons/pencil';
 
@@ -23,11 +23,24 @@
 	);
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let coverUploading = $state(false);
+	let coverUploadError = $state('');
+	let extraUploadedAssets = $state([]);
 	let summaryValue = $state('');
 	/** @type {any} */
 	let editorApi = $state(null);
 	let editorReady = $state(false);
 	let saving = $state(false);
+
+	const mergedAssets = $derived(
+		Array.from(
+			new Map(
+				[...extraUploadedAssets, ...(editing ? assetLibrary : (data.recentAssets ?? []))].map(
+					(asset) => [asset.id || asset.url, asset]
+				)
+			).values()
+		)
+	);
 
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
@@ -49,7 +62,51 @@
 	}
 
 	function applyGeneratedImage(result) {
+		coverUploadError = '';
 		coverImageUrl = result?.url || coverImageUrl;
+		if (result?.asset) {
+			extraUploadedAssets = [result.asset, ...extraUploadedAssets];
+		}
+	}
+
+	async function uploadCoverFiles(files) {
+		const file = files?.[0];
+		if (!file) return;
+		coverUploadError = '';
+		if (file.size > 25 * 1024 * 1024) {
+			coverUploadError = 'Cover image exceeds the 25 MB upload limit.';
+			return;
+		}
+		coverUploading = true;
+		try {
+			const payload = new FormData();
+			payload.append('files', file);
+			if (article?.id) payload.append('articleId', article.id);
+
+			const response = await fetch('/api/learn/assets', {
+				method: 'POST',
+				body: payload
+			});
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(body?.error || 'Unable to upload cover image.');
+			}
+			const uploadedAsset = body?.files?.[0];
+			if (!uploadedAsset?.url) {
+				throw new Error('Unable to upload cover image.');
+			}
+			coverImageUrl = uploadedAsset.url;
+			extraUploadedAssets = [uploadedAsset, ...extraUploadedAssets];
+		} catch (uploadError) {
+			coverUploadError = uploadError?.message || 'Unable to upload cover image.';
+		} finally {
+			coverUploading = false;
+		}
+	}
+
+	function removeCoverImage() {
+		coverUploadError = '';
+		coverImageUrl = '';
 	}
 </script>
 
@@ -186,26 +243,25 @@
 								{/each}
 							</select>
 						</label>
-						<label class="space-y-2 md:col-span-2">
-							<span class="label">Cover image URL</span>
-							<input
-								class="input"
-								name="coverImageUrl"
-								placeholder="https://…"
-								bind:value={coverImageUrl}
-							/>
-						</label>
 					</div>
-					<ImageGeneratorPanel
+					<input type="hidden" name="coverImageUrl" value={coverImageUrl} />
+					<CoverMediaField
+						label="Article cover"
+						description="Upload a cover image directly, or open the studio to create editorial cover art."
+						helperNote="PNG, JPG, WebP, or GIF · Max 25 MB · 16:9 recommended"
+						imageUrl={coverImageUrl}
+						uploading={coverUploading}
+						error={coverUploadError}
 						target="learn"
-						heading="Create cover art"
-						description="Create a visual from the article you are writing."
-						helperText="Works best for bold, symbolic cover art."
 						articleId={article?.id}
 						defaultStyleId="quiet_gouache"
-						currentImageUrl={coverImageUrl}
-						buildContext
-						onApply={applyGeneratedImage}
+						studioHeading="Create cover art"
+						studioDescription="Create an editorial illustration from the article you are writing."
+						studioHelperText="Works best for bold, symbolic cover art."
+						{buildContext}
+						onSelectFiles={uploadCoverFiles}
+						onRemove={coverImageUrl ? removeCoverImage : null}
+						onApplyArtwork={applyGeneratedImage}
 					/>
 				</div>
 			</details>
@@ -241,7 +297,7 @@
 			<div class="mt-4">
 				<LearnMediaUploader
 					articleId={article?.id}
-					uploaded={editing ? assetLibrary : data.recentAssets}
+					uploaded={mergedAssets}
 					heading="Asset library"
 					description={editing
 						? 'Browse assets attached to this article, reuse recent uploads, or add new files.'
