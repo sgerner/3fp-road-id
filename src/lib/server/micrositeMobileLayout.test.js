@@ -190,6 +190,14 @@ let sharedHarness = null;
 
 before(async () => {
 	const virtualModules = {
+		// The standalone Vite harness has no SvelteKit runtime, so stub the page store.
+		'$app/state': `
+			export const page = {
+				get url() {
+					return new URL(globalThis.location?.href ?? 'http://127.0.0.1/');
+				}
+			};
+		`,
 		'virtual:microsite-harness': `
 			import { mount } from 'svelte';
 			import '/src/app.css';

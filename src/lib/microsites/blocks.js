@@ -235,6 +235,7 @@ function cleanText(value, limit) {
 function normalizeUrl(value) {
 	const raw = cleanText(value, 500);
 	if (!raw) return '';
+	if (/^#[a-z0-9][a-z0-9_-]*$/i.test(raw)) return raw;
 	if (/^(https?:\/\/|mailto:|tel:)/i.test(raw) || raw.startsWith('/')) return raw;
 	if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return '';
 	return `https://${raw}`;
