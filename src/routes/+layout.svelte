@@ -9,6 +9,7 @@
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -240,7 +241,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const targetIndex =
-			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 5 : 4);
+			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 6 : 5);
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -678,8 +679,14 @@
 		return page.url.pathname.startsWith('/get-involved');
 	}
 
-	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
+	let layoutWrapperMode = $derived(
+		resolveRootLayoutWrapperMode({
+			isMicrosite: isMicrositeRoute,
+			pathname: page.url.pathname,
+			hasError: page.error !== null && page.error !== undefined
+		})
+	);
 </script>
 
 <svelte:head>
@@ -692,11 +699,11 @@
 >
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
-	{#if isMicrositeRoute}
+	{#if layoutWrapperMode === 'microsite'}
 		<div class="min-h-dvh min-w-0 overflow-x-clip">
 			{@render children()}
 		</div>
-	{:else if isEmbedRoute}
+	{:else if layoutWrapperMode === 'standalone-main'}
 		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
@@ -847,10 +854,29 @@
 											Profile
 										</a>
 										<a
-											href={myGroupsMenuHref}
+											href="/profile#road-id"
 											class="profile-menu-item"
 											role="menuitem"
 											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
+										>
+											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
+											Emergency ID
+										</a>
+										<a
+											href={myGroupsMenuHref}
+											class="profile-menu-item"
+											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -860,7 +886,7 @@
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -871,7 +897,7 @@
 												href="/messages"
 												class="profile-menu-item"
 												role="menuitem"
-												tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
+												tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
 												onclick={() => (showUserMenu = false)}
 											>
 												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -884,7 +910,7 @@
 											class="profile-menu-item w-full"
 											onclick={doLogout}
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 5 : 4)
+											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 6 : 5)
 												? 0
 												: -1}
 										>
@@ -947,6 +973,7 @@
 										<input
 											id="login-email-m"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
@@ -1000,6 +1027,7 @@
 										<input
 											id="login-email"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"

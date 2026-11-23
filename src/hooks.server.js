@@ -85,8 +85,10 @@ export const handle = async ({ event, resolve }) => {
 	const routeId = event.route.id;
 	if (
 		routeId === '/auth/confirm' ||
+		routeId === '/profile' ||
 		routeId === '/roadid/[code]' ||
-		routeId === '/api/v1/code/[code]'
+		routeId === '/api/v1/code/[code]' ||
+		routeId?.startsWith('/api/v1/road-id-profile')
 	) {
 		response.headers.set('cache-control', 'private, no-store');
 		response.headers.set('referrer-policy', 'no-referrer');
