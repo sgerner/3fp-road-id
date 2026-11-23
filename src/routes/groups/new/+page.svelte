@@ -1145,7 +1145,7 @@
 			</p>
 			<button
 				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-3 px-8 py-4 text-base font-black tracking-wide uppercase transition disabled:opacity-50"
-				disabled={needsDuplicateOverride && !duplicateOverrideConfirmed}
+				disabled={coverUploading || (needsDuplicateOverride && !duplicateOverrideConfirmed)}
 			>
 				{needsDuplicateOverride ? 'Create Group Anyway →' : 'Create Group →'}
 			</button>
