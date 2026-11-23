@@ -3,7 +3,15 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import * as env from '$app/env/private';
 import { IMAGE_GENERATION_MODEL_IDS } from '#lib/ai/imageGenerationModels';
 import { createOpenAiTextProviderClient } from './openai.js';
+import {
+	createGoogleTextProviderClient,
+	extractGeminiResponseContent,
+	normalizeGeminiGenerationConfig,
+	runBoundedToolLoop
+} from './toolLoop.js';
 import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
+
+export { extractGeminiResponseContent, normalizeGeminiGenerationConfig, runBoundedToolLoop };
 
 export const AI_CAPABILITIES = {
 	TEXT_GENERATION: 'text_generation',
@@ -267,59 +275,13 @@ function getGoogleFallbackModel(model) {
 	)?.fallbackModel;
 }
 
-function removeDeprecatedGeminiGenerationParameters(config = {}) {
-	const normalizedConfig = { ...config };
-	for (const key of [
-		'temperature',
-		'topP',
-		'topK',
-		'top_p',
-		'top_k',
-		'thinkingBudget',
-		'thinking_budget'
-	]) {
-		delete normalizedConfig[key];
-	}
+export function createGoogleProviderClient(ai) {
+	const textClient = createGoogleTextProviderClient(ai, {
+		getFallbackModel: getGoogleFallbackModel
+	});
 
-	for (const key of ['thinkingConfig', 'thinking_config']) {
-		const thinkingConfig = normalizedConfig[key];
-		if (!thinkingConfig || typeof thinkingConfig !== 'object' || Array.isArray(thinkingConfig)) {
-			continue;
-		}
-
-		const normalizedThinkingConfig = { ...thinkingConfig };
-		delete normalizedThinkingConfig.thinkingBudget;
-		delete normalizedThinkingConfig.thinking_budget;
-		if (Object.keys(normalizedThinkingConfig).length > 0) {
-			normalizedConfig[key] = normalizedThinkingConfig;
-		} else {
-			delete normalizedConfig[key];
-		}
-	}
-
-	return normalizedConfig;
-}
-
-function createGoogleProviderClient(ai) {
 	return {
-		async generateContent({ model, contents, config }) {
-			const generationConfig = removeDeprecatedGeminiGenerationParameters(config);
-			try {
-				return await ai.models.generateContent({
-					model,
-					contents,
-					config: generationConfig
-				});
-			} catch (error) {
-				const fallbackModel = getGoogleFallbackModel(model);
-				if (!fallbackModel) throw error;
-				return ai.models.generateContent({
-					model: fallbackModel,
-					contents,
-					config: generationConfig
-				});
-			}
-		},
+		...textClient,
 		async generateImage({ model, prompt, aspectRatio = '16:9', imageSize = '1K' }) {
 			const generateImage = (imageModel) =>
 				ai.models.generateContent({

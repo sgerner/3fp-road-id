@@ -1,6 +1,7 @@
 <script>
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import { guardUnsavedNavigation, replaceShallowQueryParam } from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconCheck from '@lucide/svelte/icons/check';
@@ -8,8 +9,8 @@
 	import IconClock from '@lucide/svelte/icons/clock-3';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
-	import IconHistory from '@lucide/svelte/icons/history';
+	import IconGlobe from '@lucide/svelte/icons/earth';
+	import IconHistory from '@lucide/svelte/icons/rotate-ccw-clock';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPalette from '@lucide/svelte/icons/palette';
 	import IconRefresh from '@lucide/svelte/icons/refresh-cw';
@@ -168,10 +169,7 @@
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -485,8 +483,11 @@
 		}
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !busy && !confirm('Leave without saving your email draft?')) cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !busy,
+			message: 'Leave without saving your email draft?'
+		});
 	});
 
 	onMount(() => {

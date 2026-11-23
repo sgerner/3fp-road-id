@@ -9,16 +9,16 @@
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconPlus from '@lucide/svelte/icons/plus';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconLoaderCircle from '@lucide/svelte/icons/loader-circle';
-	import IconCheckCircle from '@lucide/svelte/icons/check-circle';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconCheckCircle from '@lucide/svelte/icons/circle-check-big';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { completeFormUpdate } from '#lib/client/navigation';
 	import { fade, slide } from 'svelte/transition';
 	import { tick } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -181,12 +181,11 @@
 
 			return async ({ result, update }) => {
 				pendingUploadBucket = '';
-				await update({ reset: false, invalidateAll: false });
-
-				if (result.type === 'success') {
-					successNotice = result.data?.success || 'Saved.';
-					await invalidateAll();
-				}
+				await completeFormUpdate(update, result, {
+					onSuccess: () => {
+						successNotice = result.data?.success || 'Saved.';
+					}
+				});
 			};
 		};
 	}
@@ -199,13 +198,12 @@
 
 			return async ({ result, update }) => {
 				pendingAddLink = false;
-				await update({ reset: false, invalidateAll: false });
-
-				if (result.type === 'success') {
-					successNotice = result.data?.success || 'Saved.';
-					resetLinkForm();
-					await invalidateAll();
-				}
+				await completeFormUpdate(update, result, {
+					onSuccess: () => {
+						successNotice = result.data?.success || 'Saved.';
+						resetLinkForm();
+					}
+				});
 			};
 		};
 	}
@@ -218,15 +216,14 @@
 
 			return async ({ result, update }) => {
 				pendingDeleteAssetId = '';
-				await update({ reset: false, invalidateAll: false });
-
-				if (result.type === 'success') {
-					successNotice = result.data?.success || 'Saved.';
-					if (closeOnSuccess) {
-						closeLightbox();
+				await completeFormUpdate(update, result, {
+					onSuccess: () => {
+						successNotice = result.data?.success || 'Saved.';
+						if (closeOnSuccess) {
+							closeLightbox();
+						}
 					}
-					await invalidateAll();
-				}
+				});
 			};
 		};
 	}
@@ -239,12 +236,11 @@
 
 			return async ({ result, update }) => {
 				pendingLinkUpdateAssetId = '';
-				await update({ reset: false, invalidateAll: false });
-
-				if (result.type === 'success') {
-					successNotice = result.data?.success || 'Saved.';
-					await invalidateAll();
-				}
+				await completeFormUpdate(update, result, {
+					onSuccess: () => {
+						successNotice = result.data?.success || 'Saved.';
+					}
+				});
 			};
 		};
 	}
