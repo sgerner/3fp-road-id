@@ -12,6 +12,7 @@ import {
 	isTempeBicycleActionGroup,
 	TBAG_INTERNAL_ROUTES,
 	TBAG_COLORS,
+	TBAG_FOLLOW_CALENDAR_REVISION,
 	TBAG_SOURCE_CONTENT_REVISION
 } from '../microsites/tempeBicycleActionGroup.js';
 
@@ -61,7 +62,10 @@ test('TBAG receives a focused advocacy site with a compact navigation', () => {
 	assert.equal(config.site_variant, 'tbag');
 	assert.equal(config.hero_style, 'bold');
 	assert.deepEqual(config.theme_colors, TBAG_COLORS);
-	assert.equal(config.ride_widget_enabled, false);
+	assert.equal(config.ride_widget_enabled, true);
+	assert.equal(config.ride_widget_host_scope, 'all');
+	assert.equal(config.ride_widget_config.defaultTab, 'calendar');
+	assert.equal(config.ride_widget_config.city, 'Tempe');
 	assert.deepEqual(
 		config.site_pages.map((page) => page.slug),
 		[
@@ -91,9 +95,16 @@ test('TBAG receives a focused advocacy site with a compact navigation', () => {
 	);
 	assert.ok(config.page_blocks.some((block) => block.type === 'email_signup'));
 	assert.ok(config.page_blocks.some((block) => block.type === 'resources'));
-	assert.equal(
-		config.site_pages.find((page) => page.slug === 'calendar').blocks[0].button_label,
-		'Open the calendar'
+	const calendarPage = config.site_pages.find((page) => page.slug === 'calendar');
+	assert.equal(calendarPage.source_revision, TBAG_FOLLOW_CALENDAR_REVISION);
+	assert.equal(calendarPage.blocks[0].button_label, 'Browse ride calendar');
+	assert.equal(calendarPage.blocks[0].button_url, '#rides-widget');
+	assert.ok(calendarPage.blocks.some((block) => block.type === 'ride_calendar'));
+	assert.ok(calendarPage.blocks.some((block) => block.type === 'events'));
+	assert.ok(
+		calendarPage.blocks.every(
+			(block) => block.button_url !== '/calendar' && block.button_url !== '/biketempe/calendar'
+		)
 	);
 	assert.equal(
 		config.site_pages

@@ -18,12 +18,15 @@
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { fade, fly } from 'svelte/transition';
 	import { scrollReveal } from '#lib/microsites/scrollReveal';
+	import { deriveMicrositeCapabilities } from '#lib/microsites/capabilities';
 
 	/** @type {Record<string, any>} */
 	let { data, children } = $props();
 
 	/** @type {any} */
 	const site = $derived(data.site);
+	/** @type {any} */
+	const capabilities = $derived(deriveMicrositeCapabilities(site));
 	/** @type {any} */
 	const group = $derived(site?.group ?? null);
 	/** @type {any} */
@@ -72,9 +75,7 @@
 	const contactHref = $derived(basePath ? `${basePath}#contact` : '/#contact');
 	const communityHref = 'https://3fp.org';
 	/** @type {any} */
-	const membershipCtaLabel = $derived(
-		(site?.membershipProgram?.cta_label || '').trim() || 'Follow'
-	);
+	const membershipCtaLabel = $derived(capabilities.membershipCtaLabel || 'Follow');
 	const micrositeColorModeStorageKey = '3fp-microsite-color-mode';
 	/** @type {any} */
 	const currentPathname = $derived(normalizePathname(page.url.pathname));
@@ -229,7 +230,7 @@
 		) {
 			available.set('special:updates', { label: 'Updates', href: updatesHref });
 		}
-		if (site?.siteConfig?.sections?.join) {
+		if (capabilities.canShowFollowNav) {
 			available.set('special:join', { label: membershipCtaLabel, href: joinHref });
 		}
 		if (site?.siteConfig?.sections?.gallery && site?.photoBucket?.asset_count) {
@@ -238,7 +239,7 @@
 		if (site?.assetBuckets?.some((b) => b.asset_count > 0 && b.slug !== 'photos')) {
 			available.set('special:resources', { label: 'Resources', href: assetsHref });
 		}
-		if (site?.siteConfig?.sections?.contact) {
+		if (capabilities.canShowContactNav) {
 			available.set('special:contact', { label: 'Contact', href: contactHref });
 		}
 		const navigation = site?.siteConfig?.site_pages?.[0]?.navigation?.items || [];

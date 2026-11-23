@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconHeart from '@lucide/svelte/icons/heart';
@@ -22,8 +23,13 @@
 	import { LAZY_IMAGE_PLACEHOLDER, lazyImage } from '#lib/media/lazyImage';
 	import { getGroupSiteBlockTone } from '#lib/microsites/blocks';
 	import {
+		deriveMicrositeCapabilities,
+		isSamePageReloadHref,
+		resolveMicrositeActionHref
+	} from '#lib/microsites/capabilities';
+	import { buildRideWidgetSearchParams } from '#lib/rides/widgetConfig';
+	import {
 		inferTbagSourceMediaPage,
-		mapTbagLegacyUrl,
 		tbagSourceMediaKey
 	} from '#lib/microsites/tempeBicycleActionGroup';
 	import {
@@ -37,6 +43,10 @@
 	let { data } = $props();
 	/** @type {any} */
 	const site = $derived(data.site);
+	/** @type {any} */
+	const capabilities = $derived(deriveMicrositeCapabilities(site));
+	/** @type {any} */
+	const contactLinks = $derived(capabilities.contactLinks);
 	/** @type {any} */
 	const group = $derived(site.group);
 	/** @type {any} */
@@ -294,21 +304,17 @@
 	// Ride widget
 	/** @type {any} */
 	const rideWidgetFramePath = $derived.by(() => {
-		if (!config?.ride_widget_enabled) return '';
+		if (!capabilities.hasRideWidget) return '';
 		const baseConfig = { ...(config?.ride_widget_config || {}) };
 		if ((config?.ride_widget_host_scope || 'group_only') === 'group_only') {
 			baseConfig.organizationSlug = group?.slug || '';
 		}
-		const params = new URLSearchParams();
-		for (const [key, value] of Object.entries(baseConfig)) {
-			if (value !== null && value !== undefined && value !== '') {
-				params.set(key, String(value));
-			}
-		}
+		const params = buildRideWidgetSearchParams(baseConfig);
 		params.set('host_scope', config?.ride_widget_host_scope || 'group_only');
 		if (
 			config?.ride_widget_host_scope === 'selected_groups' &&
-			Array.isArray(config?.ride_widget_group_ids)
+			Array.isArray(config?.ride_widget_group_ids) &&
+			config.ride_widget_group_ids.length
 		) {
 			params.set('group_ids', config.ride_widget_group_ids.join(','));
 		}
@@ -426,27 +432,15 @@
 	 * @param {any} block
 	 */
 	function blockActionHref(block) {
-		const configured = String(block?.button_url || '').trim();
-		const internalized = isTbagSite ? mapTbagLegacyUrl(configured) : configured;
-		const configuredPath = internalized.split('#', 1)[0];
-		if (['/join', '/updates', '/assets'].includes(configuredPath))
-			return siteChildHref(internalized);
-		if (
-			internalized.startsWith('/') &&
-			config?.site_pages?.some(
-				(page) =>
-					page.slug &&
-					(configuredPath === `/${page.slug}` || configuredPath.startsWith(`/${page.slug}/`))
-			)
-		)
-			return siteChildHref(internalized);
-		if (internalized) return internalized;
-		if (block?.type === 'volunteer') return `/volunteer/groups/${group.slug}`;
-		if (block?.type === 'updates') return siteChildHref('/updates');
-		if (block?.type === 'resources') return siteChildHref('/assets');
-		if (block?.type === 'membership' || block?.type === 'email_signup')
-			return siteChildHref('/join');
-		return '';
+		return resolveMicrositeActionHref(block, {
+			site,
+			capabilities,
+			currentPage,
+			currentPathname: page.url.pathname,
+			currentSearch: page.url.search,
+			basePath,
+			origin: page.url.origin
+		});
 	}
 	/** @type {any} */
 	const heroActions = $derived.by(() => {
@@ -476,7 +470,16 @@
 				{ label: 'Find your community', href: 'https://3fp.org', external: true }
 			];
 		}
-		return currentPage?.is_home ? site.actions : [];
+		if (!currentPage?.is_home) return [];
+		return (site.actions || []).filter(
+			(action) =>
+				action?.href &&
+				!isSamePageReloadHref(action.href, {
+					currentPathname: page.url.pathname,
+					currentSearch: page.url.search,
+					origin: page.url.origin
+				})
+		);
 	});
 	/**
 	 * @param {any} value
@@ -1060,8 +1063,13 @@ HERO — cinematic cover with integrated CTAs
 			<!-- ═══════════════════════════════════════════════════════════
 		     DONATE — Quick donation widget (optional)
      ═══════════════════════════════════════════════════════════ -->
-		{:else if block.type === 'donation' && site.donationEnabled}
-			<section class="donate-section" data-site-block-id={block.id} data-site-block-type="donation">
+		{:else if block.type === 'donation' && capabilities.hasDonation}
+			<section
+				class="donate-section"
+				id="donate"
+				data-site-block-id={block.id}
+				data-site-block-type="donation"
+			>
 				<div class="donate-card">
 					<form method="GET" action="/donate">
 						<input type="hidden" name="group" value={group.slug} />
@@ -1589,16 +1597,31 @@ GALLERY PREVIEW — Link to full gallery page with Instagram
 			<!-- ═══════════════════════════════════════════════════════════
 DONATE — Quick donation widget (optional)
 ═══════════════════════════════════════════════════════════ -->
-		{:else if block.type === 'ride_calendar' && config.ride_widget_enabled}
+		{:else if block.type === 'ride_calendar' && capabilities.hasRideWidget}
 			<section
 				class="rides-widget-section"
 				id="rides-widget"
+				aria-labelledby={`rides-widget-heading-${block.id || blockIndex}`}
 				data-site-block-id={block.id}
 				data-site-block-type="ride_calendar"
 			>
+				<div class="rides-widget-header">
+					<div class="rides-widget-title-row">
+						<div class="rides-widget-icon"><IconCalendar class="h-5 w-5" /></div>
+						<div>
+							<p class="rides-widget-label">{block.eyebrow || 'Live calendar'}</p>
+							<h2 class="rides-widget-title" id={`rides-widget-heading-${block.id || blockIndex}`}>
+								{block.title || config.ride_widget_title || 'Upcoming rides'}
+							</h2>
+						</div>
+					</div>
+					{#if block.body}
+						<p class="rides-widget-description">{block.body}</p>
+					{/if}
+				</div>
 				<iframe
 					src={rideWidgetFramePath}
-					title={config.ride_widget_title || 'Upcoming rides'}
+					title={block.title || config.ride_widget_title || 'Upcoming rides'}
 					class="rides-widget-iframe"
 					loading="lazy"
 				></iframe>
@@ -1607,7 +1630,7 @@ DONATE — Quick donation widget (optional)
 			<!-- ═══════════════════════════════════════════════════════════
 NEW RIDER NOTE — Helpful for newcomers (optional)
 ═══════════════════════════════════════════════════════════ -->
-		{:else if block.type === 'contact' && site.contactLinks.length}
+		{:else if block.type === 'contact' && contactLinks.length}
 			<section
 				class="contact-section"
 				id="contact"
@@ -1623,7 +1646,7 @@ NEW RIDER NOTE — Helpful for newcomers (optional)
 						</div>
 					</div>
 					<div class="contact-links">
-						{#each site.contactLinks as link}
+						{#each contactLinks as link}
 							{@const ContactIcon = CONTACT_ICON_MAP[link.key] || IconMapPin}
 							<a
 								href={link.href}
@@ -1747,17 +1770,17 @@ SPONSORS — Community partners showcase
 							class="mt-6 grid w-full max-w-2xl gap-3 text-left sm:grid-cols-2"
 							onsubmit={subscribeToGroupEmails}
 						>
-							<label class="grid gap-1 text-sm"
-								><span>First name <span class="opacity-60">optional</span></span><input
-									class="input"
+							<label class="grid gap-1.5 text-sm font-medium"
+								><span>First name <span class="opacity-70">(optional)</span></span><input
+									class="input min-h-11"
 									autocomplete="given-name"
 									maxlength="120"
 									bind:value={signupFirstName}
 								/></label
 							>
-							<label class="grid gap-1 text-sm"
+							<label class="grid gap-1.5 text-sm font-medium"
 								><span>Email address</span><input
-									class="input"
+									class="input min-h-11"
 									type="email"
 									autocomplete="email"
 									required
@@ -1766,11 +1789,17 @@ SPONSORS — Community partners showcase
 								/></label
 							>
 							<label class="sr-only" aria-hidden="true"
-								>Company<input tabindex="-1" autocomplete="off" bind:value={signupCompany} /></label
+								>Company<input
+									tabindex="-1"
+									autocomplete="off"
+									name="company"
+									bind:value={signupCompany}
+								/></label
 							>
-							<label class="flex items-start gap-2 text-sm sm:col-span-2"
+							<label
+								class="flex min-h-11 cursor-pointer items-center gap-3 py-1 text-sm sm:col-span-2"
 								><input
-									class="checkbox mt-0.5"
+									class="checkbox h-5 w-5 shrink-0"
 									type="checkbox"
 									required
 									bind:checked={signupConsent}
@@ -1779,7 +1808,7 @@ SPONSORS — Community partners showcase
 								></label
 							>
 							<button
-								class="btn preset-filled-primary-500 w-fit sm:col-span-2"
+								class="btn preset-filled-primary-500 min-h-11 w-fit px-5 font-semibold sm:col-span-2"
 								type="submit"
 								disabled={signupState === 'submitting'}
 								>{signupState === 'submitting'
@@ -1789,8 +1818,11 @@ SPONSORS — Community partners showcase
 								/></button
 							>
 							{#if signupMessage}<p
-									class="sm:col-span-2 {signupState === 'error' ? 'text-error-500' : ''}"
+									class="text-sm font-medium sm:col-span-2 {signupState === 'error'
+										? 'text-error-700 dark:text-error-300'
+										: ''}"
 									role={signupState === 'error' ? 'alert' : 'status'}
+									aria-live={signupState === 'error' ? 'assertive' : 'polite'}
 								>
 									{signupMessage}
 								</p>{/if}
@@ -1948,11 +1980,12 @@ FOOTER — Simple, clean
 	.microsite-page.site-tbag .contact-section,
 	.microsite-page.site-tbag .about-section,
 	.microsite-page.site-tbag .events-section,
+	.microsite-page.site-tbag .rides-widget-section,
 	.microsite-page.site-tbag .quick-info,
 	.microsite-page.site-tbag .new-rider-note,
 	.microsite-page.site-tbag .donate-section {
 		border-color: var(--tbag-line);
-		background: rgb(247 250 248 / 0.82);
+		background: rgb(247 250 248 / 0.94);
 		box-shadow: 0 16px 34px -30px rgb(17 51 61 / 0.46);
 		backdrop-filter: none;
 	}
@@ -1970,10 +2003,11 @@ FOOTER — Simple, clean
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .contact-section,
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .about-section,
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .events-section,
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .rides-widget-section,
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .quick-info,
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .new-rider-note,
 	:global([data-color-mode='dark']) .microsite-page.site-tbag .donate-section {
-		background: rgb(16 46 58 / 0.9);
+		background: rgb(16 46 58 / 0.94);
 		box-shadow: 0 18px 40px -30px rgb(0 0 0 / 0.7);
 	}
 	:global([data-color-mode='dark']) .microsite-page.site-tbag :global(.custom-content-body),
@@ -4137,16 +4171,107 @@ ABOUT FAQ — Nested accordion within About section
 RIDES WIDGET SECTION — Standalone iframe embed
 ═══════════════════════════════════════════════════════════ */
 	.rides-widget-section {
-		border-radius: 1rem;
+		background: var(--color-surface-50);
+		border-radius: 0;
 		overflow: hidden;
 		border: 1px solid var(--panel-border);
+		border-top: 4px solid var(--color-primary-500);
+	}
+	:global([data-color-mode='dark']) .rides-widget-section {
+		background: var(--color-surface-950);
+	}
+	.rides-widget-header {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+		padding: 1.25rem 1.5rem;
+		border-bottom: 1px solid var(--panel-border);
+	}
+	.rides-widget-title-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.rides-widget-icon {
+		display: flex;
+		width: 2.25rem;
+		height: 2.25rem;
+		align-items: center;
+		justify-content: center;
+		background: var(--color-surface-950);
+		color: var(--color-surface-50);
+		flex-shrink: 0;
+	}
+	:global([data-color-mode='dark']) .rides-widget-icon {
+		background: var(--color-surface-50);
+		color: var(--color-surface-950);
+	}
+	.microsite-page.site-tbag .rides-widget-section {
+		border-top-color: var(--tbag-blue);
+	}
+	.microsite-page.site-tbag .rides-widget-icon {
+		background: #155e75;
+		color: #ffffff;
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .rides-widget-icon {
+		background: #8bc9cf;
+		color: #0a222c;
+	}
+	.rides-widget-label {
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-primary-700, var(--color-surface-700));
+	}
+	:global([data-color-mode='dark']) .rides-widget-label {
+		color: var(--color-primary-300, var(--color-surface-300));
+	}
+	.microsite-page.site-tbag .rides-widget-label {
+		color: var(--tbag-blue);
+	}
+	.rides-widget-title {
+		font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+		font-weight: 800;
+		line-height: 1.15;
+		color: var(--color-surface-950);
+	}
+	:global([data-color-mode='dark']) .rides-widget-title {
+		color: var(--color-surface-50);
+	}
+	.microsite-page.site-tbag .rides-widget-title {
+		color: var(--tbag-ink);
+	}
+	.rides-widget-description {
+		max-width: 58ch;
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--color-surface-700);
+	}
+	:global([data-color-mode='dark']) .rides-widget-description {
+		color: var(--color-surface-300);
+	}
+	.microsite-page.site-tbag .rides-widget-description {
+		color: #496673;
+	}
+	:global([data-color-mode='dark']) .microsite-page.site-tbag .rides-widget-description {
+		color: #b8d0d0;
 	}
 	.rides-widget-iframe {
 		width: 100%;
 		aspect-ratio: 16/10;
-		min-height: 400px;
+		min-height: 540px;
 		border: none;
 		display: block;
+	}
+	@media (max-width: 640px) {
+		.rides-widget-header {
+			padding: 1rem 1.15rem;
+		}
+		.rides-widget-iframe {
+			aspect-ratio: auto;
+			min-height: 580px;
+		}
 	}
 
 	/* ═══════════════════════════════════════════════════════════
