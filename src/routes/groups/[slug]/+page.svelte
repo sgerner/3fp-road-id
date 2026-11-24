@@ -151,7 +151,7 @@
 				const j = await res.json().catch(() => ({}));
 				throw new Error(j.error || 'Unable to claim group');
 			}
-			window.location.href = `/groups/${encodeURIComponent(groupSlug)}/manage/edit`;
+			window.location.href = `/groups/${encodeURIComponent(groupSlug)}/manage/presence`;
 		} catch (e) {
 			claimError = e.message;
 		}
@@ -1134,10 +1134,10 @@
 						{#if shouldShowDonationSetup && data.group?.slug}
 							<div class="flex flex-col gap-3">
 								<p class="m-0 text-sm leading-relaxed font-medium">
-									Connect Stripe in the edit page to enable donations for this claimed group.
+									Connect Stripe in Public Presence to enable donations for this claimed group.
 								</p>
 								<a
-									href={`/groups/${encodeURIComponent(data.group.slug)}/manage/edit`}
+									href={`/groups/${encodeURIComponent(data.group.slug)}/manage/presence`}
 									class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 self-start px-6 py-3 text-sm font-black uppercase transition hover:no-underline"
 								>
 									Connect Stripe

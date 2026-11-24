@@ -220,7 +220,7 @@ test('authoring forms and CoverMediaField defer AI catalogs until studio modal d
 		'src/routes/groups/new/+page.svelte',
 		'src/lib/components/ride/RideEditor.svelte',
 		'src/lib/components/learn/LearnAuthoringForm.svelte',
-		'src/lib/components/groups/GroupEditPage.svelte'
+		'src/routes/groups/[slug]/manage/presence/+page.svelte'
 	];
 
 	for (const relPath of authoringFiles) {
