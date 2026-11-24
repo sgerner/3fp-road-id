@@ -1,23 +1,34 @@
 <script>
 	import HostOrganizationSelector from '#lib/components/groups/HostOrganizationSelector.svelte';
 
+	/** @type {Record<string, any>} */
 	export let eventDetails;
+	/** @type {any[]} */
 	export let eventTypeOptions = [];
+	/** @type {any[]} */
 	export let statusOptions = [];
+	/** @type {string[]} */
 	export let timezoneOptions = [];
+	/** @type {any[]} */
 	export let hostGroups = [];
 	export let initialHostGroupId = '';
 	export let sponsorshipGroupId = '';
 	export let sponsorshipMessage = '';
+	/** @type {any} */
 	export let activeSponsorshipRequest = null;
 	export let immediateSponsorshipMode = false;
 	export let eventId = '';
 	export let showStatusField = false;
 	export let currentEventTypeDescription = '';
+	/** @type {(patch: Record<string, any>) => any} */
 	export let onEventDetailsChange = () => {};
+	/** @type {(groupId: string) => any} */
 	export let onHostGroupChange = () => {};
+	/** @type {(payload: { groupId: string, message: string }) => any} */
 	export let onSponsorshipChange = () => {};
+	/** @type {(request: any) => any} */
 	export let onActiveSponsorshipRequestChange = () => {};
+	/** @type {(group: any) => any} */
 	export let onGroupClaimed = () => {};
 </script>
 

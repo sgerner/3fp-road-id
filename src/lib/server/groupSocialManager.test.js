@@ -97,7 +97,9 @@ test('mobile preview replaces the composer form below 1024px and restores cleanl
 	);
 	assert.match(source, /if\s*\(!composerPreviewHasImage\s*&&\s*mobilePreviewOpen\)/);
 
+	/** @type {any} */
 	let composerFormElement = null;
+	/** @type {any} */
 	let composerPreviewElement = null;
 	walkTemplate(ast.fragment, (node) => {
 		if (node.type === 'RegularElement' && getStaticClassValue(node) === 'composer-form') {
@@ -223,6 +225,7 @@ test('AI settings row wraps without hidden scrollbars and enforces 44px touch ta
 });
 
 test('week calendar renders lg:hidden day cards without slicing posts and hides wide table below lg', () => {
+	/** @type {any} */
 	let weekIfBranch = null;
 	walkTemplate(ast.fragment, (node) => {
 		if (

@@ -21,10 +21,18 @@ import {
 import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
 import { enforceRateLimit } from '#lib/server/security';
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} rideId
+ */
 async function loadManagedRide(supabase, rideId) {
 	const { data, error } = await supabase
 		.from('activity_events')
@@ -36,6 +44,9 @@ async function loadManagedRide(supabase, rideId) {
 	return data;
 }
 
+/**
+ * @param {any} event
+ */
 export async function PUT(event) {
 	const { params, request, cookies } = event;
 	const { supabase, user } = await getActivityClient(cookies);
@@ -132,6 +143,7 @@ export async function PUT(event) {
 		sponsorshipGroupId
 	});
 
+	/** @type {any} */
 	const activityPatch = {
 		host_user_id: nextHostUserId,
 		title: payload.activity.title || existing.title,
@@ -199,6 +211,7 @@ export async function PUT(event) {
 		}
 	}
 
+	/** @type {any} */
 	let recurrenceRule = null;
 	if (payload.recurrence.enabled) {
 		recurrenceRule = {
@@ -271,6 +284,9 @@ export async function PUT(event) {
 	});
 }
 
+/**
+ * @param {any} param0
+ */
 export async function DELETE({ params, cookies }) {
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
@@ -313,6 +329,7 @@ export async function DELETE({ params, cookies }) {
 		}
 	}
 
+	/** @type {any} */
 	const deletions = [
 		['activity_email_templates', 'activity_event_id'],
 		['activity_rsvps', 'activity_event_id'],

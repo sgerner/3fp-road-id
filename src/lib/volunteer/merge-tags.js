@@ -242,6 +242,9 @@ function ensureOrigin(origin) {
 	return 'https://example.org';
 }
 
+/**
+ * @param {{ assignments?: any[], opportunities?: any[], event: any, origin: string }} options
+ */
 function buildShiftDetails({ assignments = [], opportunities = [], event, origin }) {
 	const mapById = new Map();
 	for (const opportunity of opportunities) {
@@ -722,6 +725,18 @@ export function renderSubject(template, context) {
 	return replaced.trim();
 }
 
+/**
+ * @param {{
+ *   event?: Record<string, any>,
+ *   eventDetails?: Record<string, any>,
+ *   opportunities?: any[],
+ *   volunteer?: Record<string, any>,
+ *   assignments?: any[],
+ *   host?: Record<string, any>,
+ *   origin?: string,
+ *   requireConfirmation?: boolean
+ * }} [options]
+ */
 export function createMergeContext({
 	event = {},
 	eventDetails = {},
@@ -773,6 +788,9 @@ export function createMergeContext({
 	};
 }
 
+/**
+ * @param {{ eventDetails?: Record<string, any>, opportunities?: any[], origin?: string }} [options]
+ */
 export function createPreviewContext({ eventDetails = {}, opportunities = [], origin } = {}) {
 	const context = createMergeContext({
 		eventDetails,

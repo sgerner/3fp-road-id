@@ -14,7 +14,9 @@
 	const threads = $derived(pageData.threads ?? []);
 	let selectedThreadId = $state('');
 	let mobileThreadOpen = $state(false);
+	/** @type {any} */
 	let mobileBackButton = $state(null);
+	/** @type {any} */
 	let activeThreadButton = null;
 	let message = $state('');
 	let sending = $state(false);

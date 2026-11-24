@@ -7,6 +7,7 @@
 	import IconBookPlus from '@lucide/svelte/icons/book-plus';
 	import IconPencil from '@lucide/svelte/icons/pencil';
 
+	/** @type {Record<string, any>} */
 	let { data, form, editing = false } = $props();
 	const values = $derived(form?.values ?? data?.initialValues ?? {});
 	const article = $derived(data?.article ?? null);
@@ -28,6 +29,7 @@
 	let coverUploadError = $state('');
 	let extraUploadedAssets = $state([]);
 	let summaryValue = $state('');
+	/** @type {any} */
 	let editorApi = $state(null);
 	let editorReady = $state(false);
 	let saving = $state(false);

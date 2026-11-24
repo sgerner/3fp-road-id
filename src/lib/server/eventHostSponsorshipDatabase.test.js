@@ -9,6 +9,7 @@ test(
 	'event host group authorization and sponsorship request RLS enforce co-host preservation and server-managed approvals',
 	{ skip: !databaseUrl },
 	() => {
+		assert.ok(databaseUrl);
 		const url = new URL(databaseUrl);
 		assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname));
 		const name = `event_sponsorship_test_${process.pid}`;

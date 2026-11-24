@@ -6,6 +6,10 @@ const groupId = '8c1526c9-8409-4c99-afac-166f25b7f898';
 const accountId = 'aafeb5b6-7cc1-458a-8f4a-b3b787692a34';
 const reconciliationId = 'a3a5a49e-1bc3-45a8-b54a-4f0d2fb79342';
 
+/**
+ * @param {{ mode?: string, onRpc?: (...args: any[]) => any }} [options]
+ * @returns {any}
+ */
 function authForReconciliation({ mode = 'balance_only', onRpc = () => ({}) } = {}) {
 	const query = (data) => {
 		const builder = {
@@ -69,6 +73,7 @@ test('statement-line mode cannot save an empty extraction as verified', async ()
 });
 
 test('draft submission sends normalized cents and line evidence to the guarded RPC', async () => {
+	/** @type {any} */
 	let call;
 	const form = draftForm();
 	form.set('verificationMode', 'statement_lines');
@@ -95,6 +100,7 @@ test('draft submission sends normalized cents and line evidence to the guarded R
 });
 
 test('an uncertain extracted line can be preserved as an incomplete draft', async () => {
+	/** @type {any} */
 	let call;
 	const form = draftForm();
 	form.set('verificationMode', 'statement');
@@ -118,6 +124,7 @@ test('an uncertain extracted line can be preserved as an incomplete draft', asyn
 });
 
 test('balance-only draft preserves proposed feed and ledger selections for resume', async () => {
+	/** @type {any} */
 	let call;
 	const feedId = 'fa9fe87d-4fe3-42f6-9836-4ca95d328ca1';
 	const entryId = 'c7d67a30-f7ec-4e1d-a0f4-d7ab6e331649';

@@ -6,6 +6,34 @@
 		getSelectedNewCategoryKeys
 	} from '#lib/sms/inlineEnrollment';
 
+	/**
+	 * @type {{
+	 *   categories?: readonly import('#lib/sms/inlineEnrollment').SmsCategoryOption[],
+	 *   preferences?: import('#lib/sms/inlineEnrollment').SmsPreferencesState,
+	 *   consentText?: string,
+	 *   loading?: boolean,
+	 *   saving?: boolean,
+	 *   tone?: string,
+	 *   eyebrow?: string,
+	 *   heading?: string,
+	 *   selected?: Record<string, boolean>,
+	 *   phone?: string,
+	 *   consentChecked?: boolean,
+	 *   showPhoneInput?: boolean,
+	 *   phoneSharedNote?: string,
+	 *   phoneError?: string,
+	 *   consentError?: string,
+	 *   errorMessage?: string,
+	 *   successMessage?: string,
+	 *   standalone?: boolean,
+	 *   submitLabel?: string,
+	 *   savingLabel?: string,
+	 *   onToggleCategory?: (key: string, checked: boolean) => void,
+	 *   onPhoneChange?: (value: string) => void,
+	 *   onConsentChange?: (checked: boolean) => void,
+	 *   onSubmit?: (event?: MouseEvent) => any
+	 * }}
+	 */
 	let {
 		categories = [],
 		preferences = emptySmsPreferences(),

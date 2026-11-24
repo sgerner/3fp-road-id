@@ -840,10 +840,13 @@
 	let geocodeError = $state('');
 	const assistantContext = getAssistantContext();
 	const rideMuseStarters = getContextualModeDefaults('ride-write').starterPrompts;
+	/** @type {HTMLButtonElement | null} */
 	let rideMuseBtnEl = $state(null);
+	/** @type {{ form: any, slugTouched: boolean } | null} */
 	let aiAppliedSnapshot = $state(null);
 	let aiAppliedFingerprint = $state('');
 	let aiUndoConflictMessage = $state('');
+	/** @type {Record<string, any> | null} */
 	let occurrenceDraft = $state(null);
 	let occurrenceSaving = $state(false);
 	let occurrenceSaveError = $state('');

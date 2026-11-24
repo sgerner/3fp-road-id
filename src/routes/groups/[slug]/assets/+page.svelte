@@ -14,6 +14,7 @@
 	import { tick } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const activeSlug = $derived(
@@ -26,8 +27,10 @@
 	);
 
 	let searchQuery = $state('');
+	/** @type {any} */
 	let lightboxDialog = $state(null);
 	let lightboxIndex = $state(0);
+	/** @type {any} */
 	let lightboxItems = $state([]);
 
 	function iconForBucket(bucketSlug) {

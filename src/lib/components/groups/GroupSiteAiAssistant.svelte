@@ -5,12 +5,18 @@
 	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { getContextualModeDefaults } from '#lib/ai/assistantHelpers.js';
 
+	/** @type {{ canUndo?: boolean, undoConflictMessage?: string, onundo?: () => void }} */
 	let { canUndo = false, undoConflictMessage = '', onundo = () => {} } = $props();
 
 	const assistantContext = getAssistantContext();
+	/** @type {HTMLButtonElement | null} */
 	let openBtnEl = $state(null);
 	const prompts = getContextualModeDefaults('group-site-write').starterPrompts;
 
+	/**
+	 * @param {string} [prompt]
+	 * @param {HTMLElement | null} [triggerEl]
+	 */
 	function openSiteAssistant(prompt = '', triggerEl = openBtnEl) {
 		assistantContext.open({
 			mode: 'page',

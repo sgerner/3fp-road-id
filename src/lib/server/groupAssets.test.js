@@ -15,6 +15,7 @@ test('group assets honor an explicit display order before recency', () => {
 });
 
 test('public asset buckets exclude unsafe legacy URLs', () => {
+	/** @type {any[]} */
 	const buckets = groupGroupAssetsByBucket([
 		{ id: 'unsafe', asset_kind: 'link', external_url: 'javascript:alert(1)' },
 		{ id: 'safe', asset_kind: 'link', external_url: 'https://example.org/resource' }

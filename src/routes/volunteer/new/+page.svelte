@@ -660,8 +660,9 @@
 		const clonedStatus = clonedGroup ? getHostGroupStatus(clonedGroup) : null;
 
 		const safeHostGroupId =
-			clonedStatus === HOST_GROUP_STATUS.MANAGED ? String(clonedGroup.id) : '';
-		sponsorshipGroupId = clonedStatus === HOST_GROUP_STATUS.EXTERNAL ? String(clonedGroup.id) : '';
+			clonedGroup && clonedStatus === HOST_GROUP_STATUS.MANAGED ? String(clonedGroup.id) : '';
+		sponsorshipGroupId =
+			clonedGroup && clonedStatus === HOST_GROUP_STATUS.EXTERNAL ? String(clonedGroup.id) : '';
 		sponsorshipMessage = '';
 
 		const detailPatch = {
@@ -777,10 +778,13 @@
 		};
 	}
 
+	/** @type {any[]} */
 	let opportunities = $state([
 		createOpportunity({ title: 'Lead Volunteer', opportunityType: 'coordination' })
 	]);
+	/** @type {any[]} */
 	let customQuestions = $state([]);
+	/** @type {any[]} */
 	let eventEmails = $state([
 		createEmailTemplate({
 			emailType: 'reminder',
@@ -798,10 +802,13 @@
 		})
 	]);
 	let chatPrompt = $state('');
+	/** @type {HTMLElement | null} */
 	let chatContainer = $state(null);
 	let aiLoading = $state(false);
 	let aiError = $state('');
+	/** @type {any[]} */
 	let followUpQuestions = $state([]);
+	/** @type {string | null} */
 	let draftAppliedAt = $state(null);
 	let capacityOpen = $state(false);
 	let rolesOpen = $state(false);
@@ -949,6 +956,7 @@
 			}));
 	}
 
+	/** @param {ScrollBehavior} [behavior] */
 	async function scrollChatBottom(behavior = 'smooth') {
 		await tick();
 		if (chatContainer) {

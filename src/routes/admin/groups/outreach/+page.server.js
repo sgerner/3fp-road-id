@@ -8,6 +8,9 @@ import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { readFormData } from '#lib/server/security';
 import { calculateGroupCompleteness } from '#lib/server/groupCompleteness';
 
+/**
+ * @param {any} param0
+ */
 function buildPriorityScore({
 	hasEmail,
 	hasSocial,
@@ -29,6 +32,10 @@ function buildPriorityScore({
 	return Math.round(score);
 }
 
+/**
+ * @param {any} value
+ * @param {any} [maxLength]
+ */
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
 	const cleaned = String(value).trim();
@@ -36,6 +43,9 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
+/**
+ * @param {any} value
+ */
 function stripCodeFences(value) {
 	const text = cleanText(value, 100000);
 	if (!text) return '';
@@ -45,6 +55,9 @@ function stripCodeFences(value) {
 		.trim();
 }
 
+/**
+ * @param {any} value
+ */
 function safeJsonParse(value) {
 	const text = stripCodeFences(value);
 	if (!text) return null;
@@ -64,10 +77,16 @@ function safeJsonParse(value) {
 	}
 }
 
+/**
+ * @param {any} value
+ */
 function removeEmDashes(value) {
 	return cleanText(value).replace(/[—–]/g, '-');
 }
 
+/**
+ * @param {any} dataUrl
+ */
 function parseDataUrl(dataUrl) {
 	const raw = cleanText(dataUrl, 5_000_000);
 	const match = raw.match(/^data:([^;]+);base64,(.+)$/);
@@ -79,6 +98,12 @@ function parseDataUrl(dataUrl) {
 	return { mimeType, bytes };
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {any} groupId
+ * @param {any} field
+ * @param {any} dataUrl
+ */
 async function uploadCroppedImage(serviceSupabase, groupId, field, dataUrl) {
 	const parsed = parseDataUrl(dataUrl);
 	if (!parsed) return null;
@@ -103,6 +128,9 @@ async function uploadCroppedImage(serviceSupabase, groupId, field, dataUrl) {
 	return urlData?.publicUrl || null;
 }
 
+/**
+ * @param {any} param0
+ */
 export async function load({ cookies, url }) {
 	await requireAdmin(cookies);
 
@@ -222,16 +250,18 @@ export async function load({ cookies, url }) {
 	} else if (sort === 'newest') {
 		filtered.sort(
 			(a, b) =>
-				new Date(b.enrichment?.created_at || b.last_contact?.contacted_at || 0) -
-				new Date(a.enrichment?.created_at || a.last_contact?.contacted_at || 0)
+				new Date(b.enrichment?.created_at || b.last_contact?.contacted_at || 0).getTime() -
+				new Date(a.enrichment?.created_at || a.last_contact?.contacted_at || 0).getTime()
 		);
 	} else if (sort === 'stale') {
 		filtered.sort(
 			(a, b) =>
-				new Date(a.last_contact?.contacted_at || 0) - new Date(b.last_contact?.contacted_at || 0)
+				new Date(a.last_contact?.contacted_at || 0).getTime() -
+				new Date(b.last_contact?.contacted_at || 0).getTime()
 		);
 	}
 
+	/** @type {any} */
 	const stats = {
 		pending: filtered.filter((g) => g.outreach_status === 'pending').length,
 		contacted: filtered.filter((g) => g.outreach_status === 'contacted').length,
@@ -454,6 +484,7 @@ Do not wrap in markdown or code fences.`;
 		const coverFileCropped = (formData.get('cover_file_cropped') || '').toString();
 		if (!groupId) return fail(400, { error: 'Missing group id' });
 
+		/** @type {any} */
 		const payload = {};
 		const supabase = createServiceSupabaseClient();
 		if (hasLogoCrop || hasLogoUrl) {
@@ -492,6 +523,7 @@ Do not wrap in markdown or code fences.`;
 			current?.enrichment_data && typeof current.enrichment_data === 'object'
 				? current.enrichment_data
 				: {};
+		/** @type {any} */
 		const nextEnrichmentData = {
 			...enrichmentData,
 			outreach: {

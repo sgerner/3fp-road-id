@@ -22,6 +22,7 @@ const RESERVED_QUERY_PARAMETERS = new Set([
 	'select'
 ]);
 
+/** @type {any} */
 const FILTER_METHODS = {
 	eq: 'eq',
 	neq: 'neq',
@@ -39,10 +40,16 @@ const FILTER_METHODS = {
 };
 
 // Helper function to convert kebab-case to snake_case
+/**
+ * @param {any} str
+ */
 function kebabToSnake(str) {
 	return str.replace(/-/g, '_');
 }
 
+/**
+ * @param {any} event
+ */
 async function getSupabaseInstance(event) {
 	const { accessToken, tokenPayload, verified } = await resolveVerifiedSession(event.cookies);
 	let validToken = verified ? accessToken : null;
@@ -59,6 +66,9 @@ async function getSupabaseInstance(event) {
 	return { supabase };
 }
 
+/**
+ * @param {any} event
+ */
 export async function GET(event) {
 	const { params, url } = event;
 	const { supabase: sbInstance, error: authError } = await getSupabaseInstance(event);
@@ -83,11 +93,14 @@ export async function GET(event) {
 		return json({ error: 'The select expression is too long.' }, { status: 400 });
 	}
 
+	/** @type {any} */
 	let query = sbInstance
 		.from(tableName)
 		.select(selectColumns, countOption ? { count: countOption } : undefined);
 	if (recordId) {
+		/** @type {any} */
 		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
+		/** @type {any} */
 		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		query = query.eq(primaryKeyColumn, recordId);
 
@@ -157,8 +170,11 @@ export async function GET(event) {
 			}
 			const [column, ...modifiers] = clause.split('.');
 			if (!column) continue;
+			/** @type {any} */
 			let ascending = true;
+			/** @type {any} */
 			let nullsFirst;
+			/** @type {any} */
 			let nullsLast;
 			for (const modifier of modifiers) {
 				if (modifier === 'desc') ascending = false;
@@ -185,7 +201,9 @@ export async function GET(event) {
 		) {
 			return json({ error: 'Invalid pagination.' }, { status: 400 });
 		}
+		/** @type {any} */
 		const safeLimit = Math.min(limitValue, MAX_RESULT_ROWS);
+		/** @type {any} */
 		const safeOffset = Math.min(offsetValue, MAX_OFFSET);
 		if (safeLimit > 0) {
 			query = query.range(safeOffset, safeOffset + safeLimit - 1);
@@ -213,6 +231,9 @@ export async function GET(event) {
 	return json({ data, count });
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, params } = event;
 	const { supabase: sbInstance, error: authError } = await getSupabaseInstance(event);
@@ -261,6 +282,9 @@ export async function POST(event) {
 	}
 }
 
+/**
+ * @param {any} event
+ */
 export async function PUT(event) {
 	const { request, params } = event;
 	const { supabase: sbInstance, error: authError } = await getSupabaseInstance(event);
@@ -292,21 +316,25 @@ export async function PUT(event) {
 		);
 	}
 	try {
+		/** @type {any} */
 		const parsedBody = await readJsonBody(request, { maxBytes: 256 * 1024 });
 		if (!parsedBody.ok) {
 			return json({ error: parsedBody.error }, { status: parsedBody.status });
 		}
+		/** @type {any} */
 		const body = parsedBody.value; // Expects snake_case keys in the body
 		if (!body || typeof body !== 'object' || Array.isArray(body)) {
 			return json({ error: 'JSON object is required.' }, { status: 400 });
 		}
+		/** @type {any} */
 		const pkConfig = TABLE_PRIMARY_KEYS[tableName];
+		/** @type {any} */
 		const primaryKeyColumn = Array.isArray(pkConfig) ? pkConfig[0] : pkConfig || 'id';
 		if (body[primaryKeyColumn]) {
 			delete body[primaryKeyColumn];
 		}
 
-		const { data, error } = await sbInstance
+		const { data, error } = await /** @type {any} */ (sbInstance)
 			.from(tableName)
 			.update(body)
 			.eq(primaryKeyColumn, recordId)
@@ -327,6 +355,9 @@ export async function PUT(event) {
 	}
 }
 
+/**
+ * @param {any} event
+ */
 export async function DELETE(event) {
 	const { params, url } = event;
 	const { supabase: sbInstance, error: authError } = await getSupabaseInstance(event);
@@ -351,7 +382,7 @@ export async function DELETE(event) {
 		);
 	}
 
-	let query = sbInstance.from(tableName).delete();
+	let query = /** @type {any} */ (sbInstance).from(tableName).delete();
 
 	if (recordId) {
 		const pkConfig = TABLE_PRIMARY_KEYS[tableName];

@@ -38,6 +38,7 @@ test('provider failures expose safe messages and preserve known error classifica
 
 test('provider leases prevent duplicate fetches and success is recorded only after the fetch finishes', async () => {
 	const calls = [];
+	/** @type {any} */
 	const auth = {
 		group: { id: 'group' },
 		serviceSupabase: {

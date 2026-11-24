@@ -8,6 +8,14 @@ import {
 import { getClaimedGroupIdSet } from './groupClaimStatus.js';
 import { loadHostGroupDirectoryCore } from './hostGroupDirectoryCore.js';
 
+/**
+ * @param {{
+ *   groups?: any[],
+ *   ownerMemberships?: any[],
+ *   userMemberships?: any[],
+ *   isAdmin?: boolean
+ * }} [options]
+ */
 function createPaginatedSupabaseMock({
 	groups = [],
 	ownerMemberships = [],
@@ -16,8 +24,14 @@ function createPaginatedSupabaseMock({
 } = {}) {
 	const selectedColumnsByTable = new Map();
 
+	/**
+	 * @param {string} table
+	 * @param {any[]} rows
+	 * @param {((info: any) => void) | null} [extraFilter]
+	 */
 	function makeRangeQuery(table, rows, extraFilter = null) {
 		let filtered = [...rows];
+		/** @type {{ orders: string[] }} */
 		const state = { orders: [] };
 		const builder = {
 			select(columns) {
@@ -109,6 +123,7 @@ test('loadHostGroupDirectoryCore paginates across 1,055+ groups and labels manag
 	});
 
 	const claimedSet = await getClaimedGroupIdSet(serviceSupabase, { pageSize: 500 });
+	assert.ok(claimedSet);
 	assert.equal(claimedSet.size, 620);
 	assert.equal(serviceSupabase.selectedColumnsByTable.get('service:group_members'), 'group_id');
 
@@ -127,6 +142,11 @@ test('loadHostGroupDirectoryCore paginates across 1,055+ groups and labels manag
 	const group2 = result.hostGroups.find((g) => g.id === 'group-0002');
 	const group3 = result.hostGroups.find((g) => g.id === 'group-0003');
 	const group1055 = result.hostGroups.find((g) => g.id === 'group-1055');
+
+	assert.ok(group1);
+	assert.ok(group2);
+	assert.ok(group3);
+	assert.ok(group1055);
 
 	assert.equal(group1.status, HOST_GROUP_STATUS.MANAGED);
 	assert.equal(group2.status, HOST_GROUP_STATUS.MANAGED);

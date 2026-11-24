@@ -70,6 +70,7 @@ function createInMemorySponsorshipDb() {
 				timezone: 'America/Phoenix',
 				host_user_id: 'organizer-1',
 				created_by_user_id: 'organizer-1',
+				/** @type {string | null} */
 				host_group_id: null,
 				contact_email: 'alex@organizer.example'
 			}
@@ -222,6 +223,7 @@ test('sponsorship lifecycle: request under personal hosting, notify managers wit
 	assert.equal(createdRes.ok, true);
 	assert.equal(createdRes.status, 201);
 	assert.equal(createdRes.notified, true);
+	assert.ok(createdRes.data);
 	assert.equal(createdRes.data.status, 'pending');
 	assert.equal(db.state.activity_events[0].host_group_id, null);
 	assert.equal(sentEmails.length, 1);
@@ -251,6 +253,7 @@ test('sponsorship lifecycle: request under personal hosting, notify managers wit
 		group: db.state.groups[0]
 	});
 	assert.equal(listed.length, 1);
+	assert.ok(listed[0]);
 	assert.equal(listed[0].eventTitle, 'Sunrise Canal Roll');
 	assert.equal(listed[0].message, 'Updated note with route link');
 
@@ -278,6 +281,7 @@ test('sponsorship lifecycle: request under personal hosting, notify managers wit
 		sendEmailFn: sendEmailStub
 	});
 	assert.equal(approvedRes.ok, true);
+	assert.ok(approvedRes.data);
 	assert.equal(approvedRes.data.status, 'approved');
 	assert.equal(db.state.activity_events[0].host_group_id, 'group-claimed');
 	assert.equal(sentEmails.length, 2);
@@ -295,6 +299,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		groupId: 'group-claimed'
 	});
 	assert.equal(first.ok, true);
+	assert.ok(first.data);
 
 	const invalidatedTargets = [];
 	const declined = await reviewEventSponsorshipRequestCore({
@@ -308,6 +313,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		invalidateGroupCacheFn: (target) => invalidatedTargets.push(target)
 	});
 	assert.equal(declined.ok, true);
+	assert.ok(declined.data);
 	assert.equal(declined.data.status, 'declined');
 	assert.equal(db.state.activity_events[0].host_group_id, null);
 	assert.deepEqual(invalidatedTargets, []);
@@ -320,6 +326,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		eventId: 'ride-1',
 		groupId: 'group-claimed'
 	});
+	assert.ok(second.data);
 	const cancelled = await cancelEventSponsorshipRequestCore({
 		supabase: db.client,
 		serviceSupabase: db.client,
@@ -327,6 +334,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		requestId: second.data.id
 	});
 	assert.equal(cancelled.ok, true);
+	assert.ok(cancelled.data);
 	assert.equal(cancelled.data.cancelled, true);
 
 	const third = await createOrUpdateEventSponsorshipRequestCore({
@@ -337,6 +345,7 @@ test('sponsorship decline and cancel keep event under personal hosting (host_gro
 		eventId: 'ride-1',
 		groupId: 'group-claimed'
 	});
+	assert.ok(third.data);
 	const approved = await reviewEventSponsorshipRequestCore({
 		supabase: db.client,
 		serviceSupabase: db.client,

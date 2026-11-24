@@ -32,15 +32,23 @@
 		renderCampaignText
 	} from '#lib/groups/emailEditor';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
+	/** @type {any} */
 	const group = $derived(data.group ?? {});
+	/** @type {any} */
 	const clone = (value) => structuredClone(value);
+	/** @type {any} */
 	const editorGroup = $derived({
 		...(data.group || {}),
 		website_url: data.group?.website_url || data.defaultActionUrl
 	});
+	/** @type {any} */
 	const createDraft = () => createDefaultEmailDraft(editorGroup, data.senderDomains || []);
 
+	/**
+	 * @param {any} campaign
+	 */
 	function hydrateCampaign(campaign) {
 		const editor =
 			campaign?.audience_filters?.editor && typeof campaign.audience_filters.editor === 'object'
@@ -61,6 +69,9 @@
 		};
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return 'Not scheduled';
 		const date = new Date(value);
@@ -74,6 +85,10 @@
 		}).format(date);
 	}
 
+	/**
+	 * @param {any} statuses
+	 * @param {any} [includeNewsletterSubscribers]
+	 */
 	function countAudience(statuses, includeNewsletterSubscribers = false) {
 		const selected = Array.isArray(statuses) ? statuses : [];
 		const membershipCount = selected.reduce(
@@ -86,6 +101,7 @@
 		);
 	}
 
+	/** @type {any} */
 	const views = [
 		{ id: 'compose', label: 'Compose', hint: 'Write and design', icon: IconMail },
 		{ id: 'review', label: 'Review & send', hint: 'Check every detail', icon: IconBadgeCheck },
@@ -93,33 +109,56 @@
 		{ id: 'subscribers', label: 'Subscribers', hint: 'Welcome delivery', icon: IconUsers },
 		{ id: 'senders', label: 'Sender setup', hint: 'Domains and DNS', icon: IconSettings }
 	];
+	/** @type {any} */
 	const audienceOptions = [
 		{ id: 'active', label: 'Current members' },
 		{ id: 'past_due', label: 'Members with payment issues' },
 		{ id: 'cancelled', label: 'Cancelled memberships' }
 	];
 
+	/** @type {any} */
 	let draft = $state(untrack(() => createDraft()));
+	/** @type {any} */
 	let senderDomains = $state(untrack(() => clone(data.senderDomains || [])));
+	/** @type {any} */
 	let emailHistory = $state(untrack(() => clone(data.emailHistory || [])));
+	/** @type {any} */
 	let welcomeFailures = $state(untrack(() => clone(data.welcomeFailures || [])));
+	/** @type {any} */
 	let activeView = $state('compose');
+	/** @type {any} */
 	let currentCampaignId = $state('');
+	/** @type {any} */
 	let canvasKey = $state(0);
+	/** @type {any} */
 	let savedSnapshot = $state(untrack(() => JSON.stringify(draft)));
+	/** @type {any} */
 	let scheduleAt = $state('');
+	/** @type {any} */
 	let busy = $state(false);
+	/** @type {any} */
 	let notice = $state('');
+	/** @type {any} */
 	let error = $state('');
+	/** @type {any} */
 	let selectedSiteDomain = $state('');
+	/** @type {any} */
 	let senderBusy = $state(false);
+	/** @type {any} */
 	let verifyingSenderId = $state('');
+	/** @type {any} */
 	let senderNotice = $state('');
+	/** @type {any} */
 	let senderError = $state('');
+	/** @type {any} */
 	let copiedDns = $state('');
+	/** @type {any} */
 	let retryingWelcomeId = $state('');
+	/** @type {any} */
 	let welcomeNotice = $state('');
+	/** @type {any} */
 	let welcomeError = $state('');
+	/** @type {any} */
 	let senderForm = $state(
 		untrack(() => ({
 			from_name: data.group?.name || '',
@@ -128,17 +167,23 @@
 		}))
 	);
 
+	/** @type {any} */
 	const dirty = $derived(JSON.stringify(draft) !== savedSnapshot);
+	/** @type {any} */
 	const selectedAudienceCount = $derived(
 		countAudience(draft.audienceStatuses, draft.includeNewsletterSubscribers)
 	);
+	/** @type {any} */
 	const selectedSender = $derived(
 		senderDomains.find((row) => row.id === draft.senderDomainId) || null
 	);
+	/** @type {any} */
 	const verifiedSenderCount = $derived(
 		senderDomains.filter((row) => row.ses_verified_for_sending === true).length
 	);
+	/** @type {any} */
 	const previewHtml = $derived(renderCampaignHtml({ draft, group }));
+	/** @type {any} */
 	const readiness = $derived(
 		getCampaignReadiness({
 			draft,
@@ -147,9 +192,13 @@
 			renderedHtmlLength: previewHtml.length
 		})
 	);
+	/** @type {any} */
 	const blockingIssues = $derived(readiness.filter((item) => item.blocking && !item.ready));
+	/** @type {any} */
 	const readyCount = $derived(readiness.filter((item) => item.ready).length);
+	/** @type {any} */
 	const previewText = $derived(renderCampaignText({ draft }));
+	/** @type {any} */
 	const registeredSiteDomains = $derived(
 		Array.isArray(data.siteDomains)
 			? data.siteDomains.map((row) => ({
@@ -159,6 +208,10 @@
 			: []
 	);
 
+	/**
+	 * @param {any} path
+	 * @param {any} [options]
+	 */
 	async function api(path, options = {}) {
 		const response = await fetch(path, {
 			headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -169,11 +222,18 @@
 		return payload?.data;
 	}
 
+	/**
+	 * @param {any} view
+	 */
 	function selectView(view) {
 		activeView = view;
 		void replaceShallowQueryParam('view', view);
 	}
 
+	/**
+	 * @param {any} event
+	 * @param {any} index
+	 */
 	function handleViewKeydown(event, index) {
 		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
@@ -237,6 +297,9 @@
 		welcomeFailures = await api(`/api/groups/${group.slug}/email/subscribers/welcome-failures`);
 	}
 
+	/**
+	 * @param {any} subscriber
+	 */
 	async function retryWelcome(subscriber) {
 		welcomeNotice = '';
 		welcomeError = '';
@@ -358,6 +421,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} [confirmDiscard]
+	 */
 	function startNewDraft(confirmDiscard = true) {
 		if (confirmDiscard && dirty && !confirm('Discard the current unsaved draft?')) return;
 		draft = createDraft();
@@ -369,6 +435,9 @@
 		selectView('compose');
 	}
 
+	/**
+	 * @param {any} campaign
+	 */
 	function loadCampaign(campaign) {
 		if (dirty && !confirm('Discard the current unsaved changes?')) return;
 		draft = hydrateCampaign(campaign);
@@ -379,6 +448,9 @@
 		selectView('compose');
 	}
 
+	/**
+	 * @param {any} campaign
+	 */
 	function duplicateCampaign(campaign) {
 		if (dirty && !confirm('Discard the current unsaved changes?')) return;
 		draft = {
@@ -392,6 +464,9 @@
 		selectView('compose');
 	}
 
+	/**
+	 * @param {any} purposeId
+	 */
 	function applyPurpose(purposeId) {
 		if (purposeId === draft.purpose) return;
 		if (draft.blocks.length && !confirm('Replace the current message layout with this starter?'))
@@ -403,11 +478,18 @@
 		canvasKey += 1;
 	}
 
+	/**
+	 * @param {any} preset
+	 */
 	function applyBrand(preset) {
 		draft.brandPresetId = preset.id;
 		draft.brand = { ...preset };
 	}
 
+	/**
+	 * @param {any} status
+	 * @param {any} checked
+	 */
 	function toggleAudience(status, checked) {
 		draft.audienceStatuses = checked
 			? [...new Set([...draft.audienceStatuses, status])]
@@ -458,6 +540,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} senderId
+	 */
 	async function verifySender(senderId) {
 		senderNotice = '';
 		senderError = '';
@@ -473,6 +558,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} value
+	 * @param {any} key
+	 */
 	async function copyDns(value, key) {
 		try {
 			await navigator.clipboard.writeText(value);
@@ -495,6 +584,7 @@
 	onMount(() => {
 		const requestedView = new URL(window.location.href).searchParams.get('view');
 		if (views.some((view) => view.id === requestedView)) activeView = requestedView;
+		/** @type {any} */
 		const warn = (event) => {
 			if (!dirty || busy) return;
 			event.preventDefault();

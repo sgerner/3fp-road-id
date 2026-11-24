@@ -105,17 +105,26 @@ test('formatPublicResponderProfile omits user_id while preserving responder fiel
 	};
 
 	const publicView = formatPublicResponderProfile(raw, false);
+	assert.ok(publicView);
 	assert.equal('user_id' in publicView, false);
 	assert.equal('profile_id' in publicView.emergency_contacts[0], false);
 	assert.equal(publicView.claimed, true);
 	assert.equal(publicView.is_owner, false);
 
 	const ownerView = formatPublicResponderProfile(raw, true);
+	assert.ok(ownerView);
 	assert.equal('user_id' in ownerView, false);
 	assert.equal(ownerView.claimed, true);
 	assert.equal(ownerView.is_owner, true);
 });
 
+/**
+ * @param {{
+ *   rpcHandler?: (fn: string, args: any) => any,
+ *   profile?: Record<string, any> | null,
+ *   codes?: { code: string, created_at: string }[]
+ * }} [options]
+ */
 function createRoadIdServiceStub({
 	rpcHandler,
 	profile = {
@@ -130,7 +139,7 @@ function createRoadIdServiceStub({
 } = {}) {
 	return {
 		rpc(fn, args) {
-			return Promise.resolve(rpcHandler(fn, args));
+			return Promise.resolve(rpcHandler?.(fn, args));
 		},
 		from(table) {
 			const chain = {

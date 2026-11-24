@@ -14,6 +14,7 @@
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 	import GroupSponsorshipQueue from '#lib/components/groups/GroupSponsorshipQueue.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const slug = $derived(data.group?.slug ?? '');

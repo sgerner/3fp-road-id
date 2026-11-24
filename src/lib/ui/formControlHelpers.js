@@ -15,15 +15,21 @@ export function reorderListItem(items, fromIndex, toIndex) {
 	return next;
 }
 
+/**
+ * @param {any[]} articles
+ * @param {any[]} subcategories
+ * @param {{ articleId?: any; targetSubcategorySlug?: any; targetIndex?: number }} [options]
+ */
 export function reassignAndOrderLearnArticles(
 	articles,
 	subcategories,
-	{ articleId, targetSubcategorySlug = undefined, targetIndex = undefined } = {}
+	{ articleId = undefined, targetSubcategorySlug = undefined, targetIndex = undefined } = {}
 ) {
 	const safeArticles = Array.isArray(articles) ? articles : [];
 	const safeSubcategories = Array.isArray(subcategories) ? subcategories : [];
 
 	const orderedGroupIds = ['uncategorized', ...safeSubcategories.map((sub) => sub.slug)];
+	/** @type {Map<string, any[]>} */
 	const groupMap = new Map(orderedGroupIds.map((groupId) => [groupId, []]));
 
 	for (const article of safeArticles) {
@@ -32,7 +38,7 @@ export function reassignAndOrderLearnArticles(
 			groupMap.set(groupId, []);
 			orderedGroupIds.push(groupId);
 		}
-		groupMap.get(groupId).push({ ...article });
+		groupMap.get(groupId)?.push({ ...article });
 	}
 
 	let sourceGroupId = null;

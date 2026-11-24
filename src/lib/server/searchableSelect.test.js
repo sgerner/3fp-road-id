@@ -66,6 +66,7 @@ function getAttributeExpressionSource(element, attrName) {
 }
 
 function createSearchableSelectHarness(initialProps = {}) {
+	/** @type {any} */
 	const ast = parse(componentSource, { modern: true });
 	const moduleCode = ast.module
 		? componentSource.slice(ast.module.content.start, ast.module.content.end)

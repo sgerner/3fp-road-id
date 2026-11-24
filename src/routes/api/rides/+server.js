@@ -16,14 +16,24 @@ import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
 import { queryPublishedUpcomingRides } from '#lib/server/rideDirectory';
 import { enforceRateLimit } from '#lib/server/security';
 
+/**
+ * @param {any} request
+ */
 function parseJson(request) {
 	return request.json().catch(() => null);
 }
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ url, cookies }) {
 	const { supabase } = await getActivityClient(cookies);
 
@@ -36,6 +46,9 @@ export async function GET({ url, cookies }) {
 	}
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, cookies } = event;
 	const { supabase, user } = await getActivityClient(cookies);
@@ -120,6 +133,7 @@ export async function POST(event) {
 		payload.activity.slug || payload.activity.title
 	);
 
+	/** @type {any} */
 	const activityInsert = {
 		activity_type: 'ride',
 		host_user_id: payload.activity.is_host ? user.id : null,

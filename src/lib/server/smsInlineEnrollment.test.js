@@ -196,7 +196,7 @@ test('keeps SMS preferences caches isolated by signed-in user', async () => {
 	assert.equal(userB.preferences.phone, '+14805550102');
 	assert.equal(cachedUserA.preferences.phone, '+14805550101');
 	assert.equal(fetchCalls, 2);
-	assert.equal(loader.getCached({ cacheKey: 'user-b' }).preferences.phone, '+14805550102');
+	assert.equal(loader.getCached({ cacheKey: 'user-b' })?.preferences.phone, '+14805550102');
 });
 
 test('saves registration first and keeps registration saved with retry message on 400 or 409 SMS errors', async () => {

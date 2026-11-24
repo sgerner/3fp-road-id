@@ -5,13 +5,20 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 
+	/** @type {Record<string, any>} */
 	let { children } = $props();
 
+	/** @type {any} */
 	const pathname = $derived(page.url.pathname);
+	/** @type {any} */
 	const currentUser = $derived(page.data?.currentUser ?? null);
+	/** @type {any} */
 	const currentRide = $derived(page.data?.ride ?? null);
+	/** @type {any} */
 	const currentRideSlug = $derived(currentRide?.activity?.slug ?? null);
+	/** @type {any} */
 	const isWidgetFrame = $derived(pathname.startsWith('/ride/widget/frame'));
+	/** @type {any} */
 	const canManageCurrentRide = $derived(
 		Boolean(
 			currentRideSlug &&
