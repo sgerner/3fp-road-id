@@ -1,19 +1,15 @@
 import { getActivityClient, loadRideLookups } from '#lib/server/activities';
-
-async function loadHostGroups(supabase) {
-	const { data: groups, error: groupsError } = await supabase
-		.from('groups')
-		.select('id,name,slug,city,state_region,country')
-		.order('name', { ascending: true });
-	if (groupsError) throw groupsError;
-	return groups ?? [];
-}
+import { loadHostGroupDirectory } from '#lib/server/hostGroupDirectory';
 
 export const load = async ({ cookies }) => {
 	const { supabase, user } = await getActivityClient(cookies);
-	const [lookups, hostGroups, profileResult] = await Promise.all([
+	const [lookups, directory, profileResult] = await Promise.all([
 		loadRideLookups(supabase),
-		loadHostGroups(supabase),
+		loadHostGroupDirectory({
+			supabase,
+			userId: user?.id ?? null,
+			allowSiteAdmin: false
+		}),
 		user?.id
 			? supabase
 					.from('profiles')
@@ -26,7 +22,7 @@ export const load = async ({ cookies }) => {
 	return {
 		currentUser: user ?? null,
 		currentProfile: profileResult?.data ?? null,
-		hostGroups,
+		hostGroups: directory.hostGroups,
 		...lookups
 	};
 };

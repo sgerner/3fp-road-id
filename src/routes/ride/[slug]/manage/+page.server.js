@@ -5,14 +5,8 @@ import {
 	loadRideBySlug,
 	loadRideLookups
 } from '#lib/server/activities';
-
-async function loadHostGroups(supabase) {
-	const { data: groups } = await supabase
-		.from('groups')
-		.select('id,name,slug,city,state_region,country')
-		.order('name', { ascending: true });
-	return groups ?? [];
-}
+import { loadActiveEventSponsorshipRequest } from '#lib/server/eventSponsorships';
+import { loadHostGroupDirectory } from '#lib/server/hostGroupDirectory';
 
 export const load = async ({ params, cookies }) => {
 	const { supabase, user } = await getActivityClient(cookies);
@@ -34,15 +28,21 @@ export const load = async ({ params, cookies }) => {
 	});
 	if (!canManageResult) throw redirect(303, `/ride/${params.slug}`);
 
-	const [lookups, hostGroups] = await Promise.all([
+	const [lookups, directory, activeSponsorshipRequest] = await Promise.all([
 		loadRideLookups(supabase),
-		loadHostGroups(supabase)
+		loadHostGroupDirectory({
+			supabase,
+			userId: user.id,
+			allowSiteAdmin: false
+		}),
+		loadActiveEventSponsorshipRequest({ activityEventId: ride.activity.id }).catch(() => null)
 	]);
 
 	return {
 		ride,
 		currentUser: user,
-		hostGroups,
+		hostGroups: directory.hostGroups,
+		activeSponsorshipRequest,
 		...lookups
 	};
 };

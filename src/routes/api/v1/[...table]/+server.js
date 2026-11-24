@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { ALLOWED_API_TABLES, TABLE_PRIMARY_KEYS } from '#lib/apiConfig';
+import { resolveApiV1WriteError } from '#lib/server/apiV1Errors';
 import { readJsonBody } from '#lib/server/security';
 
 const MAX_RESULT_ROWS = 500;
@@ -37,15 +38,6 @@ const FILTER_METHODS = {
 	cd: 'containedBy',
 	ov: 'overlaps'
 };
-
-/**
- * @param {any} error
- * @param {any} [fallback]
- */
-function getErrorStatus(error, fallback = 400) {
-	const parsedCode = Number.parseInt(error?.code, 10);
-	return parsedCode >= 200 && parsedCode <= 599 ? parsedCode : fallback;
-}
 
 // Helper function to convert kebab-case to snake_case
 /**
@@ -277,7 +269,11 @@ export async function POST(event) {
 
 		if (error) {
 			console.error('Supabase POST error:', error);
-			return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
+			const mapped = resolveApiV1WriteError(error, {
+				tableName,
+				body: Array.isArray(body) ? body[0] : body
+			});
+			return json({ error: mapped.error }, { status: mapped.status });
 		}
 		return json({ data: data?.[0] || data }, { status: 201 });
 	} catch (e) {
@@ -346,7 +342,8 @@ export async function PUT(event) {
 
 		if (error) {
 			console.error('Supabase PUT error:', error);
-			return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
+			const mapped = resolveApiV1WriteError(error, { tableName, body });
+			return json({ error: mapped.error }, { status: mapped.status });
 		}
 		if (!data || data.length === 0) {
 			return json({ error: 'Record not found or user lacks permission.' }, { status: 404 });
@@ -424,7 +421,8 @@ export async function DELETE(event) {
 
 	if (error) {
 		console.error('Supabase DELETE error:', error);
-		return json({ error: 'Unable to complete request.' }, { status: getErrorStatus(error) });
+		const mapped = resolveApiV1WriteError(error, { tableName });
+		return json({ error: mapped.error }, { status: mapped.status });
 	}
 	return json(
 		{ message: 'Delete successful or record not found/no permission.', deleted: data },

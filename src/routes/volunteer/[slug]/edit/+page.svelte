@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import IconClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import VolunteerEventForm from '#lib/components/volunteer/VolunteerEventForm.svelte';
+	import { HOST_GROUP_STATUS } from '#lib/groups/hostGroupDirectory';
 	import { toaster } from '../../../toaster-svelte';
 
 	import {
@@ -148,14 +149,12 @@
 	let eventRecord = $state({ ...eventRecordInitial });
 	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
-	const hostGroups = pageData.hostGroups ?? [];
-	const hostGroupOptions = hostGroups
-		.map((group) => ({ label: String(group.name ?? ''), value: group.id }))
-		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+	let hostGroups = $state(pageData.hostGroups ?? []);
 	const initialHostGroupId =
 		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
-	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
-	let filteredHostGroupOptions = $state(hostGroupOptions);
+	let sponsorshipGroupId = $state('');
+	let sponsorshipMessage = $state('');
+	let activeSponsorshipRequest = $state(pageData.activeSponsorshipRequest ?? null);
 	let eventSaving = $state(false);
 	let baseTimezones = $state(FALLBACK_TIMEZONES);
 	const timezoneOptions = $derived(
@@ -179,28 +178,34 @@
 		return match?.description ?? '';
 	}
 
-	function handleHostGroupValueChange(value) {
-		const next = value ?? [];
-		const nextId = next?.[0] ?? '';
-		hostGroupSelection = next;
-		if (String(nextId) === String(eventDetails.hostGroupId ?? '')) return;
-		updateEventDetails({
-			hostGroupId: nextId
-		});
-	}
-	function handleHostGroupSearch(inputValue) {
-		const query = inputValue?.trim().toLowerCase() ?? '';
-		if (!query) {
-			filteredHostGroupOptions = hostGroupOptions;
-			return;
+	async function handleHostGroupChange(nextGroupId) {
+		const normalizedId = nextGroupId || '';
+		if (String(eventDetails.hostGroupId || '') !== String(normalizedId)) {
+			updateEventDetails({ hostGroupId: normalizedId });
 		}
-		filteredHostGroupOptions = hostGroupOptions.filter((option) =>
-			option.label.toLowerCase().includes(query)
-		);
+		if (normalizedId && activeSponsorshipRequest?.status === 'pending') {
+			await fetch('/api/event-sponsorship-requests', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ requestId: activeSponsorshipRequest.id })
+			}).catch(() => {});
+			activeSponsorshipRequest = null;
+		}
 	}
-	function handleClearHostGroup() {
-		hostGroupSelection = [];
-		updateEventDetails({ hostGroupId: '' });
+
+	function handleSponsorshipChange({ groupId = '', message = '' } = {}) {
+		sponsorshipGroupId = groupId || '';
+		sponsorshipMessage = message || '';
+	}
+
+	function handleGroupClaimed(claimedGroup) {
+		if (!claimedGroup?.id) return;
+		const claimedId = String(claimedGroup.id);
+		hostGroups = hostGroups.map((group) =>
+			String(group.id) === claimedId
+				? { ...group, status: HOST_GROUP_STATUS.MANAGED, isClaimed: true, canManage: true }
+				: group
+		);
 	}
 
 	const eventAutosave = createAutosave({
@@ -213,7 +218,6 @@
 				eventRecord = { ...eventRecord, ...freshRecord };
 				const normalized = mapEventRecordToFormDetails(eventRecord);
 				eventDetails = normalized;
-				hostGroupSelection = normalized.hostGroupId ? [normalized.hostGroupId] : [];
 			}
 		},
 		successMessage: 'Event details saved',
@@ -729,19 +733,24 @@
 		{opportunityTypeOptions}
 		{fieldTypeOptions}
 		{emailTypeOptions}
-		{hostGroupSelection}
-		{filteredHostGroupOptions}
+		{hostGroups}
+		{initialHostGroupId}
+		{sponsorshipGroupId}
+		{sponsorshipMessage}
+		{activeSponsorshipRequest}
+		immediateSponsorshipMode={true}
+		{eventId}
 		currentEventTypeDescription={currentEventTypeDescription()}
-		hasHostGroups={hostGroupOptions.length > 0}
 		{opportunities}
 		{customQuestions}
 		{eventEmails}
 		saving={eventSaving || activeSaveCount > 0}
 		{saveIntent}
 		onEventDetailsChange={updateEventDetails}
-		onHostGroupValueChange={handleHostGroupValueChange}
-		onHostGroupSearch={handleHostGroupSearch}
-		onClearHostGroup={handleClearHostGroup}
+		onHostGroupChange={handleHostGroupChange}
+		onSponsorshipChange={handleSponsorshipChange}
+		onActiveSponsorshipRequestChange={(nextReq) => (activeSponsorshipRequest = nextReq)}
+		onGroupClaimed={handleGroupClaimed}
 		onAddOpportunity={rolesAddOpportunityWrapper}
 		onRemoveOpportunity={rolesRemoveOpportunityWrapper}
 		onUpdateOpportunity={rolesUpdateOpportunityWrapper}
