@@ -306,6 +306,8 @@ test('unified Program and Tiers save updates rules, policy_version, in-place tie
 
 	const tier1 = store.tables.group_membership_tiers.find((row) => row.id === 'tier-1');
 	const tier2 = store.tables.group_membership_tiers.find((row) => row.id === 'tier-2');
+	assert.ok(tier1);
+	assert.ok(tier2);
 	assert.equal(tier1.name, 'Community Rider');
 	assert.equal(tier1.monthly_amount_cents, 500);
 	assert.equal(tier1.is_default, false);
@@ -475,6 +477,7 @@ test('submitting a club join form with alternate display name or phone leaves an
 	const backfilledProfile = store.tables.profiles.find(
 		(row) => row.user_id === 'user-new-magic-link'
 	);
+	assert.ok(backfilledProfile);
 	assert.equal(backfilledProfile.full_name, 'New Rider');
 	assert.equal(backfilledProfile.email, 'newrider@example.com');
 	assert.equal(backfilledProfile.phone, '555-222-3333');
