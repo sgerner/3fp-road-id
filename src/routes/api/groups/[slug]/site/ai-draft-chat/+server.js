@@ -8,6 +8,7 @@ import {
 import { generateGroupSiteDraft } from '#lib/server/groupSiteDesigner';
 import { getGroupSiteConfig } from '#lib/server/groupSites';
 import { mergeGroupSiteConfig } from '#lib/microsites/config';
+import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 
 const MAX_MESSAGES = 20;
 const RESPONSE_SCHEMA = {
@@ -190,13 +191,36 @@ function summarizeSiteDiff(currentConfig, nextConfig) {
 	return summary.slice(0, 10);
 }
 
-export async function POST({ params, request, cookies }) {
+export async function POST(event) {
+	const { params, request, cookies } = event;
+	const limitedByIp = enforceRateLimit(event, {
+		name: 'group-site-ai-draft-ip',
+		limit: 40,
+		windowMs: 10 * 60 * 1000
+	});
+	if (limitedByIp) return limitedByIp;
+
 	const auth = await requireGroupSiteAiOwner(cookies, params.slug);
 	if (!auth.ok) {
 		return json({ error: auth.error }, { status: auth.status });
 	}
 
-	const payload = await request.json().catch(() => ({}));
+	const limitedByUser = enforceRateLimit(event, {
+		name: 'group-site-ai-draft-user',
+		limit: 24,
+		windowMs: 10 * 60 * 1000,
+		key: auth.user?.id || ''
+	});
+	if (limitedByUser) return limitedByUser;
+
+	const parsedBody = await readJsonBody(request, { maxBytes: 128 * 1024 });
+	if (!parsedBody.ok) {
+		return json({ error: parsedBody.error }, { status: parsedBody.status });
+	}
+	const payload =
+		parsedBody.value && typeof parsedBody.value === 'object' && !Array.isArray(parsedBody.value)
+			? parsedBody.value
+			: {};
 	const messages = normalizeMessages(payload?.messages);
 	const userMessageCount = messages.filter((entry) => entry.role === 'user').length;
 	const assistantQuestionCount = countAssistantQuestions(messages);

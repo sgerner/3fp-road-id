@@ -195,23 +195,14 @@
 				/>
 			</label>
 
-			<details class="border-surface-500/30 bg-surface-900 border-t p-4 sm:p-5">
-				<summary class="cursor-pointer list-none font-semibold">
-					<span class="flex items-center justify-between gap-3"
-						>Writing help <span class="text-xs font-normal opacity-60">Optional AI assistant</span
-						></span
-					>
-				</summary>
-				<div class="mt-4">
-					<LearnWritingAssistant
-						articleId={article?.id ?? null}
-						canAsk={!!article?.id}
-						getContext={buildContext}
-						getEditor={() => editorApi}
-						setSummary={(value) => (summaryValue = value)}
-					/>
-				</div>
-			</details>
+			<LearnWritingAssistant
+				articleId={article?.id ?? null}
+				canAsk={!!article?.id}
+				getContext={buildContext}
+				getEditor={() => editorApi}
+				getSummary={() => summaryValue}
+				setSummary={(value) => (summaryValue = value)}
+			/>
 
 			<LearnEditor
 				label="Article body"
