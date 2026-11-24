@@ -2,8 +2,21 @@ import { writable } from 'svelte/store';
 
 const STORAGE_KEY = '3fp_merch_cart_main';
 
+/**
+ * @typedef {{
+ *   variantId: any,
+ *   productName: string,
+ *   productImageUrl: string,
+ *   variantName: string,
+ *   optionValues: Record<string, any>,
+ *   partnerProvider: string,
+ *   priceCents: number,
+ *   quantity: number
+ * }} MerchCartItem
+ */
+
 function createCartStore() {
-	const { subscribe, set, update } = writable([]);
+	const { subscribe, set, update } = writable(/** @type {MerchCartItem[]} */ ([]));
 
 	function load() {
 		if (typeof window === 'undefined') return;

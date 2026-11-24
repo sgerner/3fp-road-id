@@ -24,6 +24,7 @@
 		sanitizeAltText
 	} from '#lib/learn/altText';
 
+	/** @type {Record<string, any>} */
 	let {
 		open = $bindable(false),
 		target = 'group',
@@ -48,7 +49,9 @@
 	const titleId = `${uid}-studio-title`;
 	const descId = `${uid}-studio-desc`;
 
+	/** @type {HTMLDialogElement | null} */
 	let dialogEl = $state(null);
+	/** @type {HTMLButtonElement | null} */
 	let quickGenerateBtnEl = $state(null);
 	let viewMode = $state('quick'); // 'quick' | 'advanced'
 	let styleId = $state('');
@@ -148,7 +151,10 @@
 			dialogEl.querySelectorAll(
 				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			)
-		).filter((el) => el instanceof HTMLElement && el.offsetParent !== null);
+		).filter(
+			/** @param {Element} el @returns {el is HTMLElement} */ (el) =>
+				el instanceof HTMLElement && el.offsetParent !== null
+		);
 
 		if (!focusable.length) return;
 		const first = focusable[0];

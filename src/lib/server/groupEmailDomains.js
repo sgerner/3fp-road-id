@@ -102,6 +102,12 @@ function ensureSesClient() {
 	return cachedSesClient;
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, group: any, userId: string, supabase: any, serviceSupabase: any }
+ * >}
+ */
 export async function requireGroupEmailManager(cookies, groupSlug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!user?.id) {
@@ -308,7 +314,7 @@ async function syncSesRecordsToVercelWhenManaged({ serviceSupabase, groupId, dom
 	try {
 		const result = await upsertDnsRecordsForVercelDomain({
 			domain: managedDomain.domain,
-			records: Array.isArray(dnsRecords) ? dnsRecords : []
+			records: /** @type {any[]} */ (Array.isArray(dnsRecords) ? dnsRecords : [])
 		});
 		return {
 			status: 'synced',
@@ -382,6 +388,9 @@ function buildDomainRowPayload({
 	};
 }
 
+/**
+ * @param {{ serviceSupabase: any, payload: any, auth: any, existingRow?: Record<string, any> | null }} options
+ */
 async function upsertSenderDomainRow({ serviceSupabase, payload, auth, existingRow = null }) {
 	const domain = normalizeDomain(payload?.domain || existingRow?.domain);
 	const syncResult = await syncAwsSenderIdentity({
@@ -581,6 +590,11 @@ export async function autoProvisionEmailSenderForRegisteredDomain({
 	}
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {any} groupId
+ * @param {{ preferredDomainId?: string | null }} [options]
+ */
 export async function getGroupEmailSenderConfig(
 	serviceSupabase,
 	groupId,
@@ -621,6 +635,19 @@ export async function getGroupEmailSenderConfig(
 	};
 }
 
+/**
+ * @param {{
+ *   to: string | string[],
+ *   subject: string,
+ *   html?: string,
+ *   text?: string,
+ *   replyTo?: string | null,
+ *   fromAddress: string,
+ *   tags?: Array<{ Name: string, Value: string }>,
+ *   branding?: Record<string, any>,
+ *   originBaseUrl?: string | null
+ * }} options
+ */
 export async function sendGroupManagedEmail({
 	to,
 	subject,

@@ -18,7 +18,12 @@ export function clonePlainValue(value) {
 	return value;
 }
 
+/**
+ * @param {Record<string, any>} [config]
+ * @returns {Record<string, any>}
+ */
 export function normalizeGeminiGenerationConfig(config = {}) {
+	/** @type {Record<string, any>} */
 	const normalizedConfig = { ...config };
 	const requestedEffort =
 		typeof normalizedConfig.reasoningEffort === 'string'
@@ -130,6 +135,10 @@ function isUnsupportedThinkingConfigError(error) {
 	);
 }
 
+/**
+ * @param {any} ai
+ * @param {{ getFallbackModel?: (model: any) => any }} [options]
+ */
 export function createGoogleTextProviderClient(ai, { getFallbackModel = () => null } = {}) {
 	return {
 		async generateContent({ model, contents, config }) {
@@ -184,6 +193,7 @@ function buildProviderToolContinuation({
 	finalInstructions = ''
 }) {
 	if (provider === 'openai') {
+		/** @type {any[]} */
 		const items = [
 			{
 				role: 'user',
@@ -235,6 +245,7 @@ function buildProviderToolContinuation({
 					}))
 				};
 
+	/** @type {any[]} */
 	const userParts = toolCalls.map((call, index) => ({
 		functionResponse: {
 			...(call.id ? { id: call.id } : {}),
@@ -253,6 +264,9 @@ function buildProviderToolContinuation({
 	];
 }
 
+/**
+ * @param {Record<string, any>} options
+ */
 export async function runBoundedToolLoop({
 	client,
 	model,
@@ -277,10 +291,12 @@ export async function runBoundedToolLoop({
 				: 'openai';
 	const boundedMaxRounds = Math.max(0, Math.min(Number(maxToolRounds ?? 1) || 0, 2));
 
+	/** @type {Record<string, any>} */
 	const baseConfig = {};
 	if (reasoningEffort) baseConfig.reasoningEffort = reasoningEffort;
 	if (signal) baseConfig.signal = signal;
 
+	/** @type {Record<string, any>} */
 	const firstRoundConfig = {
 		...baseConfig,
 		...(Array.isArray(tools) && tools.length > 0 ? { tools } : {})
@@ -335,6 +351,7 @@ export async function runBoundedToolLoop({
 		finalInstructions
 	});
 
+	/** @type {Record<string, any>} */
 	const replyConfig = { ...baseConfig };
 	if (responseMimeType) replyConfig.responseMimeType = responseMimeType;
 	if (responseSchema) replyConfig.responseSchema = responseSchema;

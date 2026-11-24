@@ -98,6 +98,7 @@ function telHref(value) {
 	return digits ? `tel:${digits}` : '';
 }
 
+/** @param {number[]} oklch */
 function oklchToHex([l, c, h]) {
 	const hr = (h * Math.PI) / 180;
 	const a = c * Math.cos(hr);
@@ -182,6 +183,18 @@ export function getLogoOptions() {
 	return LOGO_OPTIONS;
 }
 
+/**
+ * @param {{
+ *   fullName?: string,
+ *   email?: string,
+ *   title?: string,
+ *   phone?: string,
+ *   showPhone?: boolean,
+ *   showAddress?: boolean,
+ *   accent?: string,
+ *   logo?: string
+ * }} [options]
+ */
 export function buildSignatureHtml({
 	fullName,
 	email,

@@ -541,7 +541,7 @@ export function calculateDistanceMiles(latitudeA, longitudeA, latitudeB, longitu
 	const lngA = toFiniteNumber(longitudeA);
 	const latB = toFiniteNumber(latitudeB);
 	const lngB = toFiniteNumber(longitudeB);
-	if ([latA, lngA, latB, lngB].some((value) => value === null)) return null;
+	if (latA === null || lngA === null || latB === null || lngB === null) return null;
 
 	const earthRadiusMiles = 3958.7613;
 	const dLat = toRadians(latB - latA);

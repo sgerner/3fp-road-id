@@ -10,6 +10,7 @@
 	import { CONTACT_ICON_MAP } from '#lib/groups/contactLinks';
 	import { deriveMicrositeCapabilities } from '#lib/microsites/capabilities';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const site = $derived(data.site);

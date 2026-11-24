@@ -23,7 +23,13 @@ function isSupportedTimezone(timezone) {
 	}
 }
 
-export function normalizeTimezone(timezone, fallback = 'UTC') {
+/**
+ * @template [T=string]
+ * @param {any} timezone
+ * @param {T} [fallback]
+ * @returns {string | T}
+ */
+export function normalizeTimezone(timezone, fallback = /** @type {any} */ ('UTC')) {
 	const value = typeof timezone === 'string' ? timezone.trim() : '';
 	return isSupportedTimezone(value) ? value : fallback;
 }

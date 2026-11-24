@@ -13,6 +13,7 @@
 	} = $props();
 
 	const assistantContext = getAssistantContext();
+	/** @type {HTMLButtonElement | null} */
 	let openBtnEl = $state(null);
 
 	const topicLabel = $derived(normalizeReportTopicLabel(currentTopic));
@@ -39,7 +40,11 @@
 		}));
 	});
 
-	/** Ask from another report control, such as the encounter lab or campaign planner. */
+	/**
+	 * Ask from another report control, such as the encounter lab or campaign planner.
+	 * @param {string} [question]
+	 * @param {HTMLElement | null} [triggerEl]
+	 */
 	export async function ask(question, triggerEl = null) {
 		const trimmed = typeof question === 'string' ? question.trim().slice(0, 1200) : '';
 		assistantContext.open({
@@ -51,6 +56,7 @@
 		});
 	}
 
+	/** @param {HTMLElement | null} [triggerEl] */
 	export function openReportAssistant(triggerEl = null) {
 		assistantContext.open({
 			mode: 'page',

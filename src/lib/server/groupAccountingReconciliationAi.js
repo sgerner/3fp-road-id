@@ -214,9 +214,7 @@ async function readUpload(file) {
 	if (normalizedClaim && normalizedClaim !== detectedMimeType) {
 		throw new Error('The uploaded file type does not match its contents.');
 	}
-	const safeFilename = String(filename)
-		.split(/[\\/]/)
-		.pop()
+	const safeFilename = (String(filename).split(/[\\/]/).pop() || '')
 		.replace(/[^\p{L}\p{N}._ -]/gu, '_')
 		.slice(0, 100);
 	const pageCount = detectedMimeType === 'application/pdf' ? estimatePdfPages(bytes) : 1;
@@ -248,6 +246,15 @@ function getStatementPrompt(expectedCurrency, accountKind, normalSide) {
 	].join('\n');
 }
 
+/**
+ * @param {any} raw
+ * @param {{
+ *   expectedCurrency?: string | null,
+ *   pageCount?: number | null,
+ *   accountKind?: string | null,
+ *   normalSide?: string | null
+ * }} [options]
+ */
 function normalizeStatement(
 	raw,
 	{ expectedCurrency = null, pageCount = null, accountKind = null, normalSide = null } = {}
@@ -531,6 +538,11 @@ function isPendingProviderRow(row) {
 	return /pending|authorized|processing/i.test(String(row?.provider_status || ''));
 }
 
+/**
+ * @param {any} row
+ * @param {string | null} [accountId]
+ * @param {string | null} [normalSide]
+ */
 function signedLedgerAmount(row, accountId = null, normalSide = null) {
 	const lines = Array.isArray(row?.lines) ? row.lines : [];
 	if (accountId) {
@@ -575,6 +587,19 @@ function canonicalDuplicateKey(row) {
  * Build deterministic one-to-one match suggestions. Exact signed cents and
  * currency are required for a strong suggestion; weak or duplicate matches are
  * returned as candidates and flagged for review.
+ *
+ * @param {{
+ *   statementLines?: any[],
+ *   lines?: any[],
+ *   feedRows?: any[],
+ *   ledgerRows?: any[],
+ *   accountId?: string | null,
+ *   normalSide?: string | null,
+ *   alreadyMatchedFeedIds?: string[],
+ *   alreadyMatchedEntryIds?: string[],
+ *   dateWindowDays?: number,
+ *   minimumSuggestionConfidence?: number
+ * }} [options]
  */
 export function matchReconciliationStatement({
 	statementLines = [],
@@ -614,7 +639,7 @@ export function matchReconciliationStatement({
 					source === 'ledger'
 						? signedLedgerAmount(row, accountId, normalSide)
 						: Number(row?.amount_cents);
-				if (!Number.isSafeInteger(amount) || amount === 0) return null;
+				if (amount === null || !Number.isSafeInteger(amount) || amount === 0) return null;
 				const currency = normalizeCurrency(row?.currency);
 				if (normalizedLine.currency && currency && normalizedLine.currency !== currency)
 					return null;
@@ -659,7 +684,7 @@ export function matchReconciliationStatement({
 						pendingProviderRow
 				};
 			})
-			.filter(Boolean)
+			.filter((candidate) => candidate !== null)
 			.sort((a, b) => b.confidence - a.confidence || String(a.id).localeCompare(String(b.id)));
 		return { line, lineIndex, candidates, invalid: false };
 	});
@@ -812,6 +837,9 @@ const AMBIGUOUS_MATCH_SCHEMA = {
  * Ask OpenAI to compare only ambiguous descriptions after explicit user opt-in.
  * AI suggestions remain flagged for human review and cannot select a candidate
  * with a different signed amount, currency, or a duplicate source row.
+ *
+ * @param {Record<string, any>} [input]
+ * @param {Record<string, any>} [options]
  */
 export async function matchReconciliationStatementWithAi(input = {}, options = {}) {
 	const deterministic = matchReconciliationStatement(input);
@@ -847,7 +875,7 @@ export async function matchReconciliationStatementWithAi(input = {}, options = {
 		.map((item, index) => ({
 			...item,
 			promptId: `line-${index + 1}`,
-			promptCandidates: item.candidates.map((candidate, candidateIndex) => ({
+			promptCandidates: item.candidates.map((/** @type {any} */ candidate, candidateIndex) => ({
 				...candidate,
 				promptId: `candidate-${candidateIndex + 1}`
 			}))
@@ -949,6 +977,15 @@ export async function matchReconciliationStatementWithAi(input = {}, options = {
 /**
  * Explain common unmatched statement cases and suggest a review action. This is
  * a read-only diagnostic; it never posts, clears, or links accounting records.
+ *
+ * @param {{
+ *   statementLines?: any[],
+ *   feedRows?: any[],
+ *   ledgerRows?: any[],
+ *   accountId?: string | null,
+ *   normalSide?: string | null,
+ *   dateWindowDays?: number
+ * }} [options]
  */
 export function suggestReconciliationResolutions({
 	statementLines = [],
@@ -991,7 +1028,7 @@ export function suggestReconciliationResolutions({
 						source === 'ledger'
 							? signedLedgerAmount(row, accountId, normalSide)
 							: Number(row?.amount_cents);
-					if (!Number.isSafeInteger(amount) || amount === 0) return null;
+					if (amount === null || !Number.isSafeInteger(amount) || amount === 0) return null;
 					const currency = normalizeCurrency(row?.currency);
 					if (lineCurrency && currency && lineCurrency !== currency) return null;
 					const distance = dayDistance(lineDate, dateOf(row));

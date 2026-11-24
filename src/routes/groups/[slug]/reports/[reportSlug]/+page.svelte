@@ -7,6 +7,7 @@
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const report = $derived(data.report ?? null);

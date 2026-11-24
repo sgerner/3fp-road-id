@@ -122,6 +122,7 @@ test('resolveMicrositeActionHref routes /join#donate to /biketempe/join#donate w
 		state_region: 'AZ'
 	});
 	const takeActionPage = tbagConfig.site_pages.find((page) => page.slug === 'take-action');
+	assert.ok(takeActionPage);
 	const donateBlock = takeActionPage.blocks.find(
 		(block) => block.button_label === 'See donation options'
 	);
@@ -175,6 +176,7 @@ test('resolveMicrositeActionHref hides self-referential page reload buttons whil
 		state_region: 'AZ'
 	});
 	const calendarPage = tbagConfig.site_pages.find((page) => page.slug === 'calendar');
+	assert.ok(calendarPage);
 	const site = {
 		group: {
 			slug: 'tempe-bicycle-action-group',
@@ -283,6 +285,7 @@ test('normalizeGroupSiteConfig upgrades legacy Bike Tempe calendar and take-acti
 	assert.equal(upgraded.ride_widget_config.defaultTab, 'calendar');
 
 	const upgradedCalendar = upgraded.site_pages.find((page) => page.slug === 'calendar');
+	assert.ok(upgradedCalendar);
 	assert.equal(upgradedCalendar.source_revision, TBAG_FOLLOW_CALENDAR_REVISION);
 	assert.equal(upgradedCalendar.blocks[0].button_url, '#rides-widget');
 	assert.ok(upgradedCalendar.blocks.some((block) => block.type === 'ride_calendar'));
@@ -290,6 +293,7 @@ test('normalizeGroupSiteConfig upgrades legacy Bike Tempe calendar and take-acti
 	assert.ok(upgradedCalendar.blocks.every((block) => block.button_url !== '/calendar'));
 
 	const upgradedTakeAction = upgraded.site_pages.find((page) => page.slug === 'take-action');
+	assert.ok(upgradedTakeAction);
 	assert.equal(upgradedTakeAction.source_revision, TBAG_FOLLOW_CALENDAR_REVISION);
 	assert.ok(upgradedTakeAction.blocks.some((block) => block.type === 'email_signup'));
 	assert.ok(upgradedTakeAction.blocks.some((block) => block.type === 'contact'));
@@ -302,6 +306,7 @@ test('normalizeGroupSiteConfig upgrades legacy Bike Tempe calendar and take-acti
 	// Custom edits saved on the current revision are preserved
 	const editedConfig = structuredClone(upgraded);
 	const editedCalendar = editedConfig.site_pages.find((page) => page.slug === 'calendar');
+	assert.ok(editedCalendar);
 	editedCalendar.blocks[0].title = 'Custom Tempe Ride Week';
 	const preserved = normalizeGroupSiteConfig(editedConfig, {
 		group: {
@@ -311,10 +316,9 @@ test('normalizeGroupSiteConfig upgrades legacy Bike Tempe calendar and take-acti
 			state_region: 'AZ'
 		}
 	});
-	assert.equal(
-		preserved.site_pages.find((page) => page.slug === 'calendar').blocks[0].title,
-		'Custom Tempe Ride Week'
-	);
+	const preservedCalendar = preserved.site_pages.find((page) => page.slug === 'calendar');
+	assert.ok(preservedCalendar);
+	assert.equal(preservedCalendar.blocks[0].title, 'Custom Tempe Ride Week');
 
 	const merged = mergeGroupSiteConfig(buildTempeBicycleActionGroupSite(null), upgraded);
 	assert.equal(merged.site_variant, 'tbag');

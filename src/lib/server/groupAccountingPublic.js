@@ -5,10 +5,16 @@ const pick = (value, keys) =>
 		keys.filter((key) => value?.[key] !== undefined).map((key) => [key, value[key]])
 	);
 
+/**
+ * @param {Record<string, any>} [report]
+ * @param {Array<Record<string, any>>} [budgets]
+ * @param {Record<string, any>} [visibility]
+ */
 export function buildPublicAccountingSnapshot(report = {}, budgets = [], visibility = {}) {
 	const activity = visibility.activity !== false;
 	const position = visibility.position !== false;
 	const cash = visibility.cash !== false;
+	/** @type {Record<string, any>} */
 	const financial = { ...pick(report, ['from', 'to', 'currency']), totals: {} };
 	const accountFields = ['code', 'name', 'kind'];
 	if (activity) {
@@ -39,6 +45,7 @@ export function buildPublicAccountingSnapshot(report = {}, budgets = [], visibil
 	} else if (cash) {
 		Object.assign(financial.totals, pick(report.totals, ['assets_cents', 'liabilities_cents']));
 	}
+	/** @type {{ report: Record<string, any>, budgets?: Array<Record<string, any>> }} */
 	const snapshot = { report: financial };
 	if (visibility.budgets === true) {
 		snapshot.budgets = budgets.map((row) => ({

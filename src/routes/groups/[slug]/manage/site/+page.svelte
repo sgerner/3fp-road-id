@@ -283,6 +283,7 @@
 		if (!pendingFiles.length || Object.values(sponsorFileNames).some(Boolean)) return '';
 		return `Your draft text was kept, but the page reload cleared your selected partner logo (${pendingFiles.join(', ')}). Please choose the file again before publishing.`;
 	});
+	/** @param {string | null} [fallbackView] */
 	function syncViewFromUrl(fallbackView = null) {
 		const requested = new URL(window.location.href).searchParams.get('view');
 		if (requested) {

@@ -336,7 +336,9 @@ function normalizeStringArray(values) {
 	return values.map((item) => String(item ?? '').trim()).sort();
 }
 
+/** @param {Record<string, any>} [payload] */
 export function rideDraftFingerprint(payload = {}) {
+	/** @type {Record<string, any>} */
 	const source = payload && typeof payload === 'object' ? payload : {};
 	const exclusions = Array.isArray(source.exclusions)
 		? source.exclusions.map((entry) => ({
@@ -401,6 +403,10 @@ export function rideDraftFingerprint(payload = {}) {
 	});
 }
 
+/**
+ * @param {Record<string, any>} [currentPayload]
+ * @param {Record<string, any> | null} [draft]
+ */
 export function summarizeRideDraft(currentPayload = {}, draft = null) {
 	if (!draft || typeof draft !== 'object') return [];
 	const lines = [];
@@ -465,6 +471,11 @@ export function summarizeRideDraft(currentPayload = {}, draft = null) {
 	return lines.slice(0, 10);
 }
 
+/**
+ * @param {string} currentFingerprint
+ * @param {unknown} baseFingerprint
+ * @param {string} [message]
+ */
 export function verifyBaseFingerprint(currentFingerprint, baseFingerprint, message) {
 	if (
 		typeof baseFingerprint === 'string' &&
@@ -482,6 +493,11 @@ export function verifyBaseFingerprint(currentFingerprint, baseFingerprint, messa
 	return { ok: true, conflict: false, error: '' };
 }
 
+/**
+ * @param {string} currentFingerprint
+ * @param {unknown} appliedFingerprint
+ * @param {string} [message]
+ */
 export function verifyAppliedFingerprint(currentFingerprint, appliedFingerprint, message) {
 	if (
 		typeof appliedFingerprint !== 'string' ||

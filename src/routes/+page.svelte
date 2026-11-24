@@ -15,6 +15,7 @@
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
 	import IconUsersRound from '@lucide/svelte/icons/users-round';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const siteOrigin = $derived(data.siteOrigin || '');

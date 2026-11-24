@@ -70,6 +70,10 @@ function coerceBoolean(value, fallback = false) {
 	return fallback;
 }
 
+/**
+ * @param {Record<string, any>} [template]
+ * @param {number} [index]
+ */
 export function normalizeEmailTemplate(template = {}, index = 0) {
 	return {
 		id: template.id ?? `template-${index + 1}`,
@@ -84,6 +88,9 @@ export function normalizeEmailTemplate(template = {}, index = 0) {
 	};
 }
 
+/**
+ * @param {Record<string, any>} [payload]
+ */
 export function normalizeRidePayload(payload = {}) {
 	const submittedTimezone = safeTrim(payload.timezone);
 	const canonicalTimezone =
@@ -155,12 +162,12 @@ export function normalizeRidePayload(payload = {}) {
 			by_weekdays: uniq(
 				asArray(payload.recurrenceWeekdays ?? payload.recurrence_weekdays)
 					.map((value) => toInteger(value))
-					.filter((value) => value >= 1 && value <= 7)
+					.filter((value) => value !== null && value >= 1 && value <= 7)
 			),
 			by_set_positions: uniq(
 				asArray(payload.recurrenceMonthPositions ?? payload.recurrence_month_positions)
 					.map((value) => toInteger(value))
-					.filter((value) => [-1, 1, 2, 3, 4].includes(value))
+					.filter((value) => value !== null && [-1, 1, 2, 3, 4].includes(value))
 			),
 			until_on: safeTrim(payload.recurrenceUntilOn ?? payload.recurrence_until_on) || null
 		},

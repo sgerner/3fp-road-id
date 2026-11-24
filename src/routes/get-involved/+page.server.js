@@ -151,7 +151,7 @@ async function verifyTurnstile(token) {
 }
 
 export const load = async ({ cookies, parent }) => {
-	const parentData = await parent().catch(() => ({}));
+	const parentData = await parent().catch(() => /** @type {any} */ ({}));
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	const supabase = createRequestSupabaseClient(accessToken);
 

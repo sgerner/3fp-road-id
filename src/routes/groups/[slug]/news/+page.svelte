@@ -55,8 +55,7 @@
 		}
 		await goto(`${url.pathname}${url.search}${url.hash}`, {
 			replaceState: true,
-			noScroll: true,
-			keepFocus: true
+			reset: false
 		});
 	}
 

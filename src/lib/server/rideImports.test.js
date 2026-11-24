@@ -412,6 +412,7 @@ test('Meetup import maps real venue, external URL, organizer name, clean descrip
 		}
 	);
 
+	assert.ok(Array.isArray(result.mapped));
 	assert.equal(result.mapped.length, 1);
 	const [mapped] = result.mapped;
 	assert.equal(mapped.activity.start_location_name, 'Westgate Square');
@@ -467,6 +468,7 @@ test('WeeklyRides import populates venue, external registration URL, organizer, 
 		}
 	);
 
+	assert.ok(Array.isArray(result.mapped));
 	assert.equal(result.mapped.length, 1);
 	const [mapped] = result.mapped;
 	assert.equal(mapped.activity.start_location_name, 'Hendersonville');
@@ -517,6 +519,7 @@ test('BTWPHX and seed imports store external organizer/url without overwriting v
 		}
 	);
 
+	assert.ok(Array.isArray(result.mapped));
 	assert.equal(result.mapped.length, 1);
 	const [mapped] = result.mapped;
 	assert.equal(mapped.activity.start_location_name, '11570 N Oracle Rd');
@@ -677,6 +680,7 @@ test('rideDirectory exposes structured external fields and searches external_org
 	let activityOrExpr = '';
 	const mockSupabase = {
 		from(table) {
+			/** @type {{ ors: string[]; countExact?: boolean }} */
 			const state = { ors: [] };
 			const builder = {
 				select(cols, opts) {

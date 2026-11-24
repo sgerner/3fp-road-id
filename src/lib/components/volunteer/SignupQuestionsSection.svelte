@@ -4,6 +4,17 @@
 	import Toggle from '#lib/components/ui/Toggle.svelte';
 	import { slide } from 'svelte/transition';
 
+	/**
+	 * @type {{
+	 *   customQuestions?: any[],
+	 *   opportunities?: any[],
+	 *   fieldTypeOptions?: any[],
+	 *   showHeader?: boolean,
+	 *   onAddQuestion?: () => any,
+	 *   onRemoveQuestion?: (id: any) => any,
+	 *   onUpdateQuestion?: (id: any, patch: Record<string, any>) => any
+	 * }}
+	 */
 	let {
 		customQuestions = [],
 		opportunities = [],

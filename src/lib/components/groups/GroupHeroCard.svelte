@@ -5,6 +5,7 @@
 	import { CONTACT_ICON_MAP, CTA_ICON_MAP } from '#lib/groups/contactLinks.js';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 
+	/** @type {Record<string, any>} */
 	let {
 		group,
 		canEdit = false,

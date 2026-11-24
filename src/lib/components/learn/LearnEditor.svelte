@@ -25,12 +25,17 @@
 			'Rich text editor'
 	);
 
+	/** @type {HTMLDivElement | null} */
 	let editorEl = $state(null);
+	/** @type {HTMLTextAreaElement | null} */
 	let textareaEl = $state(null);
+	/** @type {HTMLInputElement | null} */
 	let modeEl = $state(null);
 	let currentMode = $state('wysiwyg');
 	let lastExternalValue = '';
+	/** @type {any} */
 	let editor = null;
+	/** @type {any} */
 	let detachAccessibility = null;
 	let ready = $state(false);
 

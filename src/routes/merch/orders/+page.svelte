@@ -3,6 +3,7 @@
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
 	import IconShoppingBag from '@lucide/svelte/icons/shopping-bag';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	function formatDate(value) {

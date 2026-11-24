@@ -2,13 +2,22 @@ import { fetchList, fetchSingle } from '#lib/server/internalApi';
 import { redirect } from '@sveltejs/kit';
 import { load as loadVolunteerEvent } from '../+page.server.js';
 
+/**
+ * @param {any} [pathname]
+ * @param {any} [search]
+ */
 function encodeReturnTo(pathname = '', search = '') {
 	const value = `${pathname}${search}`;
 	return encodeURIComponent(value);
 }
 
+/**
+ * @param {any} array
+ * @param {any} size
+ */
 function chunk(array, size) {
 	if (!Array.isArray(array) || size <= 0) return [array];
+	/** @type {any} */
 	const result = [];
 	for (let index = 0; index < array.length; index += size) {
 		result.push(array.slice(index, index + size));
@@ -17,7 +26,7 @@ function chunk(array, size) {
 }
 
 export const load = async (event) => {
-	const baseData = await loadVolunteerEvent(event);
+	const baseData = await loadVolunteerEvent(/** @type {any} */ (event));
 	const slug = event.params.slug ?? '';
 	const returnTo = `${event.url.pathname}${event.url.search}`;
 
@@ -32,6 +41,7 @@ export const load = async (event) => {
 		throw redirect(303, `/volunteer/${slug}?auth=forbidden`);
 	}
 
+	/** @type {any} */
 	let eventEmails = [];
 	const eventId = baseData?.event?.id;
 	let eventDetails = baseData?.event ?? null;
@@ -40,9 +50,13 @@ export const load = async (event) => {
 	let signups = baseData?.signups ?? [];
 	let signupShifts = baseData?.signupShifts ?? [];
 	let signupResponses = baseData?.signupResponses ?? [];
+	/** @type {any} */
 	let volunteerProfiles = [];
+	/** @type {any} */
 	let eventHosts = [];
+	/** @type {any} */
 	let groupOwners = [];
+	/** @type {any} */
 	let primaryHost = null;
 
 	if (eventDetails?.host_user_id) {
@@ -103,6 +117,7 @@ export const load = async (event) => {
 			.map((opportunity) => opportunity?.id)
 			.filter((value) => value !== null && value !== undefined);
 
+		/** @type {any} */
 		let shifts = [];
 		if (opportunityIds.length) {
 			try {
@@ -225,6 +240,7 @@ export const load = async (event) => {
 		const uniqueUserIds = [...new Set(volunteerUserIds.map(String))];
 		const uniqueProfileIds = [...new Set(volunteerProfileIds.map(Number).filter(Boolean))];
 
+		/** @type {any} */
 		const orClauses = [];
 		if (uniqueUserIds.length) {
 			const userIdsIn = uniqueUserIds.map((id) => `"${id}"`).join(',');

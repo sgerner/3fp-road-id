@@ -40,6 +40,7 @@
 	} from '#lib/ai/imageGenerationModels';
 	import { toaster } from '../../../routes/toaster-svelte';
 
+	/** @type {Record<string, any>} */
 	let { slug = '', canManageSocial = false, showClaimMessage = false, group = null } = $props();
 
 	const PLATFORMS = ['facebook', 'instagram'];
@@ -52,101 +53,170 @@
 
 	const PUBLISHABLE_STATUSES = new Set(['draft', 'scheduled', 'queued', 'failed', 'cancelled']);
 
+	/** @type {any} */
 	let loading = $state(false);
+	/** @type {any} */
 	let loadingPosts = $state(false);
+	/** @type {any} */
 	let loadError = $state('');
+	/** @type {any} */
 	let actionError = $state('');
+	/** @type {any} */
 	let actionNotice = $state('');
 
+	/** @type {any} */
 	let accounts = $state([]);
+	/** @type {any} */
 	let posts = $state([]);
+	/** @type {any} */
 	let comments = $state([]);
+	/** @type {any} */
 	let commentsTotal = $state(0);
+	/** @type {any} */
 	let commentsOffset = $state(0);
+	/** @type {any} */
 	let loadingComments = $state(false);
+	/** @type {any} */
 	let pendingConnections = $state([]);
+	/** @type {any} */
 	let autoCommentSyncStarted = $state(false);
 
+	/** @type {any} */
 	let submittingIntent = $state('');
+	/** @type {any} */
 	let syncingComments = $state(false);
+	/** @type {any} */
 	let uploadingMedia = $state(false);
+	/** @type {any} */
 	let queuedMediaFiles = $state([]);
+	/** @type {any} */
 	let composerModalOpen = $state(false);
+	/** @type {any} */
 	let composerDialog = $state(null);
 
 	$effect(() => {
 		if (composerModalOpen && composerDialog && !composerDialog.open) composerDialog.showModal();
 	});
+	/** @type {any} */
 	let composerPreviewExpanded = $state(false);
+	/** @type {any} */
 	let mobilePreviewOpen = $state(false);
+	/** @type {any} */
 	let mediaDropActive = $state(false);
+	/** @type {any} */
 	let composerReadOnly = $state(false);
+	/** @type {any} */
 	let calendarView = $state('month');
+	/** @type {any} */
 	let calendarReference = $state(new Date());
+	/** @type {any} */
 	let showConnectionsPanel = $state(false);
+	/** @type {any} */
 	let socialConnectionsResolved = $state(false);
 
+	/** @type {any} */
 	let accountActionPending = $state({});
+	/** @type {any} */
 	let postActionPending = $state({});
+	/** @type {any} */
 	let replyPending = $state({});
+	/** @type {any} */
 	let aiReplyPending = $state({});
+	/** @type {any} */
 	let replyDrafts = $state({});
+	/** @type {any} */
 	let activeReplyCommentId = $state(null);
 
+	/** @type {any} */
 	let composerCaption = $state('');
+	/** @type {any} */
 	let composerPostTarget = $state('page');
+	/** @type {any} */
 	let composerPlatforms = $state([]);
+	/** @type {any} */
 	let composerMedia = $state([]);
+	/** @type {any} */
 	let composerScheduledFor = $state('');
+	/** @type {any} */
 	let composerAiPrompt = $state('');
+	/** @type {any} */
 	let composerAiAddPageText = $state(false);
+	/** @type {any} */
 	let composerContentLibraryItemId = $state('');
+	/** @type {any} */
 	let loadingLibrary = $state(false);
+	/** @type {any} */
 	let contentLibrary = $state([]);
+	/** @type {any} */
 	let contentLibraryFilter = $state('unused');
+	/** @type {any} */
 	let libraryUploadFiles = $state([]);
+	/** @type {any} */
 	let libraryUploading = $state(false);
 
+	/** @type {any} */
 	let aiPromptInput = $state('');
+	/** @type {any} */
 	let aiToneId = $state(AI_TONE_OPTIONS[0].id);
+	/** @type {any} */
 	let aiStyleId = $state(IMAGE_STYLE_PRESETS[0]?.id ?? 'comic_house');
+	/** @type {any} */
 	let aiImageModelId = $state(DEFAULT_SOCIAL_IMAGE_GENERATION_MODEL_ID);
+	/** @type {any} */
 	let aiConversation = $state([]);
+	/** @type {any} */
 	let aiGeneratedImages = $state([]);
+	/** @type {any} */
 	let aiSelectedImageUrl = $state('');
+	/** @type {any} */
 	let generatingAi = $state(false);
+	/** @type {any} */
 	let groupProfile = $state(null);
+	/** @type {any} */
 	let aiSelectedStateCode = $state('');
+	/** @type {any} */
 	let aiSelectedBikeVibeId = $state('');
+	/** @type {any} */
 	let socialStudioComponent = $state(null);
 	let socialStudioLoading = $state(false);
 	let socialStudioOpen = $state(false);
+	/** @type {any} */
 	let socialStudioCandidates = $state([]);
+	/** @type {any} */
 	let socialStudioTriggerEl = $state(null);
+	/** @type {any} */
 	const composerPreviewHasImage = $derived.by(() => Boolean(getDraftPreviewImage()?.url));
+	/** @type {any} */
 	const composerPreviewExpandedEffective = $derived.by(
 		() => composerPreviewExpanded && composerPreviewHasImage
 	);
+	/** @type {any} */
 	const mobilePreviewOpenEffective = $derived.by(
 		() => mobilePreviewOpen && composerPreviewHasImage
 	);
+	/** @type {any} */
 	const selectedAiStyle = $derived.by(
 		() => IMAGE_STYLE_PRESETS.find((preset) => preset.id === aiStyleId) ?? null
 	);
+	/** @type {any} */
 	const selectedAiTone = $derived.by(
 		() => AI_TONE_OPTIONS.find((option) => option.id === aiToneId) ?? AI_TONE_OPTIONS[0]
 	);
+	/** @type {any} */
 	const minimumSchedulableDate = $derived.by(() => nextSchedulableDate(new Date()));
+	/** @type {any} */
 	const minimumSchedulableInputValue = $derived.by(() =>
 		formatLocalDateTimeInput(minimumSchedulableDate)
 	);
 
+	/** @type {any} */
 	const connectedPlatforms = $derived.by(() =>
 		accounts
 			.filter((account) => account?.status === 'active' && typeof account?.platform === 'string')
 			.map((account) => account.platform)
 	);
 
+	/** @type {any} */
 	const effectiveScheduleBucket = $derived.by(() => {
 		if (!composerScheduledFor) return null;
 		const parsed = new Date(composerScheduledFor);
@@ -161,6 +231,7 @@
 		return rounded;
 	});
 
+	/** @type {any} */
 	const scheduledPosts = $derived.by(() =>
 		posts
 			.map((post) => {
@@ -173,6 +244,7 @@
 			.sort((a, b) => a._scheduledAt - b._scheduledAt)
 	);
 
+	/** @type {any} */
 	const postsByScheduleDay = $derived.by(() =>
 		scheduledPosts.reduce((acc, post) => {
 			const key = toDateKey(post._scheduledAt);
@@ -182,8 +254,11 @@
 		}, {})
 	);
 
+	/** @type {any} */
 	const monthMatrix = $derived(buildMonthGrid(calendarReference, postsByScheduleDay, toDateKey));
+	/** @type {any} */
 	const weekDays = $derived(buildWeekDays(calendarReference, postsByScheduleDay));
+	/** @type {any} */
 	const weekRows = $derived.by(() =>
 		CALENDAR_HOURS.map((hour) => ({
 			hour,
@@ -198,7 +273,9 @@
 			})
 		}))
 	);
+	/** @type {any} */
 	const daySlots = $derived(buildDaySlots(calendarReference, scheduledPosts));
+	/** @type {any} */
 	const mobileMonthDays = $derived.by(() => {
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
@@ -210,10 +287,12 @@
 		return weekWithPosts ?? monthMatrix[0] ?? [];
 	});
 
+	/** @type {any} */
 	const calendarHeaderText = $derived.by(() =>
 		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
 
+	/** @type {any} */
 	const weekHeaderText = $derived.by(() => {
 		const week = weekDays;
 		if (!week.length) return '';
@@ -229,6 +308,7 @@
 		return `${startLabel} - ${endLabel}`;
 	});
 
+	/** @type {any} */
 	const upcomingCards = $derived.by(() =>
 		posts
 			.filter((post) => UPCOMING_CARD_STATUSES.has(normalizeStatus(post?.status)))
@@ -239,11 +319,14 @@
 			})
 	);
 
+	/** @type {any} */
 	const hasConnectedAccounts = $derived.by(() =>
 		accounts.some((account) => account?.status === 'active')
 	);
 
+	/** @type {any} */
 	const groupedComments = $derived.by(() => {
+		/** @type {any} */
 		const groups = [];
 		const postMap = new Map();
 
@@ -252,6 +335,7 @@
 			const postId = post?.id || 'unlinked';
 
 			if (!postMap.has(postId)) {
+				/** @type {any} */
 				const group = {
 					post,
 					comments: []
@@ -266,16 +350,22 @@
 		return groups;
 	});
 
+	/** @type {any} */
 	const commentsPageStart = $derived.by(() => (commentsTotal > 0 ? commentsOffset + 1 : 0));
+	/** @type {any} */
 	const commentsPageEnd = $derived.by(() =>
 		commentsTotal > 0 ? Math.min(commentsOffset + comments.length, commentsTotal) : 0
 	);
+	/** @type {any} */
 	const hasPreviousCommentsPage = $derived.by(() => commentsOffset > 0);
+	/** @type {any} */
 	const hasNextCommentsPage = $derived.by(() => commentsOffset + comments.length < commentsTotal);
 
+	/** @type {any} */
 	const shouldShowConnectionsPanel = $derived.by(
 		() => socialConnectionsResolved && (!hasConnectedAccounts || showConnectionsPanel)
 	);
+	/** @type {any} */
 	const filteredLibraryItems = $derived.by(() => {
 		if (contentLibraryFilter === 'all') return contentLibrary;
 		return contentLibrary.filter((item) => {
@@ -364,17 +454,26 @@
 		selectGeneratedImage(imageEntry);
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function normalizeStatus(value) {
 		if (!value) return '';
 		return String(value).trim().toLowerCase();
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function parsePostDate(value) {
 		if (!value) return null;
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? null : date;
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function resolvePostDate(post) {
 		return (
 			parsePostDate(post?.scheduled_for) ||
@@ -384,6 +483,9 @@
 		);
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function toDateKey(date) {
 		if (!date) return '';
 		const year = date.getFullYear();
@@ -392,18 +494,29 @@
 		return `${year}-${month}-${day}`;
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function startOfWeek(date) {
 		const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 		dayStart.setDate(dayStart.getDate() - dayStart.getDay());
 		return dayStart;
 	}
 
+	/**
+	 * @param {any} date
+	 * @param {any} delta
+	 */
 	function addDays(date, delta) {
 		const next = new Date(date);
 		next.setDate(next.getDate() + delta);
 		return next;
 	}
 
+	/**
+	 * @param {any} a
+	 * @param {any} b
+	 */
 	function isSameDay(a, b) {
 		return (
 			a.getFullYear() === b.getFullYear() &&
@@ -412,11 +525,17 @@
 		);
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function formatLocalDateTimeInput(date) {
 		const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
 		return local.toISOString().slice(0, 16);
 	}
 
+	/**
+	 * @param {any} date
+	 */
 	function roundToQuarterHour(date) {
 		const snapped = new Date(date);
 		snapped.setSeconds(0, 0);
@@ -425,10 +544,17 @@
 		return snapped;
 	}
 
+	/**
+	 * @param {any} [reference]
+	 */
 	function nextSchedulableDate(reference = new Date()) {
 		return roundToQuarterHour(new Date(reference.getTime() + 1000));
 	}
 
+	/**
+	 * @param {any} date
+	 * @param {any} [hour]
+	 */
 	function defaultSlotForDay(date, hour = 9) {
 		const slot = new Date(date);
 		slot.setHours(hour, 0, 0, 0);
@@ -449,6 +575,10 @@
 		mobilePreviewOpen = false;
 	}
 
+	/**
+	 * @param {any} [prefillDate]
+	 * @param {any} [options]
+	 */
 	function openComposerModal(prefillDate = null, options = {}) {
 		const sourcePost = options?.post && typeof options.post === 'object' ? options.post : null;
 		clearFeedback();
@@ -502,6 +632,9 @@
 		composerModalOpen = false;
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function openPublishedPostModal(post) {
 		clearFeedback();
 		composerReadOnly = true;
@@ -542,11 +675,19 @@
 		}
 	}
 
+	/**
+	 * @param {any} date
+	 * @param {any} [hour]
+	 */
 	function handleCalendarSlotClick(date, hour = 9) {
 		const slot = defaultSlotForDay(date, hour);
 		openComposerModal(slot);
 	}
 
+	/**
+	 * @param {any} reference
+	 * @param {any} lookup
+	 */
 	function buildWeekDays(reference, lookup) {
 		const weekStart = startOfWeek(reference);
 		return Array.from({ length: 7 }, (_, index) => {
@@ -560,6 +701,10 @@
 		});
 	}
 
+	/**
+	 * @param {any} reference
+	 * @param {any} scheduledEntries
+	 */
 	function buildDaySlots(reference, scheduledEntries) {
 		return CALENDAR_HOURS.map((hour) => {
 			const slot = new Date(reference);
@@ -572,6 +717,9 @@
 		});
 	}
 
+	/**
+	 * @param {any} offset
+	 */
 	function shiftCalendar(offset) {
 		const next = new Date(calendarReference);
 		if (calendarView === 'day') next.setDate(next.getDate() + offset);
@@ -584,6 +732,9 @@
 		calendarReference = new Date();
 	}
 
+	/**
+	 * @param {any} hour
+	 */
 	function formatHourLabel(hour) {
 		const date = new Date();
 		date.setHours(hour, 0, 0, 0);
@@ -596,11 +747,17 @@
 		return selectedAiImage || composerMedia[0] || null;
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function platformLabel(platform) {
 		if (platform === 'instagram') return 'Instagram';
 		return 'Facebook';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function normalizePostTarget(value) {
 		return String(value || '')
 			.trim()
@@ -609,10 +766,16 @@
 			: 'page';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function postTargetLabel(value) {
 		return normalizePostTarget(value) === 'story' ? 'Story' : 'Page';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function postTargetClass(value) {
 		return normalizePostTarget(value) === 'story'
 			? 'inline-flex items-center rounded-full border border-warning-400/60 bg-warning-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning-300'
@@ -627,6 +790,9 @@
 		return normalizePostTarget(composerPostTarget) === 'story';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDateTime(value) {
 		if (!value) return 'Not set';
 		const date = new Date(value);
@@ -637,6 +803,10 @@
 		}).format(date);
 	}
 
+	/**
+	 * @param {any} value
+	 * @param {any} [maxLength]
+	 */
 	function captionPreview(value, maxLength = 180) {
 		const text = String(value || '').trim();
 		if (!text) return 'No caption provided.';
@@ -644,6 +814,9 @@
 		return `${text.slice(0, maxLength - 1)}…`;
 	}
 
+	/**
+	 * @param {any} comment
+	 */
 	function commentAuthorLabel(comment) {
 		const primary = String(comment?.author_name || comment?.author_username || '').trim();
 		if (primary) return primary;
@@ -656,21 +829,33 @@
 		return comment?.platform === 'facebook' ? 'Facebook user' : 'Commenter';
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function getPlatformIcon(platform) {
 		return platform === 'instagram' ? BrandInstagram : BrandFacebook;
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function getPlatformColor(platform) {
 		return platform === 'instagram'
 			? 'from-pink-500 via-purple-500 to-orange-500'
 			: 'from-blue-600 to-blue-500';
 	}
 
+	/**
+	 * @param {any} value
+	 */
 	function formatRelativeTime(value) {
 		if (!value) return '';
+		/** @type {any} */
 		const date = new Date(value);
 		if (Number.isNaN(date.getTime())) return '';
+		/** @type {any} */
 		const now = new Date();
+		/** @type {any} */
 		const diffMs = now - date;
 		const diffSecs = Math.floor(diffMs / 1000);
 		const diffMins = Math.floor(diffSecs / 60);
@@ -684,6 +869,9 @@
 		return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
 	}
 
+	/**
+	 * @param {any} status
+	 */
 	function getReplyStatusClass(status) {
 		switch (normalizeStatus(status)) {
 			case 'sent':
@@ -699,6 +887,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function postPrimaryImageUrl(post) {
 		const media = Array.isArray(post?.media) ? post.media : [];
 		const first = media[0];
@@ -710,6 +901,9 @@
 		return '';
 	}
 
+	/**
+	 * @param {any} status
+	 */
 	function getStatusColor(status) {
 		switch (normalizeStatus(status)) {
 			case 'published':
@@ -726,12 +920,18 @@
 		}
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function formatTimeAgo(post) {
 		const status = normalizeStatus(post?.status);
 		if (status === 'scheduled' || status === 'queued') {
+			/** @type {any} */
 			const date = parsePostDate(post?.scheduled_for);
 			if (!date) return 'Not scheduled';
+			/** @type {any} */
 			const now = new Date();
+			/** @type {any} */
 			const diffMs = date - now;
 			const diffMins = Math.floor(diffMs / 60000);
 			const diffHours = Math.floor(diffMins / 60);
@@ -746,10 +946,16 @@
 		return formatRelativeTime(post?.updated_at || post?.created_at);
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function isPublishedPost(post) {
 		return normalizeStatus(post?.status) === 'published';
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function calendarPostClass(post) {
 		const status = normalizeStatus(post?.status);
 		if (status === 'published') {
@@ -764,6 +970,9 @@
 		return 'bg-secondary-500/10 text-secondary-800-200';
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function handleCalendarPostClick(post) {
 		if (isPublishedPost(post)) {
 			openPublishedPostModal(post);
@@ -772,12 +981,18 @@
 		openComposerModal(post?._scheduledAt || resolvePostDate(post) || new Date(), { post });
 	}
 
+	/**
+	 * @param {any} post
+	 */
 	function openUpcomingCard(post) {
 		if (!post?.id) return;
 		if (postActionPending[post.id]) return;
 		openComposerModal(resolvePostDate(post) || new Date(), { post });
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function accountByPlatform(platform) {
 		return accounts.find((account) => account?.platform === platform) || null;
 	}
@@ -793,10 +1008,16 @@
 			.filter(Boolean);
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function pendingByPlatform(platform) {
 		return pendingConnections.find((entry) => entry?.provider === platform) || null;
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function accountStatusSummary(platform) {
 		const account = accountByPlatform(platform);
 		if (!account) return 'Not connected';
@@ -810,15 +1031,24 @@
 		return `Status: ${account.status}`;
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function shouldReconnect(platform) {
 		const status = accountByPlatform(platform)?.status;
 		return status === 'revoked' || status === 'expired' || status === 'error';
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function isConnected(platform) {
 		return accountByPlatform(platform)?.status === 'active';
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function toggleComposerPlatform(platform) {
 		if (composerPlatforms.includes(platform)) {
 			composerPlatforms = composerPlatforms.filter((value) => value !== platform);
@@ -837,6 +1067,9 @@
 		composerScheduledFor = formatLocalDateTimeInput(effectiveDate);
 	}
 
+	/**
+	 * @param {any} index
+	 */
 	function removeMediaItem(index) {
 		if (composerReadOnly) return;
 		const removed = composerMedia[index];
@@ -852,6 +1085,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function setComposerPrimaryMedia(item) {
 		const url = String(item?.url || '').trim();
 		if (!url) return;
@@ -859,6 +1095,9 @@
 		composerMedia = [item, ...remaining];
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function rememberGeneratedImage(item) {
 		const url = String(item?.url || '').trim();
 		if (!url) return;
@@ -870,6 +1109,9 @@
 		setComposerPrimaryMedia(item);
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function selectGeneratedImage(item) {
 		const url = String(item?.url || '').trim();
 		if (!url) return;
@@ -877,6 +1119,9 @@
 		setComposerPrimaryMedia(item);
 	}
 
+	/**
+	 * @param {any} url
+	 */
 	function removeGeneratedImage(url) {
 		const targetUrl = String(url || '').trim();
 		if (!targetUrl || composerReadOnly) return;
@@ -893,6 +1138,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	async function queueMediaFiles(event) {
 		if (composerReadOnly) return;
 		const input = event.currentTarget;
@@ -903,12 +1151,18 @@
 		await uploadSelectedMediaFiles(files, { silentIfEmpty: true });
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleMediaDragOver(event) {
 		if (composerReadOnly) return;
 		event.preventDefault();
 		mediaDropActive = true;
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleMediaDragLeave(event) {
 		if (composerReadOnly) return;
 		event.preventDefault();
@@ -917,6 +1171,9 @@
 		mediaDropActive = false;
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	async function handleMediaDrop(event) {
 		if (composerReadOnly) return;
 		event.preventDefault();
@@ -930,6 +1187,9 @@
 		aiConversation = [];
 	}
 
+	/**
+	 * @param {any} caption
+	 */
 	function buildAssistantReplyMessage(caption) {
 		if (isComposerStoryTarget()) {
 			return 'I updated the story draft image. Want any changes to the visual style or wording in the image?';
@@ -941,12 +1201,20 @@
 		return `Here’s a draft caption:\n\n${trimmedCaption}\n\nWant any changes to the tone, wording, or image direction?`;
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	function handleAiPromptKeydown(event) {
 		if (event.key !== 'Enter' || event.shiftKey) return;
 		event.preventDefault();
 		void generateAiAssistedContent();
 	}
 
+	/**
+	 * @param {any} mapName
+	 * @param {any} key
+	 * @param {any} value
+	 */
 	function setPending(mapName, key, value) {
 		if (mapName === 'account') {
 			accountActionPending = { ...accountActionPending, [key]: value };
@@ -968,12 +1236,18 @@
 		actionNotice = '';
 	}
 
+	/**
+	 * @param {any} message
+	 */
 	function showActionError(message) {
 		const text = String(message || 'Unable to complete this action.');
 		actionError = text;
 		toaster.error({ title: text });
 	}
 
+	/**
+	 * @param {any} intent
+	 */
 	function requireComposerPlatformsForPublish(intent) {
 		if (intent !== 'schedule' && intent !== 'publish_now') return true;
 		if (composerPlatforms.length > 0) return true;
@@ -981,6 +1255,9 @@
 		return false;
 	}
 
+	/**
+	 * @param {any} intent
+	 */
 	function validateComposerPublishRequirements(intent) {
 		if (!requireComposerPlatformsForPublish(intent)) return false;
 		if (intent === 'schedule') {
@@ -1020,11 +1297,18 @@
 		);
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	function connectHref(platform) {
 		const redirectTo = `/groups/${slug}/manage/social`;
 		return `/api/groups/${slug}/social/connect/${platform}?redirect_to=${encodeURIComponent(redirectTo)}`;
 	}
 
+	/**
+	 * @param {any} url
+	 * @param {any} [options]
+	 */
 	async function requestJson(url, options = {}) {
 		const response = await fetch(url, options);
 		const payload = await response.json().catch(() => ({}));
@@ -1034,6 +1318,9 @@
 		return payload;
 	}
 
+	/**
+	 * @param {any} [socialData]
+	 */
 	function hydrateSocialData(socialData = {}) {
 		accounts = Array.isArray(socialData.accounts) ? socialData.accounts : [];
 		pendingConnections = Array.isArray(socialData.pending_connections)
@@ -1043,6 +1330,10 @@
 			socialData.group && typeof socialData.group === 'object' ? socialData.group : groupProfile;
 	}
 
+	/**
+	 * @param {any} [payload]
+	 * @param {any} [fallbackOffset]
+	 */
 	function hydrateCommentsData(payload = {}, fallbackOffset = 0) {
 		const rows = Array.isArray(payload?.comments)
 			? payload.comments
@@ -1057,6 +1348,9 @@
 		commentsTotal = Number.isFinite(parsedTotal) ? Math.max(0, parsedTotal) : rows.length;
 	}
 
+	/**
+	 * @param {any} [offset]
+	 */
 	async function loadCommentsPage(offset = 0) {
 		if (!slug) return;
 		loadingComments = true;
@@ -1086,6 +1380,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} [filter]
+	 */
 	async function loadContentLibrary(filter = contentLibraryFilter) {
 		if (!slug) return;
 		loadingLibrary = true;
@@ -1136,6 +1433,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} item
+	 */
 	function applyLibraryItemToComposer(item) {
 		if (!item || typeof item !== 'object') return;
 		openComposerModal(nextSchedulableDate(), {
@@ -1152,6 +1452,9 @@
 		actionNotice = 'Loaded library content into composer.';
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	async function uploadLibraryFiles(event) {
 		if (!slug) return;
 		const input = event.currentTarget;
@@ -1194,6 +1497,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} platform
+	 */
 	async function disconnectPlatform(platform) {
 		if (!slug) return;
 		clearFeedback();
@@ -1209,6 +1515,11 @@
 		}
 	}
 
+	/**
+	 * @param {any} platform
+	 * @param {any} pendingId
+	 * @param {any} optionId
+	 */
 	async function selectPendingConnection(platform, pendingId, optionId) {
 		if (!slug) return;
 		const key = `${platform}:${optionId}`;
@@ -1229,6 +1540,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} [files]
+	 * @param {any} [param1]
+	 */
 	async function uploadSelectedMediaFiles(files = [], { silentIfEmpty = false } = {}) {
 		if (!slug) return;
 		if (composerReadOnly) return;
@@ -1264,6 +1579,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} intent
+	 */
 	async function submitComposer(intent) {
 		if (!slug) return;
 		if (composerReadOnly) return;
@@ -1276,6 +1594,7 @@
 		submittingIntent = intent;
 		try {
 			const storyTarget = isComposerStoryTarget();
+			/** @type {any} */
 			const payload = {
 				intent,
 				caption: storyTarget ? '' : composerCaption,
@@ -1321,6 +1640,10 @@
 		}
 	}
 
+	/**
+	 * @param {any} generated
+	 * @param {any} fallbackFileName
+	 */
 	function normalizeGeneratedSocialImage(generated, fallbackFileName) {
 		const imageUrl = String(generated?.url || '').trim();
 		if (!imageUrl) return null;
@@ -1438,6 +1761,7 @@
 
 			const uploaded = normalizeGeneratedSocialImage(generated, `ai-social-4x5-${Date.now()}`);
 			if (uploaded?.url) {
+				/** @type {any} */
 				const imageEntry = {
 					...uploaded,
 					aspect_ratio: composerAspectRatio(),
@@ -1470,8 +1794,13 @@
 		}
 	}
 
+	/**
+	 * @param {any} postId
+	 * @param {any} action
+	 */
 	async function runPostAction(postId, action) {
 		if (!slug || !postId) return;
+		/** @type {any} */
 		const pathByAction = {
 			publish: 'publish',
 			retry: 'retry',
@@ -1554,6 +1883,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} [param0]
+	 */
 	async function syncComments({ silent = false, auto = false } = {}) {
 		if (!slug) return;
 		if (syncingComments) return;
@@ -1569,6 +1901,7 @@
 
 		syncingComments = true;
 		try {
+			/** @type {any} */
 			const failures = [];
 			let refreshedAny = false;
 
@@ -1641,15 +1974,25 @@
 		await loadCommentsPage(commentsOffset + COMMENTS_PAGE_SIZE);
 	}
 
+	/**
+	 * @param {any} commentId
+	 * @param {any} value
+	 */
 	function updateReplyDraft(commentId, value) {
 		replyDrafts = { ...replyDrafts, [commentId]: value };
 	}
 
+	/**
+	 * @param {any} comment
+	 */
 	function openInlineReply(comment) {
 		activeReplyCommentId = comment.id;
 		void generateReplyDraft(comment);
 	}
 
+	/**
+	 * @param {any} comment
+	 */
 	async function generateReplyDraft(comment) {
 		const commentId = comment?.id;
 		if (!slug || !commentId) return;
@@ -1684,6 +2027,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} commentId
+	 */
 	async function sendReply(commentId) {
 		if (!slug || !commentId) return;
 		const body = String(replyDrafts[commentId] || '').trim();

@@ -53,6 +53,7 @@ test('navigation keeps the homepage first and moves excess primary links into Mo
 });
 
 test('navigation hides redundant automatic destinations by default', () => {
+	/** @type {any[]} */
 	const pages = normalizeGroupSitePages([
 		{
 			id: 'home',

@@ -158,7 +158,13 @@ export function sanitizeDispatchMessages(rawMessages, { maxMessages = 20, maxCha
 			if (!role || !content) return null;
 			return { role, content: content.slice(0, maxChars) };
 		})
-		.filter(Boolean);
+		.filter(
+			/**
+			 * @param {{ role: string, content: string } | null} entry
+			 * @returns {entry is { role: string, content: string }}
+			 */
+			(entry) => Boolean(entry)
+		);
 
 	// Drop any leading synthetic greeting before the first user turn
 	const firstUserIndex = normalized.findIndex((entry) => entry.role === 'user');
@@ -208,6 +214,12 @@ export function buildSafetyReportDispatchBody(messages, rawTopic = '') {
 	return { question, history };
 }
 
+/**
+ * @param {any} event
+ * @param {string} targetPath
+ * @param {any} bodyPayload
+ * @param {Record<string, any> | null} [extraParams]
+ */
 function createDelegatedEvent(event, targetPath, bodyPayload, extraParams = null) {
 	const headers = new Headers(event.request?.headers || {});
 	headers.set('content-type', 'application/json');
@@ -229,7 +241,12 @@ function createDelegatedEvent(event, targetPath, bodyPayload, extraParams = null
 	};
 }
 
+/**
+ * @param {Response | null | undefined} response
+ * @returns {Record<string, string>}
+ */
 function copySafeHeaders(response) {
+	/** @type {Record<string, string>} */
 	const headers = {};
 	for (const key of ['cache-control', 'retry-after']) {
 		const val = response?.headers?.get?.(key);

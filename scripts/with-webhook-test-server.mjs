@@ -30,9 +30,11 @@ function startPostgrestStub() {
 function closeHttpServer(server) {
 	if (!server) return Promise.resolve();
 	server.closeAllConnections?.();
-	return new Promise((resolve) => {
-		server.close(() => resolve());
-	});
+	return /** @type {Promise<void>} */ (
+		new Promise((resolve) => {
+			server.close(() => resolve());
+		})
+	);
 }
 
 function restoreEnv(snapshot, keys) {

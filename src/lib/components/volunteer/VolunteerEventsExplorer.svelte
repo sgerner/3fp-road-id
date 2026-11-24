@@ -92,6 +92,7 @@
 		Boolean(initialUrlState.location || initialUrlState.hostGroupId || initialUrlState.eventType)
 	);
 	let viewerTimezone = $state('UTC');
+	/** @type {HTMLElement | null} */
 	let directoryTopEl = $state(null);
 	let routerReady = false;
 	let searchDebounceTimer;
@@ -245,7 +246,7 @@
 		[...indexedEvents].sort((a, b) => {
 			const aS = parseEventDate(a?.event_start) ?? new Date(0);
 			const bS = parseEventDate(b?.event_start) ?? new Date(0);
-			return aS - bS;
+			return aS.getTime() - bS.getTime();
 		})
 	);
 
@@ -253,7 +254,7 @@
 		sortedEvents.filter((e) => {
 			const start = parseEventDate(e?.event_start);
 			const end = parseEventDate(e?.event_end) ?? start;
-			if (!start || end < currentTime) return false;
+			if (!start || !end || end < currentTime) return false;
 
 			if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
 			if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;

@@ -370,6 +370,9 @@ export async function updateVercelDomainAutoRenew({ domain, autoRenew }) {
 	};
 }
 
+/**
+ * @param {{ domain: string, records?: any[] }} options
+ */
 export async function upsertDnsRecordsForVercelDomain({ domain, records = [] }) {
 	const vercel = getVercelClient();
 	const normalizedDomain = assertDomain(domain);
@@ -378,7 +381,7 @@ export async function upsertDnsRecordsForVercelDomain({ domain, records = [] }) 
 			record,
 			requestBody: buildVercelDnsRequestBody(normalizedDomain, record)
 		}))
-		.filter((entry) => entry.requestBody);
+		.filter((entry) => entry.requestBody !== null);
 	if (!desired.length) {
 		return {
 			ok: true,
@@ -394,14 +397,16 @@ export async function upsertDnsRecordsForVercelDomain({ domain, records = [] }) 
 		limit: '100',
 		...getTeamContext()
 	});
-	const existingRecords = Array.isArray(existingResponse?.records) ? existingResponse.records : [];
+	const recordsList = /** @type {any} */ (existingResponse)?.records;
+	const existingRecords = Array.isArray(recordsList) ? recordsList : [];
 
 	let created = 0;
 	let updated = 0;
 	let skipped = 0;
 
 	for (const entry of desired) {
-		const { record, requestBody } = entry;
+		const { record } = entry;
+		const requestBody = /** @type {any} */ (entry.requestBody);
 		const exactMatch = existingRecords.find((row) => sameDnsRecord(row, requestBody));
 		if (exactMatch) {
 			skipped += 1;

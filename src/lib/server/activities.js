@@ -755,6 +755,11 @@ export async function loadRideById(supabase, id, options = {}) {
 	return loadRideRecord(supabase, { id }, options);
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} activityEventId
+ * @param {{ difficultyLevelIds?: any[], ridingDisciplineIds?: any[], emailTemplates?: any[], hostIds?: any[] }} [options]
+ */
 export async function upsertActivityRelations(
 	supabase,
 	activityEventId,
