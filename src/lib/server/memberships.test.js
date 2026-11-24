@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { registerHooks } from 'node:module';
 import test from 'node:test';
 
@@ -90,10 +91,14 @@ registerHooks({
 });
 
 const {
+	createMembershipCheckout,
 	createMembershipPaymentIntent,
 	finalizeMembershipPaymentIntent,
-	handleMembershipStripeEvent
+	handleMembershipStripeEvent,
+	joinMembership
 } = await import('./memberships.js');
+const { POST: postMembershipRoute } =
+	await import('../../routes/api/groups/[slug]/membership/+server.js');
 const { load: loadMembershipPage } =
 	await import('../../routes/groups/[slug]/membership/+page.server.js');
 
@@ -1233,4 +1238,481 @@ test('redirect finalization handles succeeded, processing, and failed states in 
 		assert.equal(spoofedSucceededData.payment_redirect.status, 'failed');
 		assert.equal(spoofedSucceededData.payment_redirect.completed, false);
 	}
+});
+
+test('POST /api/groups/[slug]/membership cancels active Stripe subscription when downgrading to a free tier and rolls back on Stripe error', async () => {
+	// 1. Successful downgrade to Neighbor free tier cancels subscription on connected account after clearing billing row
+	{
+		const cancelSnapshots = [];
+		const { tables } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_paid_active',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					source: 'online',
+					started_at: '2026-01-01T00:00:00.000Z',
+					renews_at: '2026-02-01T00:00:00.000Z',
+					ends_at: null,
+					cancel_at_period_end: false,
+					interval_unit: 'month',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z',
+					updated_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_paid_active',
+					membership_id: 'mem_paid_active',
+					stripe_customer_id: 'cus_paid_1',
+					stripe_subscription_id: 'sub_paid_active_1',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid',
+					next_billing_at: '2026-02-01T00:00:00.000Z'
+				}
+			],
+			tierChangeRequests: [
+				{
+					id: 'req_pending_down',
+					membership_id: 'mem_paid_active',
+					user_id: 'user_1',
+					current_tier_id: 'tier_supporter',
+					requested_tier_id: 'tier_advocate',
+					status: 'pending'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel(id, _params, opts) {
+						cancelSnapshots.push({
+							id,
+							stripeAccount: opts?.stripeAccount,
+							billingSubscriptionAtCancelTime:
+								tables.group_membership_billing[0]?.stripe_subscription_id
+						});
+						return { id, status: 'canceled' };
+					}
+				}
+			}
+		});
+
+		const response = await postMembershipRoute({
+			params: { slug: 'tempe-bicycle-action-group' },
+			cookies: {},
+			request: new Request('https://3fp.org/api/groups/tempe-bicycle-action-group/membership', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ tier_id: 'tier_free' })
+			})
+		});
+
+		assert.equal(response.status, 200);
+		const body = await response.json();
+		assert.deepEqual(body, { success: true, action: 'changed_immediately' });
+		assert.equal(cancelSnapshots.length, 1);
+		assert.deepEqual(cancelSnapshots[0], {
+			id: 'sub_paid_active_1',
+			stripeAccount: 'acct_tbag',
+			billingSubscriptionAtCancelTime: null
+		});
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
+		assert.equal(tables.group_memberships[0].contribution_amount_cents, 0);
+		assert.equal(tables.group_memberships[0].renews_at, null);
+		assert.equal(tables.group_memberships[0].interval_unit, null);
+		assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+		assert.equal(tables.group_membership_tier_change_requests[0].status, 'cancelled');
+
+		const deletedWebhook = await handleMembershipStripeEvent({
+			type: 'customer.subscription.deleted',
+			account: 'acct_tbag',
+			data: { object: { id: 'sub_paid_active_1', status: 'canceled' } }
+		});
+		assert.equal(deletedWebhook.ok, true);
+		assert.equal(deletedWebhook.matched, false);
+		assert.equal(tables.group_memberships[0].status, 'active');
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
+	}
+
+	// 2. Stripe cancellation error restores billing row and leaves membership on paid tier with HTTP 502
+	{
+		const { tables } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_paid_fail',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					source: 'online',
+					started_at: '2026-01-01T00:00:00.000Z',
+					renews_at: '2026-02-01T00:00:00.000Z',
+					interval_unit: 'month',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_paid_fail',
+					membership_id: 'mem_paid_fail',
+					stripe_customer_id: 'cus_paid_fail',
+					stripe_subscription_id: 'sub_paid_fail_1',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid',
+					next_billing_at: '2026-02-01T00:00:00.000Z'
+				}
+			],
+			tierChangeRequests: [
+				{
+					id: 'req_keep_pending',
+					membership_id: 'mem_paid_fail',
+					user_id: 'user_1',
+					current_tier_id: 'tier_supporter',
+					requested_tier_id: 'tier_advocate',
+					status: 'pending'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel() {
+						throw new Error('Stripe API temporarily unavailable');
+					},
+					async retrieve(id) {
+						return { id, status: 'active' };
+					}
+				}
+			}
+		});
+
+		await assert.rejects(
+			() =>
+				postMembershipRoute({
+					params: { slug: 'tempe-bicycle-action-group' },
+					cookies: {},
+					request: new Request('https://3fp.org/api/groups/tempe-bicycle-action-group/membership', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ tier_id: 'tier_free' })
+					})
+				}),
+			(err) => err?.status === 502
+		);
+
+		assert.equal(
+			tables.group_membership_billing[0].stripe_subscription_id,
+			'sub_paid_fail_1',
+			'stripe_subscription_id must be restored when Stripe cancel fails'
+		);
+		assert.equal(tables.group_membership_billing[0].stripe_price_id, 'price_supporter_month');
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_supporter');
+		assert.equal(tables.group_memberships[0].contribution_amount_cents, 500);
+		assert.equal(tables.group_membership_tier_change_requests[0].status, 'pending');
+	}
+});
+
+test('donation mode zero-amount switches update existing paid membership and cancel Stripe subscription across payment-intent, checkout, and join flows', async () => {
+	// 1. createMembershipPaymentIntent with $0 custom donation tier updates tier + cancels subscription
+	{
+		const canceledIds = [];
+		const { tables } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_don_pi',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					interval_unit: 'month',
+					renews_at: '2026-02-01T00:00:00.000Z',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_don_pi',
+					membership_id: 'mem_don_pi',
+					stripe_customer_id: 'cus_don_pi',
+					stripe_subscription_id: 'sub_don_pi',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel(id) {
+						canceledIds.push(id);
+						return { id, status: 'canceled' };
+					}
+				}
+			}
+		});
+
+		const res = await createMembershipPaymentIntent({
+			cookies: {},
+			groupSlug: 'tempe-bicycle-action-group',
+			payload: {
+				tier_id: 'tier_custom',
+				billing_interval: 'year',
+				custom_amount_cents: 0
+			},
+			requestUrl: new URL('https://3fp.org/groups/tempe-bicycle-action-group/membership')
+		});
+
+		assert.equal(res.ok, true);
+		assert.equal(res.data.requires_payment, false);
+		assert.equal(res.data.membership.id, 'mem_don_pi');
+		assert.equal(res.data.membership.tier_id, 'tier_custom');
+		assert.equal(res.data.membership.interval_unit, 'year');
+		assert.equal(res.data.membership.contribution_amount_cents, 0);
+		assert.deepEqual(canceledIds, ['sub_don_pi']);
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_custom');
+		assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+	}
+
+	// 2. createMembershipCheckout and joinMembership also apply requested free tier and cancel prior subscription
+	{
+		const canceledIds = [];
+		const { tables } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_don_co',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_advocate',
+					status: 'active',
+					interval_unit: 'month',
+					renews_at: '2026-02-01T00:00:00.000Z',
+					contribution_amount_cents: 1500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_don_co',
+					membership_id: 'mem_don_co',
+					stripe_customer_id: 'cus_don_co',
+					stripe_subscription_id: 'sub_don_co',
+					stripe_price_id: 'price_advocate_month',
+					last_payment_status: 'paid'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel(id) {
+						canceledIds.push(id);
+						return { id, status: 'canceled' };
+					}
+				}
+			}
+		});
+
+		const checkoutRes = await createMembershipCheckout({
+			cookies: {},
+			groupSlug: 'tempe-bicycle-action-group',
+			payload: {
+				tier_id: 'tier_custom',
+				billing_interval: 'month',
+				custom_amount_cents: 0
+			},
+			requestUrl: new URL('https://3fp.org/groups/tempe-bicycle-action-group/membership')
+		});
+
+		assert.equal(checkoutRes.ok, true);
+		assert.equal(checkoutRes.data.requires_checkout, false);
+		assert.equal(checkoutRes.data.membership.tier_id, 'tier_custom');
+		assert.equal(checkoutRes.data.membership.contribution_amount_cents, 0);
+		assert.deepEqual(canceledIds, ['sub_don_co']);
+		assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+
+		const joinRes = await joinMembership({
+			cookies: {},
+			groupSlug: 'tempe-bicycle-action-group',
+			payload: { tier_id: 'tier_free' }
+		});
+		assert.equal(joinRes.ok, true);
+		assert.equal(joinRes.data.membership.tier_id, 'tier_free');
+		assert.equal(joinRes.data.membership.renews_at, null);
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
+	}
+});
+
+test('superseded subscription cancellation failure rolls back billing snapshot, returns retryable error, and succeeds on retry', async () => {
+	let failCancel = true;
+	let cancelCalls = 0;
+	const { tables } = setupHarness({
+		memberships: [
+			{
+				id: 'mem_super_retry',
+				group_id: 'group_1',
+				user_id: 'user_1',
+				tier_id: 'tier_supporter',
+				status: 'active',
+				source: 'online',
+				started_at: '2026-01-01T00:00:00.000Z',
+				renews_at: '2026-02-01T00:00:00.000Z',
+				interval_unit: 'month',
+				contribution_amount_cents: 500,
+				created_at: '2026-01-01T00:00:00.000Z',
+				updated_at: '2026-01-01T00:00:00.000Z'
+			}
+		],
+		billing: [
+			{
+				id: 'bill_super_retry',
+				membership_id: 'mem_super_retry',
+				stripe_customer_id: 'cus_super_retry',
+				stripe_subscription_id: 'sub_prior_active',
+				stripe_price_id: 'price_supporter_month',
+				last_payment_status: 'paid',
+				next_billing_at: '2026-02-01T00:00:00.000Z'
+			}
+		],
+		stripeMock: {
+			paymentIntents: {
+				async retrieve(id) {
+					return {
+						id,
+						status: 'succeeded',
+						customer: 'cus_super_retry',
+						invoice: 'in_super_retry',
+						metadata: {}
+					};
+				}
+			},
+			invoices: {
+				async retrieve(id) {
+					return {
+						id,
+						status: 'paid',
+						paid: true,
+						subscription: 'sub_replacement_annual',
+						payment_intent: 'pi_super_retry'
+					};
+				}
+			},
+			subscriptions: {
+				async retrieve(id) {
+					if (id === 'sub_prior_active') {
+						return { id, status: 'active' };
+					}
+					return {
+						id,
+						status: 'active',
+						customer: 'cus_super_retry',
+						latest_invoice: {
+							id: 'in_super_retry',
+							status: 'paid',
+							paid: true,
+							subscription: id,
+							payment_intent: 'pi_super_retry'
+						},
+						metadata: {
+							membership_flow: 'group_membership',
+							membership_group_id: 'group_1',
+							membership_user_id: 'user_1',
+							membership_tier_id: 'tier_custom',
+							membership_billing_type: 'recurring',
+							membership_interval_unit: 'year',
+							membership_amount_cents: '12000',
+							membership_tier_price_id: 'price_custom_annual_12000'
+						}
+					};
+				},
+				async cancel(id) {
+					cancelCalls += 1;
+					if (failCancel) {
+						throw new Error('Transient Stripe network failure');
+					}
+					return { id, status: 'canceled' };
+				}
+			}
+		}
+	});
+
+	// 1. First finalize attempt fails to cancel sub_prior_active -> rolls back billing and preserves prior tier
+	const firstAttempt = await finalizeMembershipPaymentIntent({
+		cookies: {},
+		groupSlug: 'tempe-bicycle-action-group',
+		payload: { payment_intent_id: 'pi_super_retry' },
+		fetchImpl: null
+	});
+	assert.equal(firstAttempt.ok, false);
+	assert.equal(firstAttempt.status, 502);
+	assert.equal(cancelCalls, 1);
+	assert.equal(
+		tables.group_membership_billing[0].stripe_subscription_id,
+		'sub_prior_active',
+		'prior subscription ID must not be lost when cancellation fails'
+	);
+	assert.equal(tables.group_memberships[0].tier_id, 'tier_supporter');
+	assert.equal(tables.group_memberships[0].contribution_amount_cents, 500);
+
+	// 2. Webhook invoice.paid also surfaces retryable failure while Stripe cancel is failing
+	const failedWebhook = await handleMembershipStripeEvent({
+		type: 'invoice.paid',
+		account: 'acct_tbag',
+		data: {
+			object: {
+				id: 'in_super_retry',
+				status: 'paid',
+				paid: true,
+				subscription: 'sub_replacement_annual',
+				customer: 'cus_super_retry'
+			}
+		}
+	});
+	assert.equal(failedWebhook.ok, false);
+	assert.equal(failedWebhook.matched, true);
+	assert.equal(failedWebhook.retryable, true);
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, 'sub_prior_active');
+	assert.equal(tables.group_memberships[0].tier_id, 'tier_supporter');
+
+	// 3. Once Stripe cancel recovers, retry succeeds cleanly and transitions billing + tier
+	failCancel = false;
+	const retryAttempt = await finalizeMembershipPaymentIntent({
+		cookies: {},
+		groupSlug: 'tempe-bicycle-action-group',
+		payload: { payment_intent_id: 'pi_super_retry' },
+		fetchImpl: null
+	});
+	assert.equal(retryAttempt.ok, true);
+	assert.equal(retryAttempt.data.completed, true);
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, 'sub_replacement_annual');
+	assert.equal(tables.group_memberships[0].tier_id, 'tier_custom');
+	assert.equal(tables.group_memberships[0].interval_unit, 'year');
+	assert.equal(tables.group_memberships[0].contribution_amount_cents, 12000);
+});
+
+test('membership page resets custom contribution inputs upon activation and uses shared client navigation helpers', () => {
+	const svelteSource = readFileSync(
+		new URL('../../routes/groups/[slug]/membership/+page.svelte', import.meta.url),
+		'utf8'
+	);
+
+	assert.doesNotMatch(
+		svelteSource,
+		/from ['"]\$app\/navigation['"]/,
+		'+page.svelte should import navigation helpers from #lib/client/navigation'
+	);
+	assert.match(
+		svelteSource,
+		/import\s*\{\s*refreshPageData,\s*replaceShallowState\s*\}\s*from\s*['"]#lib\/client\/navigation['"]/
+	);
+	assert.match(svelteSource, /function syncActivatedMembershipState\(/);
+	assert.match(svelteSource, /customMonthlyInput\s*=\s*['"]['"]/);
+	assert.match(svelteSource, /customAnnualInput\s*=\s*['"]['"]/);
+
+	const syncCallMatches = svelteSource.match(/syncActivatedMembershipState\(/g) || [];
+	assert.ok(
+		syncCallMatches.length >= 6,
+		`expected syncActivatedMembershipState definition + 5 activation call sites, found ${syncCallMatches.length}`
+	);
 });

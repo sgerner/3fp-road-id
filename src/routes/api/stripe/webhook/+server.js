@@ -159,6 +159,16 @@ export const POST = async (requestEvent) => {
 				let membershipMatched = false;
 				try {
 					const membershipResult = await handleMembershipStripeEvent(event, fetch);
+					if (
+						membershipResult?.matched &&
+						membershipResult?.ok === false &&
+						membershipResult?.retryable
+					) {
+						return json(
+							{ error: membershipResult.error || 'Webhook processing failed.' },
+							{ status: 500 }
+						);
+					}
 					membershipMatched = membershipResult?.ok === true && membershipResult?.matched === true;
 				} catch (error) {
 					console.error('Membership checkout webhook error', {
@@ -201,6 +211,16 @@ export const POST = async (requestEvent) => {
 				let membershipMatched = false;
 				try {
 					const membershipResult = await handleMembershipStripeEvent(event, fetch);
+					if (
+						membershipResult?.matched &&
+						membershipResult?.ok === false &&
+						membershipResult?.retryable
+					) {
+						return json(
+							{ error: membershipResult.error || 'Webhook processing failed.' },
+							{ status: 500 }
+						);
+					}
 					membershipMatched = membershipResult?.ok === true && membershipResult?.matched === true;
 				} catch (error) {
 					console.error('Membership payment intent webhook error', {
@@ -232,7 +252,17 @@ export const POST = async (requestEvent) => {
 			event.type === 'customer.subscription.deleted'
 		) {
 			try {
-				await handleMembershipStripeEvent(event, fetch);
+				const membershipResult = await handleMembershipStripeEvent(event, fetch);
+				if (
+					membershipResult?.matched &&
+					membershipResult?.ok === false &&
+					membershipResult?.retryable
+				) {
+					return json(
+						{ error: membershipResult.error || 'Webhook processing failed.' },
+						{ status: 500 }
+					);
+				}
 			} catch (error) {
 				console.error('Membership invoice/subscription webhook error', {
 					id: event.id,

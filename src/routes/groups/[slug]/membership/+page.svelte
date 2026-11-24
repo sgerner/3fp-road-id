@@ -1,7 +1,7 @@
 <script>
 	import { loadStripe } from '@stripe/stripe-js';
 	import { tick } from 'svelte';
-	import { invalidateAll, replaceState } from '$app/navigation';
+	import { refreshPageData, replaceShallowState } from '#lib/client/navigation';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
@@ -353,9 +353,29 @@
 		}
 		if (!changed) return;
 		try {
-			replaceState(url, page.state);
+			void replaceShallowState(url, page.state);
 		} catch {
 			window.history.replaceState(window.history.state, '', url);
+		}
+	}
+
+	function syncActivatedMembershipState(activatedMembership = null) {
+		customMonthlyInput = '';
+		customAnnualInput = '';
+		forceUpgradeCheckout = false;
+		teardownPaymentElement();
+		preparedPaymentSignature = '';
+		const target =
+			activatedMembership ||
+			(data?.my_memberships || []).find((entry) =>
+				['active', 'past_due', 'paused'].includes(entry?.status)
+			) ||
+			currentMembership;
+		if (target?.tier_id) {
+			selectedTierId = target.tier_id;
+		}
+		if (target?.interval_unit === 'year' || target?.interval_unit === 'month') {
+			selectedBillingInterval = target.interval_unit;
 		}
 	}
 
@@ -431,10 +451,10 @@
 				await submitInlinePayment();
 				return;
 			}
+			syncActivatedMembershipState(result?.membership || null);
 			setFeedback('Membership activated.');
-			setTimeout(() => {
-				window.location.reload();
-			}, 600);
+			await refreshPageData();
+			syncActivatedMembershipState(result?.membership || null);
 		} catch (joinError) {
 			setFeedback('', joinError?.message || 'Unable to join right now.');
 		} finally {
@@ -504,8 +524,10 @@
 			});
 
 			if (result?.requires_payment === false && result?.membership) {
+				syncActivatedMembershipState(result.membership);
 				setFeedback('Membership activated.');
-				setTimeout(() => window.location.reload(), 550);
+				await refreshPageData();
+				syncActivatedMembershipState(result.membership);
 				return false;
 			}
 
@@ -575,13 +597,11 @@
 			})
 		});
 		if (result?.completed) {
+			syncActivatedMembershipState();
 			setFeedback('Membership activated.');
 			stripRedirectQueryParams();
-			await invalidateAll();
-			if (currentMembership?.tier_id) {
-				selectedTierId = currentMembership.tier_id;
-			}
-			forceUpgradeCheckout = false;
+			await refreshPageData();
+			syncActivatedMembershipState();
 			return;
 		}
 		const pendingStatus = String(result?.payment_status || 'processing')
@@ -940,17 +960,10 @@
 				if (result?.completed === true) {
 					redirectState = 'succeeded';
 					redirectSuppressAutoPrepare = false;
-					forceUpgradeCheckout = false;
+					syncActivatedMembershipState();
 					setFeedback('Membership activated.');
-					await invalidateAll();
-					if (data?.my_memberships?.length) {
-						const refreshedActive = data.my_memberships.find((entry) =>
-							['active', 'past_due', 'paused'].includes(entry?.status)
-						);
-						if (refreshedActive?.tier_id) {
-							selectedTierId = refreshedActive.tier_id;
-						}
-					}
+					await refreshPageData();
+					syncActivatedMembershipState();
 					return;
 				}
 				const nextStatus = String(result?.payment_status || 'processing')
@@ -1003,10 +1016,7 @@
 
 		if (redirectInfo?.completed === true) {
 			redirectState = 'succeeded';
-			forceUpgradeCheckout = false;
-			if (currentMembership?.tier_id) {
-				selectedTierId = currentMembership.tier_id;
-			}
+			syncActivatedMembershipState(currentMembership);
 			setFeedback('Membership activated.');
 			return;
 		}
