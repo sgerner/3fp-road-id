@@ -1,6 +1,6 @@
 <script>
-	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { refreshPageData } from '#lib/client/navigation';
 	import { merchCart } from '#lib/merch/cart';
 
 	let { data } = $props();
@@ -10,7 +10,7 @@
 		if (refreshing) return;
 		refreshing = true;
 		try {
-			await invalidateAll();
+			await refreshPageData();
 			if (data?.ok && data?.paid) merchCart.clear();
 		} finally {
 			refreshing = false;

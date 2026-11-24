@@ -1,5 +1,18 @@
 <script>
-	import { buildMonthGrid } from '#lib/calendar/monthGrid';
+	import {
+		buildMonthGrid,
+		formatEventTime,
+		formatRideDayBlock,
+		formatRideSchedule,
+		getTimezoneBadge,
+		getViewerTimezone,
+		matchesCivilDateRange,
+		parseCalendarDate,
+		toCivilDateKey,
+		toEventDateKey
+	} from '#lib/calendar/monthGrid';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -14,7 +27,6 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import 'leaflet/dist/leaflet.css';
 	import {
 		extractRideCity,
 		extractRideState,
@@ -56,15 +68,12 @@
 	let customEndDate = $state('');
 	let pageNumber = $state(1);
 	let calendarReference = $state(startOfMonth(new Date()));
+	let now = $state(new Date());
+	let viewerTimezone = $state('UTC');
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
 	let dayDialog = $state(null);
 	let dayModalTrigger = null;
 	let dayModalCloseButton = $state(null);
-
-	let mapEl = $state(null);
-	let map;
-	let markerLayer;
-	let L;
 
 	const PAGE_SIZE = 8;
 	const config = $derived(data?.config ?? {});
@@ -117,8 +126,8 @@
 			const matchesLocation =
 				!locationTokens.length || locationTokens.every((token) => locationHaystack.includes(token));
 
-			const rideDate = parseRideDate(ride?.nextOccurrenceStart);
-			const inDateRange = matchesDateRange(rideDate, datePreset, customStartDate, customEndDate);
+			const rideDateKey = toEventDateKey(ride?.nextOccurrenceStart, ride?.timezone);
+			const inDateRange = matchesDateRange(rideDateKey, datePreset, customStartDate, customEndDate);
 
 			return matchesQuery && matchesLocation && inDateRange;
 		})
@@ -140,23 +149,26 @@
 		filteredRides
 			.map((ride) => {
 				const start = parseRideDate(ride?.nextOccurrenceStart);
-				return start ? { ...ride, _calendarStart: start } : null;
+				const dateKey = start ? toEventDateKey(start, ride?.timezone) : '';
+				return start && dateKey
+					? { ...ride, _calendarStart: start, _calendarDateKey: dateKey }
+					: null;
 			})
 			.filter(Boolean)
 	);
 
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
-			const key = toDateKey(ride._calendarStart);
+			const key = ride._calendarDateKey;
 			if (!key) return acc;
 			(acc[key] ??= []).push(ride);
 			return acc;
 		}, {})
 	);
 
-	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toDateKey));
+	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toCivilDateKey));
 	const calendarHeader = $derived.by(() =>
-		new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(calendarReference)
+		new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
 
 	const legendEntries = $derived.by(() => {
@@ -187,77 +199,43 @@
 	});
 
 	function parseRideDate(value) {
-		if (!value) return null;
-		const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? null : date;
+		return parseCalendarDate(value);
 	}
 
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
 
-	function toDateKey(date) {
-		if (!date) return '';
-		return date.toISOString().slice(0, 10);
+	const todayKey = $derived(toCivilDateKey(now));
+
+	function matchesDateRange(rideDateKey, preset, startDateRaw, endDateRaw) {
+		return matchesCivilDateRange(rideDateKey, preset, {
+			todayKey,
+			customStartDate: startDateRaw,
+			customEndDate: endDateRaw
+		});
 	}
-
-	function matchesDateRange(date, preset, startDateRaw, endDateRaw) {
-		if (!date) return false;
-		if (preset === 'anytime') return true;
-
-		const now = new Date();
-		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		const rideDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-		if (preset === 'today') {
-			return rideDay.getTime() === today.getTime();
-		}
-
-		if (preset === 'tomorrow') {
-			const tomorrow = new Date(today);
-			tomorrow.setDate(today.getDate() + 1);
-			return rideDay.getTime() === tomorrow.getTime();
-		}
-
-		if (preset === 'this_week' || preset === 'next_week') {
-			const day = today.getDay();
-			const startOfWeek = new Date(today);
-			startOfWeek.setDate(today.getDate() - day);
-			const start = new Date(startOfWeek);
-			if (preset === 'next_week') start.setDate(start.getDate() + 7);
-			const end = new Date(start);
-			end.setDate(start.getDate() + 6);
-			return rideDay >= start && rideDay <= end;
-		}
-
-		if (preset === 'custom') {
-			if (!startDateRaw && !endDateRaw) return true;
-			const start = startDateRaw ? new Date(`${startDateRaw}T00:00:00`) : null;
-			const end = endDateRaw ? new Date(`${endDateRaw}T23:59:59`) : null;
-			if (start && rideDay < start) return false;
-			if (end && rideDay > end) return false;
-			return true;
-		}
-
-		return true;
-	}
-
-	const todayKey = toDateKey(new Date());
 
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
-		const start = new Date(ride.nextOccurrenceStart);
-		return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+		return (
+			formatRideSchedule(ride.nextOccurrenceStart, ride.nextOccurrenceEnd, ride.timezone, {
+				includeWeekday: true,
+				includeEnd: false
+			}) || 'Schedule coming soon'
+		);
 	}
 
 	function formatDayCellDate(ride) {
-		if (!ride?.nextOccurrenceStart) return { month: '--', day: '--', time: '--' };
-		const start = new Date(ride.nextOccurrenceStart);
-		return {
-			month: start.toLocaleDateString(undefined, { month: 'short' }).toUpperCase(),
-			day: String(start.getDate()),
-			time: start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-		};
+		return formatRideDayBlock(ride?.nextOccurrenceStart, ride?.timezone);
+	}
+
+	function formatRideShortTime(ride) {
+		return formatEventTime(ride?.nextOccurrenceStart, ride?.timezone);
+	}
+
+	function rideTimezoneBadge(ride) {
+		return getTimezoneBadge(ride?.nextOccurrenceStart, ride?.timezone, viewerTimezone);
 	}
 
 	function rideTitle(ride) {
@@ -338,94 +316,36 @@
 		return getRideDifficultyLabel(ride);
 	}
 
-	function validCoords(ride) {
-		return (
-			Number.isFinite(Number(ride?.startLatitude)) && Number.isFinite(Number(ride?.startLongitude))
-		);
-	}
-
-	function markerOptions(ride) {
-		const color = config.difficultyColors ? difficultyColor(primaryDifficulty(ride)) : '#0ea5e9';
-		return {
-			radius: 8,
-			color,
-			weight: 2,
-			opacity: 1,
-			fillColor: color,
-			fillOpacity: 0.65
-		};
-	}
-
-	async function initMap() {
-		if (!mapEl || map) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (error) {
-			console.error('Failed to load map for widget', error);
-			return;
-		}
-
-		if (!mapEl || map) return;
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		markerLayer = L.layerGroup().addTo(map);
-		updateMarkers();
-	}
-
-	function updateMarkers() {
-		if (!map || !markerLayer || !L) return;
-		markerLayer.clearLayers();
-		const points = [];
-
-		for (const ride of filteredRides || []) {
-			if (!validCoords(ride)) continue;
-			const lat = Number(ride.startLatitude);
-			const lng = Number(ride.startLongitude);
-			const marker = L.circleMarker([lat, lng], markerOptions(ride));
-			marker.bindPopup(
-				`<div style="min-width:180px"><strong>${rideTitle(ride)}</strong><br/><small>${formatNext(ride)}</small><br/><a href="/ride/${ride.slug}" target="_blank" rel="noopener noreferrer">View ride →</a></div>`
-			);
-			markerLayer.addLayer(marker);
-			points.push([lat, lng]);
-		}
-
-		if (points.length) {
-			map.fitBounds(L.latLngBounds(points).pad(0.12));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		}
-	});
-
-	$effect(() => {
-		void filteredRides;
-		updateMarkers();
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 120);
-		}
-	});
+	const widgetMapItems = $derived(
+		filteredRides
+			.filter((ride) => isValidLatLng(ride?.startLatitude, ride?.startLongitude))
+			.map((ride) => {
+				const diff = primaryDifficulty(ride);
+				const tzBadge = rideTimezoneBadge(ride);
+				return {
+					id: ride.id ?? ride.slug,
+					lat: Number(ride.startLatitude),
+					lng: Number(ride.startLongitude),
+					title: rideTitle(ride),
+					subtitle: [formatNext(ride), tzBadge].filter(Boolean).join(' '),
+					meta: [ride.startLocationName, ride.group?.name].filter(Boolean).join(' · '),
+					badge: config.difficultyColors ? diff : '',
+					href: `/ride/${ride.slug}`,
+					ctaLabel: 'View ride',
+					external: true,
+					accentColor: config.difficultyColors ? difficultyColor(diff) : '#0ea5e9'
+				};
+			})
+	);
 
 	onMount(() => {
+		now = new Date();
+		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
+		const minuteTimer = window.setInterval(() => {
+			now = new Date();
+		}, 60_000);
 		return () => {
-			try {
-				map?.remove();
-				map = null;
-				markerLayer = null;
-			} catch {
-				// ignore
-			}
+			window.clearInterval(minuteTimer);
 		};
 	});
 </script>
@@ -573,6 +493,7 @@
 				<div class="ride-grid">
 					{#each pagedRides as ride}
 						{@const dt = formatDayCellDate(ride)}
+						{@const tzBadge = rideTimezoneBadge(ride)}
 						{@const color = difficultyColor(primaryDifficulty(ride))}
 						<a
 							href={`/ride/${ride.slug}`}
@@ -588,6 +509,9 @@
 								<strong>{dt.month}</strong>
 								<span>{dt.day}</span>
 								<small>{dt.time}</small>
+								{#if tzBadge}
+									<span class="tz-badge">{tzBadge}</span>
+								{/if}
 							</div>
 							<img src={getRideImage(ride)} alt={ride.title} class="ride-image" loading="lazy" />
 							<div class="ride-main">
@@ -602,6 +526,9 @@
 										<IconMapPin class="h-3.5 w-3.5" />
 										<span>{ride.startLocationName || 'Location coming soon'}</span>
 									</div>
+									{#if tzBadge}
+										<div class="chip tz-chip">{tzBadge}</div>
+									{/if}
 									{#if ride.group?.name}
 										<div class="chip">{ride.group.name}</div>
 									{/if}
@@ -669,10 +596,10 @@
 				<ul class="calendar-agenda space-y-4" aria-label="Rides this month">
 					{#each calendarMatrix
 						.flat()
-						.filter((day) => day.inMonth && day.items.length) as day (toDateKey(day.date))}
+						.filter((day) => day.inMonth && day.items.length) as day (day.key)}
 						<li>
 							<h3 class="font-bold">
-								{day.date.toLocaleDateString(undefined, {
+								{day.date.toLocaleDateString('en-US', {
 									weekday: 'long',
 									month: 'short',
 									day: 'numeric'
@@ -680,13 +607,20 @@
 							</h3>
 							<ul class="day-rides">
 								{#each day.items as ride (ride.slug)}
+									{@const agendaTzBadge = rideTimezoneBadge(ride)}
 									<li>
 										<a
-											class="flex min-h-11 items-center wrap-anywhere"
+											class="flex min-h-11 flex-wrap items-center gap-1.5 wrap-anywhere"
 											href={`/ride/${ride.slug}`}
 											target="_blank"
-											rel="noopener noreferrer">{rideTitle(ride)}</a
+											rel="noopener noreferrer"
 										>
+											<span class="font-semibold tabular-nums">{formatRideShortTime(ride)}</span>
+											{#if agendaTzBadge}
+												<span class="tz-badge">{agendaTzBadge}</span>
+											{/if}
+											<span>{rideTitle(ride)}</span>
+										</a>
 									</li>
 								{/each}
 							</ul>
@@ -708,10 +642,10 @@
 					{#each calendarMatrix as week}
 						<div role="row" class="calendar-grid calendar-week">
 							{#each week as day}
-								{@const isToday = toDateKey(day.date) === todayKey}
+								{@const isToday = day.key === todayKey}
 								<div
 									role="gridcell"
-									aria-label={day.date.toLocaleDateString(undefined, {
+									aria-label={day.date.toLocaleDateString('en-US', {
 										weekday: 'long',
 										month: 'long',
 										day: 'numeric',
@@ -727,12 +661,17 @@
 									<div class="day-rides">
 										{#each day.items.slice(0, 2) as ride}
 											{@const c = difficultyColor(primaryDifficulty(ride))}
+											{@const cellTzBadge = rideTimezoneBadge(ride)}
 											<a
 												href={`/ride/${ride.slug}`}
 												target="_blank"
 												rel="noopener noreferrer"
 												style={config.difficultyColors ? `border-left-color:${c}` : ''}
 											>
+												<strong class="day-ride-time">{formatRideShortTime(ride)}</strong>
+												{#if cellTzBadge}
+													<span class="cal-tz-badge">{cellTzBadge}</span>
+												{/if}
 												{rideTitle(ride)}
 											</a>
 										{/each}
@@ -758,11 +697,16 @@
 			</div>
 		{:else}
 			<div class="map-wrap">
-				<div bind:this={mapEl} class="map-canvas"></div>
-				<div class="map-hint">
-					<IconMapPin class="h-3.5 w-3.5" />
-					{filteredRides.length} listing{filteredRides.length === 1 ? '' : 's'} on map
-				</div>
+				<DirectoryMapExplorer
+					variant="widget"
+					cluster={false}
+					regionLabel="Ride directory map"
+					items={widgetMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					canvasClass="map-canvas"
+					footerHint={`${filteredRides.length} listing${filteredRides.length === 1 ? '' : 's'} matching current filters`}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -800,6 +744,7 @@
 				<div class="modal-list">
 					{#each dayModal.rides as ride}
 						{@const c = difficultyColor(primaryDifficulty(ride))}
+						{@const modalTzBadge = rideTimezoneBadge(ride)}
 						<a
 							href={`/ride/${ride.slug}`}
 							target="_blank"
@@ -808,7 +753,12 @@
 							style={config.difficultyColors ? `border-left-color:${c}` : ''}
 						>
 							<strong>{rideTitle(ride)}</strong>
-							<small>{formatNext(ride)}</small>
+							<small class="modal-ride-meta">
+								<span>{formatNext(ride)}</span>
+								{#if modalTzBadge}
+									<span class="tz-badge">{modalTzBadge}</span>
+								{/if}
+							</small>
 						</a>
 					{/each}
 				</div>
@@ -1200,6 +1150,46 @@
 		color: var(--widget-text-muted);
 		text-align: center;
 	}
+	.tz-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.56rem !important;
+		font-weight: 700 !important;
+		line-height: 1 !important;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 0.14rem 0.35rem;
+		border-radius: 999px;
+		background: var(--widget-accent-soft);
+		border: 1px solid color-mix(in oklab, var(--widget-accent) 30%, var(--widget-line));
+		color: var(--widget-accent) !important;
+		white-space: nowrap;
+	}
+	.cal-tz-badge {
+		display: inline-block;
+		font-size: 0.54rem;
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.08rem 0.25rem;
+		margin: 0 0.15rem;
+		border-radius: 0.25rem;
+		background: var(--widget-accent-soft);
+		color: var(--widget-accent);
+		vertical-align: baseline;
+	}
+	.day-ride-time {
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+	.modal-ride-meta {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem;
+	}
 
 	.ride-image {
 		width: 100%;
@@ -1532,22 +1522,13 @@
 	════════════════════════════════════════════ */
 	.map-wrap {
 		background: var(--widget-surface);
-		border: 1px solid var(--widget-line);
-		border-radius: var(--widget-radius);
+		border: 2px solid var(--widget-line);
+		border-radius: 0;
 		overflow: hidden;
-		box-shadow: var(--widget-shadow);
 	}
-	.map-canvas {
+	.map-wrap :global(.map-canvas) {
 		height: clamp(320px, 55vh, 560px);
-	}
-	.map-hint {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		font-size: 0.76rem;
-		padding: 0.5rem 0.75rem;
-		color: var(--widget-text-muted);
-		border-top: 1px solid var(--widget-line);
+		width: 100%;
 	}
 
 	/* ════════════════════════════════════════════

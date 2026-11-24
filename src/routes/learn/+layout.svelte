@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
-	import IconHistory from '@lucide/svelte/icons/history';
+	import IconHistory from '@lucide/svelte/icons/rotate-ccw-clock';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 
@@ -42,7 +42,7 @@
 				<a
 					href="/learn"
 					aria-current={pathname === '/learn' ? 'page' : undefined}
-					class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline {pathname ===
+					class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 {pathname ===
 					'/learn'
 						? 'bg-primary-500 text-surface-950'
 						: 'text-surface-50 hover:bg-surface-800'}"
@@ -58,7 +58,7 @@
 						aria-current={pathname === `/learn/category/${currentCategorySlug}`
 							? 'page'
 							: undefined}
-						class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline {pathname ===
+						class="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black tracking-[0.2em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 {pathname ===
 						`/learn/category/${currentCategorySlug}`
 							? 'bg-primary-500 text-surface-950'
 							: 'bg-tertiary-500 text-surface-950 hover:bg-primary-500'}"
@@ -85,7 +85,7 @@
 					<a
 						href="/learn/new"
 						aria-current={pathname === '/learn/new' ? 'page' : undefined}
-						class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline"
+						class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						<IconPlus class="h-3.5 w-3.5 shrink-0" />
 						<span>Create Article</span>
@@ -97,7 +97,7 @@
 						<a
 							href={`/learn/${currentArticleSlug}/edit`}
 							aria-current={pathname === `/learn/${currentArticleSlug}/edit` ? 'page' : undefined}
-							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-3.5 py-1 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex items-center gap-2 border-2 px-3.5 py-1 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						>
 							<IconSquarePen class="h-3.5 w-3.5 shrink-0" />
 							<span>Edit Article</span>
@@ -107,7 +107,7 @@
 					{#if page.data?.viewingRevision}
 						<a
 							href={`/learn/${currentArticleSlug}?revision=${page.data.viewingRevision.id}`}
-							class="bg-tertiary-500 text-surface-950 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-black tracking-[0.18em] uppercase hover:no-underline"
+							class="bg-tertiary-500 text-surface-950 inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-black tracking-[0.18em] uppercase hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						>
 							<IconHistory class="h-3.5 w-3.5 shrink-0" />
 							<span>Revision {page.data.viewingRevision.revisionNumber}</span>

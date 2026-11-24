@@ -14,8 +14,8 @@ Ghost bikes are powerful public memorials that honor cyclists who have lost thei
 
 This guide will walk you through the process of creating a meaningful ghost bike memorial that honors the deceased while raising awareness about traffic safety.
 
-![university_&_perry.jpg](/stories/university*&\_perry.jpg =300x)
-![10*&_maple1.jpg](/stories/10_&\_maple1.jpg =300x)
+![White ghost bike memorial locked beside a residential street corner at University Drive and Perry Lane](/stories/university_&_perry.jpg)
+![White ghost bike memorial at 10th Street and Maple Avenue beside a Slow Down intersection changes sign](/stories/10_&_maple1.jpg)
 
 # Before You Begin
 
@@ -130,5 +130,5 @@ Ghost bikes sometimes need to be removed due to regulations, construction, or at
 
 Creating a ghost bike memorial is a powerful act of remembrance and advocacy. While each memorial is unique to the person it honors, all ghost bikes share a common message: remember the fallen and work toward safer streets for everyone.
 
-![vista_del_cerro_&_rural.jpg](/stories/vista_del_cerro_&_rural.jpg)
-![university_&_ash.jpg](/stories/university_&_ash.jpg)
+![White ghost bike memorial with flowers locked to a roadside post at Vista del Cerro Drive and Rural Road](/stories/vista_del_cerro_&_rural.jpg)
+![White ghost bike memorial decorated with flowers at the University Drive and Ash Avenue intersection](/stories/university_&_ash.jpg)

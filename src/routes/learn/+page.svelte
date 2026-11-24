@@ -7,24 +7,19 @@
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
+	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { applyLearnUrlState, parseLearnUrlState } from '#lib/url/directoryUrlState';
 	import { page } from '$app/state';
+	import { onMount, untrack } from 'svelte';
 
 	const { data } = $props();
 	const authRequired = $derived(
 		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
 	);
 
-	let search = $state('');
-	let category = $state('all');
 	const pageSize = 12;
-	let visibleCount = $state(pageSize);
-	$effect(() => {
-		search;
-		category;
-		visibleCount = pageSize;
-	});
-
 	const articles = $derived(data?.articles ?? []);
 	const categories = $derived(
 		Array.from(new Set(articles.map((article) => article.category_name).filter(Boolean))).sort()
@@ -38,10 +33,106 @@
 		}
 		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 	});
+
+	function readUrlState(searchParamsInput) {
+		const currentArticles = data?.articles ?? [];
+		const currentCategories = Array.from(
+			new Set(currentArticles.map((article) => article.category_name).filter(Boolean))
+		).sort();
+		const pairsMap = new Map();
+		for (const article of currentArticles) {
+			if (article.category_name && article.category_slug && !pairsMap.has(article.category_name)) {
+				pairsMap.set(article.category_name, article.category_slug);
+			}
+		}
+		return parseLearnUrlState(searchParamsInput, {
+			pageSize,
+			categoryPairs: Array.from(pairsMap.entries()),
+			categories: currentCategories
+		});
+	}
+
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() => readUrlState(page.url.searchParams));
+	let search = $state(initialUrlState.search);
+	let category = $state(initialUrlState.category);
+	let visibleCount = $state(initialUrlState.visibleCount);
+	let routerReady = false;
+
+	function syncUrlToState() {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyLearnUrlState(currentUrl, {
+			search,
+			category,
+			visibleCount,
+			pageSize
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	function restoreStateFromUrl(searchParamsInput) {
+		const restored = readUrlState(searchParamsInput);
+		search = restored.search;
+		category = restored.category;
+		visibleCount = restored.visibleCount;
+	}
+
+	function handleSearchInput() {
+		visibleCount = pageSize;
+		syncUrlToState();
+	}
+
+	function handleCategoryChange() {
+		visibleCount = pageSize;
+		syncUrlToState();
+	}
+
+	function clearLearnFilters() {
+		search = '';
+		category = 'all';
+		visibleCount = pageSize;
+		syncUrlToState();
+	}
+
+	function showMoreArticles() {
+		visibleCount += pageSize;
+		syncUrlToState();
+	}
+
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		}
+	});
+
+	onMount(() => {
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			syncUrlToState();
+		}
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
+		return () => {
+			window.removeEventListener('popstate', handlePopState);
+		};
+	});
+
 	const filteredArticles = $derived(
 		articles.filter((article) => {
 			const query = search.trim().toLowerCase();
-			const matchesCategory = category === 'all' || article.category_name === category;
+			const matchesCategory =
+				category === 'all' ||
+				(article.category_name ?? '').toLowerCase() === category.toLowerCase();
 			const haystack = [article.title, article.summary, article.category_name]
 				.filter(Boolean)
 				.join(' ');
@@ -121,12 +212,12 @@
 				<div class="flex flex-wrap gap-3">
 					<a
 						href="#library"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>Browse {articles.length} guides <IconArrowRight class="h-4 w-4" /></a
 					>
 					<a
 						href="/learn/new"
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						><IconPlus class="h-4 w-4" /> Write a guide</a
 					>
 				</div>
@@ -151,7 +242,7 @@
 				{#each categoryPairs as [catName, catSlug], idx (catSlug)}
 					<a
 						href={`/learn/category/${catSlug}`}
-						class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-2.5 pr-2 transition hover:px-2 hover:no-underline"
+						class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-2.5 pr-2 transition hover:px-2 hover:no-underline pointer-coarse:min-h-11"
 					>
 						<span class="flex min-w-0 items-center gap-3">
 							<span class="text-tertiary-500 text-xs font-black italic tabular-nums">
@@ -187,6 +278,7 @@
 					</span>
 					<input
 						bind:value={search}
+						oninput={handleSearchInput}
 						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						aria-label="Search articles"
@@ -195,6 +287,7 @@
 				</label>
 				<select
 					bind:value={category}
+					onchange={handleCategoryChange}
 					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					aria-label="Filter by category"
 				>
@@ -205,10 +298,7 @@
 					<button
 						type="button"
 						class="bg-primary-500 text-surface-950 h-11 px-4 text-xs font-black tracking-wide uppercase"
-						onclick={() => {
-							search = '';
-							category = 'all';
-						}}
+						onclick={clearLearnFilters}
 					>
 						Reset
 					</button>
@@ -221,7 +311,9 @@
 	</div>
 
 	<div class="bg-surface-950 border-surface-800 border-b px-6 py-4 sm:px-10 lg:px-12">
-		<a href="/learn/safer-cycling-better-messages" class="text-primary-500 font-bold underline"
+		<a
+			href="/learn/safer-cycling-better-messages"
+			class="text-primary-500 inline-flex min-h-6 items-center py-1 font-bold underline pointer-coarse:min-h-11"
 			>Safer Cycling, Better Messages research report</a
 		>
 	</div>
@@ -333,7 +425,7 @@
 				<button
 					type="button"
 					class="btn preset-tonal-primary mt-4 min-h-11"
-					onclick={() => (visibleCount += pageSize)}>Show more articles</button
+					onclick={showMoreArticles}>Show more articles</button
 				>
 			{/if}
 		{:else}
@@ -345,10 +437,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 px-7 py-4 text-sm font-black tracking-wide uppercase transition"
-					onclick={() => {
-						search = '';
-						category = 'all';
-					}}
+					onclick={clearLearnFilters}
 				>
 					Clear filters
 				</button>

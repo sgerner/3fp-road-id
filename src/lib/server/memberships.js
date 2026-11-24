@@ -19,6 +19,13 @@ import {
 } from '#lib/server/emailCampaignState';
 import { PUBLIC_URL_BASE } from '$app/env/public';
 import { MAX_EMAIL_HTML_LENGTH } from '#lib/groups/emailEditor';
+import {
+	getPublicMembershipProgram,
+	resolveMembershipProgramForViewer
+} from '#lib/server/groupMembershipPublic';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
+
+export { getPublicMembershipProgram };
 
 const MANAGER_ROLES = ['owner', 'admin'];
 const DEFAULT_POLICY_MARKDOWN = `By joining, you agree to this membership policy.
@@ -1808,70 +1815,25 @@ export async function getMembershipProgramForViewer({
 	includeInactive = false
 }) {
 	const viewer = await getViewerContext(cookies);
-	const group = await loadGroupBySlug(viewer.requestSupabase, groupSlug);
-	if (!group) {
-		return { ok: false, status: 404, error: 'Group not found.' };
-	}
-
-	let canManage = false;
-	if (viewer.userId) {
-		canManage = await isGroupManager(
-			viewer.requestSupabase,
-			group.id,
-			viewer.userId,
-			viewer.isAdmin
-		);
-	}
-
 	const serviceSupabase = await getServiceSupabase();
-	const sourceSupabase = canManage ? serviceSupabase : viewer.requestSupabase;
-	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, group.id);
-	const stripeConnection = donationAccount
-		? {
-				connected: Boolean(donationAccount.stripe_account_id),
-				charges_enabled: donationAccount.charges_enabled === true,
-				stripe_account_id: canManage ? donationAccount.stripe_account_id || null : null
-			}
-		: { connected: false, charges_enabled: false, stripe_account_id: null };
 
-	let program = null;
-	if (canManage) {
-		program = await ensureProgram(sourceSupabase, group.id);
-	} else {
-		program = await loadProgram(sourceSupabase, group.id);
-		if (program) {
-			await ensureDefaultApplicationFields(serviceSupabase, program.id);
-		}
+	if (!viewer.userId) {
+		return getPublicMembershipProgram(serviceSupabase, groupSlug);
 	}
 
-	if (!program) {
-		return {
-			ok: true,
-			data: {
-				group,
-				program: null,
-				tiers: [],
-				form_fields: [],
-				stripe_connection: stripeConnection,
-				can_manage: canManage
-			}
-		};
-	}
-
-	const { tiers, fields } = await loadProgramBundle(sourceSupabase, program.id, {
-		includeInactive
+	return resolveMembershipProgramForViewer({
+		viewer,
+		serviceSupabase,
+		groupSlug,
+		includeInactive,
+		loadGroupBySlugFn: loadGroupBySlug,
+		isGroupManagerFn: isGroupManager,
+		loadDonationAccountFn: loadDonationAccountForGroup,
+		ensureProgramFn: ensureProgram,
+		loadProgramFn: loadProgram,
+		ensureDefaultApplicationFieldsFn: ensureDefaultApplicationFields,
+		loadProgramBundleFn: loadProgramBundle
 	});
-	return {
-		ok: true,
-		data: {
-			group,
-			program,
-			tiers,
-			form_fields: fields,
-			stripe_connection: stripeConnection,
-			can_manage: canManage
-		}
-	};
 }
 
 export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
@@ -1928,6 +1890,7 @@ export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -1970,6 +1933,7 @@ export async function updateMembershipPolicy({ cookies, groupSlug, payload }) {
 		after_snapshot: { policy_markdown: data.policy_markdown, policy_version: data.policy_version }
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2132,6 +2096,7 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 	});
 
 	const { tiers } = await loadProgramBundle(serviceSupabase, program.id, { includeInactive: true });
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return {
 		ok: true,
 		data: {
@@ -2222,6 +2187,7 @@ export async function createMembershipTier({ cookies, groupSlug, payload }) {
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2356,6 +2322,7 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2391,6 +2358,7 @@ export async function deleteMembershipTier({ cookies, groupSlug, tierId }) {
 		before_snapshot: before
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data: { id: tierId } };
 }
 
@@ -2473,6 +2441,7 @@ export async function createMembershipFormField({ cookies, groupSlug, payload })
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2539,6 +2508,7 @@ export async function updateMembershipFormField({ cookies, groupSlug, fieldId, p
 		after_snapshot: data
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data };
 }
 
@@ -2575,6 +2545,7 @@ export async function deleteMembershipFormField({ cookies, groupSlug, fieldId })
 		before_snapshot: before
 	});
 
+	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
 	return { ok: true, data: { id: fieldId } };
 }
 

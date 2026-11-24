@@ -9,9 +9,14 @@ import {
 	renderLearnMarkdown,
 	splitMarkdownIntoSections
 } from '#lib/learn/markdown';
+import { sanitizeAltText } from '#lib/learn/altText';
+import { canManageLearnAsset, isLearnAdminUser } from '#lib/server/learnAiCore';
 import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
 
-export const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
+export { canManageLearnAsset };
+export const isLearnAdmin = isLearnAdminUser;
+
+const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -27,7 +32,7 @@ export function slugifyLearn(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
-export function normalizeLearnCategory(categoryName) {
+function normalizeLearnCategory(categoryName) {
 	const label = safeTrim(categoryName) || 'General';
 	return {
 		name: label,
@@ -128,21 +133,8 @@ export function learnFormDataValues(formData) {
 		editorMode: value('editorMode', 30) || 'wysiwyg',
 		categoryName: value('categoryName', 120),
 		subcategorySlug: value('subcategorySlug', 180),
-		coverImageUrl: value('coverImageUrl', 2000)
-	};
-}
-
-export function withLearnReadingAid(payload) {
-	const readingAid = generateLearnReadingAid({
-		title: payload.title,
-		summary: payload.summary,
-		markdown: payload.body_markdown
-	});
-
-	return {
-		...payload,
-		reader_summary: readingAid.readerSummary,
-		key_takeaways: readingAid.keyTakeaways
+		coverImageUrl: value('coverImageUrl', 2000),
+		coverImageAlt: value('coverImageAlt', 150)
 	};
 }
 
@@ -228,6 +220,52 @@ export async function listLearnRecentAssets(
 	return (data ?? []).map(normalizeLearnAssetRecord).filter(Boolean);
 }
 
+export async function syncLearnCoverAsset(
+	supabase,
+	{ articleId, coverImageUrl = '', coverImageAlt = '', user = null } = {}
+) {
+	const cleanUrl = safeTrim(coverImageUrl);
+	if (!supabase || !articleId || !cleanUrl || !user?.id) return;
+
+	const sanitizedCoverAlt = coverImageAlt
+		? sanitizeAltText(coverImageAlt, { imageUrl: cleanUrl })
+		: '';
+
+	try {
+		const { data: coverAsset } = await supabase
+			.from('learn_assets')
+			.select('id, uploaded_by_user_id, file_name')
+			.eq('public_url', cleanUrl)
+			.maybeSingle();
+
+		if (!coverAsset) return;
+
+		const isOwner = coverAsset.uploaded_by_user_id === user.id;
+		const isAdmin = isOwner ? false : await isLearnAdminUser(supabase, user.id);
+		if (canManageLearnAsset(coverAsset, user, { isAdmin })) {
+			await supabase
+				.from('learn_assets')
+				.update({
+					...(sanitizedCoverAlt ? { alt_text: sanitizedCoverAlt } : {}),
+					article_id: articleId
+				})
+				.eq('id', coverAsset.id);
+		}
+
+		await supabase.from('learn_article_asset_links').upsert(
+			{
+				article_id: articleId,
+				asset_id: coverAsset.id,
+				created_by_user_id: user.id,
+				usage_kind: 'cover'
+			},
+			{ onConflict: 'article_id,asset_id' }
+		);
+	} catch {
+		// Non-fatal cover metadata and link sync.
+	}
+}
+
 export async function buildLearnArticleView(
 	article,
 	{ revisions = [], comments = [], assets = [], profiles = new Map() } = {}
@@ -255,8 +293,18 @@ export async function buildLearnArticleView(
 		markdown: article?.body_markdown
 	});
 
+	const matchingCoverAsset = article?.cover_image_url
+		? (assets || []).find((asset) => asset?.public_url === article.cover_image_url)
+		: null;
+	const coverImageAlt =
+		sanitizeAltText(matchingCoverAsset?.alt_text || '', {
+			fileName: matchingCoverAsset?.file_name || '',
+			imageUrl: article?.cover_image_url || ''
+		}) || safeTrim(article?.title);
+
 	return {
 		...article,
+		coverImageAlt,
 		bodyHtml,
 		introHtml,
 		headings,

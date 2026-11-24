@@ -6,16 +6,22 @@
 	import IconLock from '@lucide/svelte/icons/lock';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import IconEyeOff from '@lucide/svelte/icons/eye-off';
+	import { DEFAULT_DONATION_AMOUNT, resolveDonationPrefillAmount } from '#lib/donations/constants';
 	import { loadStripe } from '@stripe/stripe-js';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	let { data } = $props();
 
 	const prefill = $derived(data?.prefill ?? {});
-	let amount = $state(25);
-	let donorName = $state('');
-	let donorEmail = $state('');
+	const initialPrefill = untrack(() => ({
+		amount: resolveDonationPrefillAmount(data?.prefill?.amount ?? DEFAULT_DONATION_AMOUNT),
+		donorName: data?.prefill?.donorName ?? '',
+		donorEmail: data?.prefill?.donorEmail ?? ''
+	}));
+	let amount = $state(initialPrefill.amount);
+	let donorName = $state(initialPrefill.donorName);
+	let donorEmail = $state(initialPrefill.donorEmail);
 	let donorMessage = $state('');
 	let requestAnonymity = $state(false);
 	let submitting = $state(false);
@@ -57,12 +63,28 @@
 	let elements = null;
 	let paymentElement = null;
 	let preparedSignature = '';
+	let lastPrefill = initialPrefill;
 
 	$effect(() => {
-		const amountValue = Number(prefill?.amount) || 25;
-		if (amount === 25 && amountValue !== 25) amount = amountValue;
-		if (!donorName && prefill?.donorName) donorName = prefill.donorName;
-		if (!donorEmail && prefill?.donorEmail) donorEmail = prefill.donorEmail;
+		const nextAmount = resolveDonationPrefillAmount(prefill?.amount ?? DEFAULT_DONATION_AMOUNT);
+		const nextDonorName = prefill?.donorName ?? '';
+		const nextDonorEmail = prefill?.donorEmail ?? '';
+
+		if (nextAmount !== lastPrefill.amount) {
+			amount = nextAmount;
+		}
+		if (nextDonorName !== lastPrefill.donorName) {
+			donorName = nextDonorName;
+		}
+		if (nextDonorEmail !== lastPrefill.donorEmail) {
+			donorEmail = nextDonorEmail;
+		}
+
+		lastPrefill = {
+			amount: nextAmount,
+			donorName: nextDonorName,
+			donorEmail: nextDonorEmail
+		};
 	});
 
 	function formatAmount(value) {
@@ -468,7 +490,7 @@
 					{#if recipient?.accountConnected}
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-2.5 text-sm font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-2.5 text-sm font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							disabled={disconnecting}
 							onclick={disconnectMainStripe}
 						>
@@ -523,7 +545,7 @@
 				</p>
 				<a
 					href={`/groups/${encodeURIComponent(groupSlug)}`}
-					class="text-primary-500 self-start text-sm font-black uppercase underline"
+					class="text-primary-500 inline-flex min-h-6 items-center self-start py-1 text-sm font-black uppercase underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 				>
 					Back to {recipientLabel}
 				</a>
@@ -557,7 +579,7 @@
 					</p>
 					<a
 						href={isGroupRecipient && groupSlug ? `/groups/${encodeURIComponent(groupSlug)}` : '/'}
-						class="text-primary-500 self-start text-sm font-black uppercase underline"
+						class="text-primary-500 inline-flex min-h-6 items-center self-start py-1 text-sm font-black uppercase underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						Back to {recipientLabel}
 					</a>
@@ -665,6 +687,7 @@
 									id="donor_name"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 									type="text"
+									autocomplete="name"
 									maxlength="120"
 									placeholder="Your name"
 									bind:value={donorName}
@@ -681,6 +704,7 @@
 									id="donor_email"
 									class="border-surface-700 bg-surface-900 text-surface-50 focus:border-primary-500 w-full border-2 px-4 py-3 text-base focus:outline-none"
 									type="email"
+									autocomplete="email"
 									maxlength="160"
 									placeholder="you@example.com"
 									bind:value={donorEmail}

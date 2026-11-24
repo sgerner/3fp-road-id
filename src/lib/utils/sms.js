@@ -1,5 +1,6 @@
 export const SMS_MAX_BODY_LENGTH = 480;
 export const SMS_MAX_SEGMENTS = 3;
+export const SMS_STOP_FOOTER = ' Reply STOP to opt out.';
 export const SMS_CATEGORY_BY_KIND = Object.freeze({
 	ride_reminder: 'ride_reminders',
 	volunteer_reminder: 'volunteer_reminders',
@@ -10,6 +11,7 @@ export const SMS_CATEGORY_BY_KIND = Object.freeze({
 const STOP_KEYWORDS = new Set(['stop', 'stopall', 'unsubscribe', 'cancel', 'end', 'quit', 'arret']);
 const HELP_KEYWORDS = new Set(['help', 'info', 'support']);
 const START_KEYWORDS = new Set(['start', 'unstop', 'subscribe']);
+const REPLY_STOP_PATTERN = /\breply\s+stop\b/i;
 const GSM7_BASIC = new Set(
 	Array.from(
 		'@\u00a3$\u00a5\u00e8\u00e9\u00f9\u00ec\u00f2\u00c7\n\u00d8\u00f8\r\u00c5\u00e5\u0394_\u03a6\u0393\u039b\u03a9\u03a0\u03a8\u03a3\u0398\u039e\u00c6\u00e6\u00df\u00c9 !"#\u00a4%&\'()*+,-./0123456789:;<=>?\u00a1ABCDEFGHIJKLMNOPQRSTUVWXYZ\u00c4\u00d6\u00d1\u00dc\u00a7\u00bfabcdefghijklmnopqrstuvwxyz\u00e4\u00f6\u00f1\u00fc\u00e0'
@@ -44,6 +46,13 @@ function gsm7UnitCount(value) {
 	return units;
 }
 
+function normalizeSmsBodyText(value) {
+	return String(value ?? '')
+		.replace(/\r\n?/g, '\n')
+		.replace(/[ \t]+\n/g, '\n')
+		.trim();
+}
+
 export function smsSegmentCount(body) {
 	const normalized = String(body ?? '');
 	if (!normalized) return 0;
@@ -54,6 +63,58 @@ export function smsSegmentCount(body) {
 	// JavaScript string length is the UTF-16 code-unit count used by UCS-2
 	// segmentation, so astral characters such as emoji correctly consume two.
 	return normalized.length <= 70 ? 1 : Math.ceil(normalized.length / 67);
+}
+
+export function resolveSmsThreadReplyKind(thread) {
+	const bikeValetReference = cleanText(
+		thread?.bike_valet_reference ?? thread?.bikeValetReference,
+		120
+	);
+	return bikeValetReference ? 'bike_valet' : 'admin';
+}
+
+export function measureSmsBudget(
+	value,
+	{ appendStopFooter = true, maxSegments = SMS_MAX_SEGMENTS } = {}
+) {
+	const normalized = normalizeSmsBodyText(value);
+	const footerIncluded = Boolean(appendStopFooter) && !REPLY_STOP_PATTERN.test(normalized);
+	const outboundBody = normalized
+		? footerIncluded
+			? `${normalized}${SMS_STOP_FOOTER}`
+			: normalized
+		: '';
+	const messageGsm7Units = gsm7UnitCount(normalized);
+	const encoding = messageGsm7Units !== null ? 'GSM-7' : 'UCS-2';
+	const singleSegmentUnits = encoding === 'GSM-7' ? 160 : 70;
+	const multiSegmentUnits = encoding === 'GSM-7' ? 153 : 67;
+	const maxUnits = Math.min(
+		maxSegments <= 1 ? singleSegmentUnits : maxSegments * multiSegmentUnits,
+		SMS_MAX_BODY_LENGTH
+	);
+	const footerUnits = footerIncluded ? SMS_STOP_FOOTER.length : 0;
+	const messageUnits = encoding === 'GSM-7' ? messageGsm7Units : normalized.length;
+	const totalUnits = normalized ? messageUnits + footerUnits : 0;
+	const maxMessageUnits = Math.max(0, maxUnits - footerUnits);
+	const remainingUnits = maxMessageUnits - messageUnits;
+	const segments = outboundBody ? smsSegmentCount(outboundBody) : 0;
+	const overLimit =
+		Boolean(normalized) &&
+		(remainingUnits < 0 || outboundBody.length > SMS_MAX_BODY_LENGTH || segments > maxSegments);
+
+	return {
+		encoding,
+		messageUnits,
+		footerUnits,
+		totalUnits,
+		maxUnits,
+		maxMessageUnits,
+		remainingUnits,
+		segments,
+		maxSegments,
+		footerIncluded,
+		overLimit
+	};
 }
 
 function assertAllowedLinks(body) {
@@ -74,16 +135,13 @@ function assertAllowedLinks(body) {
 }
 
 export function validateSmsBody(value, { appendStopFooter = false } = {}) {
-	let body = String(value ?? '')
-		.replace(/\r\n?/g, '\n')
-		.replace(/[ \t]+\n/g, '\n')
-		.trim();
+	let body = normalizeSmsBodyText(value);
 	if (!body) throw new Error('SMS message cannot be empty.');
 	if (body.length > SMS_MAX_BODY_LENGTH) {
 		throw new Error(`SMS messages are limited to ${SMS_MAX_BODY_LENGTH} characters.`);
 	}
-	if (appendStopFooter && !/\breply\s+stop\b/i.test(body)) {
-		body = `${body} Reply STOP to opt out.`;
+	if (appendStopFooter && !REPLY_STOP_PATTERN.test(body)) {
+		body = `${body}${SMS_STOP_FOOTER}`;
 	}
 	if (body.length > SMS_MAX_BODY_LENGTH) {
 		throw new Error(`SMS messages are limited to ${SMS_MAX_BODY_LENGTH} characters.`);

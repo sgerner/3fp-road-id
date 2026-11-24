@@ -3,7 +3,7 @@
 	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
 	import LearnMediaUploader from '#lib/components/learn/LearnMediaUploader.svelte';
 	import LearnWritingAssistant from '#lib/components/learn/LearnWritingAssistant.svelte';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import IconBookPlus from '@lucide/svelte/icons/book-plus';
 	import IconPencil from '@lucide/svelte/icons/pencil';
 
@@ -22,13 +22,29 @@
 	);
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let coverImageAlt = $state('');
+	let generatedCoverAssetId = $state('');
+	let coverUploading = $state(false);
+	let coverUploadError = $state('');
+	let extraUploadedAssets = $state([]);
 	let summaryValue = $state('');
 	let editorApi = $state(null);
 	let editorReady = $state(false);
 	let saving = $state(false);
 
+	const mergedAssets = $derived(
+		Array.from(
+			new Map(
+				[...extraUploadedAssets, ...(editing ? assetLibrary : (data.recentAssets ?? []))].map(
+					(asset) => [asset.id || asset.url, asset]
+				)
+			).values()
+		)
+	);
+
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
+		coverImageAlt = values.coverImageAlt || '';
 		summaryValue = values.summary || '';
 	});
 
@@ -47,7 +63,88 @@
 	}
 
 	function applyGeneratedImage(result) {
+		coverUploadError = '';
 		coverImageUrl = result?.url || coverImageUrl;
+		if (result?.alt_text || result?.altText) {
+			coverImageAlt = result.alt_text || result.altText;
+		}
+		if (result?.assetId || result?.asset?.id) {
+			generatedCoverAssetId = result.assetId || result.asset.id;
+		}
+		if (result?.asset) {
+			extraUploadedAssets = [result.asset, ...extraUploadedAssets];
+		}
+	}
+
+	async function syncCoverAssetAlt(nextAlt) {
+		const targetAssetId =
+			generatedCoverAssetId ||
+			mergedAssets.find(
+				(asset) =>
+					(asset.public_url || asset.url) && (asset.public_url || asset.url) === coverImageUrl
+			)?.id ||
+			'';
+		if (!targetAssetId) return;
+		try {
+			await fetch('/api/learn/assets', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					assetId: targetAssetId,
+					altText: nextAlt
+				})
+			});
+		} catch {
+			// Best-effort sync; form submission also persists coverImageAlt to learn_assets.
+		}
+	}
+
+	async function uploadCoverFiles(files) {
+		const file = files?.[0];
+		if (!file) return;
+		coverUploadError = '';
+		if (file.size > 25 * 1024 * 1024) {
+			coverUploadError = 'Cover image exceeds the 25 MB upload limit.';
+			return;
+		}
+		coverUploading = true;
+		try {
+			const context = buildContext();
+			const payload = new FormData();
+			payload.append('files', file);
+			payload.append('usageKind', 'cover');
+			if (article?.id) payload.append('articleId', article.id);
+			if (context?.title) payload.append('articleTitle', context.title);
+			if (context?.bodyMarkdown) payload.append('bodyMarkdown', context.bodyMarkdown);
+
+			const response = await fetch('/api/learn/assets', {
+				method: 'POST',
+				body: payload
+			});
+			const body = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(body?.error || 'Unable to upload cover image.');
+			}
+			const uploadedAsset = body?.files?.[0];
+			if (!uploadedAsset?.url) {
+				throw new Error('Unable to upload cover image.');
+			}
+			coverImageUrl = uploadedAsset.url;
+			coverImageAlt = uploadedAsset.altText || '';
+			generatedCoverAssetId = uploadedAsset.id || '';
+			extraUploadedAssets = [uploadedAsset, ...extraUploadedAssets];
+		} catch (uploadError) {
+			coverUploadError = uploadError?.message || 'Unable to upload cover image.';
+		} finally {
+			coverUploading = false;
+		}
+	}
+
+	function removeCoverImage() {
+		coverUploadError = '';
+		coverImageUrl = '';
+		coverImageAlt = '';
+		generatedCoverAssetId = '';
 	}
 </script>
 
@@ -98,23 +195,14 @@
 				/>
 			</label>
 
-			<details class="border-surface-500/30 bg-surface-900 border-t p-4 sm:p-5">
-				<summary class="cursor-pointer list-none font-semibold">
-					<span class="flex items-center justify-between gap-3"
-						>Writing help <span class="text-xs font-normal opacity-60">Optional AI assistant</span
-						></span
-					>
-				</summary>
-				<div class="mt-4">
-					<LearnWritingAssistant
-						articleId={article?.id ?? null}
-						canAsk={!!article?.id}
-						getContext={buildContext}
-						getEditor={() => editorApi}
-						setSummary={(value) => (summaryValue = value)}
-					/>
-				</div>
-			</details>
+			<LearnWritingAssistant
+				articleId={article?.id ?? null}
+				canAsk={!!article?.id}
+				getContext={buildContext}
+				getEditor={() => editorApi}
+				getSummary={() => summaryValue}
+				setSummary={(value) => (summaryValue = value)}
+			/>
 
 			<LearnEditor
 				label="Article body"
@@ -184,26 +272,29 @@
 								{/each}
 							</select>
 						</label>
-						<label class="space-y-2 md:col-span-2">
-							<span class="label">Cover image URL</span>
-							<input
-								class="input"
-								name="coverImageUrl"
-								placeholder="https://…"
-								bind:value={coverImageUrl}
-							/>
-						</label>
 					</div>
-					<ImageGeneratorPanel
+					<input type="hidden" name="coverImageUrl" value={coverImageUrl} />
+					<input type="hidden" name="coverImageAlt" value={coverImageAlt} />
+					<CoverMediaField
+						label="Article cover"
+						description="Upload a cover image directly, or open the studio to create editorial cover art."
+						helperNote="PNG, JPG, WebP, or GIF · Max 25 MB · 16:9 recommended"
+						imageUrl={coverImageUrl}
+						bind:imageAlt={coverImageAlt}
+						showAltField={true}
+						uploading={coverUploading}
+						error={coverUploadError}
 						target="learn"
-						heading="Create cover art"
-						description="Create a visual from the article you are writing."
-						helperText="Works best for bold, symbolic cover art."
 						articleId={article?.id}
 						defaultStyleId="quiet_gouache"
-						currentImageUrl={coverImageUrl}
-						buildContext
-						onApply={applyGeneratedImage}
+						studioHeading="Create cover art"
+						studioDescription="Create an editorial illustration from the article you are writing."
+						studioHelperText="Works best for bold, symbolic cover art."
+						{buildContext}
+						onSelectFiles={uploadCoverFiles}
+						onRemove={coverImageUrl ? removeCoverImage : null}
+						onAltChange={syncCoverAssetAlt}
+						onApplyArtwork={applyGeneratedImage}
 					/>
 				</div>
 			</details>
@@ -239,11 +330,12 @@
 			<div class="mt-4">
 				<LearnMediaUploader
 					articleId={article?.id}
-					uploaded={editing ? assetLibrary : data.recentAssets}
+					uploaded={mergedAssets}
 					heading="Asset library"
 					description={editing
 						? 'Browse assets attached to this article, reuse recent uploads, or add new files.'
 						: 'Add an upload and insert it into the draft, or reuse something from a recent upload.'}
+					getContext={buildContext}
 					onInsertSnippet={(snippet) => editorApi?.insertSnippet?.(snippet) ?? false}
 				/>
 			</div>

@@ -10,6 +10,7 @@ import {
 	syncActivityOccurrences,
 	upsertActivityRelations
 } from '#lib/server/activities';
+import { queryPublishedUpcomingRides } from '#lib/server/rideDirectory';
 
 function parseJson(request) {
 	return request.json().catch(() => null);
@@ -21,118 +22,14 @@ function invalid(message, status = 400) {
 
 export async function GET({ url, cookies }) {
 	const { supabase } = await getActivityClient(cookies);
-	const nowIso = new Date().toISOString();
-	const search = (url.searchParams.get('search') || '').trim().toLowerCase();
-	const hostGroupId = url.searchParams.get('host_group_id') || null;
 
-	let query = supabase
-		.from('activity_events')
-		.select(
-			`
-				id,
-				title,
-				slug,
-				summary,
-				description,
-				timezone,
-				status,
-				host_user_id,
-				host_group_id,
-				start_location_name,
-				start_location_address,
-				start_latitude,
-				start_longitude,
-				next_occurrence_start,
-				next_occurrence_end,
-				host_group_id,
-				ride_details(*),
-				group:groups(id,slug,name,city,state_region),
-				difficulty_links:activity_x_ride_difficulty_levels(level:ride_difficulty_levels(*)),
-				discipline_links:activity_x_riding_disciplines(discipline:riding_disciplines(*))
-			`
-		)
-		.eq('activity_type', 'ride')
-		.eq('status', 'published')
-		.gte('next_occurrence_start', nowIso)
-		.order('next_occurrence_start', { ascending: true })
-		.limit(200);
-
-	if (hostGroupId) {
-		query = query.eq('host_group_id', hostGroupId);
-	}
-
-	const { data: activities, error } = await query;
-
-	if (error) {
+	try {
+		const result = await queryPublishedUpcomingRides(supabase, url.searchParams);
+		return json(result);
+	} catch (error) {
 		console.error('Unable to load rides', error);
-		return invalid(error.message, 500);
+		return invalid(error?.message || 'Unable to load rides.', 500);
 	}
-
-	const activityIds = (activities ?? []).map((activity) => activity.id).filter(Boolean);
-	const { data: recurrenceRules, error: recurrenceError } = activityIds.length
-		? await supabase
-				.from('activity_recurrence_rules')
-				.select('activity_event_id')
-				.in('activity_event_id', activityIds)
-		: { data: [], error: null };
-	if (recurrenceError) {
-		console.error('Unable to load ride recurrence rules', recurrenceError);
-		return invalid(recurrenceError.message, 500);
-	}
-	const recurringActivityIds = new Set(
-		(recurrenceRules ?? []).map((rule) => rule.activity_event_id)
-	);
-
-	const rows = (activities ?? [])
-		.map((activity) => ({
-			id: activity.id,
-			title: activity.title,
-			slug: activity.slug,
-			summary: activity.summary,
-			description: activity.description,
-			timezone: activity.timezone,
-			hostUserId: activity.host_user_id,
-			hostGroupId: activity.host_group_id,
-			startLocationName: activity.start_location_name,
-			startLocationAddress: activity.start_location_address,
-			startLatitude: activity.start_latitude,
-			startLongitude: activity.start_longitude,
-			nextOccurrenceStart: activity.next_occurrence_start,
-			nextOccurrenceEnd: activity.next_occurrence_end,
-			recurrenceEnabled: recurringActivityIds.has(activity.id),
-			group: activity.group ?? null,
-			rideDetails: Array.isArray(activity.ride_details)
-				? (activity.ride_details[0] ?? null)
-				: (activity.ride_details ?? null),
-			imageUrls: Array.isArray(activity.ride_details)
-				? (activity.ride_details[0]?.image_urls ?? [])
-				: (activity.ride_details?.image_urls ?? []),
-			difficultyLevels: (activity.difficulty_links ?? [])
-				.map((entry) => entry?.level)
-				.filter(Boolean),
-			ridingDisciplines: (activity.discipline_links ?? [])
-				.map((entry) => entry?.discipline)
-				.filter(Boolean)
-		}))
-		.filter((activity) => {
-			if (!search) return true;
-			return [
-				activity.title,
-				activity.summary,
-				activity.description,
-				activity.startLocationName,
-				activity.startLocationAddress,
-				activity.group?.name,
-				...(activity.difficultyLevels ?? []).map((level) => level?.name),
-				...(activity.ridingDisciplines ?? []).map((discipline) => discipline?.name)
-			]
-				.filter(Boolean)
-				.join(' ')
-				.toLowerCase()
-				.includes(search);
-		});
-
-	return json({ data: rows });
 }
 
 export async function POST({ request, cookies }) {

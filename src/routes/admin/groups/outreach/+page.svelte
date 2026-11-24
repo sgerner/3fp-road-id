@@ -4,23 +4,24 @@
 	import { fade, slide } from 'svelte/transition';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
-	import IconFilter from '@lucide/svelte/icons/filter';
+	import IconFilter from '@lucide/svelte/icons/funnel';
 	import IconArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconCopy from '@lucide/svelte/icons/copy';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
-	import IconTrash2 from '@lucide/svelte/icons/trash-2';
+	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconImageUp from '@lucide/svelte/icons/image-up';
 	import IconX from '@lucide/svelte/icons/x';
 	import IconSend from '@lucide/svelte/icons/send';
-	import IconWand2 from '@lucide/svelte/icons/wand-2';
+	import IconWand2 from '@lucide/svelte/icons/wand-sparkles';
 	import IconLink from '@lucide/svelte/icons/link';
 	import IconChevronLeft from '@lucide/svelte/icons/chevron-left';
-	import IconAlertCircle from '@lucide/svelte/icons/alert-circle';
+	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
 	import IconCheck from '@lucide/svelte/icons/check';
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
+	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 
 	let { data, form } = $props();
 	let removedGroupIds = $state(new Set());
@@ -43,15 +44,11 @@
 	let imageEditGroupId = $state('');
 	let imageUrlDraft = $state('');
 	let imagePreviewSrc = $state('');
-	let imageNaturalWidth = $state(0);
-	let imageNaturalHeight = $state(0);
-	let cropStageWidth = $state(0);
-	let cropStageHeight = $state(0);
 	let cropScale = $state(1);
-	let cropX = $state(0);
-	let cropY = $state(0);
-	let draggingCrop = $state(false);
-	let cropDragStart = $state(null);
+	let cropPanX = $state(0);
+	let cropPanY = $state(0);
+	let cropReady = $state(false);
+	let cropFramer = $state(null);
 	let savingAssets = $state(false);
 	let logoCroppedDataUrl = $state('');
 	let coverCroppedDataUrl = $state('');
@@ -194,15 +191,10 @@
 		imageEditGroupId = group.id;
 		imageUrlDraft = target === 'logo' ? group.logo_url || '' : group.cover_photo_url || '';
 		imagePreviewSrc = imageUrlDraft;
-		imageNaturalWidth = 0;
-		imageNaturalHeight = 0;
-		cropStageWidth = 0;
-		cropStageHeight = 0;
 		cropScale = 1;
-		cropX = 0;
-		cropY = 0;
-		draggingCrop = false;
-		cropDragStart = null;
+		cropPanX = 0;
+		cropPanY = 0;
+		cropReady = false;
 		logoCroppedDataUrl = '';
 		coverCroppedDataUrl = '';
 		imageModalOpen = true;
@@ -216,66 +208,8 @@
 		reader.readAsDataURL(file);
 	}
 
-	function onPreviewImageLoad(event) {
-		const img = event.currentTarget;
-		imageNaturalWidth = img?.naturalWidth || 0;
-		imageNaturalHeight = img?.naturalHeight || 0;
-	}
-
 	function applyUrlPreview() {
 		imagePreviewSrc = imageUrlDraft;
-	}
-
-	function getCropFitScale() {
-		if (!imageNaturalWidth || !imageNaturalHeight || !cropStageWidth || !cropStageHeight) return 1;
-		return Math.max(cropStageWidth / imageNaturalWidth, cropStageHeight / imageNaturalHeight);
-	}
-
-	function startCropDrag(event) {
-		if (!imagePreviewSrc) return;
-		draggingCrop = true;
-		cropDragStart = { pointerX: event.clientX, pointerY: event.clientY, cropX, cropY };
-		event.currentTarget?.setPointerCapture?.(event.pointerId);
-	}
-
-	function moveCropDrag(event) {
-		if (!draggingCrop || !cropDragStart) return;
-		cropX = cropDragStart.cropX + (event.clientX - cropDragStart.pointerX);
-		cropY = cropDragStart.cropY + (event.clientY - cropDragStart.pointerY);
-	}
-
-	function endCropDrag() {
-		draggingCrop = false;
-		cropDragStart = null;
-	}
-
-	async function buildCroppedDataUrl() {
-		if (!imagePreviewSrc) return '';
-		const img = new Image();
-		img.src = imagePreviewSrc;
-		await new Promise((resolve, reject) => {
-			img.onload = resolve;
-			img.onerror = reject;
-		});
-		const isLogo = imageEditTarget === 'logo';
-		const outW = isLogo ? 800 : 1600;
-		const outH = isLogo ? 800 : 900;
-		const canvas = document.createElement('canvas');
-		canvas.width = outW;
-		canvas.height = outH;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return '';
-		ctx.fillStyle = '#000';
-		ctx.fillRect(0, 0, outW, outH);
-		const baseScale = Math.max(outW / img.width, outH / img.height);
-		const s = baseScale * cropScale;
-		const drawW = img.width * s;
-		const drawH = img.height * s;
-		const previewToOutputScale = cropStageWidth ? outW / cropStageWidth : 1;
-		const offsetX = (outW - drawW) / 2 + cropX * previewToOutputScale;
-		const offsetY = (outH - drawH) / 2 + cropY * previewToOutputScale;
-		ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-		return canvas.toDataURL('image/jpeg', 0.9);
 	}
 
 	async function prepareCroppedAndSubmit() {
@@ -283,13 +217,13 @@
 			imageFormEl?.requestSubmit?.();
 			return;
 		}
-		const cropped = await buildCroppedDataUrl();
-		if (!cropped) {
+		const exported = await cropFramer?.exportCroppedImage({ quality: 0.9 });
+		if (!exported?.dataUrl) {
 			imageFormEl?.requestSubmit?.();
 			return;
 		}
-		if (imageEditTarget === 'logo') logoCroppedDataUrl = cropped;
-		else coverCroppedDataUrl = cropped;
+		if (imageEditTarget === 'logo') logoCroppedDataUrl = exported.dataUrl;
+		else coverCroppedDataUrl = exported.dataUrl;
 		await Promise.resolve();
 		imageFormEl?.requestSubmit?.();
 	}
@@ -790,7 +724,7 @@
 			</div>
 			<button
 				type="button"
-				class="text-surface-300 hover:text-primary-500 cursor-pointer text-xs font-black tracking-[0.14em] uppercase transition"
+				class="text-surface-300 hover:text-primary-500 focus-visible:outline-primary-500 inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center px-2 text-xs font-black tracking-[0.14em] uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
 				aria-label="Edit logo"
 				onclick={() => openImageModal(group, 'logo')}
 			>
@@ -809,7 +743,7 @@
 			</div>
 			<button
 				type="button"
-				class="text-surface-300 hover:text-primary-500 cursor-pointer text-xs font-black tracking-[0.14em] uppercase transition"
+				class="text-surface-300 hover:text-primary-500 focus-visible:outline-primary-500 inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center px-2 text-xs font-black tracking-[0.14em] uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
 				aria-label="Edit cover"
 				onclick={() => openImageModal(group, 'cover')}
 			>
@@ -872,81 +806,29 @@
 				</div>
 				<button
 					type="button"
-					class="btn-icon preset-outlined-surface-500"
+					class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 w-9 min-w-9 items-center justify-center border-2 transition focus-visible:outline-2 focus-visible:outline-offset-2"
 					aria-label="Close image editor"
 					onclick={() => (imageModalOpen = false)}
 				>
-					<IconX class="h-5 w-5" />
+					<IconX class="h-5 w-5" aria-hidden="true" />
 				</button>
 			</div>
 
-			<!-- Preview -->
-			<div class="bg-surface-900 border-surface-800 relative shrink-0 overflow-hidden border-b-2">
-				<div
-					class="relative mx-auto touch-none select-none"
-					class:w-48={imageEditTarget === 'logo'}
-					class:h-48={imageEditTarget === 'logo'}
-					class:w-full={imageEditTarget === 'cover'}
-					class:h-40={imageEditTarget === 'cover'}
-					role="group"
-					aria-label="Image crop preview"
-					bind:clientWidth={cropStageWidth}
-					bind:clientHeight={cropStageHeight}
-					onpointerdown={startCropDrag}
-					onpointermove={moveCropDrag}
-					onpointerup={endCropDrag}
-					onpointercancel={endCropDrag}
-					onpointerleave={endCropDrag}
-				>
-					{#if imagePreviewSrc}
-						<img
-							src={imagePreviewSrc}
-							alt="crop preview"
-							draggable="false"
-							onload={onPreviewImageLoad}
-							class="absolute top-1/2 left-1/2 h-auto max-h-none w-auto max-w-none touch-none select-none"
-							style="transform: translate(-50%, -50%) translate({cropX}px, {cropY}px) scale({getCropFitScale() *
-								cropScale}); cursor: {draggingCrop ? 'grabbing' : 'grab'}"
-						/>
-					{:else}
-						<div
-							class="text-surface-300 absolute inset-0 flex flex-col items-center justify-center gap-2"
-						>
-							<IconImageUp class="h-10 w-10" aria-hidden="true" />
-							<span class="text-sm font-medium">Add an image to start</span>
-						</div>
-					{/if}
-				</div>
-				{#if imagePreviewSrc}
-					<div
-						class="bg-surface-950 text-surface-50 absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-bold"
-					>
-						Drag to reposition
-					</div>
-				{/if}
-			</div>
-
-			<!-- Controls -->
+			<!-- Framer + Source Controls -->
 			<div class="flex flex-col gap-5 overflow-y-auto p-5">
-				<div class="flex flex-col gap-2">
-					<div class="flex items-center justify-between">
-						<label
-							class="text-surface-300 text-xs font-bold tracking-[0.18em] uppercase"
-							for="crop-zoom">Zoom</label
-						>
-						<span class="text-surface-300 text-xs tabular-nums">{Math.round(cropScale * 100)}%</span
-						>
-					</div>
-					<input
-						id="crop-zoom"
-						type="range"
-						min="1"
-						max="2.5"
-						step="0.01"
-						bind:value={cropScale}
-						class="accent-primary-500 w-full"
-					/>
-				</div>
+				<SliderImageFramer
+					bind:this={cropFramer}
+					src={imagePreviewSrc}
+					target={imageEditTarget}
+					alt={imageEditTarget === 'logo'
+						? 'Group logo framing preview'
+						: 'Group cover framing preview'}
+					bind:zoom={cropScale}
+					bind:panX={cropPanX}
+					bind:panY={cropPanY}
+					bind:ready={cropReady}
+					compact
+				/>
 
 				<div
 					class="border-surface-500 grid grid-cols-2 border-2"
@@ -955,7 +837,7 @@
 				>
 					<button
 						type="button"
-						class="cursor-pointer px-3 py-2 text-sm font-black tracking-wide uppercase transition {imageUrlDraft
+						class="focus-visible:outline-primary-500 inline-flex min-h-9 cursor-pointer items-center justify-center px-3 py-2 text-sm font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-[-2px] {imageUrlDraft
 							? 'bg-primary-500 text-surface-950'
 							: 'text-surface-300 hover:text-surface-50'}"
 						onclick={() => {
@@ -965,7 +847,7 @@
 						URL
 					</button>
 					<label
-						class="cursor-pointer px-3 py-2 text-center text-sm font-black tracking-wide uppercase transition {imagePreviewSrc &&
+						class="focus-within:outline-primary-500 inline-flex min-h-9 cursor-pointer items-center justify-center px-3 py-2 text-center text-sm font-black tracking-wide uppercase transition focus-within:outline-2 focus-within:outline-offset-[-2px] {imagePreviewSrc &&
 						!imageUrlDraft
 							? 'bg-primary-500 text-surface-950'
 							: 'text-surface-300 hover:text-surface-50'}"
@@ -974,7 +856,7 @@
 						<input
 							type="file"
 							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-							class="hidden"
+							class="sr-only"
 							onchange={onImageFileSelected}
 						/>
 					</label>
@@ -983,13 +865,17 @@
 				<div class="flex gap-2">
 					<input
 						type="text"
-						class="input flex-1"
+						class="input min-h-9 flex-1"
 						aria-label="Image URL"
 						bind:value={imageUrlDraft}
 						placeholder="https://example.com/image.jpg"
 						onkeydown={(e) => e.key === 'Enter' && applyUrlPreview()}
 					/>
-					<button type="button" class="btn preset-outlined-surface-500" onclick={applyUrlPreview}>
+					<button
+						type="button"
+						class="btn preset-outlined-surface-500 min-h-9 min-w-9"
+						onclick={applyUrlPreview}
+					>
 						Load
 					</button>
 				</div>
@@ -1014,12 +900,12 @@
 					{/if}
 					<button
 						type="button"
-						class="btn preset-outlined-surface-500"
+						class="btn preset-outlined-surface-500 min-h-9 min-w-9"
 						onclick={() => (imageModalOpen = false)}>Cancel</button
 					>
 					<button
 						type="button"
-						class="btn preset-filled-primary-500"
+						class="btn preset-filled-primary-500 min-h-9 min-w-9"
 						disabled={savingAssets || !imagePreviewSrc}
 						onclick={prepareCroppedAndSubmit}
 					>

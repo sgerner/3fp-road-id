@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { uploadGroupEditorImageDataUrl } from '#lib/server/groupEditorImages';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 const UPDATABLE_FIELDS = new Set([
 	'name',
@@ -19,6 +20,7 @@ const UPDATABLE_FIELDS = new Set([
 	'latitude',
 	'longitude',
 	'service_area_description',
+	'zip_code',
 	'activity_frequency',
 	'typical_activity_day_time',
 	'membership_info',
@@ -53,6 +55,11 @@ export const POST = async ({ params, request, cookies }) => {
 	const updates = {};
 	for (const [k, v] of Object.entries(payload.fields || {})) {
 		if (UPDATABLE_FIELDS.has(k)) updates[k] = v;
+	}
+
+	if (Object.prototype.hasOwnProperty.call(updates, 'zip_code')) {
+		updates.zip_code =
+			typeof updates.zip_code === 'string' ? updates.zip_code.trim() || null : null;
 	}
 
 	// Normalize preferred CTA
@@ -174,5 +181,6 @@ export const POST = async ({ params, request, cookies }) => {
 		if (insErr) return json({ ok: false, error: insErr.message }, { status: 400 });
 	}
 
+	invalidateGroupSnapshotCache({ groupId: group_id, slug });
 	return json({ ok: true, saved: { fields: Object.keys(updates), gt, af, rd, sl } });
 };

@@ -12,7 +12,7 @@
 .app-shell h4,
 .app-shell h5,
 .app-shell h6 {
-	color: var(--color-primary-950-50);
+	color: light-dark(var(--color-surface-950), var(--color-primary-50));
 }
 
 html,
@@ -222,6 +222,21 @@ body::after {
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
+}
+
+@layer components {
+	@media (pointer: coarse) {
+		.app-shell :is(button, a, label):is(.btn, .btn-sm, .btn-icon, .chip, .chip-icon) {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+
+		.app-shell summary {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+			align-content: center;
+		}
+	}
 }
 
 .app-shell main .btn:hover,

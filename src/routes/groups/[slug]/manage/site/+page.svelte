@@ -1,6 +1,12 @@
 <script>
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { enhance } from '$app/forms';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import {
+		applyFormUpdate,
+		guardUnsavedNavigation,
+		replaceShallowQueryParam
+	} from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -10,7 +16,7 @@
 	import IconCircleAlert from '@lucide/svelte/icons/circle-alert';
 	import IconExternalLink from '@lucide/svelte/icons/external-link';
 	import IconEye from '@lucide/svelte/icons/eye';
-	import IconGlobe from '@lucide/svelte/icons/globe-2';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconLayout from '@lucide/svelte/icons/layout-grid';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -18,15 +24,27 @@
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconSettings from '@lucide/svelte/icons/settings-2';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
-	import IconTrash from '@lucide/svelte/icons/trash-2';
+	import IconTrash from '@lucide/svelte/icons/trash';
 	import IconType from '@lucide/svelte/icons/type';
 	import GroupSiteAiAssistant from '#lib/components/groups/GroupSiteAiAssistant.svelte';
 	import GroupSiteBlockEditor from '#lib/components/groups/GroupSiteBlockEditor.svelte';
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
-	import { mergeGroupSiteEditorConfig, toIsoDateTimeValue } from '#lib/groups/siteEditor';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
+	import {
+		buildGroupSiteEditorState,
+		createGroupSiteEditorSnapshot,
+		GROUP_SITE_LOGO_MAX_BYTES,
+		mergeGroupSiteEditorConfig,
+		normalizeGroupSiteEditorView,
+		siteEditorConfigFingerprint,
+		toIsoDateTimeValue
+	} from '#lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
+	import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 	import { buildGroupSiteTemplate, GROUP_SITE_TEMPLATES } from '#lib/microsites/templates';
 	import {
 		createGroupSitePage,
@@ -52,36 +70,34 @@
 
 	let { data, form } = $props();
 	const clone = (value) => JSON.parse(JSON.stringify(value));
-	const baseConfig = untrack(() =>
-		mergeGroupSiteEditorConfig(data.defaultSiteConfig, data.siteConfig)
-	);
-	let siteConfig = $state(baseConfig);
-	let pageBlocks = $state(untrack(() => clone(baseConfig.page_blocks || [])));
-	let sitePages = $state(untrack(() => clone(baseConfig.site_pages || [])));
-	let selectedPageId = $state(untrack(() => baseConfig.site_pages?.[0]?.id || 'home'));
-	let sponsorSequence = 0;
-	let sponsorItems = $state(
-		untrack(() => {
-			const items = Array.isArray(baseConfig.sponsor_items) ? baseConfig.sponsor_items : [];
-			return items.map((item) => ({
-				_editorId: `sponsor-${sponsorSequence++}`,
-				name: String(item?.name || ''),
-				text: String(item?.text || ''),
-				logo: String(item?.logo || ''),
-				url: String(item?.url || '')
-			}));
+	const initialSavedState = untrack(() =>
+		buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group
 		})
 	);
-	let faqItems = $state(
-		untrack(() =>
-			[
-				{ question: baseConfig.faq_1_q || '', answer: baseConfig.faq_1_a || '' },
-				{ question: baseConfig.faq_2_q || '', answer: baseConfig.faq_2_a || '' }
-			].filter((item) => item.question || item.answer)
-		)
+	const initialEditorState = untrack(() =>
+		form?.values
+			? buildGroupSiteEditorState({
+					defaultSiteConfig: data.defaultSiteConfig,
+					siteConfig: data.siteConfig,
+					micrositeSlug: data.micrositeSlug,
+					group: data.group,
+					values: form.values
+				})
+			: initialSavedState
 	);
-	let slugInput = $state(untrack(() => data.micrositeSlug || ''));
-	let activeView = $state('builder');
+	let siteConfig = $state(initialEditorState.siteConfig);
+	let pageBlocks = $state(initialEditorState.pageBlocks);
+	let sitePages = $state(initialEditorState.sitePages);
+	let selectedPageId = $state(initialEditorState.selectedPageId);
+	let sponsorSequence = initialEditorState.nextSponsorSequence;
+	let sponsorItems = $state(initialEditorState.sponsorItems);
+	let faqItems = $state(initialEditorState.faqItems);
+	let slugInput = $state(initialEditorState.slugInput);
+	let activeView = $state(initialEditorState.activeView);
 	let showPreview = $state(false);
 	let previewVersion = $state(0);
 	let localNotice = $state('');
@@ -91,39 +107,24 @@
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
 	let sponsorFileNames = $state({});
+	let aiUndoSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
+	const assistantContext = getAssistantContext();
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
-	const initialWidget = untrack(() => baseConfig.ride_widget_config || {});
-	let rideFilterMode = $state(
-		untrack(() =>
-			initialWidget.near || initialWidget.radiusMiles
-				? 'radius'
-				: initialWidget.location
-					? 'location'
-					: 'none'
-		)
-	);
-	let rideLocation = $state(untrack(() => initialWidget.location || ''));
-	let rideNear = $state(
-		untrack(
-			() =>
-				initialWidget.near ||
-				[data.group?.city, data.group?.state_region].filter(Boolean).join(', ')
-		)
-	);
-	let rideRadius = $state(untrack(() => initialWidget.radiusMiles || '50'));
-	let rideDefaultTab = $state(untrack(() => initialWidget.defaultTab || 'list'));
-	let rideTheme = $state(untrack(() => initialWidget.theme || 'auto'));
-	let rideDensity = $state(untrack(() => initialWidget.density || 'comfortable'));
-	let rideShowFilters = $state(untrack(() => initialWidget.showUserFilters ?? true));
-	let rideShowAdd = $state(untrack(() => initialWidget.showAddButton ?? true));
-	let ridePrefixCity = $state(untrack(() => initialWidget.prefixCity ?? false));
-	let rideDifficultyColors = $state(untrack(() => initialWidget.difficultyColors ?? true));
-	let selectedRideGroupIds = $state(
-		untrack(() =>
-			Array.isArray(baseConfig.ride_widget_group_ids) ? [...baseConfig.ride_widget_group_ids] : []
-		)
-	);
+	let rideFilterMode = $state(initialEditorState.rideFilterMode);
+	let rideLocation = $state(initialEditorState.rideLocation);
+	let rideNear = $state(initialEditorState.rideNear);
+	let rideRadius = $state(initialEditorState.rideRadius);
+	let rideDefaultTab = $state(initialEditorState.rideDefaultTab);
+	let rideTheme = $state(initialEditorState.rideTheme);
+	let rideDensity = $state(initialEditorState.rideDensity);
+	let rideShowFilters = $state(initialEditorState.rideShowFilters);
+	let rideShowAdd = $state(initialEditorState.rideShowAdd);
+	let ridePrefixCity = $state(initialEditorState.ridePrefixCity);
+	let rideDifficultyColors = $state(initialEditorState.rideDifficultyColors);
+	let selectedRideGroupIds = $state(initialEditorState.selectedRideGroupIds);
 	const selectedSitePage = $derived(
 		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
 	);
@@ -251,7 +252,7 @@
 	const previewPath = $derived(`${data.previewPath || '/'}?editor=${previewVersion}`);
 
 	function snapshot() {
-		return JSON.stringify({
+		return createGroupSiteEditorSnapshot({
 			siteConfig,
 			sitePages,
 			pageBlocks,
@@ -273,20 +274,124 @@
 			sponsorFileRevision
 		});
 	}
-	let savedSnapshot = $state(untrack(() => snapshot()));
+	let savedSnapshot = $state(untrack(() => createGroupSiteEditorSnapshot(initialSavedState)));
 	const dirty = $derived(snapshot() !== savedSnapshot);
-	function syncViewFromUrl() {
+	const pendingLogoWarning = $derived.by(() => {
+		const pendingFiles = Array.isArray(form?.values?.pending_sponsor_logo_files)
+			? form.values.pending_sponsor_logo_files.filter(Boolean)
+			: [];
+		if (!pendingFiles.length || Object.values(sponsorFileNames).some(Boolean)) return '';
+		return `Your draft text was kept, but the page reload cleared your selected partner logo (${pendingFiles.join(', ')}). Please choose the file again before publishing.`;
+	});
+	function syncViewFromUrl(fallbackView = null) {
 		const requested = new URL(window.location.href).searchParams.get('view');
-		const normalizedView = requested === 'buillder' ? 'builder' : requested;
-		if (views.some((view) => view.id === normalizedView)) activeView = normalizedView;
+		if (requested) {
+			activeView = normalizeGroupSiteEditorView(requested, activeView);
+		} else if (fallbackView) {
+			activeView = fallbackView;
+		}
+	}
+
+	function syncEditorStateFromData(formElement) {
+		const refreshedState = buildGroupSiteEditorState({
+			defaultSiteConfig: data.defaultSiteConfig,
+			siteConfig: data.siteConfig,
+			micrositeSlug: data.micrositeSlug,
+			group: data.group,
+			startSponsorIndex: sponsorSequence
+		});
+		sponsorSequence = refreshedState.nextSponsorSequence;
+		siteConfig = refreshedState.siteConfig;
+		pageBlocks = refreshedState.pageBlocks;
+		sitePages = refreshedState.sitePages;
+		selectedPageId = refreshedState.selectedPageId;
+		sponsorItems = refreshedState.sponsorItems;
+		faqItems = refreshedState.faqItems;
+		slugInput = refreshedState.slugInput;
+		rideFilterMode = refreshedState.rideFilterMode;
+		rideLocation = refreshedState.rideLocation;
+		rideNear = refreshedState.rideNear;
+		rideRadius = refreshedState.rideRadius;
+		rideDefaultTab = refreshedState.rideDefaultTab;
+		rideTheme = refreshedState.rideTheme;
+		rideDensity = refreshedState.rideDensity;
+		rideShowFilters = refreshedState.rideShowFilters;
+		rideShowAdd = refreshedState.rideShowAdd;
+		ridePrefixCity = refreshedState.ridePrefixCity;
+		rideDifficultyColors = refreshedState.rideDifficultyColors;
+		selectedRideGroupIds = refreshedState.selectedRideGroupIds;
+		sponsorFileNames = {};
+		sponsorFileRevision = 0;
+		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
+			input.value = '';
+		}
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		localNotice = '';
+		localError = '';
+		previewVersion += 1;
+		savedSnapshot = createGroupSiteEditorSnapshot(refreshedState);
+		syncViewFromUrl('builder');
+	}
+
+	function enhanceSiteSettingsForm({ action, formData, cancel }) {
+		const isReset = action.searchParams.has('/reset');
+		if (!isReset) {
+			const normalizedSlug = normalizeMicrositeSlug(slugInput);
+			if (!normalizedSlug) {
+				localNotice = '';
+				localError = 'Website slug is required and can only use letters/numbers.';
+				cancel();
+				return;
+			}
+			if (isReservedMicrositeSlug(normalizedSlug)) {
+				localNotice = '';
+				localError = 'That website slug is reserved. Pick another one.';
+				cancel();
+				return;
+			}
+			for (const [key, entry] of formData.entries()) {
+				if (
+					key.startsWith('sponsor_logo_file_') &&
+					entry &&
+					typeof entry === 'object' &&
+					'size' in entry &&
+					Number(entry.size) > GROUP_SITE_LOGO_MAX_BYTES
+				) {
+					localNotice = '';
+					localError = `${entry.name || 'Sponsor logo'} exceeds the 5 MB limit.`;
+					cancel();
+					return;
+				}
+			}
+		}
+
+		localNotice = '';
+		localError = '';
+		submitting = true;
+
+		return async ({ result, update, formElement }) => {
+			try {
+				if (result.type === 'failure') {
+					await applyFormUpdate(update, { reset: false, navigate: false });
+					return;
+				}
+				if (result.type === 'error') {
+					localError = result.error?.message || 'Unable to publish website changes.';
+					return;
+				}
+				await update({ reset: false });
+				syncEditorStateFromData(formElement);
+			} finally {
+				submitting = false;
+			}
+		};
 	}
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -425,6 +530,116 @@
 					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
 	}
+
+	function captureFullSiteEditorState() {
+		return clone({
+			siteConfig,
+			sitePages,
+			selectedPageId,
+			pageBlocks,
+			sponsorItems,
+			sponsorFileNames,
+			faqItems,
+			slugInput,
+			rideFilterMode,
+			rideLocation,
+			rideNear,
+			rideRadius,
+			rideDefaultTab,
+			rideTheme,
+			rideDensity,
+			rideShowFilters,
+			rideShowAdd,
+			ridePrefixCity,
+			rideDifficultyColors,
+			selectedRideGroupIds
+		});
+	}
+
+	function restoreFullSiteEditorState(saved) {
+		if (!saved) return;
+		siteConfig = clone(saved.siteConfig);
+		sitePages = clone(saved.sitePages);
+		selectedPageId = saved.selectedPageId || sitePages[0]?.id || 'home';
+		pageBlocks = clone(saved.pageBlocks);
+		sponsorItems = clone(saved.sponsorItems);
+		sponsorFileNames = clone(saved.sponsorFileNames || {});
+		faqItems = clone(saved.faqItems);
+		slugInput = saved.slugInput;
+		rideFilterMode = saved.rideFilterMode;
+		rideLocation = saved.rideLocation;
+		rideNear = saved.rideNear;
+		rideRadius = saved.rideRadius;
+		rideDefaultTab = saved.rideDefaultTab;
+		rideTheme = saved.rideTheme;
+		rideDensity = saved.rideDensity;
+		rideShowFilters = saved.rideShowFilters;
+		rideShowAdd = saved.rideShowAdd;
+		ridePrefixCity = saved.ridePrefixCity;
+		rideDifficultyColors = saved.rideDifficultyColors;
+		selectedRideGroupIds = clone(saved.selectedRideGroupIds);
+	}
+
+	function applyAiProposal(proposal) {
+		if (!proposal?.config) {
+			return { ok: false, error: 'No website proposal to apply.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyBaseFingerprint(
+			currentFp,
+			proposal.baseFingerprint,
+			'Your page changed after this draft was created. Ask the assistant again so it can use your latest edits.'
+		);
+		if (!check.ok) return check;
+
+		const previousState = captureFullSiteEditorState();
+		applyAiConfig(proposal.config, proposal.source || 'ai');
+		aiUndoSnapshot = previousState;
+		aiAppliedFingerprint = siteEditorConfigFingerprint(aiCurrentConfig);
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoAiProposal() {
+		if (!aiUndoSnapshot) {
+			return { ok: false, error: 'No applied AI draft to undo.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'Your page changed after you applied this AI draft. Keep your manual edits or ask the assistant for a fresh update.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		restoreFullSiteEditorState(aiUndoSnapshot);
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		previewVersion += 1;
+		localNotice = 'Reverted AI draft changes.';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'group-site-write',
+			groupSlug: data.group?.slug || '',
+			getContext: () => {
+				const currentCopy = clone(aiCurrentConfig);
+				return {
+					currentConfig: currentCopy,
+					baseFingerprint: siteEditorConfigFingerprint(currentCopy)
+				};
+			},
+			applyDraft: applyAiProposal,
+			undoDraft: undoAiProposal,
+			canUndoDraft: Boolean(aiUndoSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
@@ -600,9 +815,11 @@
 		setNavigationItems(next);
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !submitting && !confirm('Leave without publishing your website changes?'))
-			cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !submitting,
+			message: 'Leave without publishing your website changes?'
+		});
 	});
 
 	onMount(() => {
@@ -613,10 +830,11 @@
 			event.returnValue = '';
 		};
 		window.addEventListener('beforeunload', warn);
-		window.addEventListener('popstate', syncViewFromUrl);
+		const handlePopState = () => syncViewFromUrl();
+		window.addEventListener('popstate', handlePopState);
 		return () => {
 			window.removeEventListener('beforeunload', warn);
-			window.removeEventListener('popstate', syncViewFromUrl);
+			window.removeEventListener('popstate', handlePopState);
 		};
 	});
 </script>
@@ -628,7 +846,7 @@
 	method="POST"
 	action="?/save"
 	enctype="multipart/form-data"
-	onsubmit={() => (submitting = true)}
+	use:enhance={enhanceSiteSettingsForm}
 >
 	<input type="hidden" name="microsite_slug" value={slugInput} />
 	<input type="hidden" name="return_view" value={activeView} />
@@ -730,45 +948,43 @@
 </form>
 
 <div class="mx-auto grid max-w-[1800px] gap-4 pb-28 sm:pb-10">
-	<header
-		class="card preset-tonal-surface grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"
-	>
-		<div class="flex min-w-0 items-start gap-3">
-			<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
-			<div class="min-w-0">
-				<p class="text-xs font-semibold tracking-[0.16em] uppercase opacity-55">
-					Public presence · Website
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="h2">Website Studio</h1>
-					{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
-							class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
-						>{/if}
-				</div>
-				<p class="mt-1 max-w-2xl text-sm opacity-70">
-					Build the page with simple sections, choose a look, and publish when it feels right.
-				</p>
-				<a
-					class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
-					href={data.liveUrl}
-					target="_blank"
-					rel="noreferrer">{data.liveUrl}</a
-				>
-			</div>
-		</div>
-		<div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-			{#if activeView !== 'builder' && activeView !== 'address'}<button
-					class="btn preset-tonal-surface"
-					type="button"
-					onclick={() => (showPreview = !showPreview)}
-					><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
-				>{/if}<a
-				class="btn preset-tonal-surface col-span-2 sm:col-span-1"
+	<header class="card preset-tonal-surface p-4 sm:p-5">
+		<ManageCardHeader
+			as="h1"
+			title="Website Studio"
+			titleClass="h2"
+			eyebrow="Public presence · Website"
+			subtitle="Build the page with simple sections, choose a look, and publish when it feels right."
+			align="start"
+		>
+			{#snippet iconSlot()}
+				<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
+			{/snippet}
+			{#snippet badges()}
+				{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
+						class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
+					>{/if}
+			{/snippet}
+			<a
+				class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
 				href={data.liveUrl}
 				target="_blank"
-				rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				rel="noreferrer">{data.liveUrl}</a
 			>
-		</div>
+			{#snippet actions()}
+				{#if activeView !== 'builder' && activeView !== 'address'}<button
+						class="btn preset-tonal-surface"
+						type="button"
+						onclick={() => (showPreview = !showPreview)}
+						><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
+					>{/if}<a
+					class="btn preset-tonal-surface"
+					href={data.liveUrl}
+					target="_blank"
+					rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				>
+			{/snippet}
+		</ManageCardHeader>
 	</header>
 
 	{#if data.saved}<div class="card preset-tonal-success flex items-center gap-2 p-3" role="status">
@@ -787,10 +1003,19 @@
 	{#if localError}<div class="card preset-tonal-error flex items-center gap-2 p-3" role="alert">
 			<IconCircleAlert class="h-4 w-4" />
 			{localError}
-		</div>{/if}
-	{#if form?.error}<div class="card preset-tonal-error flex items-center gap-2 p-3" role="alert">
+		</div>{:else if form?.error}<div
+			class="card preset-tonal-error flex items-center gap-2 p-3"
+			role="alert"
+		>
 			<IconCircleAlert class="h-4 w-4" />
 			{form.error}
+		</div>{/if}
+	{#if pendingLogoWarning}<div
+			class="card preset-tonal-warning flex items-center gap-2 p-3"
+			role="status"
+		>
+			<IconCircleAlert class="h-4 w-4 shrink-0" />
+			{pendingLogoWarning}
 		</div>{/if}
 
 	<nav
@@ -799,7 +1024,7 @@
 	>
 		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-7" role="tablist">
 			{#each views as view, index}{@const ViewIcon = view.icon}<button
-					class="btn btn-sm min-h-12 justify-center {activeView === view.id
+					class="btn btn-sm min-h-12 min-w-0 justify-center px-2 sm:px-3 {activeView === view.id
 						? 'preset-filled-primary-500'
 						: 'preset-tonal-surface'}"
 					type="button"
@@ -810,7 +1035,8 @@
 					tabindex={activeView === view.id ? 0 : -1}
 					title={view.hint}
 					onkeydown={(event) => handleViewKeydown(event, index)}
-					onclick={() => selectView(view.id)}><ViewIcon class="h-4 w-4" /> {view.label}</button
+					onclick={() => selectView(view.id)}
+					><ViewIcon class="h-4 w-4 shrink-0" /> <span class="truncate">{view.label}</span></button
 				>{/each}
 		</div>
 	</nav>
@@ -1116,24 +1342,11 @@
 					</p>
 				</section>
 			{:else if activeView === 'quick'}
-				<details class="card preset-tonal-secondary">
-					<summary class="flex cursor-pointer items-center gap-3 p-4 sm:p-5"
-						><span class="card preset-tonal-secondary p-2.5"><IconSparkles class="h-5 w-5" /></span
-						><span class="grow"
-							><span class="block font-semibold">Improve my website with AI</span><span
-								class="block text-sm opacity-65"
-								>Describe the feeling and let the assistant propose the first draft.</span
-							></span
-						></summary
-					>
-					<div class="preset-divider-top p-4 sm:p-5">
-						<GroupSiteAiAssistant
-							groupSlug={data.group.slug}
-							currentConfig={aiCurrentConfig}
-							onapplied={applyAiConfig}
-						/>
-					</div>
-				</details>
+				<GroupSiteAiAssistant
+					canUndo={Boolean(aiUndoSnapshot) && !aiUndoConflictMessage}
+					undoConflictMessage={aiUndoConflictMessage}
+					onundo={undoAiProposal}
+				/>
 				<div class="grid gap-4 xl:grid-cols-2">
 					<div class="card preset-tonal-primary grid content-start gap-3 p-4">
 						<div>
@@ -1333,7 +1546,7 @@
 									>{/each}</select
 							></label
 						>
-						<div class="grid grid-cols-4 gap-2 sm:col-span-2">
+						<div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
 							{#each ['primary', 'secondary', 'accent', 'surface'] as color}<label class="label"
 									><span class="capitalize">{color}</span><input
 										class="input h-12"

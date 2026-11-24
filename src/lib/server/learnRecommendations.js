@@ -3,7 +3,32 @@ import {
 	cosineSimilarity,
 	parseLearnEmbedding,
 	tokenizeLearnText
-} from '#lib/server/learnDiscovery';
+} from '#lib/server/learnDiscovery.js';
+import { getUsStateName, normalizeUsStateCode } from '#lib/geo/usStates.js';
+
+const PLACEHOLDER_LEARN_SLUG_PATTERN =
+	/^(?:to-?do|todo|tbd|coming-soon|placeholder|draft|untitled)(?:$|-)/i;
+const PLACEHOLDER_LEARN_TITLE_SET = new Set([
+	'to do',
+	'to-do',
+	'todo',
+	'tbd',
+	'coming soon',
+	'placeholder',
+	'draft',
+	'untitled'
+]);
+
+export function isPlaceholderLearnArticle(row) {
+	const slug = safeTrim(row?.slug).toLowerCase();
+	const title = safeTrim(row?.title)
+		.toLowerCase()
+		.replace(/[\s_-]+/g, ' ');
+	if (!slug || !title) return true;
+	if (slug === 'to-do' || PLACEHOLDER_LEARN_SLUG_PATTERN.test(slug)) return true;
+	if (PLACEHOLDER_LEARN_TITLE_SET.has(title)) return true;
+	return false;
+}
 
 export const DEFAULT_ARTICLE_WEIGHTS = {
 	lexical_weight: 0.28,
@@ -230,16 +255,28 @@ export async function buildHybridArticleCandidates({
 	const intentContentTypes = mapIntentToContentTypes(intent);
 	const queryTokens = tokenizeLearnText(queryText);
 	const queryEmbedding = buildDeterministicEmbedding(queryText || 'learn article');
-	const locationTokens = tokenizeLearnText(locationHint || profileContext?.location || '').filter(
-		(token) => token.length >= 3
+	const rawLocation = locationHint || profileContext?.location || '';
+	const expandedLocationParts = [rawLocation];
+	for (const part of String(rawLocation).split(/[,\s]+/)) {
+		const code = normalizeUsStateCode(part);
+		if (code) {
+			expandedLocationParts.push(code, getUsStateName(code));
+		}
+	}
+	const locationTokens = tokenizeLearnText(expandedLocationParts.filter(Boolean).join(' ')).filter(
+		(token) => token.length >= 2
 	);
 
-	const articleRowsResponse = await supabase
+	let articleQuery = supabase
 		.from('learn_articles')
 		.select(
 			'id,slug,title,summary,category_name,subcategory_name,tags,audience,difficulty_level,ride_type,geo_scope,geo_city,geo_state,content_type,is_evergreen,metadata_confidence,updated_at,article_embedding'
 		)
-		.eq('is_published', true)
+		.eq('is_published', true);
+	if (typeof articleQuery.neq === 'function') {
+		articleQuery = articleQuery.neq('slug', 'to-do');
+	}
+	const articleRowsResponse = await articleQuery
 		.order('updated_at', { ascending: false })
 		.limit(300);
 	if (articleRowsResponse.error) {
@@ -249,7 +286,7 @@ export async function buildHybridArticleCandidates({
 
 	const articles = (articleRowsResponse.data || [])
 		.map(normalizeArticle)
-		.filter((article) => article.id);
+		.filter((article) => article.id && !isPlaceholderLearnArticle(article));
 	const feedbackSignals = buildFeedbackSignals(feedbackEvents);
 	const interestTokens = [
 		...(profileContext?.interests || []).flatMap((value) => tokenizeLearnText(value)),
