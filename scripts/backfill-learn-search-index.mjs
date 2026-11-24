@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { generateLearnReadingAid, isGenericLearnPlaceholder } from '../src/lib/learn/readingAid.js';
+import { buildLearnArticleBackfillUpdate } from '../src/lib/server/learnSearchBackfill.js';
 import {
 	isProtectedLearnCatalogArticle,
 	syncSafetyReportToDatabase
@@ -16,6 +17,8 @@ import {
 const workspace = fileURLToPath(new URL('../', import.meta.url));
 const envPath = path.join(workspace, '.env');
 const pageSize = 100;
+// --index-only rebuilds only embeddings and chunks; curated metadata is left untouched.
+const indexOnly = process.argv.includes('--index-only');
 
 async function loadEnv() {
 	try {
@@ -74,10 +77,6 @@ async function backfillArticles() {
 				article.reader_summary && !isGenericLearnPlaceholder(article.reader_summary)
 					? article.reader_summary
 					: readingAid.readerSummary;
-			const nextTakeaways =
-				Array.isArray(article.key_takeaways) && article.key_takeaways.length
-					? article.key_takeaways
-					: readingAid.keyTakeaways;
 
 			const signals = inferLearnArticleSearchSignals({
 				title: article.title || '',
@@ -96,22 +95,9 @@ async function backfillArticles() {
 
 			const { error: updateError } = await supabase
 				.from('learn_articles')
-				.update({
-					reader_summary: nextReaderSummary,
-					key_takeaways: nextTakeaways,
-					tags: signals.tags,
-					audience: signals.audience,
-					difficulty_level: signals.difficulty_level,
-					ride_type: signals.ride_type,
-					geo_scope: signals.geo_scope,
-					geo_city: signals.geo_city,
-					geo_state: signals.geo_state,
-					content_type: signals.content_type,
-					is_evergreen: signals.is_evergreen,
-					metadata_confidence: signals.metadata_confidence,
-					article_embedding: signals.embedding_literal,
-					updated_by_user_id: editorUserId
-				})
+				.update(
+					buildLearnArticleBackfillUpdate({ article, signals, readingAid, editorUserId, indexOnly })
+				)
 				.eq('id', article.id);
 			if (updateError) throw updateError;
 
@@ -129,6 +115,11 @@ async function backfillArticles() {
 
 		if (rows.length < pageSize) break;
 		from += pageSize;
+	}
+
+	if (indexOnly) {
+		console.log(`Done. Rebuilt embeddings and chunks for ${processed} wiki article(s).`);
+		return;
 	}
 
 	const reportSync = await syncSafetyReportToDatabase(supabase, {

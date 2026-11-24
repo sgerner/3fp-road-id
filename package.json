@@ -23,6 +23,7 @@
 		"backfill:group-images": "node scripts/backfill-group-external-images.mjs",
 		"geocode:weeklyrides": "node scripts/geocode-weeklyrides-imported.mjs",
 		"backfill:learn-search": "node scripts/backfill-learn-search-index.mjs",
+		"backfill:learn-search-index": "node scripts/backfill-learn-search-index.mjs --index-only",
 		"caption:3ftwiki-alt": "node scripts/caption-3ftwiki-alt-text.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:ci": "svelte-check --tsconfig ./tsconfig.json",
