@@ -1,6 +1,7 @@
 import {
 	CA_PROVINCES,
 	US_STATES,
+	buildGroupsDirectoryHref,
 	expandRegionCandidates,
 	normalizeCountryCode,
 	normalizeRegionCode,
@@ -8,6 +9,77 @@ import {
 } from './visitorLocation.js';
 
 export const DEFAULT_PROXIMITY_RADIUS_MILES = 250;
+
+export const HOMEPAGE_GROUP_COLUMNS = [
+	'id',
+	'slug',
+	'name',
+	'tagline',
+	'city',
+	'state_region',
+	'country',
+	'logo_url',
+	'cover_photo_url',
+	'latitude',
+	'longitude'
+].join(',');
+
+export const FALLBACK_GROUP_COLUMNS = [
+	'id',
+	'slug',
+	'name',
+	'tagline',
+	'description',
+	'membership_info',
+	'service_area_description',
+	'city',
+	'state_region',
+	'country',
+	'logo_url',
+	'cover_photo_url',
+	'latitude',
+	'longitude'
+].join(', ');
+
+export const HOMEPAGE_FEATURED_RIDE_SELECT = `
+	id,
+	title,
+	slug,
+	summary,
+	description,
+	timezone,
+	status,
+	host_user_id,
+	host_group_id,
+	start_location_name,
+	start_location_address,
+	start_latitude,
+	start_longitude,
+	next_occurrence_start,
+	next_occurrence_end,
+	ride_details(image_urls),
+	group:groups(id,slug,name,city,state_region,country)
+`;
+
+export const FALLBACK_RIDE_SELECT = `
+	id,
+	title,
+	slug,
+	summary,
+	description,
+	timezone,
+	status,
+	host_user_id,
+	host_group_id,
+	start_location_name,
+	start_location_address,
+	start_latitude,
+	start_longitude,
+	next_occurrence_start,
+	next_occurrence_end,
+	ride_details(image_urls),
+	group:groups(id,slug,name,city,state_region,country,latitude,longitude,is_published)
+`;
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
@@ -370,18 +442,29 @@ export function formatNearbyRideRow(row) {
 				? (row.ride_details[0]?.image_urls ?? [])
 				: (row.ride_details?.image_urls ?? []);
 
+	const rawGroup = Array.isArray(row.group) ? row.group[0] : row.group;
 	const group =
-		row.group ??
-		(row.group_id
+		rawGroup && rawGroup.is_published !== false
 			? {
-					id: row.group_id,
-					slug: row.group_slug,
-					name: row.group_name,
-					city: row.group_city,
-					state_region: row.group_state_region,
-					country: row.group_country
+					id: rawGroup.id,
+					slug: rawGroup.slug,
+					name: rawGroup.name,
+					city: rawGroup.city,
+					state_region: rawGroup.state_region,
+					country: rawGroup.country,
+					...(rawGroup.latitude !== undefined ? { latitude: rawGroup.latitude } : {}),
+					...(rawGroup.longitude !== undefined ? { longitude: rawGroup.longitude } : {})
 				}
-			: null);
+			: !rawGroup && row.group_id
+				? {
+						id: row.group_id,
+						slug: row.group_slug,
+						name: row.group_name,
+						city: row.group_city,
+						state_region: row.group_state_region,
+						country: row.group_country
+					}
+				: null;
 
 	return {
 		id: row.id,
@@ -406,10 +489,97 @@ export function formatNearbyRideRow(row) {
 	};
 }
 
+async function fetchNearbyGroupsFallback(
+	supabase,
+	location,
+	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 50, columns = FALLBACK_GROUP_COLUMNS } = {}
+) {
+	const visitorCoords = parseCoordinates(location?.latitude, location?.longitude);
+	if (visitorCoords.latitude === null && !resolveFallbackTarget(location)) {
+		return { data: [], error: null };
+	}
+
+	const effectiveMaxMiles = maxMiles > 0 ? maxMiles : DEFAULT_PROXIMITY_RADIUS_MILES;
+	const latDelta = effectiveMaxMiles / 68.0;
+	const selectColumns = columns || FALLBACK_GROUP_COLUMNS;
+	const pageSize = 1000;
+	const rows = [];
+	let from = 0;
+
+	while (true) {
+		let query = supabase.from('groups').select(selectColumns).eq('is_published', true);
+		if (visitorCoords.latitude !== null) {
+			query = query
+				.not('latitude', 'is', null)
+				.not('longitude', 'is', null)
+				.gte('latitude', visitorCoords.latitude - latDelta)
+				.lte('latitude', visitorCoords.latitude + latDelta);
+		}
+		const { data, error } = await query.order('id').range(from, from + pageSize - 1);
+		if (error) return { data: [], error };
+		const chunk = Array.isArray(data) ? data : [];
+		rows.push(...chunk);
+		if (chunk.length < pageSize) break;
+		from += pageSize;
+	}
+
+	return {
+		data: matchNearbyGroupsInMemory(rows, location, {
+			maxMiles: effectiveMaxMiles,
+			limit
+		}),
+		error: null
+	};
+}
+
+async function fetchNearbyRidesFallback(
+	supabase,
+	location,
+	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 25, nowIso } = {}
+) {
+	const visitorCoords = parseCoordinates(location?.latitude, location?.longitude);
+	if (visitorCoords.latitude === null && !resolveFallbackTarget(location)) {
+		return { data: [], error: null };
+	}
+
+	const effectiveMaxMiles = maxMiles > 0 ? maxMiles : DEFAULT_PROXIMITY_RADIUS_MILES;
+	const cutoffIso = nowIso || new Date().toISOString();
+	const pageSize = 1000;
+	const rows = [];
+	let from = 0;
+
+	while (true) {
+		const { data, error } = await supabase
+			.from('activity_events')
+			.select(FALLBACK_RIDE_SELECT)
+			.eq('activity_type', 'ride')
+			.eq('status', 'published')
+			.gte('next_occurrence_start', cutoffIso)
+			.order('next_occurrence_start', { ascending: true })
+			.order('id', { ascending: true })
+			.range(from, from + pageSize - 1);
+
+		if (error) return { data: [], error };
+		const chunk = Array.isArray(data) ? data : [];
+		rows.push(...chunk);
+		if (chunk.length < pageSize) break;
+		from += pageSize;
+	}
+
+	const formatted = rows.map(formatNearbyRideRow).filter(Boolean);
+	return {
+		data: matchNearbyRidesInMemory(formatted, location, {
+			maxMiles: effectiveMaxMiles,
+			limit
+		}),
+		error: null
+	};
+}
+
 export async function fetchNearbyGroups(
 	supabase,
 	location,
-	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 50 } = {}
+	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 50, columns } = {}
 ) {
 	if (!supabase || !location?.hasLocalScope) return { data: [], error: null };
 
@@ -423,14 +593,25 @@ export async function fetchNearbyGroups(
 		p_limit: limit
 	});
 
-	if (error) return { data: [], error };
+	if (error) {
+		if (typeof supabase.from === 'function') {
+			const fallback = await fetchNearbyGroupsFallback(supabase, location, {
+				maxMiles,
+				limit,
+				columns
+			});
+			if (!fallback.error) return fallback;
+			return { data: [], error: fallback.error || error };
+		}
+		return { data: [], error };
+	}
 	return { data: Array.isArray(data) ? data : [], error: null };
 }
 
 export async function fetchNearbyRides(
 	supabase,
 	location,
-	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 25 } = {}
+	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 25, nowIso } = {}
 ) {
 	if (!supabase || !location?.hasLocalScope) return { data: [], error: null };
 
@@ -444,10 +625,89 @@ export async function fetchNearbyRides(
 		p_limit: limit
 	});
 
-	if (error) return { data: [], error };
+	if (error) {
+		if (typeof supabase.from === 'function') {
+			const fallback = await fetchNearbyRidesFallback(supabase, location, {
+				maxMiles,
+				limit,
+				nowIso
+			});
+			if (!fallback.error) return fallback;
+			return { data: [], error: fallback.error || error };
+		}
+		return { data: [], error };
+	}
 	return {
 		data: (Array.isArray(data) ? data : []).map(formatNearbyRideRow).filter(Boolean),
 		error: null
+	};
+}
+
+export async function loadHomepageDiscoveryData({
+	supabase,
+	visitorLocation,
+	siteOrigin = '',
+	nowIso = new Date().toISOString()
+}) {
+	const hasLocalScope = Boolean(visitorLocation?.hasLocalScope);
+
+	const [nearbyGroupsRes, featuredGroupsRes, nearbyRidesRes, featuredRidesRes] = await Promise.all([
+		hasLocalScope
+			? fetchNearbyGroups(supabase, visitorLocation, {
+					maxMiles: DEFAULT_PROXIMITY_RADIUS_MILES,
+					limit: 3,
+					columns: HOMEPAGE_GROUP_COLUMNS
+				})
+			: Promise.resolve({ data: [], error: null }),
+		supabase
+			.from('groups')
+			.select(HOMEPAGE_GROUP_COLUMNS)
+			.eq('is_published', true)
+			.not('cover_photo_url', 'is', null)
+			.order('name')
+			.limit(3),
+		hasLocalScope
+			? fetchNearbyRides(supabase, visitorLocation, {
+					maxMiles: DEFAULT_PROXIMITY_RADIUS_MILES,
+					limit: 2,
+					nowIso
+				})
+			: Promise.resolve({ data: [], error: null }),
+		supabase
+			.from('activity_events')
+			.select(HOMEPAGE_FEATURED_RIDE_SELECT)
+			.eq('activity_type', 'ride')
+			.eq('status', 'published')
+			.gte('next_occurrence_start', nowIso)
+			.order('next_occurrence_start', { ascending: true })
+			.limit(2)
+	]);
+
+	const localGroupsAvailable = hasLocalScope && !nearbyGroupsRes.error;
+	const localGroups =
+		localGroupsAvailable && Array.isArray(nearbyGroupsRes.data) ? nearbyGroupsRes.data : [];
+	const featuredGroups = Array.isArray(featuredGroupsRes.data) ? featuredGroupsRes.data : [];
+	const nearbyRides =
+		!nearbyRidesRes.error && Array.isArray(nearbyRidesRes.data) ? nearbyRidesRes.data : [];
+	const fallbackRides = (Array.isArray(featuredRidesRes.data) ? featuredRidesRes.data : [])
+		.map(formatNearbyRideRow)
+		.filter(Boolean);
+
+	const localRides = nearbyRides.length ? nearbyRides : fallbackRides;
+	const rideSource = nearbyRides.length ? 'local' : localRides.length ? 'featured' : null;
+	const locationSource = localGroupsAvailable ? visitorLocation.source : null;
+	const area = locationSource ? visitorLocation.label || '' : '';
+	const groupsHref = buildGroupsDirectoryHref(visitorLocation);
+
+	return {
+		area,
+		locationSource,
+		groupsHref,
+		featuredGroups,
+		localGroups,
+		localRides,
+		rideSource,
+		siteOrigin
 	};
 }
 

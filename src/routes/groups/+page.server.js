@@ -294,11 +294,16 @@ export const load = async ({ url, fetch, locals, setHeaders }) => {
 		return nearbyGroupsPromise;
 	}
 
+	let proximityFallbackToName = false;
 	async function fetchProximityOrderedPage({ postalBounds = null } = {}) {
 		const [nearbyRes, catalogRes] = await Promise.all([
 			getNearbyGroups(),
 			fetchCatalogOrderIds(postalBounds)
 		]);
+		if (nearbyRes.error) {
+			proximityFallbackToName = true;
+			return buildListQuery({ postalBounds });
+		}
 		if (catalogRes.error) {
 			return { data: [], count: 0, error: catalogRes.error };
 		}
@@ -373,16 +378,21 @@ export const load = async ({ url, fetch, locals, setHeaders }) => {
 	const totalGroups = groupsRes.count || 0;
 	const mapPoints = mapRes.data || [];
 	const group_types_map = await fetchGroupTypesMap(groups, typesAllRes.data || []);
+	const effectiveProximityActive = proximityActive && !proximityFallbackToName;
+	const effectiveSort = effectiveProximityActive ? sort : 'name';
 
 	return {
 		groups,
 		mapPoints,
 		totalGroups,
 		error: groupsRes.error?.message || mapRes.error?.message || null,
-		filters: commonContext,
-		proximityActive,
-		proximityLabel,
-		proximitySource,
+		filters: {
+			...commonContext,
+			sort: effectiveSort
+		},
+		proximityActive: effectiveProximityActive,
+		proximityLabel: effectiveProximityActive ? proximityLabel : '',
+		proximitySource: effectiveProximityActive ? proximitySource : null,
 		skill_levels: levelsRes.data || [],
 		group_types_map,
 		group_types: typesAllRes.data || [],
