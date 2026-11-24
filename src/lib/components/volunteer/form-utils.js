@@ -190,7 +190,7 @@ export function mapQuestionRecordToFormDetails(record) {
 export function buildQuestionPayload(patch, eventId) {
 	const payload = {};
 	if (eventId !== undefined) payload.event_id = eventId;
-	if ('opportunityId' in patch) payload.opportunity_id = patch.opportunityId ?? null;
+	if ('opportunityId' in patch) payload.opportunity_id = stringOrNull(patch.opportunityId);
 	if ('fieldKey' in patch) payload.field_key = stringOrNull(patch.fieldKey);
 	if ('label' in patch) payload.label = stringOrNull(patch.label);
 	if ('helpText' in patch) payload.help_text = stringOrNull(patch.helpText);

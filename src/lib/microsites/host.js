@@ -109,3 +109,17 @@ export function shouldSkipMicrositeRouting(pathname) {
 	}
 	return /\.[a-z0-9]+$/i.test(pathname);
 }
+
+export function resolveRootLayoutWrapperMode({
+	isMicrosite = false,
+	pathname = '',
+	hasError = false
+} = {}) {
+	if (isMicrosite) {
+		return hasError ? 'standalone-main' : 'microsite';
+	}
+	if (cleanText(pathname).startsWith('/ride/widget/frame')) {
+		return 'standalone-main';
+	}
+	return 'app-shell';
+}

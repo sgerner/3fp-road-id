@@ -9,6 +9,8 @@
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
 	import IconMenu from '@lucide/svelte/icons/menu';
@@ -69,6 +71,7 @@
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
+	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
 	let loginIntent = $state(null);
@@ -99,6 +102,12 @@
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
+	const canManageSms = $derived(
+		Boolean(user) &&
+			(userProfile?.admin === true ||
+				ownedGroups.length > 0 ||
+				(profileCanManageSms ?? (data?.user?.id === user?.id && Boolean(data?.canManageSms))))
+	);
 	const profileImageUrl = $derived(
 		userProfile?.avatar_url ??
 			user?.user_metadata?.avatar_url ??
@@ -232,7 +241,8 @@
 		if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
 		event.preventDefault();
 		event.stopPropagation();
-		const targetIndex = event.key === 'ArrowDown' ? 0 : themeOptions.length + 5;
+		const targetIndex =
+			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 6 : 5);
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -293,18 +303,24 @@
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
+			profileCanManageSms = false;
 			return;
 		}
 		try {
 			const response = await fetch('/api/profile');
 			if (!response.ok) {
 				userProfile = null;
+				profileCanManageSms = false;
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
 			userProfile = payload?.profile ?? null;
+			if (typeof payload?.canManageSms === 'boolean') {
+				profileCanManageSms = payload.canManageSms;
+			}
 		} catch {
 			userProfile = null;
+			profileCanManageSms = false;
 		}
 	}
 
@@ -497,6 +513,9 @@
 			}
 			if (profile?.user_id && user?.id && String(profile.user_id) !== String(user.id)) return;
 			userProfile = profile;
+			if (typeof event?.detail?.canManageSms === 'boolean') {
+				profileCanManageSms = event.detail.canManageSms;
+			}
 		}
 		// Also close mobile menu on outside click / escape
 		const onDocClickMenu = (e) => {
@@ -596,6 +615,7 @@
 		email = '';
 		userProfile = null;
 		ownedGroups = [];
+		profileCanManageSms = false;
 	}
 
 	function toggleLogin() {
@@ -655,8 +675,19 @@
 		return page.url.pathname.startsWith('/get-involved');
 	}
 
-	let isEmbedRoute = $derived(page.url.pathname.startsWith('/ride/widget/frame'));
 	let isMicrositeRoute = $derived(Boolean(data?.isMicrosite));
+	let layoutWrapperMode = $derived(
+		resolveRootLayoutWrapperMode({
+			isMicrosite: isMicrositeRoute,
+			pathname: page.url.pathname,
+			hasError: page.error !== null && page.error !== undefined
+		})
+	);
+	const assistantContext = setAssistantContext();
+
+	$effect(() => {
+		assistantContext.setPathname(page.url.pathname);
+	});
 </script>
 
 <svelte:head>
@@ -669,11 +700,11 @@
 >
 	<a href="#main-content" class="skip-link">Skip to main content</a>
 	<Toast.Group {toaster} />
-	{#if isMicrositeRoute}
+	{#if layoutWrapperMode === 'microsite'}
 		<div class="min-h-dvh min-w-0 overflow-x-clip">
 			{@render children()}
 		</div>
-	{:else if isEmbedRoute}
+	{:else if layoutWrapperMode === 'standalone-main'}
 		<main id="main-content" tabindex="-1" class="min-h-dvh min-w-0 overflow-x-clip p-0">
 			{@render children()}
 		</main>
@@ -685,7 +716,7 @@
 			<div class="flex items-center justify-between gap-2 p-4 sm:gap-4">
 				<div class="flex min-w-0 items-center gap-2">
 					<button
-						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
+						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 inline-flex items-center justify-center rounded-lg border p-2 md:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						bind:this={mobileMenuBtnEl}
 						onclick={() => (showMobileMenu = !showMobileMenu)}
 						aria-label="Menu"
@@ -696,7 +727,7 @@
 					<a
 						href="/"
 						aria-label="3 Feet Please"
-						class="text-surface-950-50 flex min-w-0 items-center gap-2 sm:gap-3"
+						class="text-surface-950-50 flex min-w-0 items-center justify-center gap-2 sm:justify-start sm:gap-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						<img
 							src="/3fp-64.webp"
@@ -719,7 +750,7 @@
 					{#if !user}
 						<button
 							type="button"
-							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border"
+							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border pointer-coarse:size-11"
 							aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
 							onclick={toggleColorMode}
 						>
@@ -735,7 +766,7 @@
 							<div class="relative flex items-center gap-2">
 								<button
 									type="button"
-									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center gap-2 rounded-full border px-2 py-1 transition"
+									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center justify-center gap-2 rounded-full border px-2 py-1 transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 									bind:this={userMenuBtnEl}
 									onclick={() => {
 										if (!showUserMenu) userMenuFocusIndex = 0;
@@ -824,10 +855,29 @@
 											Profile
 										</a>
 										<a
-											href={myGroupsMenuHref}
+											href="/profile#road-id"
 											class="profile-menu-item"
 											role="menuitem"
 											tabindex={userMenuFocusIndex === themeOptions.length + 2 ? 0 : -1}
+											onclick={() => {
+												showUserMenu = false;
+												if (page.url.pathname === '/profile' && typeof document !== 'undefined') {
+													requestAnimationFrame(() => {
+														document
+															.getElementById('road-id')
+															?.scrollIntoView({ behavior: 'smooth' });
+													});
+												}
+											}}
+										>
+											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
+											Emergency ID
+										</a>
+										<a
+											href={myGroupsMenuHref}
+											class="profile-menu-item"
+											role="menuitem"
+											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -837,29 +887,33 @@
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Volunteer shifts
 										</a>
-										<a
-											href="/messages"
-											class="profile-menu-item"
-											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
-											onclick={() => (showUserMenu = false)}
-										>
-											<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
-											SMS inbox
-										</a>
+										{#if canManageSms}
+											<a
+												href="/messages"
+												class="profile-menu-item"
+												role="menuitem"
+												tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
+												SMS inbox
+											</a>
+										{/if}
 										<div class="border-surface-500/15 my-1 border-t" role="separator"></div>
 										<button
 											type="button"
 											class="profile-menu-item w-full"
 											onclick={doLogout}
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
+											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 6 : 5)
+												? 0
+												: -1}
 										>
 											<IconLogOut class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Log out
@@ -907,7 +961,7 @@
 											<h3 class="text-base font-semibold">Log in / Register</h3>
 											<button
 												type="button"
-												class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
+												class="btn preset-tonal-warning btn-sm px-3 text-sm"
 												onclick={() => (showLogin = false)}>Close</button
 											>
 										</div>
@@ -920,9 +974,10 @@
 										<input
 											id="login-email-m"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
-											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
+											class="input bg-primary-50-950/30 text-surface-950-50 w-full pointer-coarse:min-h-11"
 											required
 										/>
 										<TurnstileVerification
@@ -973,6 +1028,7 @@
 										<input
 											id="login-email"
 											type="email"
+											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
 											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
@@ -1077,7 +1133,7 @@
 						<div
 							class="rail-legal flex w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[0.62rem] font-semibold"
 						>
-							<div class="flex items-center gap-1">
+							<div class="flex flex-wrap items-center justify-center gap-1">
 								<a href="/privacy" class="rail-footer-link transition">Privacy</a>
 								<span aria-hidden="true">|</span>
 								<a href="/terms" class="rail-footer-link transition">Terms</a>
@@ -1270,6 +1326,12 @@
 		outline-offset: 2px;
 	}
 
+	@media (pointer: coarse) {
+		.profile-menu-item {
+			min-height: 2.75rem;
+		}
+	}
+
 	/* ── Rail: Get Involved link ── */
 	:global(.rail-brand-link) {
 		text-decoration: none;
@@ -1371,7 +1433,22 @@
 
 	.rail-footer-link,
 	.mobile-menu-legal-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5rem;
+		min-height: 1.5rem;
+		padding-inline: 0.25rem;
 		color: color-mix(in oklab, var(--rail-ink) 78%, transparent);
+	}
+
+	@media (pointer: coarse) {
+		.rail-footer-link,
+		.mobile-menu-legal-link {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+			padding-inline: 0.5rem;
+		}
 	}
 
 	.rail-footer-link:hover,
@@ -1401,7 +1478,14 @@
 	}
 
 	:global(.mob-social-btn) {
-		height: 2.5rem;
+		min-height: 2.75rem;
+	}
+
+	@media (pointer: coarse) {
+		:global(.rail-social-btn),
+		:global(.rail-donate-btn) {
+			min-height: 2.75rem;
+		}
 	}
 
 	:global(.rail-social-btn:hover),
@@ -1418,6 +1502,10 @@
 		background: color-mix(in oklab, var(--rail-ground) 82%, var(--color-primary-500));
 		text-decoration: none;
 		transition: background 150ms ease;
+	}
+
+	:global(.mob-donate-btn) {
+		min-height: 2.75rem;
 	}
 
 	:global(.rail-donate-btn:hover),
@@ -1445,7 +1533,7 @@
 	}
 
 	.mobile-menu-actions {
-		grid-template-columns: repeat(3, minmax(0, 2.5rem)) minmax(0, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 2.75rem)) minmax(0, 1fr);
 		border-top: 1px solid var(--rail-divider);
 	}
 

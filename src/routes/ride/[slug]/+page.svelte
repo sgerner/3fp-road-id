@@ -3,16 +3,17 @@
 	import { getRideImages } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { navigateAfterMutation, refreshPageData } from '#lib/client/navigation';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question-mark';
-	import SmsContextOptIn from '#lib/components/sms/SmsContextOptIn.svelte';
-	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import SmsPreferencesSheet from '#lib/components/sms/SmsPreferencesSheet.svelte';
+	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { escapeHtml } from '#lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
 	import { formatRideSchedule, getTimezoneBadge, getViewerTimezone } from '#lib/calendar/monthGrid';
@@ -40,15 +41,15 @@
 	const occurrences = $derived.by(() => ride?.occurrences ?? []);
 	let rsvpLoadingId = $state('');
 	let rsvpError = $state('');
+	let localRsvpByOccurrence = $state({});
+	let lastRideId = $state(null);
 	let claimLoading = $state(false);
 	let claimError = $state('');
 	let selectedOccurrenceId = $state(null);
 	let nowMs = $state(Date.now());
+	let heroRsvpEl = $state(null);
+	let showStickyRsvpBar = $state(false);
 	let viewerTimezone = $state('UTC');
-	let mapEl = $state(null);
-	let map;
-	let marker;
-	let mapLoadPromise;
 
 	const canManage = $derived(Boolean(data?.canManage));
 	const currentUser = $derived(data?.currentUser ?? null);
@@ -221,6 +222,14 @@
 	}
 
 	$effect(() => {
+		const nextRideId = activity?.id ?? null;
+		if (nextRideId !== lastRideId) {
+			lastRideId = nextRideId;
+			localRsvpByOccurrence = {};
+		}
+	});
+
+	$effect(() => {
 		if (
 			upcomingOccurrences.some(
 				(occurrence) => String(occurrence.id) === String(selectedOccurrenceId)
@@ -229,6 +238,40 @@
 			return;
 		}
 		selectedOccurrenceId = upcomingOccurrences[0]?.id ?? null;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !heroRsvpEl || !selectedOccurrence) {
+			showStickyRsvpBar = false;
+			return;
+		}
+		const headerOffset = () => {
+			const raw = getComputedStyle(document.documentElement).getPropertyValue(
+				'--app-header-height'
+			);
+			const parsed = Number.parseFloat(raw);
+			return Number.isFinite(parsed) ? parsed : 73;
+		};
+		const updateStickyBar = () => {
+			if (!heroRsvpEl) {
+				showStickyRsvpBar = false;
+				return;
+			}
+			showStickyRsvpBar = heroRsvpEl.getBoundingClientRect().bottom <= headerOffset() + 4;
+		};
+		updateStickyBar();
+		const observer = new IntersectionObserver(updateStickyBar, {
+			rootMargin: '-73px 0px 0px 0px',
+			threshold: [0, 1]
+		});
+		observer.observe(heroRsvpEl);
+		window.addEventListener('scroll', updateStickyBar, { passive: true });
+		window.addEventListener('resize', updateStickyBar, { passive: true });
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('scroll', updateStickyBar);
+			window.removeEventListener('resize', updateStickyBar);
+		};
 	});
 
 	onMount(() => {
@@ -287,12 +330,15 @@
 	}
 
 	function currentUserRsvp(occurrence) {
-		if (!currentUser?.id) return null;
+		if (!currentUser?.id || !occurrence?.id) return null;
+		const localOverride = localRsvpByOccurrence[String(occurrence.id)];
+		if (localOverride && localOverride.userId === currentUser.id) return localOverride;
 		return occurrence?.rsvps?.find((entry) => entry.userId === currentUser.id) ?? null;
 	}
 
 	async function submitRsvp(status) {
 		if (!selectedOccurrence?.id) return;
+		const targetOccurrenceId = String(selectedOccurrence.id);
 		rsvpLoadingId = selectedOccurrence.id;
 		rsvpError = '';
 		try {
@@ -306,9 +352,20 @@
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(result?.error || 'Unable to update RSVP.');
-			await goto(`/ride/${activity.slug}`, { invalidateAll: true, replaceState: true });
+			if (result?.data && currentUser?.id) {
+				localRsvpByOccurrence = {
+					...localRsvpByOccurrence,
+					[targetOccurrenceId]: {
+						id: result.data.id,
+						userId: result.data.user_id || currentUser.id,
+						status: result.data.status || status,
+						participantName: result.data.participant_name || 'Rider'
+					}
+				};
+			}
+			await refreshPageData();
 		} catch (error) {
-			rsvpError = error.message || 'Unable to update RSVP.';
+			rsvpError = error?.message || 'Unable to update RSVP.';
 		} finally {
 			rsvpLoadingId = '';
 		}
@@ -324,7 +381,7 @@
 			});
 			const result = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(result?.error || 'Unable to claim ride.');
-			await goto(`/ride/${activity.slug}`, { invalidateAll: true, replaceState: true });
+			await navigateAfterMutation(`/ride/${activity.slug}`);
 		} catch (error) {
 			claimError = error.message || 'Unable to claim ride.';
 		} finally {
@@ -332,53 +389,19 @@
 		}
 	}
 
-	onMount(() => {
-		const latitude =
-			selectedOccurrence?.start_latitude ??
+	const mapLatitude = $derived(
+		selectedOccurrence?.start_latitude ??
 			activity?.start_latitude ??
 			activity?.startLatitude ??
-			null;
-		const longitude =
-			selectedOccurrence?.start_longitude ??
+			null
+	);
+	const mapLongitude = $derived(
+		selectedOccurrence?.start_longitude ??
 			activity?.start_longitude ??
 			activity?.startLongitude ??
-			null;
-		if (!mapEl || latitude == null || longitude == null) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (!entries[0]?.isIntersecting) return;
-				observer.disconnect();
-				void (async () => {
-					try {
-						if (!mapLoadPromise) {
-							mapLoadPromise = Promise.all([
-								import('#lib/map/leaflet.css'),
-								import('leaflet')
-							]).then(([, mod]) => mod.default || mod);
-						}
-						const L = await mapLoadPromise;
-						await ensureLeafletDefaultIcon(L);
-						map = L.map(mapEl).setView([Number(latitude), Number(longitude)], 13);
-						L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-							attribution: '&copy; OpenStreetMap contributors'
-						}).addTo(map);
-						marker = L.marker([Number(latitude), Number(longitude)]).addTo(map);
-					} catch (error) {
-						console.warn('Unable to render ride map', error);
-					}
-				})();
-			},
-			{ rootMargin: '200px' }
-		);
-		observer.observe(mapEl);
-
-		return () => {
-			observer.disconnect();
-			map?.remove?.();
-			map = null;
-			marker = null;
-		};
-	});
+			null
+	);
+	const hasMapCoords = $derived(isValidLatLng(mapLatitude, mapLongitude));
 </script>
 
 <svelte:head>
@@ -409,7 +432,11 @@
 	{@html '<script type="application/ld+json">' + seoStructuredData + '</script>'}
 </svelte:head>
 
-<div class="text-surface-50 -m-4 flex flex-col overflow-hidden">
+<div
+	class={`bg-surface-950 text-surface-50 -m-4 flex flex-col overflow-hidden ${
+		selectedOccurrence ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0' : ''
+	}`}
+>
 	<!-- HERO -->
 	<section
 		class="bg-primary-500 text-surface-950 grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
@@ -488,7 +515,7 @@
 			</div>
 
 			<div class="flex flex-col gap-6">
-				<div class="flex flex-wrap items-center gap-3">
+				<div bind:this={heroRsvpEl} class="flex flex-wrap items-center gap-3">
 					{#if selectedOccurrence && currentUser}
 						<button
 							type="button"
@@ -557,23 +584,6 @@
 
 					<ShareButton title={seoTitle} text={seoDescription} url={seoCanonical} kind="ride" />
 				</div>
-
-				{#if currentUser}
-					<div class="flex max-w-xl flex-col gap-3">
-						<SmsContextOptIn
-							category="ride_reminders"
-							source="ride-rsvp"
-							title="Text me reminders for rides I RSVP for"
-							description="Get concise reminders for upcoming rides you choose to attend. You can manage this preference from your Profile."
-						/>
-						<SmsContextOptIn
-							category="admin_messages"
-							source="ride-rsvp-admin-messages"
-							title="Let ride organizers text me about my RSVP"
-							description="Receive and reply to messages from organizers about rides you attend."
-						/>
-					</div>
-				{/if}
 
 				{#if rsvpError}
 					<div
@@ -656,6 +666,12 @@
 			</div>
 		</div>
 	</section>
+
+	{#if currentUser}
+		{#key currentUser.id}
+			<SmsPreferencesSheet />
+		{/key}
+	{/if}
 
 	<!-- UNCLAIMED CALLOUT -->
 	{#if !activity?.host_user_id && !activity?.host_group_id}
@@ -1013,10 +1029,17 @@
 							Map
 						</h2>
 					</div>
-					{#if activity?.start_latitude != null && activity?.start_longitude != null}
-						<div class="border-surface-950 h-72 overflow-hidden border-[3px]">
-							<div bind:this={mapEl} class="h-full w-full"></div>
-						</div>
+					{#if hasMapCoords}
+						<AccessibleMapShell
+							regionLabel={`Start location map for ${activity?.title || 'this ride'}`}
+							lazy
+							lazyRootMargin="200px"
+							center={[Number(mapLatitude), Number(mapLongitude)]}
+							zoom={13}
+							staticMarker={{ lat: mapLatitude, lng: mapLongitude }}
+							shellClass="border-surface-950 isolate z-0 scroll-mb-32 overflow-hidden border-[3px]"
+							canvasClass="h-72 w-full"
+						/>
 					{:else}
 						<p class="m-0 text-sm opacity-85">
 							Map pin will appear when the start location has coordinates.
@@ -1148,6 +1171,99 @@
 				</div>
 			{/if}
 		</section>
+	{/if}
+
+	{#if selectedOccurrence && showStickyRsvpBar}
+		{@const stickyOccBadge = occurrenceTimezoneBadge(selectedOccurrence)}
+		<div
+			role="region"
+			aria-label="Selected occurrence RSVP actions"
+			data-testid="sticky-ride-rsvp-bar"
+			class="bg-surface-950 text-surface-50 border-primary-400 fixed inset-x-0 bottom-0 z-30 border-t-[3px] pb-[env(safe-area-inset-bottom)] md:hidden"
+		>
+			<div class="flex flex-col gap-2 px-4 py-2.5">
+				<div class="flex items-center justify-between gap-2">
+					<p
+						class="text-surface-50 m-0 flex min-w-0 items-center gap-2 text-xs font-black tracking-wide uppercase"
+					>
+						<span class="min-w-0 truncate">{occurrenceLabel(selectedOccurrence)}</span>
+						{#if stickyOccBadge}
+							<span
+								class="border-surface-500 bg-surface-900 text-primary-300 shrink-0 border px-2 py-0.5 text-[0.65rem] leading-none font-black tracking-[0.14em] uppercase"
+							>
+								{stickyOccBadge}
+							</span>
+						{/if}
+					</p>
+					{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+						<span
+							class="bg-success-300 text-surface-950 shrink-0 px-2 py-0.5 text-[0.65rem] font-black tracking-[0.14em] uppercase"
+						>
+							You're in
+						</span>
+					{/if}
+				</div>
+
+				{#if rsvpError}
+					<p class="text-error-200 m-0 text-xs font-semibold" role="alert">{rsvpError}</p>
+				{/if}
+
+				<div class="flex items-center gap-2">
+					{#if currentUser}
+						<button
+							type="button"
+							class="bg-primary-400 text-surface-950 hover:bg-primary-300 inline-flex min-h-11 flex-1 items-center justify-center px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition disabled:cursor-not-allowed disabled:opacity-60"
+							onclick={() =>
+								submitRsvp(
+									currentUserRsvp(selectedOccurrence)?.status === 'going' ? 'cancelled' : 'going'
+								)}
+							disabled={rsvpLoadingId === selectedOccurrence?.id}
+						>
+							{#if rsvpLoadingId === selectedOccurrence?.id}
+								Saving…
+							{:else if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+								Leave ride
+							{:else}
+								RSVP
+							{/if}
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="bg-primary-400 text-surface-950 hover:bg-primary-300 inline-flex min-h-11 flex-1 items-center justify-center px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition"
+							onclick={(event) => {
+								event.stopPropagation();
+								window.dispatchEvent(new Event('open-login'));
+							}}
+						>
+							Log in to RSVP
+						</button>
+					{/if}
+
+					{#if selectedCalendarLinks.googleUrl}
+						<a
+							href={selectedCalendarLinks.googleUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="Add selected ride date to Google Calendar"
+							class="border-surface-300 text-surface-50 hover:border-primary-400 hover:text-primary-300 inline-flex min-h-11 shrink-0 items-center justify-center border-2 px-3 py-2 text-xs font-black tracking-[0.12em] uppercase transition hover:no-underline"
+						>
+							Google
+						</a>
+					{/if}
+
+					{#if selectedCalendarLinks.icsUrl}
+						<a
+							href={selectedCalendarLinks.icsUrl}
+							aria-label="Download .ics calendar file for selected ride date"
+							class="border-surface-300 text-surface-50 hover:border-primary-400 hover:text-primary-300 inline-flex min-h-11 shrink-0 items-center justify-center border-2 px-3 py-2 text-xs font-black tracking-[0.12em] uppercase transition hover:no-underline"
+						>
+							.ICS
+						</a>
+					{/if}
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>
 

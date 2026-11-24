@@ -1,10 +1,12 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
+	import { applyFormUpdate, refreshPageData } from '#lib/client/navigation';
 	import IconCheckCircle2 from '@lucide/svelte/icons/circle-check';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import { onDestroy } from 'svelte';
+	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 
 	let { data, cashAccounts, today, accountLabel, formatDate, formatCents } = $props();
 
@@ -644,7 +646,7 @@
 			}
 			return async ({ result, update }) => {
 				try {
-					await update({ reset: false, invalidateAll: false });
+					await applyFormUpdate(update);
 					if (result?.type === 'success') {
 						if (kind === 'analyze') {
 							applyAnalysis(result.data?.analysis || {});
@@ -668,7 +670,7 @@
 									: verificationMode === 'balance_only'
 										? 'Balance-only draft saved. Review the selected activity and explicit attestation before approving it.'
 										: 'Draft saved pending review. Complete the statement lines and resolve discrepancies before approval.';
-							await invalidateAll();
+							await refreshPageData();
 						} else {
 							const savedReconciliation = result.data?.reconciliation;
 							workspaceDraftId = savedReconciliation?.id || workspaceDraftId;
@@ -677,7 +679,7 @@
 							workspaceNotice = workspaceClosed
 								? 'Reconciliation approved and closed.'
 								: 'The draft was saved but is still open. Review its status and remaining checks before approving it.';
-							await invalidateAll();
+							await refreshPageData();
 						}
 					} else if (result?.type === 'failure') {
 						workspaceError =
@@ -819,18 +821,15 @@
 </script>
 
 <section id="reconciliation-workspace" class="scroll-mt-6 space-y-4">
-	<div class="flex flex-wrap items-end justify-between gap-3">
-		<div>
-			<p class="text-primary-600-300 text-xs font-bold tracking-[0.18em] uppercase">
-				Close the books
-			</p>
-			<h2 class="mt-1 text-2xl font-bold tracking-tight">Reconciliation workspace</h2>
-			<p class="text-surface-600-400 mt-1 max-w-3xl text-sm leading-relaxed">
-				Review the statement, bank feed, and ledger together. Save a draft at any point; closing
-				always requires an explicit approval.
-			</p>
-		</div>
-		<div class="flex flex-wrap items-center gap-2">
+	<ManageCardHeader
+		as="h2"
+		eyebrow="Close the books"
+		title="Reconciliation workspace"
+		titleClass="text-2xl font-bold tracking-tight"
+		subtitle="Review the statement, bank feed, and ledger together. Save a draft at any point; closing always requires an explicit approval."
+		align="start"
+	>
+		{#snippet actions()}
 			{#if workspaceDraftId}
 				<span
 					class="badge {workspaceClosed
@@ -844,8 +843,8 @@
 				type="button"
 				onclick={startNewStatement}>New statement</button
 			>
-		</div>
-	</div>
+		{/snippet}
+	</ManageCardHeader>
 
 	<form
 		method="POST"
@@ -964,31 +963,31 @@
 				{/if}
 			</div>
 
-			<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)]">
-				<div class="space-y-4">
-					<div class="flex flex-wrap items-center justify-between gap-3">
-						<div>
-							<h3 class="font-bold">Statement evidence</h3>
-							<p class="text-surface-500 mt-1 text-xs">
-								Upload the statement, then optionally ask AI to extract its transaction lines.
-							</p>
-						</div>
-						<label class="btn btn-sm preset-tonal-surface cursor-pointer font-semibold">
-							<IconUpload class="h-4 w-4" />
-							<span>Choose statement</span>
-							<input
-								id="reconciliation-statement-file"
-								class="sr-only"
-								type="file"
-								name="statementFile"
-								accept="application/pdf,image/jpeg,image/png,image/webp"
-								onchange={onStatementFileChange}
-							/>
-						</label>
-					</div>
-					<div
-						class="border-surface-500/10 bg-surface-500/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3"
+			<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)]">
+				<div class="min-w-0 space-y-4">
+					<ManageCardHeader
+						as="h3"
+						title="Statement evidence"
+						titleClass="text-base font-bold"
+						subtitle="Upload the statement, then optionally ask AI to extract its transaction lines."
+						align="start"
 					>
+						{#snippet actions()}
+							<label class="btn btn-sm preset-tonal-surface cursor-pointer font-semibold">
+								<IconUpload class="h-4 w-4" />
+								<span>Choose statement</span>
+								<input
+									id="reconciliation-statement-file"
+									class="sr-only"
+									type="file"
+									name="statementFile"
+									accept="application/pdf,image/jpeg,image/png,image/webp"
+									onchange={onStatementFileChange}
+								/>
+							</label>
+						{/snippet}
+					</ManageCardHeader>
+					<div class="border-surface-500/10 bg-surface-500/5 space-y-3 rounded-xl border p-3">
 						<p class="text-surface-600-400 min-w-0 text-xs">
 							With your opt-in, OpenAI receives the uploaded statement and relevant bank-feed/ledger
 							dates, descriptions, and amounts for extraction and matching suggestions. It never
@@ -1001,19 +1000,21 @@
 								OpenAI.</span
 							>
 						</label>
-						<button
-							class="btn btn-sm preset-outlined-primary-500 shrink-0 font-semibold"
-							type="submit"
-							formaction="?/analyzeReconciliationStatement"
-							disabled={workspaceBusy !== '' || !aiShareOptIn || !selectedStatementFile}
-						>
-							<IconFileText class="h-4 w-4" />
-							{workspaceBusy === 'analyze' ? 'Analyzing…' : 'Analyze with AI'}
-						</button>
+						<ManageActionRow>
+							<button
+								class="btn btn-sm preset-outlined-primary-500 font-semibold"
+								type="submit"
+								formaction="?/analyzeReconciliationStatement"
+								disabled={workspaceBusy !== '' || !aiShareOptIn || !selectedStatementFile}
+							>
+								<IconFileText class="h-4 w-4" />
+								{workspaceBusy === 'analyze' ? 'Analyzing…' : 'Analyze with AI'}
+							</button>
+						</ManageActionRow>
 					</div>
 					{#if selectedStatementFile}
 						<div class="border-surface-500/10 space-y-2 rounded-xl border p-3">
-							<p class="text-xs font-semibold">
+							<p class="text-xs font-semibold [overflow-wrap:anywhere]">
 								Original statement: {selectedStatementFile.name}
 								<span class="text-surface-500 font-normal"
 									>({Math.max(1, Math.round(selectedStatementFile.size / 1024))} KB)</span
@@ -1091,19 +1092,21 @@
 					{/if}
 
 					<div class="space-y-3">
-						<div class="flex flex-wrap items-center justify-between gap-2">
-							<div>
-								<h3 class="font-bold">Extracted statement lines</h3>
-								<p class="text-surface-500 text-xs">
-									Correct dates, descriptions, and signed amounts before reviewing matches.
-								</p>
-							</div>
-							<button
-								class="btn btn-sm preset-tonal-surface font-semibold"
-								type="button"
-								onclick={addBlankLine}>Add line</button
-							>
-						</div>
+						<ManageCardHeader
+							as="h3"
+							title="Extracted statement lines"
+							titleClass="text-base font-bold"
+							subtitle="Correct dates, descriptions, and signed amounts before reviewing matches."
+							align="start"
+						>
+							{#snippet actions()}
+								<button
+									class="btn btn-sm preset-tonal-surface font-semibold"
+									type="button"
+									onclick={addBlankLine}>Add line</button
+								>
+							{/snippet}
+						</ManageCardHeader>
 						{#if workspaceLines.length}
 							<div class="space-y-2">
 								{#each workspaceLines as line, index (line.clientId)}
@@ -1151,7 +1154,7 @@
 												/>
 											</label>
 											<button
-												class="btn btn-sm preset-tonal-surface self-end text-xs"
+												class="btn btn-sm preset-tonal-surface justify-self-start text-xs sm:self-end"
 												type="button"
 												onclick={() => removeLine(line.clientId)}
 												aria-label="Remove statement line {index + 1}">Remove</button
@@ -1278,19 +1281,21 @@
 													AI candidate suggestions · choosing one does not approve it
 												</p>
 												{#each line.matchCandidates as candidate, candidateIndex (`${line.clientId}-${candidate.id || candidateIndex}`)}
-													<div class="flex flex-wrap items-center justify-between gap-2">
-														<p class="min-w-0 flex-1">
-															{matchCandidateLabel(candidate)}{candidate.reason
-																? ` · ${candidate.reason}`
-																: ''}
-														</p>
+													<ManageActionRow>
+														{#snippet lead()}
+															<p class="min-w-0 [overflow-wrap:anywhere]">
+																{matchCandidateLabel(candidate)}{candidate.reason
+																	? ` · ${candidate.reason}`
+																	: ''}
+															</p>
+														{/snippet}
 														<button
-															class="btn btn-sm preset-tonal-surface shrink-0"
+															class="btn btn-sm preset-tonal-surface"
 															type="button"
 															onclick={() => chooseSuggestedCandidate(line, candidate)}
 															>Select proposal</button
 														>
-													</div>
+													</ManageActionRow>
 												{/each}
 											</div>
 										{/if}
@@ -1340,19 +1345,20 @@
 					</div>
 				</div>
 
-				<aside class="space-y-4">
+				<aside class="min-w-0 space-y-4">
 					<div class="border-surface-500/10 space-y-3 rounded-xl border p-4">
-						<div class="flex items-center justify-between gap-3">
-							<h3 class="font-bold">Three-way review</h3>
-							<span class="badge preset-tonal-primary px-2 py-0.5 text-[10px] font-bold"
-								>{matchedLineCount} matched</span
-							>
-						</div>
+						<ManageCardHeader as="h3" title="Three-way review" titleClass="text-base font-bold">
+							{#snippet badges()}
+								<span class="badge preset-tonal-primary px-2 py-0.5 text-[10px] font-bold"
+									>{matchedLineCount} matched</span
+								>
+							{/snippet}
+						</ManageCardHeader>
 						<p class="text-surface-500 text-xs">
 							Each confirmed row links one statement line, one bank feed item, and one ledger entry.
 						</p>
-						<div class="grid grid-cols-2 gap-2 text-xs">
-							<div class="bg-surface-500/5 rounded-lg p-3">
+						<div class="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+							<div class="bg-surface-500/5 min-w-0 rounded-lg p-3">
 								<span class="text-surface-500 block">Needs review</span><strong
 									class="mt-1 block text-base"
 									>{outstandingLines.length +
@@ -1360,7 +1366,7 @@
 										unmatchedLedgerCandidates.length}</strong
 								>
 							</div>
-							<div class="bg-surface-500/5 rounded-lg p-3">
+							<div class="bg-surface-500/5 min-w-0 rounded-lg p-3">
 								<span class="text-surface-500 block">Ignored / exceptions</span><strong
 									class="mt-1 block text-base">{excludedLineCount}</strong
 								>
@@ -1407,13 +1413,13 @@
 						{#if selectedFeedRows.length || selectedLedgerRows.length}
 							<div class="space-y-2 text-xs">
 								{#each selectedFeedRows as item (item.id)}<p
-										class="bg-surface-500/5 rounded-lg p-2"
+										class="bg-surface-500/5 rounded-lg p-2 [overflow-wrap:anywhere]"
 									>
 										<span class="font-semibold">Bank feed:</span>
 										{feedLabel(item)}
 									</p>{/each}
 								{#each selectedLedgerRows as entry (entry.id)}<p
-										class="bg-surface-500/5 rounded-lg p-2"
+										class="bg-surface-500/5 rounded-lg p-2 [overflow-wrap:anywhere]"
 									>
 										<span class="font-semibold">Ledger:</span>
 										{ledgerLabel(entry)}
@@ -1475,7 +1481,7 @@
 								{#each unmatchedFeedCandidates.slice(0, 12) as item (item.id)}
 									<div class="bg-surface-500/5 rounded-lg p-3 text-xs">
 										<p class="font-semibold">Bank activity not matched to a statement line</p>
-										<p class="text-surface-500 mt-1">{feedLabel(item)}</p>
+										<p class="text-surface-500 mt-1 [overflow-wrap:anywhere]">{feedLabel(item)}</p>
 										<a
 											class="text-primary-700-300 mt-2 inline-block font-semibold underline"
 											href="?tab=banking">Review, post, or match this feed item</a
@@ -1485,7 +1491,9 @@
 								{#each unmatchedLedgerCandidates.slice(0, 12) as entry (entry.id)}
 									<div class="bg-surface-500/5 rounded-lg p-3 text-xs">
 										<p class="font-semibold">Ledger activity not matched to a statement line</p>
-										<p class="text-surface-500 mt-1">{ledgerLabel(entry)}</p>
+										<p class="text-surface-500 mt-1 [overflow-wrap:anywhere]">
+											{ledgerLabel(entry)}
+										</p>
 										<a
 											class="text-primary-700-300 mt-2 inline-block font-semibold underline"
 											href="?tab=enter">Review ledger activity</a
@@ -1666,112 +1674,87 @@
 				</p>
 			{/if}
 
-			<div
-				class="border-surface-500/10 flex flex-wrap items-center justify-between gap-3 border-t pt-4"
-			>
-				<p class="text-surface-500 text-xs">
-					Save your review as a draft before approving it. A draft can be reopened and edited later.
-				</p>
-				<div class="flex flex-wrap gap-2">
-					<button
-						class="btn preset-tonal-surface font-semibold"
-						type="submit"
-						formaction="?/saveReconciliationDraft"
-						disabled={workspaceBusy !== '' ||
-							workspaceClosed ||
-							currencyMismatch ||
-							exceptionMatchConflict ||
-							(verificationMode === 'statement' && !workspaceLines.length)}
-					>
-						{workspaceBusy === 'save' ? 'Saving…' : 'Save draft'}
-					</button>
-					<button
-						class="btn preset-filled-primary-500 font-bold"
-						type="submit"
-						formaction="?/closeReconciliation"
-						disabled={workspaceBusy !== '' ||
-							workspaceClosed ||
-							workspaceDirty ||
-							currencyMismatch ||
-							exceptionMatchConflict ||
-							!workspaceDraftId ||
-							(verificationMode === 'statement' &&
-								(!workspaceLines.length ||
-									outstandingLines.length > 0 ||
-									incompleteLines.length > 0 ||
-									rollforwardDifference !== 0)) ||
-							(verificationMode === 'balance_only' && !balanceOnlyAttestation)}
-					>
-						<IconCheckCircle2 class="h-4 w-4" />
-						{workspaceBusy === 'close' ? 'Closing…' : 'Approve and close'}
-					</button>
-				</div>
-			</div>
+			<ManageActionRow class="border-surface-500/10 border-t pt-4">
+				{#snippet lead()}
+					<p class="text-surface-500 text-xs">
+						Save your review as a draft before approving it. A draft can be reopened and edited
+						later.
+					</p>
+				{/snippet}
+				<button
+					class="btn preset-tonal-surface font-semibold"
+					type="submit"
+					formaction="?/saveReconciliationDraft"
+					disabled={workspaceBusy !== '' ||
+						workspaceClosed ||
+						currencyMismatch ||
+						exceptionMatchConflict ||
+						(verificationMode === 'statement' && !workspaceLines.length)}
+				>
+					{workspaceBusy === 'save' ? 'Saving…' : 'Save draft'}
+				</button>
+				<button
+					class="btn preset-filled-primary-500 font-bold"
+					type="submit"
+					formaction="?/closeReconciliation"
+					disabled={workspaceBusy !== '' ||
+						workspaceClosed ||
+						workspaceDirty ||
+						currencyMismatch ||
+						exceptionMatchConflict ||
+						!workspaceDraftId ||
+						(verificationMode === 'statement' &&
+							(!workspaceLines.length ||
+								outstandingLines.length > 0 ||
+								incompleteLines.length > 0 ||
+								rollforwardDifference !== 0)) ||
+						(verificationMode === 'balance_only' && !balanceOnlyAttestation)}
+				>
+					<IconCheckCircle2 class="h-4 w-4" />
+					{workspaceBusy === 'close' ? 'Closing…' : 'Approve and close'}
+				</button>
+			</ManageActionRow>
 		</fieldset>
 	</form>
 
 	<section class="card preset-tonal-surface border-surface-500/10 space-y-3 border p-4 sm:p-5">
-		<div class="flex flex-wrap items-end justify-between gap-3">
-			<div>
-				<h3 class="text-base font-bold">Reconciliation history</h3>
-				<p class="text-surface-500 mt-1 text-xs">
-					Open a draft to continue it, inspect a closed period, or reopen a completed reconciliation
-					with a reason.
-				</p>
-			</div>
-			<span class="text-surface-500 text-xs">{reconciliations.length} recent</span>
-		</div>
+		<ManageCardHeader
+			as="h3"
+			title="Reconciliation history"
+			titleClass="text-base font-bold"
+			subtitle="Open a draft to continue it, inspect a closed period, or reopen a completed reconciliation with a reason."
+			align="start"
+		>
+			{#snippet badges()}
+				<span class="badge preset-tonal-surface text-xs font-semibold"
+					>{reconciliations.length} recent</span
+				>
+			{/snippet}
+		</ManageCardHeader>
 		{#if reconciliations.length}
 			<div class="divide-surface-500/10 divide-y">
 				{#each reconciliations as reconciliation (reconciliation.id)}
 					<article class="py-3 first:pt-0">
-						<div class="flex flex-wrap items-start justify-between gap-3">
-							<div class="min-w-0">
-								<div class="flex flex-wrap items-center gap-2">
-									<p class="truncate text-sm font-semibold">
-										{reconciliation.account?.code
-											? `${reconciliation.account.code} · `
-											: ''}{reconciliation.account?.name || 'Account'}
-									</p>
-									<span
-										class="badge {reconciliation.status === 'completed'
-											? 'preset-tonal-success'
-											: 'preset-tonal-warning'} px-2 py-0.5 text-[10px] font-bold uppercase"
-										>{reconciliation.status === 'completed' ? 'Closed' : 'Draft'}</span
-									>{#if reconciliation.verification_mode === 'balance_only'}<span
-											class="badge preset-tonal-warning px-2 py-0.5 text-[10px] font-bold"
-											>Balance-only</span
-										>{/if}
-								</div>
-								<p class="text-surface-500 mt-1 text-xs">
-									{reconciliation.period_start_date || reconciliation.statement_starting_date
-										? `${formatDate(reconciliation.period_start_date || reconciliation.statement_starting_date)} – `
-										: ''}{formatDate(reconciliation.statement_ending_date)} · Statement {formatCents(
-										reconciliation.statement_ending_balance_cents
-									)} · Ledger {formatCents(reconciliation.book_balance_cents)}
-								</p>
-								<p class="text-surface-500 mt-1 text-xs">
-									Difference {formatCents(
-										reconciliation.difference_cents
-									)}{reconciliation.statement_file_name
-										? ` · ${reconciliation.statement_file_name}`
-										: ''}
-								</p>
-								<p class="text-surface-500 mt-1 text-xs">
-									Verification: {['balance_only', 'legacy'].includes(
-										reconciliation.verification_mode
-									)
-										? 'Balance-only · statement lines unverified'
-										: reconciliation.verification_status === 'qualified'
-											? 'Qualified · exception or ignored rows'
-											: reconciliation.verification_status === 'verified'
-												? 'Verified'
-												: reconciliation.verification_status === 'unverified'
-													? 'Unverified'
-													: reconciliation.verification_status || 'Pending review'}
-								</p>
-							</div>
-							<div class="flex flex-wrap gap-2">
+						<ManageCardHeader
+							as="h4"
+							title="{reconciliation.account?.code
+								? `${reconciliation.account.code} · `
+								: ''}{reconciliation.account?.name || 'Account'}"
+							titleClass="text-sm font-semibold"
+							align="start"
+						>
+							{#snippet badges()}
+								<span
+									class="badge {reconciliation.status === 'completed'
+										? 'preset-tonal-success'
+										: 'preset-tonal-warning'} px-2 py-0.5 text-[10px] font-bold uppercase"
+									>{reconciliation.status === 'completed' ? 'Closed' : 'Draft'}</span
+								>{#if reconciliation.verification_mode === 'balance_only'}<span
+										class="badge preset-tonal-warning px-2 py-0.5 text-[10px] font-bold"
+										>Balance-only</span
+									>{/if}
+							{/snippet}
+							{#snippet actions()}
 								<button
 									class="btn btn-sm preset-tonal-surface font-semibold"
 									type="button"
@@ -1796,8 +1779,33 @@
 											type="submit">Statement file</button
 										>
 									</form>{/if}
-							</div>
-						</div>
+							{/snippet}
+							<p class="text-surface-500 mt-1 text-xs [overflow-wrap:anywhere]">
+								{reconciliation.period_start_date || reconciliation.statement_starting_date
+									? `${formatDate(reconciliation.period_start_date || reconciliation.statement_starting_date)} – `
+									: ''}{formatDate(reconciliation.statement_ending_date)} · Statement {formatCents(
+									reconciliation.statement_ending_balance_cents
+								)} · Ledger {formatCents(reconciliation.book_balance_cents)}
+							</p>
+							<p class="text-surface-500 mt-1 text-xs [overflow-wrap:anywhere]">
+								Difference {formatCents(
+									reconciliation.difference_cents
+								)}{reconciliation.statement_file_name
+									? ` · ${reconciliation.statement_file_name}`
+									: ''}
+							</p>
+							<p class="text-surface-500 mt-1 text-xs">
+								Verification: {['balance_only', 'legacy'].includes(reconciliation.verification_mode)
+									? 'Balance-only · statement lines unverified'
+									: reconciliation.verification_status === 'qualified'
+										? 'Qualified · exception or ignored rows'
+										: reconciliation.verification_status === 'verified'
+											? 'Verified'
+											: reconciliation.verification_status === 'unverified'
+												? 'Unverified'
+												: reconciliation.verification_status || 'Pending review'}
+							</p>
+						</ManageCardHeader>
 						{#if expandedReconciliationId === reconciliation.id}
 							<div class="bg-surface-500/5 mt-3 space-y-2 rounded-xl p-3">
 								<p class="text-xs font-bold">Saved statement lines and match history</p>
@@ -1806,10 +1814,10 @@
 										{#each storedLinesFor(reconciliation.id) as line (line.clientId)}<div
 												class="flex flex-wrap justify-between gap-2 py-2 text-xs"
 											>
-												<span
+												<span class="[overflow-wrap:anywhere]"
 													>{line.transactionDate ? formatDate(line.transactionDate) : 'No date'} · {line.description ||
 														'Statement line'} · {formatCents(amountToCents(line.amount))}</span
-												><span class="text-surface-500"
+												><span class="text-surface-500 [overflow-wrap:anywhere]"
 													>{line.resolution}{line.feedItemId ? ' · feed matched' : ''}{line.entryId
 														? ' · ledger matched'
 														: ''}{line.excludeReason ? ` · ${line.excludeReason}` : ''}</span
@@ -1828,7 +1836,7 @@
 									>
 										<input type="hidden" name="reconciliationId" value={reconciliation.id} />
 										<input
-											class="input preset-tonal-surface min-w-0 text-xs"
+											class="input preset-tonal-surface min-w-0 flex-1 text-xs"
 											name="reason"
 											placeholder="Reason for reopening"
 											required

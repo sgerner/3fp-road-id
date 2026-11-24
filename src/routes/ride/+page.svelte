@@ -1,5 +1,6 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import {
 		buildMonthGrid,
 		formatEventTime,
@@ -12,9 +13,16 @@
 		toEventDateKey
 	} from '#lib/calendar/monthGrid';
 	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
+	import {
+		applyRideUrlState,
+		formatMonthParam,
+		parseRideUrlState
+	} from '#lib/url/directoryUrlState';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -28,42 +36,17 @@
 	import IconTrendingUp from '@lucide/svelte/icons/trending-up';
 	import IconRuler from '@lucide/svelte/icons/ruler';
 	import IconX from '@lucide/svelte/icons/x';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
 
-	function resolveInitialView(rawView) {
-		return ['list', 'calendar', 'map'].includes(rawView) ? rawView : 'list';
-	}
+	let allRidesOverride = $state(null);
+	let allRidesMetaOverride = $state(null);
+	let loadingAllRides = false;
 
-	function resolveDefaultCalendarMonth(items) {
-		const fallbackMonth = startOfMonth(new Date());
-		const currentPrefix = `${fallbackMonth.getFullYear()}-${String(fallbackMonth.getMonth() + 1).padStart(2, '0')}-`;
-		for (const item of items ?? []) {
-			if (item?._calendarDateKey?.startsWith(currentPrefix)) {
-				return fallbackMonth;
-			}
-		}
-		const firstKey = items?.[0]?._calendarDateKey;
-		return firstKey ? startOfMonthFromDateKey(firstKey, fallbackMonth) : fallbackMonth;
-	}
-
-	let search = $state('');
-	let selectedDifficulty = $state('all');
-	let needsHost = $state(false);
-	let view = $state(resolveInitialView(page.url.searchParams.get('view')));
-	let currentPage = $state(1);
-	let manualCalendarReference = $state(null);
-	let viewerTimezone = $state('UTC');
-	let rideListEl = $state(null);
-
-	let mapEl = $state(null);
-	let map;
-	let clusterLayer;
-	let L;
-
-	const rides = $derived((data?.rides ?? []).filter(Boolean));
+	const rides = $derived((allRidesOverride ?? data?.rides ?? []).filter(Boolean));
+	const activeRidesMeta = $derived(allRidesMetaOverride ?? data?.ridesMeta ?? null);
 	const difficultyOptions = $derived(
 		Array.from(
 			new Set(
@@ -74,6 +57,53 @@
 			)
 		)
 	);
+
+	function collectDifficultyNames(rideRows) {
+		return Array.from(
+			new Set(
+				(rideRows ?? [])
+					.filter(Boolean)
+					.flatMap((ride) => ride.difficultyLevels ?? [])
+					.map((level) => level?.name)
+					.filter(Boolean)
+			)
+		);
+	}
+
+	const initialSearchQuery = untrack(() => page.url.search);
+	const initialUrlState = untrack(() =>
+		parseRideUrlState(page.url.searchParams, {
+			difficultyOptions: collectDifficultyNames(data?.rides)
+		})
+	);
+
+	let search = $state(initialUrlState.q);
+	let selectedDifficulty = $state(initialUrlState.difficulty);
+	let needsHost = $state(initialUrlState.needsHost);
+	let view = $state(initialUrlState.view);
+	let currentPage = $state(initialUrlState.page);
+	let viewerTimezone = $state('UTC');
+	let rideListEl = $state(null);
+	let routerReady = false;
+	let searchDebounceTimer;
+
+	async function ensureFullRidesLoaded() {
+		if (!browser || !data?.serverFiltered || allRidesOverride || loadingAllRides) return;
+		loadingAllRides = true;
+		try {
+			const response = await fetch('/api/rides');
+			if (!response.ok) return;
+			const payload = await response.json().catch(() => null);
+			if (Array.isArray(payload?.data)) {
+				allRidesOverride = payload.data;
+				allRidesMetaOverride = payload.meta ?? null;
+			}
+		} catch {
+			// Ignore transient client hydration errors; existing data remains usable.
+		} finally {
+			loadingAllRides = false;
+		}
+	}
 
 	const filteredRides = $derived(
 		rides.filter((ride) => {
@@ -98,7 +128,9 @@
 
 			const matchesDifficulty =
 				selectedDifficulty === 'all' ||
-				(ride.difficultyLevels ?? []).some((level) => level?.name === selectedDifficulty);
+				(ride.difficultyLevels ?? []).some(
+					(level) => (level?.name ?? '').toLowerCase() === selectedDifficulty.toLowerCase()
+				);
 
 			return (
 				matchesQuery && matchesDifficulty && (!needsHost || (!ride.hostUserId && !ride.hostGroupId))
@@ -106,19 +138,43 @@
 		})
 	);
 
+	const hasActiveFilters = $derived(
+		Boolean(search.trim() || selectedDifficulty !== 'all' || needsHost)
+	);
+	const matchesServerScope = $derived(
+		allRidesOverride === null &&
+			(data?.serverFiltered
+				? search.trim() === initialUrlState.q.trim() &&
+					selectedDifficulty.toLowerCase() === initialUrlState.difficulty.toLowerCase() &&
+					needsHost === initialUrlState.needsHost
+				: !search.trim() && selectedDifficulty === 'all' && !needsHost)
+	);
 	const heroRide = $derived(rides.find((ride) => heroImage(ride)) ?? null);
 	const claimableRides = $derived(
 		filteredRides.filter((ride) => !ride.hostUserId && !ride.hostGroupId)
 	);
 	const recurringRides = $derived(filteredRides.filter((ride) => ride.recurrenceEnabled));
-	const totalUpcoming = $derived(filteredRides.length);
+	const loadedUpcomingCount = $derived(filteredRides.length);
+	const totalUpcoming = $derived.by(() => {
+		const exactTotal = activeRidesMeta?.total ?? data?.totalAvailable;
+		const canUseServerTotal =
+			typeof exactTotal === 'number' &&
+			Number.isFinite(exactTotal) &&
+			(matchesServerScope ||
+				(allRidesOverride !== null &&
+					!search.trim() &&
+					selectedDifficulty === 'all' &&
+					!needsHost));
+		if (canUseServerTotal && exactTotal > loadedUpcomingCount) {
+			return exactTotal;
+		}
+		return loadedUpcomingCount;
+	});
 	const ridesPerPage = 24;
-	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / ridesPerPage)));
+	const totalPages = $derived(Math.max(1, Math.ceil(loadedUpcomingCount / ridesPerPage)));
 	const paginatedRides = $derived(
 		filteredRides.slice((currentPage - 1) * ridesPerPage, currentPage * ridesPerPage)
 	);
-
-	const hasActiveFilters = $derived(Boolean(search) || selectedDifficulty !== 'all' || needsHost);
 
 	const datedRides = $derived(
 		filteredRides
@@ -141,9 +197,19 @@
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
-	const calendarReference = $derived(
-		manualCalendarReference ?? resolveDefaultCalendarMonth(datedRides)
-	);
+	const defaultCalendarMonth = $derived.by(() => {
+		const currentMonth = startOfMonth(new Date());
+		if (!datedRides.length) return currentMonth;
+		const currentPrefix = `${formatMonthParam(currentMonth)}-`;
+		if (datedRides.some((ride) => ride?._calendarDateKey?.startsWith(currentPrefix))) {
+			return currentMonth;
+		}
+		const firstKey = datedRides[0]?._calendarDateKey;
+		return firstKey ? startOfMonthFromDateKey(firstKey, currentMonth) : currentMonth;
+	});
+
+	let calendarReference = $state(untrack(() => initialUrlState.monthDate ?? defaultCalendarMonth));
+	let calendarMonthTouched = $state(Boolean(initialUrlState.monthDate));
 
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toCivilDateKey));
 	const calendarDayFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' });
@@ -158,30 +224,110 @@
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
+	function syncUrlToState() {
+		if (!browser || !routerReady) return;
+		const currentUrl = new URL(window.location.href);
+		const nextUrl = applyRideUrlState(currentUrl, {
+			q: search,
+			difficulty: selectedDifficulty,
+			needsHost,
+			view,
+			page: currentPage,
+			monthDate: calendarReference,
+			defaultMonthDate: defaultCalendarMonth,
+			monthTouched: calendarMonthTouched
+		});
+		if (nextUrl.href !== currentUrl.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	function restoreStateFromUrl(searchParamsInput) {
+		clearTimeout(searchDebounceTimer);
+		const restored = parseRideUrlState(searchParamsInput, { difficultyOptions });
+		search = restored.q;
+		selectedDifficulty = restored.difficulty;
+		needsHost = restored.needsHost;
+		view = restored.view;
+		currentPage = restored.page;
+		if (restored.monthDate) {
+			calendarReference = restored.monthDate;
+			calendarMonthTouched = true;
+		} else {
+			calendarMonthTouched = false;
+			calendarReference = defaultCalendarMonth;
+		}
+		if (data?.serverFiltered && !allRidesOverride) {
+			const changedFromInitial =
+				restored.q.trim() !== initialUrlState.q.trim() ||
+				restored.difficulty.toLowerCase() !== initialUrlState.difficulty.toLowerCase() ||
+				restored.needsHost !== initialUrlState.needsHost;
+			if (changedFromInitial) void ensureFullRidesLoaded();
+		}
+	}
 	function scrollToRideCards() {
 		if (!rideListEl) return;
 		rideListEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
+	function handleSearchInput() {
+		currentPage = 1;
+		void ensureFullRidesLoaded();
+		clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			syncUrlToState();
+		}, 250);
+	}
+
+	function flushSearchSync() {
+		clearTimeout(searchDebounceTimer);
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
 	function clearSearch() {
+		clearTimeout(searchDebounceTimer);
 		search = '';
 		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
 	}
 
 	function clearFilters() {
+		clearTimeout(searchDebounceTimer);
 		search = '';
 		selectedDifficulty = 'all';
 		needsHost = false;
+		view = 'list';
 		currentPage = 1;
+		calendarMonthTouched = false;
+		calendarReference = defaultCalendarMonth;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
 	}
 
 	function selectDifficulty(difficulty) {
 		selectedDifficulty = difficulty;
 		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function toggleNeedsHost() {
+		needsHost = !needsHost;
+		currentPage = 1;
+		void ensureFullRidesLoaded();
+		syncUrlToState();
+	}
+
+	function selectView(nextView) {
+		view = nextView;
+		syncUrlToState();
 	}
 
 	function changeRidePage(nextPage) {
 		currentPage = Math.min(Math.max(nextPage, 1), totalPages);
+		syncUrlToState();
 		scrollToRideCards();
 	}
 
@@ -216,7 +362,16 @@
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
-		manualCalendarReference = startOfMonth(next);
+		calendarReference = startOfMonth(next);
+		calendarMonthTouched = true;
+		syncUrlToState();
+	}
+
+	function resetCalendarToToday() {
+		const todayMonth = startOfMonth(new Date());
+		calendarReference = todayMonth;
+		calendarMonthTouched = formatMonthParam(todayMonth) !== formatMonthParam(defaultCalendarMonth);
+		syncUrlToState();
 	}
 
 	function rideMeta(ride) {
@@ -250,137 +405,63 @@
 		return getRideImage(ride);
 	}
 
-	let mapLoadPromise;
+	const rideMapItems = $derived(
+		filteredRides
+			.filter((r) => isValidLatLng(r?.startLatitude, r?.startLongitude))
+			.map((r) => {
+				const tzBadge = rideTimezoneBadge(r);
+				return {
+					id: r.id ?? r.slug,
+					lat: Number(r.startLatitude),
+					lng: Number(r.startLongitude),
+					title: r.title || 'Community ride',
+					subtitle: [formatNext(r), tzBadge].filter(Boolean).join(' '),
+					meta: [r.startLocationName, r.group?.name ? `Hosted by ${r.group.name}` : '']
+						.filter(Boolean)
+						.join(' · '),
+					badge: (r.difficultyLevels ?? [])[0]?.name || '',
+					href: `/ride/${r.slug}`,
+					ctaLabel: 'View ride'
+				};
+			})
+	);
 
-	async function initMap() {
-		if (!mapEl || map) return;
-
-		try {
-			if (!mapLoadPromise) {
-				mapLoadPromise = (async () => {
-					await import('#lib/map/leaflet.css');
-					const mod = await import('leaflet');
-					L = mod.default || mod;
-					// markercluster is a legacy UMD bundle and reads Leaflet from the global scope.
-					globalThis.L = L;
-					await import('leaflet.markercluster');
-					return L;
-				})();
-			}
-			await mapLoadPromise;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet or clustering', e);
-			return;
-		}
-
-		if (!mapEl || map) return; // verify after await
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		clusterLayer = L.markerClusterGroup();
-		map.addLayer(clusterLayer);
-		updateMarkers();
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		} else if (view !== 'map' && map) {
-			map.remove();
-			map = null;
-			clusterLayer = null;
+	afterNavigate(({ type }) => {
+		routerReady = true;
+		if (type === 'popstate' || type === 'link') {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else if (type === 'enter' && window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
 		}
 	});
 
 	onMount(() => {
 		viewerTimezone = getViewerTimezone('UTC') || 'UTC';
+		routerReady = true;
+		if (window.location.search !== initialSearchQuery) {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		} else {
+			syncUrlToState();
+		}
+		const handlePopState = () => {
+			restoreStateFromUrl(new URL(window.location.href).searchParams);
+		};
+		window.addEventListener('popstate', handlePopState);
 		return () => {
-			try {
-				map?.remove();
-				map = null;
-				clusterLayer = null;
-			} catch {}
+			clearTimeout(searchDebounceTimer);
+			window.removeEventListener('popstate', handlePopState);
 		};
 	});
 
-	function validCoords(r) {
-		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
-	}
-
-	function buildRidePopupContent(r) {
-		const wrapper = document.createElement('div');
-		wrapper.style.minWidth = '180px';
-		wrapper.style.maxWidth = '240px';
-		wrapper.style.overflowWrap = 'anywhere';
-
-		const titleEl = document.createElement('strong');
-		titleEl.textContent = r.title || 'Ride';
-		wrapper.appendChild(titleEl);
-		wrapper.appendChild(document.createElement('br'));
-
-		const scheduleWrap = document.createElement('small');
-		scheduleWrap.style.display = 'inline-flex';
-		scheduleWrap.style.flexWrap = 'wrap';
-		scheduleWrap.style.alignItems = 'center';
-		scheduleWrap.style.gap = '4px';
-		const timeText = document.createElement('span');
-		timeText.textContent = formatNext(r);
-		scheduleWrap.appendChild(timeText);
-
-		const tzBadge = rideTimezoneBadge(r);
-		if (tzBadge) {
-			const badgeEl = document.createElement('span');
-			badgeEl.textContent = tzBadge;
-			badgeEl.style.padding = '1px 5px';
-			badgeEl.style.fontSize = '10px';
-			badgeEl.style.fontWeight = '800';
-			badgeEl.style.letterSpacing = '0.08em';
-			badgeEl.style.textTransform = 'uppercase';
-			badgeEl.style.background = '#09090b';
-			badgeEl.style.color = '#eab308';
-			scheduleWrap.appendChild(badgeEl);
-		}
-		wrapper.appendChild(scheduleWrap);
-		wrapper.appendChild(document.createElement('br'));
-
-		const linkEl = document.createElement('a');
-		linkEl.href = `/ride/${encodeURIComponent(r.slug)}`;
-		linkEl.textContent = 'View ride';
-		wrapper.appendChild(linkEl);
-		return wrapper;
-	}
-
-	function updateMarkers() {
-		if (!map || !clusterLayer) return;
-		clusterLayer.clearLayers();
-		const pts = [];
-
-		for (const r of filteredRides || []) {
-			if (!validCoords(r)) continue;
-			const lat = Number(r.startLatitude);
-			const lng = Number(r.startLongitude);
-			const m = L.marker([lat, lng]);
-			m.bindPopup(buildRidePopupContent(r));
-			clusterLayer.addLayer(m);
-			pts.push([lat, lng]);
-		}
-
-		if (pts.length) {
-			const b = L.latLngBounds(pts);
-			map.fitBounds(b.pad(0.1));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
 	$effect(() => {
-		void filteredRides;
-		void viewerTimezone;
-		updateMarkers();
+		if (selectedDifficulty !== 'all') {
+			const canonical = difficultyOptions.find(
+				(option) => option.toLowerCase() === selectedDifficulty.toLowerCase()
+			);
+			if (canonical && canonical !== selectedDifficulty) {
+				selectedDifficulty = canonical;
+			}
+		}
 	});
 
 	$effect(() => {
@@ -394,8 +475,8 @@
 	});
 
 	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 180);
+		if (!calendarMonthTouched && calendarReference.getTime() !== defaultCalendarMonth.getTime()) {
+			calendarReference = defaultCalendarMonth;
 		}
 	});
 </script>
@@ -443,14 +524,14 @@
 				<div class="flex flex-wrap gap-3">
 					<a
 						href="#ride-list"
-						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						Browse rides
 						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 					</a>
 					<a
 						href="/ride/new"
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						<IconPlus class="h-4 w-4" /> Share a ride
 					</a>
@@ -546,12 +627,16 @@
 							aria-hidden="true"
 						/>
 						<input
-							class="text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-medium focus:ring-0 focus:outline-none"
+							class="text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-medium focus:ring-0 focus:outline-none pointer-coarse:min-h-11"
 							type="text"
 							aria-label="Search rides"
 							bind:value={search}
-							oninput={() => {
-								currentPage = 1;
+							oninput={handleSearchInput}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') {
+									event.preventDefault();
+									flushSearchSync();
+								}
 							}}
 							placeholder="Search by title, location, pace, discipline…"
 						/>
@@ -581,7 +666,7 @@
 				<div class="flex flex-wrap gap-2">
 					<button
 						type="button"
-						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
+						class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							selectedDifficulty === 'all'
 								? 'bg-primary-500 text-surface-950 border-primary-500'
 								: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
@@ -594,12 +679,12 @@
 					{#each difficultyOptions as option (option)}
 						<button
 							type="button"
-							class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${
-								selectedDifficulty === option
+							class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
+								selectedDifficulty.toLowerCase() === option.toLowerCase()
 									? 'bg-primary-500 text-surface-950 border-primary-500'
 									: 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'
 							}`}
-							aria-pressed={selectedDifficulty === option}
+							aria-pressed={selectedDifficulty.toLowerCase() === option.toLowerCase()}
 							onclick={() => selectDifficulty(option)}
 						>
 							{option}
@@ -607,12 +692,9 @@
 					{/each}
 					<button
 						type="button"
-						class={`border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
+						class={`inline-flex items-center justify-center border-2 px-3.5 py-2 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${needsHost ? 'bg-primary-500 text-surface-950 border-primary-500' : 'bg-surface-950 text-surface-200 border-surface-700 hover:border-primary-500 hover:text-primary-500'}`}
 						aria-pressed={needsHost}
-						onclick={() => {
-							needsHost = !needsHost;
-							currentPage = 1;
-						}}
+						onclick={toggleNeedsHost}
 					>
 						Needs Host
 					</button>
@@ -620,42 +702,42 @@
 			</div>
 			<div class="flex flex-col items-start gap-2 sm:items-end">
 				<p class="text-surface-300 m-0 text-xs font-bold tracking-[0.22em] uppercase tabular-nums">
-					{totalUpcoming} upcoming ride{totalUpcoming === 1 ? '' : 's'}
+					{formatStatNumber(totalUpcoming)} upcoming ride{totalUpcoming === 1 ? '' : 's'}
 				</p>
 				<div class="border-surface-700 flex shrink-0 border-2">
 					<button
 						type="button"
-						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'list'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'list'}
-						onclick={() => (view = 'list')}
+						onclick={() => selectView('list')}
 					>
 						List
 					</button>
 					<button
 						type="button"
-						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'calendar'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'calendar'}
-						onclick={() => (view = 'calendar')}
+						onclick={() => selectView('calendar')}
 					>
 						Calendar
 					</button>
 					<button
 						type="button"
-						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+						class={`border-surface-700 border-l-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 							view === 'map'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
 						}`}
 						aria-pressed={view === 'map'}
-						onclick={() => (view = 'map')}
+						onclick={() => selectView('map')}
 					>
 						Map
 					</button>
@@ -752,7 +834,7 @@
 									{#if ride.group?.name}
 										{#if ride.group?.slug}
 											<a
-												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4"
+												class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 relative z-10 inline-flex items-center px-2.5 py-1 text-xs font-bold uppercase underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 												href={`/groups/${encodeURIComponent(ride.group.slug)}`}
 											>
 												{ride.group.name}
@@ -781,7 +863,7 @@
 									>
 										<a
 											href={`/ride/${ride.slug}`}
-											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! hover:no-underline"
+											class="ride-card-title-link text-surface-50! group-hover:text-primary-500! inline-flex items-center hover:no-underline pointer-coarse:min-h-11"
 											>{ride.title}</a
 										>
 									</h3>
@@ -860,27 +942,27 @@
 						<p class="text-surface-300 m-0 text-sm font-bold uppercase tabular-nums">
 							Showing {(currentPage - 1) * ridesPerPage + 1}–{Math.min(
 								currentPage * ridesPerPage,
-								totalUpcoming
-							)} of {totalUpcoming}
+								loadedUpcomingCount
+							)} of {formatStatNumber(totalUpcoming)}
 						</p>
 						<div class="border-surface-50 flex border-[3px]" aria-label="Pagination controls">
 							<button
 								type="button"
-								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40 pointer-coarse:min-h-11"
 								onclick={() => changeRidePage(currentPage - 1)}
 								disabled={currentPage === 1}
 							>
 								Previous
 							</button>
 							<span
-								class="border-surface-50 bg-surface-900 text-primary-500 border-x-[3px] px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
+								class="border-surface-50 bg-surface-900 text-primary-500 inline-flex items-center border-x-[3px] px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
 								aria-current="page"
 							>
 								Page {currentPage} of {totalPages}
 							</span>
 							<button
 								type="button"
-								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40"
+								class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-5 py-2.5 text-xs font-black tracking-[0.16em] uppercase transition disabled:opacity-40 pointer-coarse:min-h-11"
 								onclick={() => changeRidePage(currentPage + 1)}
 								disabled={currentPage === totalPages}
 							>
@@ -932,23 +1014,21 @@
 					<div class="border-surface-50 flex border-[3px]">
 						<button
 							type="button"
-							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
 							type="button"
-							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition"
-							onclick={() => {
-								manualCalendarReference = startOfMonth(new Date());
-							}}
+							class="border-surface-50 bg-surface-950 text-primary-500 hover:bg-primary-500 hover:text-surface-950 border-x-[3px] px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
+							onclick={resetCalendarToToday}
 						>
 							Today
 						</button>
 						<button
 							type="button"
-							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition"
+							class="bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950 px-4 py-2 text-xs font-black uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -1088,14 +1168,17 @@
 				</table>
 			</div>
 		{:else if view === 'map'}
-			<div transition:slide class="border-surface-50 border-[3px]">
-				<div bind:this={mapEl} class="h-[480px] w-full"></div>
-				<div
-					class="bg-surface-900 text-surface-300 border-surface-50 border-t-[3px] px-6 py-4 text-sm font-medium"
-				>
-					Zoom and click markers to preview ride details. Listings without mapped coordinates are
-					hidden from the map view.
-				</div>
+			<div transition:slide>
+				<DirectoryMapExplorer
+					regionLabel="Community ride locations map"
+					items={rideMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					cluster
+					shellClass="border-surface-50 border-[3px]"
+					canvasClass="h-[480px] w-full"
+					footerHint="Activate a ride pin or cluster to inspect details here. Listings without mapped coordinates are hidden from the map view."
+				/>
 			</div>
 		{/if}
 	</section>

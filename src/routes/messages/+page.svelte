@@ -1,21 +1,22 @@
 <script>
-	import { invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
+	import { refreshPageData } from '#lib/client/navigation';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconMessageCircle from '@lucide/svelte/icons/message-circle';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconShieldCheck from '@lucide/svelte/icons/shield-check';
+	import { measureSmsBudget, resolveSmsThreadReplyKind } from '#lib/utils/sms';
 
 	const { data } = $props();
 	const pageData = $derived(data ?? {});
+	const canManageSms = $derived(Boolean(pageData.canManageSms));
 	const threads = $derived(pageData.threads ?? []);
 	let selectedThreadId = $state('');
 	let mobileThreadOpen = $state(false);
 	let mobileBackButton = $state(null);
 	let activeThreadButton = null;
 	let message = $state('');
-	let kind = $state('admin');
 	let sending = $state(false);
 	let sendError = $state('');
 	let sendSuccess = $state('');
@@ -24,6 +25,11 @@
 		if (!threads.length) return null;
 		return threads.find((thread) => thread.id === selectedThreadId) ?? threads[0];
 	});
+	const replyKind = $derived(resolveSmsThreadReplyKind(selectedThread));
+	const replyKindLabel = $derived(
+		replyKind === 'bike_valet' ? 'Bike valet coordination' : 'Admin update'
+	);
+	const smsBudget = $derived(measureSmsBudget(message, { appendStopFooter: true }));
 
 	function threadLabel(thread) {
 		if (!thread) return 'SMS conversation';
@@ -56,7 +62,7 @@
 	}
 
 	async function sendMessage() {
-		if (!selectedThread?.id || !message.trim() || sending) return;
+		if (!selectedThread?.id || !message.trim() || smsBudget.overLimit || sending) return;
 		sending = true;
 		sendError = '';
 		sendSuccess = '';
@@ -64,13 +70,13 @@
 			const response = await fetch(`/api/sms/threads/${selectedThread.id}/messages`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ body: message, kind })
+				body: JSON.stringify({ body: message })
 			});
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(payload?.error || 'Unable to queue SMS.');
 			message = '';
 			sendSuccess = 'Reply queued. It will send as plain SMS when the dispatcher runs.';
-			await invalidateAll();
+			await refreshPageData();
 		} catch (error) {
 			sendError = error?.message || 'Unable to queue SMS.';
 		} finally {
@@ -114,7 +120,19 @@
 				</p>
 			</div>
 
-			<div>
+			<div class="flex flex-wrap items-center gap-4">
+				{#if !canManageSms}
+					<a
+						class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						href="/profile#sms-heading"
+					>
+						<IconMessageCircle class="h-5 w-5" />
+						SMS updates
+						<IconArrowUpRight
+							class="h-5 w-5 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+						/>
+					</a>
+				{/if}
 				<a
 					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 					href="/privacy"
@@ -180,6 +198,45 @@
 			class="bg-tertiary-500 text-surface-950 border-surface-950 border-t-[3px] px-6 py-10 text-base font-black uppercase sm:px-10 lg:px-14"
 		>
 			{pageData.loadError}
+		</section>
+	{:else if !canManageSms}
+		<section
+			class="bg-surface-950 border-surface-950 flex flex-1 flex-col justify-between gap-6 border-t-[3px] px-6 py-16 sm:px-10 lg:px-14 lg:py-24"
+		>
+			<span
+				class="bg-secondary-500 text-primary-500 flex h-14 w-14 items-center justify-center"
+				aria-hidden="true"
+			>
+				<IconMessageCircle class="h-7 w-7" />
+			</span>
+			<div class="flex max-w-2xl flex-col gap-3">
+				<p class="text-primary-500 m-0 text-xs font-bold tracking-[0.22em] uppercase">
+					Optional notifications
+				</p>
+				<h2
+					class="text-surface-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+				>
+					Manage SMS updates
+				</h2>
+				<p class="text-surface-300 m-0 text-lg leading-relaxed">
+					This inbox is reserved for ride, volunteer, and group SMS managers. Choose the kinds of 3
+					Feet Please messages you want to receive—such as ride reminders, volunteer shifts, admin
+					updates, and bike valet coordination—on your profile.
+				</p>
+				<a
+					href="/profile#sms-heading"
+					class="group bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex w-fit items-center gap-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+				>
+					Go to SMS updates
+					<IconArrowUpRight
+						class="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+					/>
+				</a>
+			</div>
+			<div
+				class="mt-6 h-1.5 bg-[repeating-linear-gradient(90deg,var(--color-primary-500)_0_56px,transparent_56px_96px)]"
+				aria-hidden="true"
+			></div>
 		</section>
 	{:else if !threads.length}
 		<section
@@ -322,25 +379,36 @@
 						}}
 					>
 						<div class="flex flex-wrap items-center justify-between gap-3">
-							<label class="flex items-center gap-3 text-sm">
-								<span class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
-									Reply type
+							<div class="flex flex-wrap items-center gap-2 text-xs">
+								<span class="text-primary-500 font-bold tracking-[0.22em] uppercase">
+									Reply category
 								</span>
-								<select
-									class="select bg-surface-950 border-surface-700 text-surface-50"
-									aria-label="Reply type"
-									bind:value={kind}
+								<span
+									class="bg-surface-950 border-surface-700 text-surface-50 border px-2.5 py-1 font-black tracking-wide uppercase"
 								>
-									<option value="admin">Admin update</option>
-									<option value="bike_valet">Bike valet</option>
-								</select>
-							</label>
+									{replyKindLabel}
+								</span>
+							</div>
 							<span
+								id="sms-reply-budget"
+								aria-live="polite"
 								class={`text-xs font-black tabular-nums ${
-									message.length > 480 ? 'text-tertiary-500' : 'text-surface-300'
+									smsBudget.overLimit ? 'text-tertiary-500' : 'text-surface-300'
 								}`}
 							>
-								{message.length}/480
+								{#if smsBudget.remainingUnits >= 0}
+									{smsBudget.encoding} · {smsBudget.remainingUnits}
+									{smsBudget.encoding === 'GSM-7'
+										? smsBudget.remainingUnits === 1
+											? 'unit'
+											: 'units'
+										: smsBudget.remainingUnits === 1
+											? 'char'
+											: 'chars'} left · {smsBudget.segments}/{smsBudget.maxSegments} segments
+								{:else}
+									{smsBudget.encoding} · {Math.abs(smsBudget.remainingUnits)} over limit · {smsBudget.segments}/{smsBudget.maxSegments}
+									segments
+								{/if}
 							</span>
 						</div>
 						<label class="sr-only" for="sms-reply">Message text</label>
@@ -348,17 +416,22 @@
 							id="sms-reply"
 							class="textarea bg-surface-950 border-surface-700 text-surface-50 focus:border-primary-500 min-h-24"
 							bind:value={message}
-							maxlength="480"
+							aria-invalid={smsBudget.overLimit}
+							aria-describedby="sms-reply-budget sms-reply-help"
 							placeholder="Write a plain-text reply…"></textarea>
 						<div class="flex flex-wrap items-center justify-between gap-4">
-							<p class="text-surface-300 m-0 max-w-xl text-xs">
-								No photos or files. Links must be to 3fp.org. Reply STOP remains available to the
-								recipient.
+							<p id="sms-reply-help" class="text-surface-300 m-0 max-w-xl text-xs">
+								No photos or files. Links must be to 3fp.org.
+								{#if smsBudget.footerIncluded}
+									Includes 23-character “Reply STOP to opt out.” footer.
+								{:else}
+									Reply STOP opt-out text included.
+								{/if}
 							</p>
 							<button
 								class="bg-primary-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 px-7 py-3.5 text-sm font-black tracking-wide uppercase transition disabled:opacity-50"
 								type="submit"
-								disabled={sending || !message.trim()}
+								disabled={sending || !message.trim() || smsBudget.overLimit}
 							>
 								<IconSend class="h-4 w-4" />
 								{sending ? 'Queueing…' : 'Queue reply'}

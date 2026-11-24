@@ -1,7 +1,12 @@
 <script>
 	import { enhance } from '$app/forms';
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { onMount, untrack } from 'svelte';
+	import {
+		applyFormUpdate,
+		guardUnsavedNavigation,
+		replaceShallowQueryParam
+	} from '#lib/client/navigation';
 	import IconBadgeCheck from '@lucide/svelte/icons/badge-check';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -26,12 +31,16 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		buildGroupSiteEditorState,
 		createGroupSiteEditorSnapshot,
 		GROUP_SITE_LOGO_MAX_BYTES,
 		mergeGroupSiteEditorConfig,
 		normalizeGroupSiteEditorView,
+		siteEditorConfigFingerprint,
 		toIsoDateTimeValue
 	} from '#lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
@@ -98,6 +107,10 @@
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
 	let sponsorFileNames = $state({});
+	let aiUndoSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
+	const assistantContext = getAssistantContext();
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	let rideFilterMode = $state(initialEditorState.rideFilterMode);
@@ -312,6 +325,9 @@
 		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
 			input.value = '';
 		}
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
 		localNotice = '';
 		localError = '';
 		previewVersion += 1;
@@ -358,7 +374,7 @@
 		return async ({ result, update, formElement }) => {
 			try {
 				if (result.type === 'failure') {
-					await update({ reset: false, invalidateAll: false, navigate: false });
+					await applyFormUpdate(update, { reset: false, navigate: false });
 					return;
 				}
 				if (result.type === 'error') {
@@ -375,10 +391,7 @@
 
 	function selectView(view) {
 		activeView = view;
-		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		url.searchParams.set('view', view);
-		replaceState(url, {});
+		void replaceShallowQueryParam('view', view);
 	}
 
 	function handleViewKeydown(event, index) {
@@ -517,6 +530,116 @@
 					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
 	}
+
+	function captureFullSiteEditorState() {
+		return clone({
+			siteConfig,
+			sitePages,
+			selectedPageId,
+			pageBlocks,
+			sponsorItems,
+			sponsorFileNames,
+			faqItems,
+			slugInput,
+			rideFilterMode,
+			rideLocation,
+			rideNear,
+			rideRadius,
+			rideDefaultTab,
+			rideTheme,
+			rideDensity,
+			rideShowFilters,
+			rideShowAdd,
+			ridePrefixCity,
+			rideDifficultyColors,
+			selectedRideGroupIds
+		});
+	}
+
+	function restoreFullSiteEditorState(saved) {
+		if (!saved) return;
+		siteConfig = clone(saved.siteConfig);
+		sitePages = clone(saved.sitePages);
+		selectedPageId = saved.selectedPageId || sitePages[0]?.id || 'home';
+		pageBlocks = clone(saved.pageBlocks);
+		sponsorItems = clone(saved.sponsorItems);
+		sponsorFileNames = clone(saved.sponsorFileNames || {});
+		faqItems = clone(saved.faqItems);
+		slugInput = saved.slugInput;
+		rideFilterMode = saved.rideFilterMode;
+		rideLocation = saved.rideLocation;
+		rideNear = saved.rideNear;
+		rideRadius = saved.rideRadius;
+		rideDefaultTab = saved.rideDefaultTab;
+		rideTheme = saved.rideTheme;
+		rideDensity = saved.rideDensity;
+		rideShowFilters = saved.rideShowFilters;
+		rideShowAdd = saved.rideShowAdd;
+		ridePrefixCity = saved.ridePrefixCity;
+		rideDifficultyColors = saved.rideDifficultyColors;
+		selectedRideGroupIds = clone(saved.selectedRideGroupIds);
+	}
+
+	function applyAiProposal(proposal) {
+		if (!proposal?.config) {
+			return { ok: false, error: 'No website proposal to apply.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyBaseFingerprint(
+			currentFp,
+			proposal.baseFingerprint,
+			'Your page changed after this draft was created. Ask the assistant again so it can use your latest edits.'
+		);
+		if (!check.ok) return check;
+
+		const previousState = captureFullSiteEditorState();
+		applyAiConfig(proposal.config, proposal.source || 'ai');
+		aiUndoSnapshot = previousState;
+		aiAppliedFingerprint = siteEditorConfigFingerprint(aiCurrentConfig);
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoAiProposal() {
+		if (!aiUndoSnapshot) {
+			return { ok: false, error: 'No applied AI draft to undo.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'Your page changed after you applied this AI draft. Keep your manual edits or ask the assistant for a fresh update.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		restoreFullSiteEditorState(aiUndoSnapshot);
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		previewVersion += 1;
+		localNotice = 'Reverted AI draft changes.';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'group-site-write',
+			groupSlug: data.group?.slug || '',
+			getContext: () => {
+				const currentCopy = clone(aiCurrentConfig);
+				return {
+					currentConfig: currentCopy,
+					baseFingerprint: siteEditorConfigFingerprint(currentCopy)
+				};
+			},
+			applyDraft: applyAiProposal,
+			undoDraft: undoAiProposal,
+			canUndoDraft: Boolean(aiUndoSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
@@ -692,9 +815,11 @@
 		setNavigationItems(next);
 	}
 
-	beforeNavigate(({ cancel }) => {
-		if (dirty && !submitting && !confirm('Leave without publishing your website changes?'))
-			cancel();
+	beforeNavigate((navigation) => {
+		guardUnsavedNavigation(navigation, {
+			shouldWarn: dirty && !submitting,
+			message: 'Leave without publishing your website changes?'
+		});
 	});
 
 	onMount(() => {
@@ -823,45 +948,43 @@
 </form>
 
 <div class="mx-auto grid max-w-[1800px] gap-4 pb-28 sm:pb-10">
-	<header
-		class="card preset-tonal-surface grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"
-	>
-		<div class="flex min-w-0 items-start gap-3">
-			<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
-			<div class="min-w-0">
-				<p class="text-xs font-semibold tracking-[0.16em] uppercase opacity-55">
-					Public presence · Website
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="h2">Website Studio</h1>
-					{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
-							class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
-						>{/if}
-				</div>
-				<p class="mt-1 max-w-2xl text-sm opacity-70">
-					Build the page with simple sections, choose a look, and publish when it feels right.
-				</p>
-				<a
-					class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
-					href={data.liveUrl}
-					target="_blank"
-					rel="noreferrer">{data.liveUrl}</a
-				>
-			</div>
-		</div>
-		<div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-			{#if activeView !== 'builder' && activeView !== 'address'}<button
-					class="btn preset-tonal-surface"
-					type="button"
-					onclick={() => (showPreview = !showPreview)}
-					><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
-				>{/if}<a
-				class="btn preset-tonal-surface col-span-2 sm:col-span-1"
+	<header class="card preset-tonal-surface p-4 sm:p-5">
+		<ManageCardHeader
+			as="h1"
+			title="Website Studio"
+			titleClass="h2"
+			eyebrow="Public presence · Website"
+			subtitle="Build the page with simple sections, choose a look, and publish when it feels right."
+			align="start"
+		>
+			{#snippet iconSlot()}
+				<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
+			{/snippet}
+			{#snippet badges()}
+				{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
+						class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
+					>{/if}
+			{/snippet}
+			<a
+				class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
 				href={data.liveUrl}
 				target="_blank"
-				rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				rel="noreferrer">{data.liveUrl}</a
 			>
-		</div>
+			{#snippet actions()}
+				{#if activeView !== 'builder' && activeView !== 'address'}<button
+						class="btn preset-tonal-surface"
+						type="button"
+						onclick={() => (showPreview = !showPreview)}
+						><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
+					>{/if}<a
+					class="btn preset-tonal-surface"
+					href={data.liveUrl}
+					target="_blank"
+					rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				>
+			{/snippet}
+		</ManageCardHeader>
 	</header>
 
 	{#if data.saved}<div class="card preset-tonal-success flex items-center gap-2 p-3" role="status">
@@ -901,7 +1024,7 @@
 	>
 		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-7" role="tablist">
 			{#each views as view, index}{@const ViewIcon = view.icon}<button
-					class="btn btn-sm min-h-12 justify-center {activeView === view.id
+					class="btn btn-sm min-h-12 min-w-0 justify-center px-2 sm:px-3 {activeView === view.id
 						? 'preset-filled-primary-500'
 						: 'preset-tonal-surface'}"
 					type="button"
@@ -912,7 +1035,8 @@
 					tabindex={activeView === view.id ? 0 : -1}
 					title={view.hint}
 					onkeydown={(event) => handleViewKeydown(event, index)}
-					onclick={() => selectView(view.id)}><ViewIcon class="h-4 w-4" /> {view.label}</button
+					onclick={() => selectView(view.id)}
+					><ViewIcon class="h-4 w-4 shrink-0" /> <span class="truncate">{view.label}</span></button
 				>{/each}
 		</div>
 	</nav>
@@ -1218,24 +1342,11 @@
 					</p>
 				</section>
 			{:else if activeView === 'quick'}
-				<details class="card preset-tonal-secondary">
-					<summary class="flex cursor-pointer items-center gap-3 p-4 sm:p-5"
-						><span class="card preset-tonal-secondary p-2.5"><IconSparkles class="h-5 w-5" /></span
-						><span class="grow"
-							><span class="block font-semibold">Improve my website with AI</span><span
-								class="block text-sm opacity-65"
-								>Describe the feeling and let the assistant propose the first draft.</span
-							></span
-						></summary
-					>
-					<div class="preset-divider-top p-4 sm:p-5">
-						<GroupSiteAiAssistant
-							groupSlug={data.group.slug}
-							currentConfig={aiCurrentConfig}
-							onapplied={applyAiConfig}
-						/>
-					</div>
-				</details>
+				<GroupSiteAiAssistant
+					canUndo={Boolean(aiUndoSnapshot) && !aiUndoConflictMessage}
+					undoConflictMessage={aiUndoConflictMessage}
+					onundo={undoAiProposal}
+				/>
 				<div class="grid gap-4 xl:grid-cols-2">
 					<div class="card preset-tonal-primary grid content-start gap-3 p-4">
 						<div>
@@ -1435,7 +1546,7 @@
 									>{/each}</select
 							></label
 						>
-						<div class="grid grid-cols-4 gap-2 sm:col-span-2">
+						<div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
 							{#each ['primary', 'secondary', 'accent', 'surface'] as color}<label class="label"
 									><span class="capitalize">{color}</span><input
 										class="input h-12"

@@ -7,10 +7,14 @@
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSend from '@lucide/svelte/icons/send';
 	import IconAlertCircle from '@lucide/svelte/icons/circle-alert';
-	import { SegmentedControl } from '@skeletonlabs/skeleton-svelte';
 	import Toggle from '#lib/components/ui/Toggle.svelte';
 	import { tick, onMount } from 'svelte';
 	import HostNotificationSettings from './HostNotificationSettings.svelte';
+	import SignupQuestionsSection from './SignupQuestionsSection.svelte';
+	import {
+		buildVolunteerCommunicationsContextSnapshot,
+		createVolunteerEmailComposer
+	} from '#lib/volunteer/communications-ai';
 	import {
 		createPreviewContext,
 		renderEmailBody,
@@ -22,6 +26,11 @@
 
 	export let customQuestions = [];
 	export let showCustomQuestionsSection = true;
+	export let showScheduledEmailsSection = true;
+	export let showSectionHeaders = true;
+	export let showHostNotifications = false;
+	export let showSentHistory = false;
+	export let showAiComposer = false;
 	export let eventEmails = [];
 	export let eventDetails = {};
 	export let opportunities = [];
@@ -59,13 +68,12 @@
 		return total;
 	}, 0);
 
-	const OPTION_FIELD_TYPES = new Set(['select', 'multiselect', 'checkbox']);
-
-	const supportsOptionField = (type) => OPTION_FIELD_TYPES.has(type);
-
 	function formatEmailType(type) {
-		if (type === 'thankyou') {
+		if (type === 'thankyou' || type === 'thank_you') {
 			return 'Thank You';
+		}
+		if (type === 'follow_up') {
+			return 'Follow Up';
 		}
 		if (type) {
 			return type.charAt(0).toUpperCase() + type.slice(1);
@@ -127,26 +135,6 @@
 		resetSendNowFeedback(email.id);
 	}
 
-	function addOption(question) {
-		const draft = question?.optionDraft?.trim();
-		if (!draft) return;
-		const existing = parseOptions(question.optionsRaw);
-		if (existing.includes(draft)) {
-			onUpdateQuestion(question.id, { optionDraft: '' });
-			return;
-		}
-		const next = [...existing, draft];
-		onUpdateQuestion(question.id, {
-			optionsRaw: next.join('\n'),
-			optionDraft: ''
-		});
-	}
-
-	function removeOption(question, value) {
-		const next = parseOptions(question.optionsRaw).filter((option) => option !== value);
-		onUpdateQuestion(question.id, { optionsRaw: next.join('\n') });
-	}
-
 	const previewOrigin =
 		typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
 
@@ -170,7 +158,46 @@
 	let immediateEmailSending = false;
 	let immediateEmailError = '';
 	let immediateEmailSuccess = '';
+	let immediateAiOpen = false;
+	let immediateAiPrompt = '';
+	let immediateAiLoading = false;
+	let immediateAiError = '';
 	let sendNowFeedback = {};
+
+	const composeImmediateWithAi = createVolunteerEmailComposer({
+		getEmails: () => [
+			{
+				id: 'immediate',
+				emailType: 'immediate update',
+				subject: immediateEmail.subject,
+				body: immediateEmail.body,
+				aiPrompt: immediateAiPrompt
+			}
+		],
+		updateEmailTemplate: (_id, patch) => {
+			if ('subject' in patch || 'body' in patch) {
+				resetImmediateFeedback();
+				immediateEmail = {
+					...immediateEmail,
+					...(patch.subject !== undefined ? { subject: patch.subject } : {}),
+					...(patch.body !== undefined ? { body: patch.body } : {})
+				};
+			}
+			if ('aiPrompt' in patch) immediateAiPrompt = patch.aiPrompt;
+			if ('aiComposerOpen' in patch) immediateAiOpen = patch.aiComposerOpen;
+			if ('aiLoading' in patch) immediateAiLoading = patch.aiLoading;
+			if ('aiError' in patch) immediateAiError = patch.aiError;
+		},
+		buildContextSnapshot: () =>
+			buildVolunteerCommunicationsContextSnapshot({
+				eventDetails,
+				opportunities,
+				customQuestions,
+				eventEmails,
+				mergeTags: VOLUNTEER_MERGE_TAGS
+			}),
+		mergeTags: VOLUNTEER_MERGE_TAGS
+	});
 	let warnBeforeUnload = false;
 	let openMergePreviews = {};
 	let openSentEmails = {};
@@ -513,172 +540,39 @@
 
 <div class="space-y-10">
 	<!-- ── Host Notifications ── -->
-	<section class="space-y-3">
-		<h2 class="card preset-tonal-tertiary px-4 py-2 !text-left text-lg font-bold">
-			Host Notifications
-		</h2>
-		<div class="overflow-hidden">
-			<HostNotificationSettings
-				value={hostNotificationSettings}
-				onChange={onHostNotificationChange}
-				disabled={hostNotificationDisabled}
-				saving={hostNotificationSaving}
-			/>
-		</div>
-	</section>
+	{#if showHostNotifications}
+		<section class="space-y-3">
+			<h2 class="card preset-tonal-tertiary px-4 py-2 !text-left text-lg font-bold">
+				Host Notifications
+			</h2>
+			<div class="overflow-hidden">
+				<HostNotificationSettings
+					value={hostNotificationSettings}
+					onChange={onHostNotificationChange}
+					disabled={hostNotificationDisabled}
+					saving={hostNotificationSaving}
+				/>
+			</div>
+		</section>
+	{/if}
 
 	<!-- ── Custom Intake Questions ── -->
 	{#if showCustomQuestionsSection}
 		<section class="space-y-4">
-			<div class="card preset-tonal-tertiary flex items-center justify-between px-4 py-2">
-				<div>
-					<h2 class="!text-left text-lg font-bold">Intake Questions</h2>
-				</div>
-				<button
-					type="button"
-					on:click={onAddQuestion}
-					class="btn btn-sm preset-tonal-primary flex items-center gap-2"
-				>
-					<IconPlus class="h-3.5 w-3.5" />
-					<span>Add question</span>
-				</button>
-			</div>
-
-			{#if customQuestions.length === 0}
-				<p class="opacity-70" transition:slide>Collect info from volunteers when they sign up</p>
-			{:else}
-				{#each customQuestions as question, idx (question.id)}
-					<div class="card border-surface-500/15 bg-surface-800/20 border p-5">
-						<div class="mb-4 flex items-center justify-between">
-							<h3 class="text-base font-bold">Question {idx + 1}</h3>
-							<button
-								type="button"
-								class="btn btn-sm preset-tonal-error flex min-h-11 min-w-11 items-center justify-center gap-2"
-								aria-label={`Remove question ${idx + 1}`}
-								on:click={() => onRemoveQuestion(question.id)}
-							>
-								<IconTrash class="h-4 w-4" />
-								<span class="hidden sm:inline">Remove</span>
-							</button>
-						</div>
-						<div class="grid gap-4 md:grid-cols-2">
-							<label class="flex flex-col gap-1.5 md:col-span-2">
-								<span class="text-surface-200 text-sm font-medium">Label *</span>
-								<input
-									class="input preset-tonal-surface rounded-lg px-4 py-2"
-									value={question.label}
-									on:input={(e) => onUpdateQuestion(question.id, { label: e.currentTarget.value })}
-								/>
-							</label>
-							<label class="flex flex-col gap-1.5">
-								<span class="text-surface-200 text-sm font-medium">Field type</span>
-								<select
-									class="select preset-tonal-surface rounded-lg px-4 py-2"
-									value={question.fieldType}
-									on:change={(e) =>
-										onUpdateQuestion(question.id, { fieldType: e.currentTarget.value })}
-								>
-									{#each fieldTypeOptions as option (option)}
-										<option value={option}>{option}</option>
-									{/each}
-								</select>
-							</label>
-							<div class="flex flex-col gap-1.5">
-								<span class="text-surface-200 text-sm font-medium">Required?</span>
-								<label class="flex items-center gap-3">
-									<Toggle
-										name={`question-required-${question.id}`}
-										ariaLabel="Mark question as required"
-										checked={question.isRequired}
-										onChange={(v) => onUpdateQuestion(question.id, { isRequired: v })}
-									/>
-									<span class="text-surface-200 text-sm">Required</span>
-								</label>
-							</div>
-							<label class="flex flex-col gap-1.5 md:col-span-2">
-								<span class="text-surface-200 text-sm font-medium">Help text</span>
-								<textarea
-									class="textarea preset-tonal-surface min-h-20 w-full rounded-lg px-4 py-2"
-									value={question.helpText}
-									on:input={(e) =>
-										onUpdateQuestion(question.id, { helpText: e.currentTarget.value })}
-									placeholder="Give volunteers context, links, or clarifications."></textarea>
-							</label>
-							{#if supportsOptionField(question.fieldType)}
-								<div class="space-y-2 md:col-span-2">
-									<div class="flex flex-col gap-1.5">
-										<span class="text-surface-200 text-sm font-medium">Options</span>
-										<div class="flex flex-col gap-2 py-1 md:flex-row md:items-center">
-											<input
-												class="input preset-tonal-surface rounded-lg px-4 py-2 md:w-64"
-												value={question.optionDraft}
-												on:input={(e) =>
-													onUpdateQuestion(question.id, { optionDraft: e.currentTarget.value })}
-												placeholder="Add a choice"
-												on:keydown={(event) => {
-													if (event.key === 'Enter') {
-														event.preventDefault();
-														addOption(question);
-													}
-												}}
-											/>
-											<button
-												type="button"
-												class="btn preset-tonal-surface flex items-center gap-2 md:w-auto"
-												on:click={() => addOption(question)}
-												disabled={!question.optionDraft?.trim()}
-											>
-												<IconPlus class="h-4 w-4" />
-												<span>Add option</span>
-											</button>
-										</div>
-									</div>
-									{#if parseOptions(question.optionsRaw).length}
-										<div class="flex flex-wrap gap-2 pt-2">
-											{#each parseOptions(question.optionsRaw) as option (option)}
-												<span
-													class="bg-surface-800/40 text-surface-200 border-surface-500/15 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium"
-												>
-													{option}
-													<button
-														type="button"
-														class="text-error-400 hover:text-error-300 grid size-11 shrink-0 place-items-center transition-colors"
-														aria-label={`Remove option ${option}`}
-														on:click={() => removeOption(question, option)}
-													>
-														<IconTrash class="h-3.5 w-3.5" />
-													</button>
-												</span>
-											{/each}
-										</div>
-									{:else}
-										<p class="text-surface-500 text-sm">Add at least one option for this field.</p>
-									{/if}
-								</div>
-							{/if}
-							<label class="flex flex-col gap-1.5 md:col-span-2">
-								<span class="text-surface-200 text-sm font-medium">Limit to activity</span>
-								<select
-									class="select preset-tonal-surface rounded-lg px-4 py-2"
-									value={question.opportunityId}
-									on:change={(e) =>
-										onUpdateQuestion(question.id, { opportunityId: e.currentTarget.value })}
-								>
-									<option value="">Applies to all signups</option>
-									{#each opportunities as opp (opp.id)}
-										<option value={opp.id}>{opp.title || 'Unnamed activity'}</option>
-									{/each}
-								</select>
-							</label>
-						</div>
-					</div>
-				{/each}
-			{/if}
+			<SignupQuestionsSection
+				{customQuestions}
+				{opportunities}
+				{fieldTypeOptions}
+				showHeader={showSectionHeaders}
+				{onAddQuestion}
+				{onRemoveQuestion}
+				{onUpdateQuestion}
+			/>
 		</section>
 	{/if}
 
 	<!-- ── Sent Email History ── -->
-	{#if sentEmailHistory.length > 0}
+	{#if showSentHistory && sentEmailHistory.length > 0}
 		<section class="space-y-3">
 			<h2 class="text-surface-950-50 text-base font-bold">Sent History</h2>
 
@@ -748,8 +642,8 @@
 	{/if}
 
 	<!-- ── Immediate Emails ── -->
-	<section class="space-y-4">
-		{#if showImmediateEmailOption}
+	{#if showImmediateEmailOption}
+		<section class="space-y-4">
 			<div class="card preset-tonal-surface space-y-4 rounded-xl p-4">
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="space-y-1">
@@ -761,7 +655,21 @@
 							This message sends immediately to volunteers matching your selected statuses.
 						</p>
 					</div>
-					<div class="flex flex-col items-end gap-2 text-xs md:items-start md:text-left">
+					<div class="flex flex-wrap items-center gap-2 text-xs">
+						{#if showAiComposer}
+							<button
+								type="button"
+								class={`btn btn-sm flex min-h-11 items-center gap-2 ${immediateAiOpen ? 'preset-outlined-error-500' : 'preset-tonal-primary'}`}
+								on:click={() => {
+									immediateAiOpen = !immediateAiOpen;
+									immediateAiError = '';
+								}}
+								disabled={immediateAiLoading}
+							>
+								<IconSparkles class="h-4 w-4" />
+								<span>{immediateAiOpen ? 'Close composer' : 'Compose with AI'}</span>
+							</button>
+						{/if}
 						<span
 							class="bg-surface-50-950/60 text-surface-700-300 border-surface-300-700 inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold tracking-wide uppercase"
 						>
@@ -776,6 +684,53 @@
 						</span>
 					</div>
 				</div>
+
+				{#if showAiComposer && immediateAiOpen}
+					<div
+						class="border-primary-600-400/30 bg-primary-600-400/10 space-y-3 rounded border p-4"
+						transition:slide
+					>
+						<label class="text-surface-800-200 text-sm font-medium" for="immediate-email-ai-prompt">
+							Describe the immediate update
+						</label>
+						<textarea
+							id="immediate-email-ai-prompt"
+							class="textarea preset-tonal-surface min-h-20 w-full rounded-lg px-4 py-2"
+							bind:value={immediateAiPrompt}
+							placeholder="Share last-minute weather notes, meetup changes, or day-of instructions."
+							disabled={immediateAiLoading}></textarea>
+						<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+							<button
+								type="button"
+								class="btn preset-filled-secondary-500 flex min-h-11 items-center gap-2"
+								on:click={() => composeImmediateWithAi('immediate')}
+								disabled={!immediateAiPrompt?.trim() || immediateAiLoading}
+							>
+								{#if immediateAiLoading}
+									<IconLoader class="h-4 w-4 animate-spin" />
+									<span>Composing…</span>
+								{:else}
+									<IconSparkles class="h-4 w-4" />
+									<span>Generate email</span>
+								{/if}
+							</button>
+							<button
+								type="button"
+								class="btn preset-tonal-surface flex min-h-11 items-center gap-2"
+								on:click={() => {
+									immediateAiOpen = false;
+									immediateAiError = '';
+								}}
+								disabled={immediateAiLoading}
+							>
+								<span>Cancel</span>
+							</button>
+						</div>
+						{#if immediateAiError}
+							<p class="text-error-700-300 text-xs">{immediateAiError}</p>
+						{/if}
+					</div>
+				{/if}
 
 				<div class="space-y-2">
 					<span
@@ -986,7 +941,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn preset-tonal-surface text-xs"
+						class="btn preset-tonal-surface min-h-11 text-xs"
 						on:click={() => {
 							immediateEmail = { subject: '', body: '', requireConfirmation: false };
 							resetImmediateFeedback();
@@ -997,360 +952,408 @@
 					</button>
 				</div>
 			</div>
-		{/if}
-	</section>
+		</section>
+	{/if}
 
 	<!-- ── Scheduled Emails ── -->
-	<section class="space-y-4">
-		<div class="card preset-tonal-tertiary flex items-center justify-between px-4 py-2">
-			<h2 class="text-lg font-bold">Scheduled Emails</h2>
+	{#if showScheduledEmailsSection}
+		<section class="space-y-4">
+			{#if showSectionHeaders}
+				<div class="card preset-tonal-tertiary flex items-center justify-between px-4 py-2">
+					<h2 class="text-lg font-bold">Scheduled Emails</h2>
 
-			<button
-				type="button"
-				on:click={handleAddEmail}
-				class="btn btn-sm preset-tonal-primary flex items-center gap-2"
-			>
-				<IconPlus class="h-3.5 w-3.5" />
-				<span>Add email</span>
-			</button>
-		</div>
-		<p class="opacity-70">Auto-send reminders and updates before or after the event</p>
-
-		{#each scheduledEmails as email, idx (email.id)}
-			{@const subjectPreview = buildSubjectPreview(email)}
-			{@const bodyPreview = buildBodyPreview(email)}
-			{@const timingMode = getTimingModeFromMinutes(email.sendOffsetMinutes)}
-			{@const feedback = sendNowFeedback[email.id] ?? {
-				sending: false,
-				error: '',
-				success: ''
-			}}
-			{@const emailSent = !!email.lastSentAt}
-			<div id={`email-card-${email.id}`} class="card preset-tonal-surface space-y-4 rounded-xl p-4">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div class="space-y-1">
-						<h3 class="text-lg font-bold">
-							{formatEmailType(email.emailType)}
-							<span class="text-tertiary-500 ml-4 text-sm italic">
-								Scheduled {getEmailTiming(email.sendOffsetMinutes).hours} hrs {getEmailTiming(
-									email.sendOffsetMinutes
-								).direction}
-							</span>
-						</h3>
-					</div>
-					{#if !emailSent}
-						<button
-							type="button"
-							class="btn preset-tonal-error flex items-center gap-2"
-							on:click={() => onRemoveEmail(email.id)}
-						>
-							<IconTrash class="h-4 w-4" />
-							<span>Remove</span>
-						</button>
-					{/if}
-				</div>
-
-				<div class="mt-4 flex flex-wrap items-end justify-between gap-2">
-					<div class="flex grow flex-col gap-2">
-						<span class="label">Email type</span>
-						<select
-							name={`email-type-${email.id}`}
-							class="select preset-tonal-surface w-full rounded-lg px-4 py-2"
-							value={email.emailType}
-							on:change={(e) => {
-								const val = e.currentTarget.value;
-								if (val) {
-									const patch = { emailType: val };
-									if (val !== 'reminder' && email.requireConfirmation) {
-										patch.requireConfirmation = false;
-										patch.body = removeConfirmationBlock(email.body ?? '');
-									}
-									onUpdateEmail(email.id, patch);
-									resetSendNowFeedback(email.id);
-								}
-							}}
-						>
-							{#each emailTypeOptions as option (option)}
-								<option value={option}>{formatEmailType(option)}</option>
-							{/each}
-						</select>
-					</div>
 					<button
 						type="button"
-						class={`btn flex items-center gap-2 ${email.aiComposerOpen ? 'preset-outlined-error-500' : 'preset-tonal-primary'}`}
-						on:click={() =>
-							onUpdateEmail(email.id, { aiComposerOpen: !email.aiComposerOpen, aiError: '' })}
-						disabled={email.aiLoading}
+						on:click={handleAddEmail}
+						class="btn btn-sm preset-tonal-primary flex min-h-11 items-center gap-2"
 					>
-						<IconSparkles class="h-4 w-4" />
-						<span>{email.aiComposerOpen ? 'Close composer' : 'Compose with AI'}</span>
+						<IconPlus class="h-3.5 w-3.5" />
+						<span>Add email</span>
 					</button>
 				</div>
+				<p class="opacity-70">Auto-send reminders and updates before or after the event</p>
+			{:else if scheduledEmails.length === 0}
+				<p class="text-surface-600-400 text-sm">
+					No scheduled reminders yet. Add a reminder or follow-up template to send automatically
+					before or after the event.
+				</p>
+			{/if}
 
-				{#if email.aiComposerOpen}
-					<div
-						class="border-primary-600-400/30 bg-primary-600-400/10 mt-4 space-y-3 rounded border p-4"
-						transition:slide
-					>
-						<label class="text-surface-200 text-sm font-medium" for={`email-ai-prompt-${email.id}`}>
-							Describe the message
-						</label>
-						<textarea
-							id={`email-ai-prompt-${email.id}`}
-							class="textarea preset-tonal-surface min-h-20 w-full rounded-lg px-4 py-2"
-							value={email.aiPrompt}
-							on:input={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
-							placeholder="Share the tone, reminders, or updates you'd like this email to cover."
-							disabled={email.aiLoading}></textarea>
-						<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-							<button
-								type="button"
-								class="btn preset-filled-secondary-500 flex items-center gap-2"
-								on:click={() => onComposeEmail(email.id)}
-								disabled={!email.aiPrompt?.trim() || email.aiLoading}
-							>
-								{#if email.aiLoading}
-									<IconLoader class="h-4 w-4 animate-spin" />
-									<span>Composing…</span>
-								{:else}
-									<IconSparkles class="h-4 w-4" />
-									<span>Generate email</span>
-								{/if}
-							</button>
-							<button
-								type="button"
-								class="btn preset-tonal-surface flex items-center gap-2"
-								on:click={() => onUpdateEmail(email.id, { aiComposerOpen: false, aiError: '' })}
-								disabled={email.aiLoading}
-							>
-								<span>Cancel</span>
-							</button>
+			{#each scheduledEmails as email, idx (email.id)}
+				{@const subjectPreview = buildSubjectPreview(email)}
+				{@const bodyPreview = buildBodyPreview(email)}
+				{@const timingMode = getTimingModeFromMinutes(email.sendOffsetMinutes)}
+				{@const feedback = sendNowFeedback[email.id] ?? {
+					sending: false,
+					error: '',
+					success: ''
+				}}
+				{@const emailSent = !!email.lastSentAt}
+				<div
+					id={`email-card-${email.id}`}
+					class="card preset-tonal-surface space-y-4 rounded-xl p-4"
+				>
+					<div class="flex flex-wrap items-start justify-between gap-3">
+						<div class="space-y-1">
+							<h3 class="text-lg font-bold">
+								{formatEmailType(email.emailType)}
+								<span class="text-tertiary-500 ml-4 text-sm italic">
+									Scheduled {getEmailTiming(email.sendOffsetMinutes).hours} hrs {getEmailTiming(
+										email.sendOffsetMinutes
+									).direction}
+								</span>
+							</h3>
 						</div>
-						{#if email.aiError}
-							<p class="text-error-700-300 text-xs">{email.aiError}</p>
+						{#if !emailSent}
+							<button
+								type="button"
+								class="btn preset-tonal-error flex min-h-11 items-center gap-2"
+								on:click={() => onRemoveEmail(email.id)}
+							>
+								<IconTrash class="h-4 w-4" />
+								<span>Remove</span>
+							</button>
 						{/if}
 					</div>
-				{/if}
 
-				<div class="mt-4 grid gap-4 md:grid-cols-2">
-					<label class="border-surface-500/15 flex flex-col gap-1.5 md:border-r md:pr-4">
-						<span class="text-surface-200 text-sm font-medium">Send timing</span>
-						<div class="flex flex-col gap-2">
-							{#if timingMode !== 'now'}
-								<div class="flex flex-col gap-2 py-1 md:flex-row md:items-center">
-									<input
-										type="number"
-										min="0"
-										step="1"
-										class="input preset-tonal-surface rounded-lg px-4 py-2 md:w-28"
-										value={getEmailTiming(email.sendOffsetMinutes).hours}
-										on:input={(e) => {
-											handleTimingChange(email.id, {
-												hours: e.currentTarget.value,
-												direction: getEmailTiming(email.sendOffsetMinutes).direction
-											});
-										}}
+					<div class="mt-4 flex flex-wrap items-end justify-between gap-2">
+						<div class="flex grow flex-col gap-2">
+							<label class="label" for={`email-type-${email.id}`}>Email type</label>
+							<select
+								id={`email-type-${email.id}`}
+								name={`email-type-${email.id}`}
+								class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
+								value={email.emailType}
+								on:change={(e) => {
+									const val = e.currentTarget.value;
+									if (val) {
+										const patch = { emailType: val };
+										if (val !== 'reminder' && email.requireConfirmation) {
+											patch.requireConfirmation = false;
+											patch.body = removeConfirmationBlock(email.body ?? '');
+										}
+										onUpdateEmail(email.id, patch);
+										resetSendNowFeedback(email.id);
+									}
+								}}
+							>
+								{#each emailTypeOptions as option (option)}
+									<option value={option}>{formatEmailType(option)}</option>
+								{/each}
+							</select>
+						</div>
+						{#if showAiComposer}
+							<button
+								type="button"
+								class={`btn flex min-h-11 items-center gap-2 ${email.aiComposerOpen ? 'preset-outlined-error-500' : 'preset-tonal-primary'}`}
+								on:click={() =>
+									onUpdateEmail(email.id, { aiComposerOpen: !email.aiComposerOpen, aiError: '' })}
+								disabled={email.aiLoading}
+							>
+								<IconSparkles class="h-4 w-4" />
+								<span>{email.aiComposerOpen ? 'Close composer' : 'Compose with AI'}</span>
+							</button>
+						{/if}
+					</div>
+
+					{#if showAiComposer && email.aiComposerOpen}
+						<div
+							class="border-primary-600-400/30 bg-primary-600-400/10 mt-4 space-y-3 rounded border p-4"
+							transition:slide
+						>
+							<label
+								class="text-surface-800-200 text-sm font-medium"
+								for={`email-ai-prompt-${email.id}`}
+							>
+								Describe the message
+							</label>
+							<textarea
+								id={`email-ai-prompt-${email.id}`}
+								class="textarea preset-tonal-surface min-h-20 w-full rounded-lg px-4 py-2"
+								value={email.aiPrompt}
+								on:input={(e) => onUpdateEmail(email.id, { aiPrompt: e.currentTarget.value })}
+								placeholder="Share the tone, reminders, or updates you'd like this email to cover."
+								disabled={email.aiLoading}></textarea>
+							<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+								<button
+									type="button"
+									class="btn preset-filled-secondary-500 flex min-h-11 items-center gap-2"
+									on:click={() => onComposeEmail(email.id)}
+									disabled={!email.aiPrompt?.trim() || email.aiLoading}
+								>
+									{#if email.aiLoading}
+										<IconLoader class="h-4 w-4 animate-spin" />
+										<span>Composing…</span>
+									{:else}
+										<IconSparkles class="h-4 w-4" />
+										<span>Generate email</span>
+									{/if}
+								</button>
+								<button
+									type="button"
+									class="btn preset-tonal-surface flex min-h-11 items-center gap-2"
+									on:click={() => onUpdateEmail(email.id, { aiComposerOpen: false, aiError: '' })}
+									disabled={email.aiLoading}
+								>
+									<span>Cancel</span>
+								</button>
+							</div>
+							{#if email.aiError}
+								<p class="text-error-700-300 text-xs">{email.aiError}</p>
+							{/if}
+						</div>
+					{/if}
+
+					<div class="mt-4 grid gap-4 md:grid-cols-2">
+						<div class="border-surface-500/15 flex flex-col gap-1.5 md:border-r md:pr-4">
+							<label
+								class="text-surface-800-200 text-sm font-medium"
+								for={`email-timing-hours-${email.id}`}>Send timing</label
+							>
+							<div class="flex flex-col gap-2">
+								{#if timingMode !== 'now'}
+									<div class="flex flex-col gap-2 py-1 md:flex-row md:items-center">
+										<input
+											id={`email-timing-hours-${email.id}`}
+											type="number"
+											min="0"
+											step="1"
+											class="input preset-tonal-surface min-h-11 rounded-lg px-4 py-2 md:w-28"
+											value={getEmailTiming(email.sendOffsetMinutes).hours}
+											on:input={(e) => {
+												handleTimingChange(email.id, {
+													hours: e.currentTarget.value,
+													direction: getEmailTiming(email.sendOffsetMinutes).direction
+												});
+											}}
+										/>
+										<select
+											id={`email-timing-direction-${email.id}`}
+											aria-label="Send timing direction"
+											class="select preset-tonal-surface min-h-11 rounded-lg px-4 py-2"
+											value={getEmailTiming(email.sendOffsetMinutes).direction}
+											on:change={(e) => {
+												handleTimingChange(email.id, {
+													hours: getEmailTiming(email.sendOffsetMinutes).hours,
+													direction: e.currentTarget.value
+												});
+											}}
+										>
+											<option value="before">hours before</option>
+											<option value="after">hours after</option>
+										</select>
+									</div>
+									<p class="text-surface-500 text-xs">
+										This email sends automatically relative to the event start.
+									</p>
+								{:else}
+									<p class="text-surface-600-400 text-xs">This email won't send automatically.</p>
+								{/if}
+							</div>
+						</div>
+						{#if email.emailType === 'reminder'}
+							<div class="flex flex-col gap-1.5 md:pl-4">
+								<span
+									class="text-surface-800-200 text-sm font-medium"
+									id={`email-confirm-${email.id}`}
+								>
+									Require confirmation?
+								</span>
+								<div class="flex min-h-11 items-center gap-3">
+									<Toggle
+										name={`email-confirm-toggle-${email.id}`}
+										ariaLabel="Require attendance confirmation"
+										checked={email.requireConfirmation}
+										onChange={(v) =>
+											handleConfirmationChange({ currentTarget: { checked: v } }, email)}
 									/>
-									<select
-										class="select preset-tonal-surface rounded-lg px-4 py-2"
-										value={getEmailTiming(email.sendOffsetMinutes).direction}
-										on:change={(e) => {
-											handleTimingChange(email.id, {
-												hours: getEmailTiming(email.sendOffsetMinutes).hours,
-												direction: e.currentTarget.value
-											});
-										}}
-									>
-										<option value="before">hours before</option>
-										<option value="after">hours after</option>
-									</select>
+									<span class="text-surface-800-200 text-sm">Require attendance confirmation</span>
 								</div>
-								<p class="text-surface-500 text-xs">
-									This email sends automatically relative to the event start.
-								</p>
+							</div>
+						{/if}
+					</div>
+
+					<div class="flex flex-col gap-1.5">
+						<label
+							class="text-surface-800-200 text-sm font-medium"
+							for={`email-subject-${email.id}`}>Subject *</label
+						>
+						<input
+							id={`email-subject-${email.id}`}
+							class="input preset-tonal-surface min-h-11 rounded-lg px-4 py-2"
+							value={email.subject}
+							on:focus={(event) => setActiveEditor(email.id, 'subject', event.currentTarget)}
+							on:blur={(event) => clearActiveEditor(event.currentTarget)}
+							on:input={(event) => handleEmailInput(event, email, 'subject')}
+							placeholder="Reminder: {eventDetails.title} starts soon"
+						/>
+						<div
+							class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 rounded-md border p-2 text-xs"
+						>
+							<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
+								Subject preview
+							</strong>
+							<p class="text-surface-800-200 mt-1 break-words whitespace-pre-wrap !normal-case">
+								{subjectPreview ||
+									'Merge tags render here so you can double-check personalisation.'}
+							</p>
+						</div>
+					</div>
+
+					<div class="flex flex-col gap-1.5">
+						<label class="text-surface-800-200 text-sm font-medium" for={`email-body-${email.id}`}
+							>Body *</label
+						>
+						<textarea
+							id={`email-body-${email.id}`}
+							class="textarea preset-tonal-surface min-h-32 w-full rounded-lg px-4 py-2"
+							value={email.body}
+							on:focus={(event) => setActiveEditor(email.id, 'body', event.currentTarget)}
+							on:blur={(event) => clearActiveEditor(event.currentTarget)}
+							on:input={(event) => {
+								onUpdateEmail(email.id, { body: event.currentTarget.value });
+								resetSendNowFeedback(email.id);
+							}}
+							placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
+						></textarea>
+						{#if mergeTagPreviews.length}
+							<div class="space-y-2">
+								<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
+									Merge tags
+								</strong>
+								<div class="flex flex-wrap gap-2">
+									{#each mergeTagPreviews as tag (tag.token)}
+										<div class="space-y-1">
+											<div class="flex items-center gap-1">
+												<button
+													type="button"
+													class="bg-surface-100-900/70 text-surface-800-200 hover:border-primary-600-400/60 border-surface-300-700/70 inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+													on:click={() => insertBodyTag(email.id, tag.token)}
+												>
+													{tag.label}
+												</button>
+												<button
+													type="button"
+													class="text-surface-600-400 hover:text-surface-800-200 grid size-11 place-items-center rounded-full"
+													aria-label={`Toggle preview for ${tag.label}`}
+													aria-expanded={!!openMergePreviews[
+														getMergePreviewKey(`email-${email.id}`, tag.token)
+													]}
+													on:click={() => toggleMergePreview(`email-${email.id}`, tag.token)}
+												>
+													{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
+														<IconChevronUp class="h-4 w-4" />
+													{:else}
+														<IconChevronDown class="h-4 w-4" />
+													{/if}
+												</button>
+											</div>
+											{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
+												<div
+													class="border-surface-300-700/60 bg-surface-100-900/70 text-surface-800-200 space-y-2 rounded-md border p-3 text-xs"
+												>
+													<div class="flex items-center justify-between gap-2">
+														<code class="text-primary-800-200 text-xs">{tag.token}</code>
+													</div>
+
+													{#if tag.block && tag.exampleHtml}
+														<div
+															class="pointer-events-none space-y-2 !normal-case"
+															aria-hidden="true"
+														>
+															{@html tag.exampleHtml}
+														</div>
+														{#if tag.exampleText}
+															<p class="text-surface-900-100 text-[11px] !normal-case">
+																Plain text preview: {tag.exampleText}
+															</p>
+														{/if}
+													{:else if tag.exampleHtml}
+														<div class="pointer-events-none !normal-case" aria-hidden="true">
+															{@html tag.exampleHtml}
+														</div>
+													{:else if tag.exampleText}
+														<p class="text-surface-800-200">{tag.exampleText}</p>
+													{:else}
+														<p class="text-surface-500">Preview coming soon.</p>
+													{/if}
+												</div>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+						<div
+							class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 space-y-2 rounded-md border p-3 text-xs"
+						>
+							<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
+								Body preview
+							</strong>
+							{#if bodyPreview?.brandedHtml}
+								<div
+									class="text-surface-900-100 space-y-3 text-sm leading-relaxed !normal-case"
+									id={`email-preview-${email.id}`}
+								>
+									{@html bodyPreview.brandedHtml}
+								</div>
 							{:else}
-								<p class="text-surface-600-400 text-xs">
-									This email won't send automatically. Use “Send email now” when you're ready to
-									deliver it.
+								<p class="text-surface-600-400">
+									Use the merge tag chips above to add event, shift, and confirmation blocks.
+									Markdown like
+									<code>**bold**</code> or <code>[links](https://example.org)</code> is supported.
 								</p>
 							{/if}
 						</div>
-					</label>
-					{#if email.emailType === 'reminder'}
-						<div class="flex flex-col gap-1.5 md:pl-4">
-							<span class="text-surface-200 text-sm font-medium" id={`email-confirm-${email.id}`}>
-								Require confirmation?
-							</span>
-							<label class="flex items-center gap-3">
-								<Toggle
-									name={`email-confirm-toggle-${email.id}`}
-									ariaLabel="Require attendance confirmation"
-									checked={email.requireConfirmation}
-									onChange={(v) =>
-										handleConfirmationChange({ currentTarget: { checked: v } }, email)}
-								/>
-								<span class="text-surface-200 text-sm">Require attendance confirmation</span>
-							</label>
+					</div>
+
+					{#if showImmediateEmailOption}
+						<div class="mt-4 space-y-2">
+							<button
+								type="button"
+								class="btn preset-filled-primary-500 flex min-h-11 items-center gap-2"
+								on:click={() => handleSendScheduledNow(email)}
+								disabled={feedback.sending || !volunteerCounts.approved}
+							>
+								{#if feedback.sending}
+									<IconLoader class="h-4 w-4 animate-spin" />
+									<span>Sending…</span>
+								{:else}
+									<IconSend class="h-4 w-4" />
+									<span>{timingMode === 'now' ? 'Send email now' : 'Send immediately'}</span>
+								{/if}
+							</button>
+							{#if !volunteerCounts.approved}
+								<p class="text-warning-700-300 text-xs">No approved volunteers are ready yet.</p>
+							{/if}
+							{#if timingMode !== 'now'}
+								<p class="text-surface-600-400 text-xs">
+									Sending now will override the scheduled delivery.
+								</p>
+							{/if}
+							{#if feedback.error}
+								<p class="text-error-700-300 text-xs">{feedback.error}</p>
+							{/if}
+							{#if feedback.success}
+								<p class="text-success-700-300 text-xs">{feedback.success}</p>
+							{/if}
 						</div>
 					{/if}
 				</div>
+			{/each}
 
-				<label class="flex flex-col gap-1.5">
-					<span class="text-surface-200 text-sm font-medium">Subject *</span>
-					<input
-						id={`email-subject-${email.id}`}
-						class="input preset-tonal-surface rounded-lg px-4 py-2"
-						value={email.subject}
-						on:focus={(event) => setActiveEditor(email.id, 'subject', event.currentTarget)}
-						on:blur={(event) => clearActiveEditor(event.currentTarget)}
-						on:input={(event) => handleEmailInput(event, email, 'subject')}
-						placeholder="Reminder: {eventDetails.title} starts soon"
-					/>
-					<div
-						class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 rounded-md border p-2 text-xs"
-					>
-						<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
-							Subject preview
-						</strong>
-						<p class="text-surface-800-200 mt-1 break-words whitespace-pre-wrap !normal-case">
-							{subjectPreview || 'Merge tags render here so you can double-check personalisation.'}
-						</p>
-					</div>
-				</label>
-
-				<label class="flex flex-col gap-1.5">
-					<span class="text-surface-200 text-sm font-medium">Body *</span>
-					<textarea
-						id={`email-body-${email.id}`}
-						class="textarea preset-tonal-surface min-h-32 w-full rounded-lg px-4 py-2"
-						bind:value={email.body}
-						on:focus={(event) => setActiveEditor(email.id, 'body', event.currentTarget)}
-						on:blur={(event) => clearActiveEditor(event.currentTarget)}
-						on:keydown={() => resetSendNowFeedback(email.id)}
-						placeholder="Drop volunteer instructions, call-to-actions, or celebratory recaps."
-					></textarea>
-					{#if mergeTagPreviews.length}
-						<div class="space-y-2">
-							<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
-								Merge tags
-							</strong>
-							<div class="flex flex-wrap gap-2">
-								{#each mergeTagPreviews as tag (tag.token)}
-									<div class="space-y-1">
-										<div class="flex items-center gap-1">
-											<button
-												type="button"
-												class="bg-surface-100-900/70 text-surface-800-200 hover:border-primary-600-400/60 border-surface-300-700/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
-												on:click={() => insertBodyTag(email.id, tag.token)}
-											>
-												{tag.label}
-											</button>
-											<button
-												type="button"
-												class="text-surface-600-400 hover:text-surface-800-200 rounded-full p-1"
-												aria-label={`Toggle preview for ${tag.label}`}
-												aria-expanded={!!openMergePreviews[
-													getMergePreviewKey(`email-${email.id}`, tag.token)
-												]}
-												on:click={() => toggleMergePreview(`email-${email.id}`, tag.token)}
-											>
-												{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
-													<IconChevronUp class="h-4 w-4" />
-												{:else}
-													<IconChevronDown class="h-4 w-4" />
-												{/if}
-											</button>
-										</div>
-										{#if !!openMergePreviews[getMergePreviewKey(`email-${email.id}`, tag.token)]}
-											<div
-												class="border-surface-300-700/60 bg-surface-100-900/70 text-surface-800-200 space-y-2 rounded-md border p-3 text-xs"
-											>
-												<div class="flex items-center justify-between gap-2">
-													<code class="text-primary-800-200 text-xs">{tag.token}</code>
-												</div>
-
-												{#if tag.block && tag.exampleHtml}
-													<div
-														class="pointer-events-none space-y-2 !normal-case"
-														aria-hidden="true"
-													>
-														{@html tag.exampleHtml}
-													</div>
-													{#if tag.exampleText}
-														<p class="text-surface-900-100 text-[11px] !normal-case">
-															Plain text preview: {tag.exampleText}
-														</p>
-													{/if}
-												{:else if tag.exampleHtml}
-													<div class="pointer-events-none !normal-case" aria-hidden="true">
-														{@html tag.exampleHtml}
-													</div>
-												{:else if tag.exampleText}
-													<p class="text-surface-800-200">{tag.exampleText}</p>
-												{:else}
-													<p class="text-surface-500">Preview coming soon.</p>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
-					<div
-						class="border-surface-300-700/60 bg-surface-50-950/50 text-surface-700-300 space-y-2 rounded-md border p-3 text-xs"
-					>
-						<strong class="text-surface-600-400 block text-[11px] tracking-wide uppercase">
-							Body preview
-						</strong>
-						{#if bodyPreview?.brandedHtml}
-							<div
-								class="text-surface-900-100 space-y-3 text-sm leading-relaxed !normal-case"
-								id={`email-preview-${email.id}`}
-							>
-								{@html bodyPreview.brandedHtml}
-							</div>
-						{:else}
-							<p class="text-surface-600-400">
-								Use the merge tag chips below to add event, shift, and confirmation blocks. Markdown
-								like
-								<code>**bold**</code> or <code>[links](https://example.org)</code> is supported.
-							</p>
-						{/if}
-					</div>
-				</label>
-
-				<div class="mt-4 space-y-2">
+			{#if !showSectionHeaders}
+				<div class={scheduledEmails.length > 0 ? 'border-surface-500/15 border-t pt-4' : 'pt-1'}>
 					<button
 						type="button"
-						class="btn preset-filled-primary-500 flex items-center gap-2"
-						on:click={() => handleSendScheduledNow(email)}
-						disabled={feedback.sending || !volunteerCounts.approved}
+						on:click={handleAddEmail}
+						class="btn preset-tonal-surface min-h-11 gap-2 font-medium"
 					>
-						{#if feedback.sending}
-							<IconLoader class="h-4 w-4 animate-spin" />
-							<span>Sending…</span>
-						{:else}
-							<IconSend class="h-4 w-4" />
-							<span>{timingMode === 'now' ? 'Send email now' : 'Send immediately'}</span>
-						{/if}
+						<IconPlus class="h-4 w-4" />
+						<span>Add scheduled email</span>
 					</button>
-					{#if !volunteerCounts.approved}
-						<p class="text-warning-700-300 text-xs">No approved volunteers are ready yet.</p>
-					{/if}
-					{#if timingMode !== 'now'}
-						<p class="text-surface-600-400 text-xs">
-							Sending now will override the scheduled delivery.
-						</p>
-					{/if}
-					{#if feedback.error}
-						<p class="text-error-700-300 text-xs">{feedback.error}</p>
-					{/if}
-					{#if feedback.success}
-						<p class="text-success-700-300 text-xs">{feedback.success}</p>
-					{/if}
 				</div>
-			</div>
-		{/each}
-	</section>
+			{/if}
+		</section>
+	{/if}
 </div>
