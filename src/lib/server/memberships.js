@@ -152,13 +152,25 @@ function normalizeBoolean(value, fallback = false) {
 	return fallback;
 }
 
-function normalizeInteger(value, fallback = null) {
+/**
+ * @template [T=null]
+ * @param {any} value
+ * @param {T} [fallback]
+ * @returns {number | T}
+ */
+function normalizeInteger(value, fallback = /** @type {any} */ (null)) {
 	if (value === null || value === undefined || value === '') return fallback;
 	const parsed = Number.parseInt(String(value), 10);
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizeTimestamp(value, fallback = null) {
+/**
+ * @template [T=null]
+ * @param {any} value
+ * @param {T} [fallback]
+ * @returns {string | T}
+ */
+function normalizeTimestamp(value, fallback = /** @type {any} */ (null)) {
 	if (!value) return fallback;
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return fallback;
@@ -204,6 +216,10 @@ function normalizeNullableAmountCents(value) {
 	return parsed;
 }
 
+/**
+ * @param {any} tier
+ * @param {string | null} [requestedInterval]
+ */
 function resolveTierBillingInterval(tier, requestedInterval = null) {
 	const normalizedRequested = cleanText(requestedInterval || '', 16).toLowerCase();
 	const monthlyAmount = normalizeNullableAmountCents(
@@ -839,6 +855,21 @@ async function stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, str
 	return account?.stripe_account_id === stripeAccountId;
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   group: any,
+ *   program: any,
+ *   tier: any,
+ *   billingInterval?: string | null,
+ *   userId: string,
+ *   userEmail?: string | null,
+ *   applicationId?: string | null,
+ *   requestUrl: any,
+ *   customAmountCents?: number | null
+ * }} options
+ * @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, checkoutUrl: string, sessionId: string, connectedAccountId: string }>}
+ */
 async function createCheckoutSession({
 	serviceSupabase,
 	group,
@@ -957,6 +988,20 @@ async function createCheckoutSession({
 	};
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   groupId: string,
+ *   userId: string,
+ *   tierId: string,
+ *   billingInterval?: string | null,
+ *   contributionAmountCents?: number | null,
+ *   applicationId?: string | null,
+ *   source?: string,
+ *   createdByOwnerId?: string | null,
+ *   status?: string
+ * }} options
+ */
 async function findOrCreateMembership({
 	serviceSupabase,
 	groupId,
@@ -1036,6 +1081,9 @@ async function upsertBillingForMembership({ serviceSupabase, membershipId, updat
 	return data;
 }
 
+/**
+ * @param {{ serviceSupabase: any, membershipId: string, existingBilling: any }} options
+ */
 async function restoreBillingSnapshot({ serviceSupabase, membershipId, existingBilling }) {
 	if (!membershipId || !existingBilling) return;
 	await serviceSupabase
@@ -1052,6 +1100,9 @@ async function restoreBillingSnapshot({ serviceSupabase, membershipId, existingB
 		.eq('membership_id', membershipId);
 }
 
+/**
+ * @param {{ stripe: any, subscriptionId: string | null, stripeAccountId: string | null }} options
+ */
 async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAccountId }) {
 	if (!subscriptionId) return { canceled: false, alreadyCanceled: false };
 	if (!stripeAccountId) {
@@ -1062,7 +1113,8 @@ async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAc
 		await stripe.subscriptions.cancel(subscriptionId, {}, stripeOptions);
 		return { canceled: true, alreadyCanceled: false };
 	} catch (cancelError) {
-		if (cancelError?.code === 'resource_missing' || cancelError?.statusCode === 404) {
+		const err = /** @type {any} */ (cancelError);
+		if (err?.code === 'resource_missing' || err?.statusCode === 404) {
 			return { canceled: false, alreadyCanceled: true };
 		}
 		if (typeof stripe?.subscriptions?.retrieve === 'function') {
@@ -1072,7 +1124,8 @@ async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAc
 					return { canceled: false, alreadyCanceled: true };
 				}
 			} catch (retrieveError) {
-				if (retrieveError?.code === 'resource_missing' || retrieveError?.statusCode === 404) {
+				const retErr = /** @type {any} */ (retrieveError);
+				if (retErr?.code === 'resource_missing' || retErr?.statusCode === 404) {
 					return { canceled: false, alreadyCanceled: true };
 				}
 			}
@@ -1081,6 +1134,18 @@ async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAc
 	}
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   groupId: string,
+ *   userId: string,
+ *   tier: any,
+ *   billingInterval?: string | null,
+ *   applicationId?: string | null,
+ *   source?: string,
+ *   status?: string
+ * }} options
+ */
 export async function applyZeroPaymentMembership({
 	serviceSupabase,
 	groupId,
@@ -1294,6 +1359,14 @@ async function resolveProfileMapByUserIds(serviceSupabase, userIds) {
 	return new Map((data || []).map((row) => [row.user_id, row]));
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   userId: string,
+ *   currentEmail?: string | null,
+ *   profilePayload?: any
+ * }} options
+ */
 async function upsertMembershipUserProfile({
 	serviceSupabase,
 	userId,
@@ -1331,6 +1404,11 @@ async function upsertMembershipUserProfile({
 	if (upsertError) throw new Error(upsertError.message);
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {string} groupId
+ * @param {string | null} [tierId]
+ */
 async function resolveGroupProgramAndTier(serviceSupabase, groupId, tierId = null) {
 	const program = await ensureProgram(serviceSupabase, groupId);
 	const bundle = await loadProgramBundle(serviceSupabase, program.id, { includeInactive: true });
@@ -1380,6 +1458,9 @@ export function membershipTierRequiresPayment(program, tier) {
 	);
 }
 
+/**
+ * @param {{ serviceSupabase: any, membership: any, stripeAccountId?: string | null, invoice?: any }} options
+ */
 async function applyPendingTierChange({ serviceSupabase, membership, stripeAccountId, invoice }) {
 	if (!membership?.id) return { applied: false };
 	const { data: pending, error } = await serviceSupabase
@@ -1487,6 +1568,16 @@ async function applyPendingTierChange({ serviceSupabase, membership, stripeAccou
 	return { applied: true, tier: requestedTier };
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   group: any,
+ *   tier: any,
+ *   stripeAccountId: string,
+ *   intervalUnit?: string | null,
+ *   amountCents?: number | null
+ * }} options
+ */
 async function ensureStripeCatalogForMembershipTier({
 	serviceSupabase,
 	group,
@@ -1751,6 +1842,9 @@ function buildPolicyLink(baseUrl, groupSlug, policyVersion) {
 	return `${baseUrl}${suffix}`;
 }
 
+/**
+ * @param {{ serviceSupabase: any, groupId: string, audienceFilters?: Record<string, any> }} options
+ */
 async function resolveEmailAudience({ serviceSupabase, groupId, audienceFilters = {} }) {
 	const statuses = Array.isArray(audienceFilters.statuses)
 		? audienceFilters.statuses.map((value) => cleanText(value, 40)).filter(Boolean)
@@ -2016,6 +2110,12 @@ function extractInvoiceNextBillingAt(invoice) {
 	return null;
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, accessToken: string, user: any, userId: string, userEmail: string | null, userName: string | null, isAdmin: boolean, requestSupabase: any, serviceSupabase: any, group: any, canManage: true }
+ * >}
+ */
 export async function requireMembershipManager(cookies, groupSlug) {
 	const auth = await getAuthContext(cookies);
 	if (!auth) return { ok: false, status: 401, error: 'Authentication required.' };
@@ -2040,6 +2140,12 @@ export async function requireMembershipManager(cookies, groupSlug) {
 	};
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, accessToken: string, user: any, userId: string, userEmail: string | null, userName: string | null, isAdmin: boolean, requestSupabase: any, serviceSupabase: any, group: any, canManage: boolean }
+ * >}
+ */
 export async function requireMembershipUser(cookies, groupSlug) {
 	const auth = await getAuthContext(cookies);
 	if (!auth) return { ok: false, status: 401, error: 'Authentication required.' };
@@ -2056,6 +2162,12 @@ export async function requireMembershipUser(cookies, groupSlug) {
 	};
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, data: { group: any, program: any, tiers: any[], form_fields: any[], stripe_connection: any, can_manage: boolean } }
+ * >}
+ */
 export async function getMembershipProgramForViewer({
 	cookies,
 	groupSlug,
@@ -3289,6 +3401,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	const currency = normalizeCurrency(tier.currency);
 	const billingType = tier?.billing_type === 'one_time' ? 'one_time' : 'recurring';
 	const paymentMode = billingType === 'one_time' ? 'payment' : 'subscription';
+	/** @type {Record<string, string>} */
 	const metadata = {
 		membership_flow: 'group_membership',
 		membership_group_id: auth.group.id,
@@ -3798,7 +3911,7 @@ export async function requestMembershipTierChange({ cookies, groupSlug, payload 
 		if (
 			requestedTier.billing_type !== 'recurring' ||
 			!donationAccount?.stripe_account_id ||
-			!(resolveTierAmountByInterval(requestedTier, interval) > 0)
+			!((resolveTierAmountByInterval(requestedTier, interval) ?? 0) > 0)
 		) {
 			return { ok: false, status: 409, error: 'Complete checkout to activate this tier.' };
 		}
@@ -4350,6 +4463,9 @@ export async function rejectMembershipApplication({
 	return { ok: true, data };
 }
 
+/**
+ * @param {{ cookies: any, groupSlug: string, filters?: Record<string, any> }} options
+ */
 export async function listMembershipMembers({ cookies, groupSlug, filters = {} }) {
 	const auth = await requireMembershipManager(cookies, groupSlug);
 	if (!auth.ok) return auth;
@@ -4570,7 +4686,7 @@ export async function createManualMembership({
 	});
 
 	const status = normalizeMembershipStatus(payload?.status, 'active');
-	const startedAt = normalizeTimestamp(payload?.started_at, toIsoNow());
+	const startedAt = normalizeTimestamp(payload?.started_at, toIsoNow()) || toIsoNow();
 	const renewsAt = normalizeTimestamp(
 		payload?.renews_at,
 		calculateRenewalDate(tier, new Date(startedAt))
@@ -4710,6 +4826,12 @@ export async function updateMembershipStatus({ cookies, groupSlug, membershipId,
 	return { ok: true, data };
 }
 
+/**
+ * @returns {
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, data: { campaignName: string, subjectTemplate: string, bodyTemplate: string, audienceFilters: Record<string, any>, senderDomainId: string | null } }
+ * }
+ */
 function normalizeMembershipEmailCampaignPayload(payload) {
 	const campaignName = cleanText(payload?.campaign_name || '', 120);
 	const subjectTemplate = cleanText(payload?.subject_template || '', 300);
@@ -4957,6 +5079,16 @@ export async function scheduleMembershipEmailCampaign({ cookies, groupSlug, emai
 	return { ok: true, data };
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   group: any,
+ *   emailCampaign: any,
+ *   actorUserId?: string | null,
+ *   fetchImpl?: any,
+ *   originBaseUrl?: string | null
+ * }} options
+ */
 async function sendMembershipCampaignNowInternal({
 	serviceSupabase,
 	group,
@@ -5387,6 +5519,16 @@ export async function processScheduledMembershipEmails({
 	return { processed: list.length, recovered: recoveredClaims.length, results };
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any,
+ *   metadata: any,
+ *   stripeSession: any,
+ *   stripeAccountId?: string | null,
+ *   fetchImpl?: any
+ * }} options
+ * @returns {Promise<{ ok: false, matched: boolean, retryable?: boolean, error: string } | { ok: true, matched: true, membership_id: string }>}
+ */
 async function activateMembershipFromMetadata({
 	serviceSupabase,
 	metadata,
@@ -5611,6 +5753,11 @@ async function activateMembershipFromMetadata({
 	return { ok: true, matched: true, membership_id: membership.id };
 }
 
+/**
+ * @param {any} event
+ * @param {any} [fetchImpl]
+ * @returns {Promise<{ ok: boolean, matched: boolean, retryable?: boolean, skipped?: boolean, error?: string, membership_id?: string }>}
+ */
 export async function handleMembershipStripeEvent(event, fetchImpl) {
 	if (!event || !event.type) {
 		return { ok: false, matched: false, error: 'Invalid Stripe event payload.' };

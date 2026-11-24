@@ -96,11 +96,13 @@ const {
 	finalizeMembershipPaymentIntent,
 	handleMembershipStripeEvent,
 	joinMembership
-} = await import('./memberships.js');
-const { POST: postMembershipRoute } =
-	await import('../../routes/api/groups/[slug]/membership/+server.js');
-const { load: loadMembershipPage } =
-	await import('../../routes/groups/[slug]/membership/+page.server.js');
+} = /** @type {any} */ (await import('./memberships.js'));
+const { POST: postMembershipRoute } = /** @type {any} */ (
+	await import('../../routes/api/groups/[slug]/membership/+server.js')
+);
+const { load: loadMembershipPage } = /** @type {any} */ (
+	await import('../../routes/groups/[slug]/membership/+page.server.js')
+);
 
 function createInMemorySupabase(tables, options = {}) {
 	const { role = 'service', operations = [] } = options;
@@ -281,6 +283,9 @@ function createInMemorySupabase(tables, options = {}) {
 	};
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 function setupHarness({
 	user = { id: 'user_1', email: 'rider@example.org' },
 	accessMode = 'public',
@@ -1400,7 +1405,7 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 						body: JSON.stringify({ tier_id: 'tier_free' })
 					})
 				}),
-			(err) => err?.status === 502
+			(/** @type {any} */ err) => err?.status === 502
 		);
 
 		assert.equal(

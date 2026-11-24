@@ -19,6 +19,9 @@ function page(input) {
 	return createGroupSitePage(input);
 }
 
+/**
+ * @param {{ group?: Record<string, any> | null, currentConfig?: Record<string, any> }} [options]
+ */
 export function buildThreeFeetPleaseSite({ group = {}, currentConfig = {} } = {}) {
 	const pages = normalizeGroupSitePages([
 		page({

@@ -12,12 +12,18 @@
 		getLogoOptions
 	} from '#lib/admin/signatureBuilder';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
+	/** @type {any} */
 	let copied = $state(false);
+	/** @type {any} */
 	let copyTimer = null;
 	let seededProfile = false;
 
+	/**
+	 * @param {any} profileData
+	 */
 	function buildInitialForm(profileData) {
 		return {
 			...DEFAULT_SIGNATURE_FORM,
@@ -30,9 +36,11 @@
 		return buildInitialForm(data?.profile || {});
 	}
 
+	/** @type {any} */
 	let form = $state({ ...DEFAULT_SIGNATURE_FORM });
 	const accentOptions = getAccentOptions();
 	const logoOptions = getLogoOptions();
+	/** @type {any} */
 	const generatedHtml = $derived.by(() => buildSignatureHtml(form));
 
 	$effect(() => {
@@ -41,6 +49,9 @@
 		seededProfile = true;
 	});
 
+	/**
+	 * @param {any} event
+	 */
 	function handlePhoneInput(event) {
 		const nextValue = event.currentTarget.value;
 		const wasEmpty = !String(form.phone || '').trim();

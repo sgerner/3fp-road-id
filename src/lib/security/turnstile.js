@@ -43,6 +43,11 @@ export async function loadTurnstile() {
 	return loadPromise;
 }
 
+/**
+ * @param {any} element
+ * @param {string} sitekey
+ * @param {Record<string, any>} [options]
+ */
 export async function requestTurnstileToken(
 	element,
 	sitekey,
@@ -128,6 +133,9 @@ export async function requestTurnstileToken(
 	}
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export function createTurnstileGate({
 	isEnabled = () => true,
 	getSiteKey = () => '',
@@ -142,6 +150,7 @@ export function createTurnstileGate({
 	let submitting = false;
 	let interactive = false;
 	let error = '';
+	/** @type {AbortController | null} */
 	let activeAbortController = null;
 
 	function sync() {
@@ -229,6 +238,9 @@ export function createTurnstileGate({
 		return verifyInternal();
 	}
 
+	/**
+	 * @param {{ validate?: () => any, onSubmit?: (token: string) => any }} [options]
+	 */
 	async function submit({ validate, onSubmit } = {}) {
 		if (verifying || submitting) {
 			return { ok: false, duplicate: true };
@@ -257,6 +269,9 @@ export function createTurnstileGate({
 		}
 	}
 
+	/**
+	 * @param {{ validate?: (input: any) => any, fieldName?: string, onResult?: (input: any) => any }} [options]
+	 */
 	function enhance({ validate, fieldName = 'turnstileToken', onResult } = {}) {
 		return async (submitInput) => {
 			const { formData, cancel } = submitInput;

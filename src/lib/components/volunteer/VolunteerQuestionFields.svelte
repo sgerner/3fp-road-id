@@ -1,19 +1,34 @@
 <script>
 	import { renderMarkdown } from '#lib/markdown';
 
+	/** @type {any} */
 	export let questions = [];
+	/** @type {any} */
 	export let values = {};
+	/** @type {any} */
 	export let errors = {};
+	/** @type {any} */
 	export let onChange = () => {};
 
+	/**
+	 * @param {any} questionId
+	 */
 	function getValue(questionId) {
 		return values?.[questionId];
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} event
+	 */
 	function handleTextChange(question, event) {
 		onChange(question.id, event.currentTarget.value);
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} event
+	 */
 	function handleNumberChange(question, event) {
 		const raw = event.currentTarget.value;
 		if (raw === '') {
@@ -24,14 +39,27 @@
 		onChange(question.id, Number.isNaN(parsed) ? raw : parsed);
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} event
+	 */
 	function handleCheckboxChange(question, event) {
 		onChange(question.id, event.currentTarget.checked);
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} event
+	 */
 	function handleSelectChange(question, event) {
 		onChange(question.id, event.currentTarget.value);
 	}
 
+	/**
+	 * @param {any} question
+	 * @param {any} option
+	 * @param {any} event
+	 */
 	function handleMultiSelectChange(question, option, event) {
 		const current = Array.isArray(values?.[question.id]) ? [...values[question.id]] : [];
 		if (event.currentTarget.checked) {
@@ -43,6 +71,9 @@
 		onChange(question.id, current);
 	}
 
+	/**
+	 * @param {any} question
+	 */
 	function optionsFor(question) {
 		if (!question?.options) return [];
 		if (Array.isArray(question.options)) return question.options;
@@ -54,6 +85,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} question
+	 */
 	function inputType(question) {
 		switch (question.field_type) {
 			case 'email':

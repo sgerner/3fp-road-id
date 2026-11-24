@@ -15,6 +15,7 @@
 	import { tick } from 'svelte';
 	import LearnEditor from '#lib/components/learn/LearnEditor.svelte';
 
+	/** @type {Record<string, any>} */
 	let {
 		group,
 		values = {},
@@ -56,7 +57,9 @@
 		}
 	];
 
+	/** @type {any} */
 	let titleEl = $state(null);
+	/** @type {any} */
 	let editorApi = $state(null);
 	let aiOpen = $state(false);
 	let aiStylePreset = $state('warm_community');
@@ -64,9 +67,11 @@
 	let aiLoading = $state(false);
 	let aiError = $state('');
 	let aiStatus = $state('');
+	/** @type {any} */
 	let aiMessages = $state([]);
 	let draftSessionKey = $state('');
 	let isGeneratingSummary = $state(false);
+	/** @type {any} */
 	let formRef = $state(null);
 	let allowNativeSubmit = $state(false);
 	let formTitle = $state('');
@@ -76,6 +81,7 @@
 	let formIsPrivate = $state(false);
 	let formEmailMembers = $state(false);
 	let formEmailAudienceStatuses = $state(['active']);
+	/** @type {any} */
 	let aiMessagesEl = $state(null);
 
 	const audienceMemberCount = $derived(

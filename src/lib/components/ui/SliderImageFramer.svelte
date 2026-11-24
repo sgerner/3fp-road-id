@@ -10,6 +10,7 @@
 		IMAGE_FRAME_PRESETS
 	} from '#lib/ui/formControlHelpers';
 
+	/** @type {Record<string, any>} */
 	let {
 		src = '',
 		target = 'logo',
@@ -32,6 +33,7 @@
 	let loadError = $state(false);
 	let lastSrc = $state('');
 	let announcement = $state('');
+	/** @type {HTMLImageElement | null} */
 	let previewImgEl = $state(null);
 
 	const outputDims = $derived(getImageOutputDimensions(target));
@@ -127,6 +129,10 @@
 		);
 	}
 
+	/**
+	 * @param {string} imageUrl
+	 * @returns {Promise<HTMLImageElement>}
+	 */
 	function loadExportableImage(imageUrl) {
 		return new Promise((resolve, reject) => {
 			const img = new Image();

@@ -1,4 +1,5 @@
 <script>
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const canonicalUrl = $derived(data.siteOrigin ? `${data.siteOrigin}/api` : '/api');

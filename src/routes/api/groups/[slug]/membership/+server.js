@@ -89,6 +89,7 @@ export const POST = async ({ params, cookies, request }) => {
 			!tier.allow_custom_amount &&
 			sameInterval
 		) {
+			/** @type {any} */
 			const result = await requestMembershipTierChange({
 				cookies,
 				groupSlug: params.slug,

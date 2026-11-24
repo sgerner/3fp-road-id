@@ -20,6 +20,10 @@ export function safeEmailHref(input) {
 	}
 }
 
+/**
+ * @param {Record<string, any>} [context]
+ * @param {{ trustedHtmlPrefixes?: string[] }} [options]
+ */
 export function createSafeEmailHtmlContext(context = {}, { trustedHtmlPrefixes = [] } = {}) {
 	return Object.fromEntries(
 		Object.entries(context).map(([key, value]) => [

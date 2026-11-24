@@ -15,27 +15,35 @@
 	import { merchCart } from '#lib/merch/cart';
 	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
+	/** @type {any} */
 	let selectedVariantIdByProduct = $state({});
+	/** @type {any} */
 	let quantityByProduct = $state({});
+	/** @type {Record<string, boolean>} */
 	let failedImageUrls = $state({});
 
 	function markImageFailed(url) {
 		if (!url || failedImageUrls[url]) return;
 		failedImageUrls = { ...failedImageUrls, [url]: true };
 	}
+	/** @type {any} */
 	let addedProductId = $state(null);
 	let cartBounce = $state(false);
 	let lightboxOpen = $state(false);
+	/** @type {any} */
 	let lightboxDialog = $state(null);
 
 	$effect(() => {
 		if (lightboxOpen && lightboxDialog && !lightboxDialog.open) lightboxDialog.showModal();
 	});
 	let lightboxProductName = $state('');
+	/** @type {any} */
 	let lightboxImages = $state([]);
 	let lightboxIndex = $state(0);
 	let mobileCartOpen = $state(false);
+	/** @type {any} */
 	let mobileCartDialog = $state(null);
 
 	onMount(() => {

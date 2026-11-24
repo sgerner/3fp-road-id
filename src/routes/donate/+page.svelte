@@ -11,6 +11,7 @@
 	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const prefill = $derived(data?.prefill ?? {});
@@ -30,6 +31,7 @@
 	let error = $state('');
 	let success = $state('');
 	let paymentFormReady = $state(false);
+	/** @type {any} */
 	let paymentElementHost = $state(null);
 	let preparedAmount = $state('');
 	let paymentIntentId = $state('');
@@ -59,8 +61,11 @@
 			: 'Support 3 Feet Please and help build safer streets for cyclists everywhere. Every dollar makes a difference.'
 	);
 
+	/** @type {any} */
 	let stripe = null;
+	/** @type {any} */
 	let elements = null;
+	/** @type {any} */
 	let paymentElement = null;
 	let preparedSignature = '';
 	let lastPrefill = initialPrefill;

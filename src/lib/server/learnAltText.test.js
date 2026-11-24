@@ -144,6 +144,7 @@ test('markdown snippet and contextual cover helpers satisfy H67 decorative and n
 });
 
 test('multimodal alt request sends inline image bytes, enforces link purpose, and handles errors', async () => {
+	/** @type {any} */
 	let capturedCall = null;
 	const mockClient = {
 		async generateContent(payload) {
@@ -494,6 +495,13 @@ test('all 6 remediated 3ftwiki guides and 14 Canva image links render valid WCAG
 	assert.equal(renderedCanvaLinkCount, 14);
 });
 
+/**
+ * @param {object} [options]
+ * @param {any[]} [options.assets]
+ * @param {any[]} [options.articles]
+ * @param {Set<string>} [options.adminUserIds]
+ * @param {(entry: any) => void} [options.onCall]
+ */
 function createMockLearnSupabase({
 	assets = [],
 	articles = [],
@@ -502,8 +510,10 @@ function createMockLearnSupabase({
 } = {}) {
 	return {
 		from(table) {
+			/** @type {any} */
 			let pendingUpdate = null;
 			let selectedColumns = '*';
+			/** @type {Record<string, any>} */
 			const filters = {};
 
 			const executeSelect = () => {
@@ -579,6 +589,7 @@ test('PATCH asset alt updates enforce owner or admin authorization without servi
 		true
 	);
 
+	/** @type {any[]} */
 	const calls = [];
 	const assets = [
 		{
@@ -630,6 +641,7 @@ test('PATCH asset alt updates enforce owner or admin authorization without servi
 	});
 	assert.equal(ownerResult.ok, true);
 	assert.equal(ownerResult.status, 200);
+	if (!ownerResult.ok || !ownerResult.asset) throw new Error('Expected ownerResult.asset');
 	assert.equal(ownerResult.asset.altText, 'Youth bike rodeo safety obstacle course flyer');
 	assert.equal(ownerResult.asset.altGenerated, false);
 	assert.equal(ownerResult.asset.metadata.styleId, 'risograph');
@@ -644,6 +656,7 @@ test('PATCH asset alt updates enforce owner or admin authorization without servi
 	});
 	assert.equal(adminResult.ok, true);
 	assert.equal(adminResult.status, 200);
+	if (!adminResult.ok || !adminResult.asset) throw new Error('Expected adminResult.asset');
 	assert.equal(adminResult.asset.altText, 'Reviewed youth bike rodeo flyer with Saturday schedule');
 
 	// Verify route source never calls getLearnServiceClient inside PATCH or queries learn_articles via serviceSupabase
@@ -679,6 +692,7 @@ test('POST upload article context enforces author/admin check before loading art
 		true
 	);
 
+	/** @type {any[]} */
 	const calls = [];
 	const articles = [
 		{
@@ -709,6 +723,7 @@ test('POST upload article context enforces author/admin check before loading art
 		articleId: 'draft-article-2'
 	});
 	assert.equal(draftForbidden.ok, false);
+	if (draftForbidden.ok) throw new Error('Expected draftForbidden failure');
 	assert.equal(draftForbidden.status, 403);
 	assert.equal(
 		calls.some(
@@ -727,6 +742,7 @@ test('POST upload article context enforces author/admin check before loading art
 		bodyMarkdown: ''
 	});
 	assert.equal(nonAuthorPublished.ok, true);
+	if (!nonAuthorPublished.ok) throw new Error('Expected nonAuthorPublished success');
 	assert.equal(nonAuthorPublished.articleTitle, '');
 	assert.equal(nonAuthorPublished.bodyMarkdown, '');
 	assert.equal(
@@ -743,6 +759,7 @@ test('POST upload article context enforces author/admin check before loading art
 		articleId: 'draft-article-2'
 	});
 	assert.equal(authorDraft.ok, true);
+	if (!authorDraft.ok) throw new Error('Expected authorDraft success');
 	assert.equal(authorDraft.articleTitle, 'Secret Draft Title');
 	assert.ok(authorDraft.bodyMarkdown.includes('Confidential Section'));
 
@@ -753,6 +770,7 @@ test('POST upload article context enforces author/admin check before loading art
 		articleId: 'draft-article-2'
 	});
 	assert.equal(adminDraft.ok, true);
+	if (!adminDraft.ok) throw new Error('Expected adminDraft success');
 	assert.equal(adminDraft.articleTitle, 'Secret Draft Title');
 });
 

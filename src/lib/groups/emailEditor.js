@@ -201,6 +201,10 @@ export function createPurposeBlocks(purpose, group = {}) {
 	];
 }
 
+/**
+ * @param {Record<string, any>} [group]
+ * @param {any[]} [senderDomains]
+ */
 export function createDefaultEmailDraft(group = {}, senderDomains = []) {
 	const sender = Array.isArray(senderDomains)
 		? senderDomains.find((row) => row.is_default && row.ses_verified_for_sending) ||
@@ -224,12 +228,20 @@ export function createDefaultEmailDraft(group = {}, senderDomains = []) {
 	};
 }
 
+/**
+ * @param {{
+ *   draft?: any,
+ *   senderDomains?: any[],
+ *   audienceCount?: number,
+ *   renderedHtmlLength?: number
+ * }} [options]
+ */
 export function getCampaignReadiness({
 	draft,
 	senderDomains = [],
 	audienceCount = 0,
 	renderedHtmlLength = 0
-}) {
+} = {}) {
 	const content = Array.isArray(draft?.blocks) ? draft.blocks : [];
 	const images = content.filter((block) => block.type === 'image');
 	const buttons = content.filter((block) => block.type === 'button');

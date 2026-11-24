@@ -1,5 +1,6 @@
 <script>
 	// Shared Lane Lines shell for public legal policy routes (/privacy, /terms, /data-deletion).
+	/** @type {Record<string, any>} */
 	let {
 		metaTitle,
 		metaDescription,
@@ -9,7 +10,7 @@
 		lead,
 		lastUpdated,
 		currentPath,
-		children,
+		children = undefined,
 		headingSizeClass = 'text-[clamp(2.9rem,6.8vw,6rem)]'
 	} = $props();
 

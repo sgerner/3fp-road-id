@@ -61,6 +61,17 @@ function resolveMergeTagTokens(mergeTags = VOLUNTEER_MERGE_TAGS) {
 	);
 }
 
+/**
+ * @param {{
+ *   eventDetails?: Record<string, any>,
+ *   opportunities?: any[],
+ *   customQuestions?: any[],
+ *   eventEmails?: any[],
+ *   eventTypeOptions?: any[],
+ *   opportunityTypeOptions?: any[],
+ *   mergeTags?: any[]
+ * }} [options]
+ */
 export function buildVolunteerCommunicationsContextSnapshot({
 	eventDetails = {},
 	opportunities = [],
@@ -83,6 +94,17 @@ export function buildVolunteerCommunicationsContextSnapshot({
 	};
 }
 
+/**
+ * @param {{
+ *   fetchFn?: typeof globalThis.fetch,
+ *   getEmails?: () => any[],
+ *   updateEmailTemplate?: (id: any, patch: any) => void,
+ *   buildContextSnapshot?: () => any,
+ *   eventTypeOptions?: any[],
+ *   opportunityTypeOptions?: any[],
+ *   mergeTags?: any[]
+ * }} [options]
+ */
 export function createVolunteerEmailComposer({
 	fetchFn = fetch,
 	getEmails,

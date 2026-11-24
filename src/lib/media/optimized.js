@@ -21,6 +21,10 @@ export function isOptimizableImageHost(source) {
 	}
 }
 
+/**
+ * @param {any} source
+ * @param {{ width?: number | string, height?: number | string, quality?: number | string }} [options]
+ */
 export function optimizedImageUrl(source, options = {}) {
 	const value = String(source || '').trim();
 	if (!value || !/^https?:\/\//i.test(value)) return value;

@@ -50,6 +50,7 @@ test('only one concurrent caller can atomically claim a campaign', async () => {
 			expectedStatus: 'draft',
 			updatedAt: '2026-08-12T00:00:00.000Z'
 		});
+	/** @type {any[]} */
 	const results = await Promise.allSettled([claim(), claim()]);
 	assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
 	assert.equal(results.filter((result) => result.status === 'rejected').length, 1);

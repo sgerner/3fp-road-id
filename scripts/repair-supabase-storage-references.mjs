@@ -79,7 +79,9 @@ function localSourceFor(bucket, name) {
 function buildRepairPlans(rowsByTable, objects) {
 	const state = collectReferenceState(rowsByTable, REFERENCE_STATE_OPTIONS);
 	const objectMap = new Map(
-		objects.map((object) => [objectKey(object.bucket, object.name), object])
+		objects.map(
+			(object) => /** @type {[string, any]} */ ([objectKey(object.bucket, object.name), object])
+		)
 	);
 	const missingKeys = [...state.references].filter((key) => !objectMap.has(key)).sort();
 	const plans = [];
@@ -138,7 +140,11 @@ function buildRepairPlans(rowsByTable, objects) {
 
 async function hydrateTargetSnapshots(plans, objectMap) {
 	const replacePlans = plans.filter((plan) => plan.action === 'replace');
-	const uniqueTargets = [...new Map(replacePlans.map((plan) => [plan.newName, plan])).values()];
+	const uniqueTargets = [
+		...new Map(
+			replacePlans.map((plan) => /** @type {[string, any]} */ ([plan.newName, plan]))
+		).values()
+	];
 	const snapshots = new Map();
 	await mapInBatches(
 		uniqueTargets,
@@ -266,7 +272,7 @@ async function assertTargetSnapshots(plans, snapshots) {
 		...new Map(
 			plans
 				.filter((plan) => plan.action === 'replace')
-				.map((plan) => [objectKey(plan.bucket, plan.newName), plan])
+				.map((plan) => /** @type {[string, any]} */ ([objectKey(plan.bucket, plan.newName), plan]))
 		).values()
 	];
 	await mapInBatches(

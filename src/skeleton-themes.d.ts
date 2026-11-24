@@ -1,0 +1,9 @@
+declare module '@skeletonlabs/skeleton/themes/mint';
+declare module '@skeletonlabs/skeleton/themes/cerberus';
+declare module '@skeletonlabs/skeleton/themes/catppuccin';
+declare module '@skeletonlabs/skeleton/themes/legacy';
+declare module '@skeletonlabs/skeleton/themes/nouveau';
+declare module '@skeletonlabs/skeleton/themes/rose';
+declare module '@skeletonlabs/skeleton/themes/sahara';
+declare module '@skeletonlabs/skeleton/themes/seafoam';
+declare module '@skeletonlabs/skeleton/themes/wintry';

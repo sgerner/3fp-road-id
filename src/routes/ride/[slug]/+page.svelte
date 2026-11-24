@@ -47,6 +47,7 @@
 	let claimError = $state('');
 	let selectedOccurrenceId = $state(null);
 	let nowMs = $state(Date.now());
+	/** @type {HTMLDivElement | null} */
 	let heroRsvpEl = $state(null);
 	let showStickyRsvpBar = $state(false);
 	let viewerTimezone = $state('UTC');

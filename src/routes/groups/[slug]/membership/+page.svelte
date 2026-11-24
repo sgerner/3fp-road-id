@@ -102,9 +102,13 @@
 	let paymentSubscriptionId = $state('');
 	let paymentReturnUrl = $state('');
 	let preparedPaymentSignature = $state('');
+	/** @type {any} */
 	let stripe = null;
+	/** @type {any} */
 	let elements = null;
+	/** @type {any} */
 	let paymentElement = null;
+	/** @type {HTMLDivElement | null} */
 	let paymentElementHost = $state(null);
 	let handoffPrefillApplied = $state(false);
 
@@ -193,6 +197,7 @@
 		)
 	);
 	const selectedTierBlockedByStripe = $derived(Boolean(requiresPayment && !stripeReady));
+	const latestApplication = $derived(myApplications[0] || null);
 	const canCompletePrivatePayment = $derived(
 		Boolean(
 			latestApplication &&
@@ -208,7 +213,6 @@
 		)
 	);
 	const isPrivate = $derived(accessMode === 'private_request');
-	const latestApplication = $derived(myApplications[0] || null);
 	const hasRedirectParams = $derived.by(() => {
 		const params = page?.url?.searchParams;
 		return Boolean(
@@ -329,7 +333,9 @@
 		});
 		const payload = await response.json().catch(() => ({}));
 		if (!response.ok) {
-			const requestError = new Error(payload?.error || 'Request failed');
+			const requestError = /** @type {Error & { status?: number }} */ (
+				new Error(payload?.error || 'Request failed')
+			);
 			requestError.status = response.status;
 			throw requestError;
 		}

@@ -100,7 +100,7 @@ export function splitMarkdownIntoSections(markdown) {
 				? { index, depth: match[1].length, raw: line, text: stripMarkdown(match[2]) }
 				: null;
 		})
-		.filter(Boolean);
+		.filter((heading) => heading !== null);
 
 	const splitDepth = headingMatches.some((heading) => heading.depth === 2)
 		? 2
@@ -223,6 +223,7 @@ function stampRowCells(rowHtml, headers) {
 
 function stampStackableTables(html) {
 	return replaceTopLevelTables(html, (openAttrs, innerHtml) => {
+		/** @type {string[]} */
 		const nestedTables = [];
 		const maskedInner = replaceTopLevelTables(innerHtml, (childAttrs, childInner) => {
 			const stampedChild = stampStackableTables(`<table${childAttrs}>${childInner}</table>`);
@@ -231,6 +232,7 @@ function stampStackableTables(html) {
 			return token;
 		});
 
+		/** @type {string[]} */
 		let headers = [];
 		let skipLeadingBodyRow = false;
 		const theadMatch = maskedInner.match(/<thead\b[^>]*>([\s\S]*?)<\/thead>/i);
@@ -291,6 +293,10 @@ function stampStackableTables(html) {
 	});
 }
 
+/**
+ * @param {string} markdown
+ * @param {{ headings?: Array<{ id: string, [key: string]: any }> | null }} [options]
+ */
 export async function renderLearnMarkdown(markdown, { headings = null } = {}) {
 	const rawHtml = await marked.parse(markdown || '');
 	const headingList = headings ?? extractMarkdownHeadings(markdown);
