@@ -1,3 +1,162 @@
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.css';
 @import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+.accessible-map-shell .leaflet-container {
+	border-radius: 0;
+	font-family: inherit;
+}
+
+.accessible-map-shell .leaflet-container:focus-visible {
+	outline: 3px solid var(--color-primary-500, #facc15);
+	outline-offset: -3px;
+}
+
+.accessible-map-shell .leaflet-bar {
+	border: 2px solid #09090b;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.accessible-map-shell .leaflet-bar a,
+.accessible-map-shell .leaflet-touch .leaflet-bar a {
+	min-width: 32px;
+	min-height: 32px;
+	width: 32px;
+	height: 32px;
+	line-height: 28px;
+	border-radius: 0;
+	background-color: #ffffff;
+	color: #09090b;
+	font-weight: 900;
+	border-bottom: 2px solid #09090b;
+	text-decoration: none;
+}
+
+.accessible-map-shell .leaflet-bar a:last-child,
+.accessible-map-shell .leaflet-touch .leaflet-bar a:last-child {
+	border-bottom: 0;
+}
+
+@media (pointer: coarse) {
+	.app-shell .accessible-map-shell .leaflet-bar a,
+	.app-shell .accessible-map-shell .leaflet-touch .leaflet-bar a {
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+		width: 2.75rem;
+		height: 2.75rem;
+		line-height: 2.5rem;
+	}
+}
+
+.accessible-map-shell .leaflet-bar a:hover,
+.accessible-map-shell .leaflet-bar a:focus-visible {
+	background-color: var(--color-primary-500, #facc15);
+	color: #09090b;
+}
+
+.accessible-map-shell .leaflet-bar a:focus-visible {
+	outline: 3px solid #09090b;
+	outline-offset: 2px;
+	z-index: 5;
+}
+
+.accessible-map-shell .leaflet-control-attribution {
+	background: #ffffff;
+	color: #111827;
+	border-top: 1px solid #09090b;
+	border-left: 1px solid #09090b;
+	border-radius: 0;
+	padding: 2px 6px;
+	font-size: 11px;
+}
+
+.accessible-map-shell .leaflet-control-attribution a {
+	color: #0c4a6e;
+	text-decoration: underline;
+}
+
+/* Interactive HTML button pins */
+.accessible-map-shell .map-pin-btn {
+	min-width: 34px;
+	min-height: 34px;
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	border-radius: 0;
+	border: 2px solid #09090b;
+	background-color: var(--color-primary-500, #facc15);
+	color: #09090b;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: none;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+
+.accessible-map-shell .map-pin-btn.has-custom-accent {
+	background-color: #ffffff;
+	color: #09090b;
+	border-top-width: 6px;
+	border-top-color: var(--pin-accent, #0ea5e9);
+}
+
+.accessible-map-shell .map-pin-btn:hover {
+	background-color: var(--color-tertiary-500, #f43f5e);
+	color: #09090b;
+}
+
+.accessible-map-shell .map-pin-btn.is-selected {
+	background-color: #09090b;
+	color: var(--color-primary-500, #facc15);
+	border-color: var(--color-primary-500, #facc15);
+	outline: 3px solid #09090b;
+	z-index: 950 !important;
+}
+
+.accessible-map-shell .map-pin-btn:focus-visible {
+	outline: 3px solid #09090b;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px #ffffff;
+	z-index: 1000 !important;
+}
+
+/* Interactive HTML cluster buttons */
+.accessible-map-shell .map-cluster-btn {
+	min-width: 40px;
+	min-height: 40px;
+	width: 40px;
+	height: 40px;
+	padding: 0 4px;
+	border-radius: 0;
+	border: 3px solid #09090b;
+	background-color: var(--color-secondary-500, #6d28d9);
+	color: #fafafa;
+	font-size: 0.85rem;
+	font-weight: 900;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	box-shadow: none;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+
+.accessible-map-shell .map-cluster-btn:hover {
+	background-color: var(--color-primary-500, #facc15);
+	color: #09090b;
+}
+
+.accessible-map-shell .map-cluster-btn:focus-visible {
+	outline: 3px solid #09090b;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px #ffffff;
+	z-index: 1000 !important;
+}

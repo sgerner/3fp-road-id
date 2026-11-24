@@ -1,5 +1,6 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import {
 		buildMonthGrid,
 		formatEventTime,
@@ -14,6 +15,7 @@
 	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import {
@@ -84,11 +86,6 @@
 	let rideListEl = $state(null);
 	let routerReady = false;
 	let searchDebounceTimer;
-
-	let mapEl = $state(null);
-	let map;
-	let clusterLayer;
-	let L;
 
 	async function ensureFullRidesLoaded() {
 		if (!browser || !data?.serverFiltered || allRidesOverride || loadingAllRides) return;
@@ -408,51 +405,26 @@
 		return getRideImage(ride);
 	}
 
-	let mapLoadPromise;
-
-	async function initMap() {
-		if (!mapEl || map) return;
-
-		try {
-			if (!mapLoadPromise) {
-				mapLoadPromise = (async () => {
-					await import('#lib/map/leaflet.css');
-					const mod = await import('leaflet');
-					L = mod.default || mod;
-					// markercluster is a legacy UMD bundle and reads Leaflet from the global scope.
-					globalThis.L = L;
-					await import('leaflet.markercluster');
-					return L;
-				})();
-			}
-			await mapLoadPromise;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet or clustering', e);
-			return;
-		}
-
-		if (!mapEl || map) return; // verify after await
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		clusterLayer = L.markerClusterGroup();
-		map.addLayer(clusterLayer);
-		updateMarkers();
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		} else if (view !== 'map' && map) {
-			map.remove();
-			map = null;
-			clusterLayer = null;
-		}
-	});
+	const rideMapItems = $derived(
+		filteredRides
+			.filter((r) => isValidLatLng(r?.startLatitude, r?.startLongitude))
+			.map((r) => {
+				const tzBadge = rideTimezoneBadge(r);
+				return {
+					id: r.id ?? r.slug,
+					lat: Number(r.startLatitude),
+					lng: Number(r.startLongitude),
+					title: r.title || 'Community ride',
+					subtitle: [formatNext(r), tzBadge].filter(Boolean).join(' '),
+					meta: [r.startLocationName, r.group?.name ? `Hosted by ${r.group.name}` : '']
+						.filter(Boolean)
+						.join(' · '),
+					badge: (r.difficultyLevels ?? [])[0]?.name || '',
+					href: `/ride/${r.slug}`,
+					ctaLabel: 'View ride'
+				};
+			})
+	);
 
 	afterNavigate(({ type }) => {
 		routerReady = true;
@@ -478,88 +450,7 @@
 		return () => {
 			clearTimeout(searchDebounceTimer);
 			window.removeEventListener('popstate', handlePopState);
-			try {
-				map?.remove();
-				map = null;
-				clusterLayer = null;
-			} catch {}
 		};
-	});
-
-	function validCoords(r) {
-		return Number.isFinite(Number(r?.startLatitude)) && Number.isFinite(Number(r?.startLongitude));
-	}
-
-	function buildRidePopupContent(r) {
-		const wrapper = document.createElement('div');
-		wrapper.style.minWidth = '180px';
-		wrapper.style.maxWidth = '240px';
-		wrapper.style.overflowWrap = 'anywhere';
-
-		const titleEl = document.createElement('strong');
-		titleEl.textContent = r.title || 'Ride';
-		wrapper.appendChild(titleEl);
-		wrapper.appendChild(document.createElement('br'));
-
-		const scheduleWrap = document.createElement('small');
-		scheduleWrap.style.display = 'inline-flex';
-		scheduleWrap.style.flexWrap = 'wrap';
-		scheduleWrap.style.alignItems = 'center';
-		scheduleWrap.style.gap = '4px';
-		const timeText = document.createElement('span');
-		timeText.textContent = formatNext(r);
-		scheduleWrap.appendChild(timeText);
-
-		const tzBadge = rideTimezoneBadge(r);
-		if (tzBadge) {
-			const badgeEl = document.createElement('span');
-			badgeEl.textContent = tzBadge;
-			badgeEl.style.padding = '1px 5px';
-			badgeEl.style.fontSize = '10px';
-			badgeEl.style.fontWeight = '800';
-			badgeEl.style.letterSpacing = '0.08em';
-			badgeEl.style.textTransform = 'uppercase';
-			badgeEl.style.background = '#09090b';
-			badgeEl.style.color = '#eab308';
-			scheduleWrap.appendChild(badgeEl);
-		}
-		wrapper.appendChild(scheduleWrap);
-		wrapper.appendChild(document.createElement('br'));
-
-		const linkEl = document.createElement('a');
-		linkEl.href = `/ride/${encodeURIComponent(r.slug)}`;
-		linkEl.textContent = 'View ride';
-		wrapper.appendChild(linkEl);
-		return wrapper;
-	}
-
-	function updateMarkers() {
-		if (!map || !clusterLayer) return;
-		clusterLayer.clearLayers();
-		const pts = [];
-
-		for (const r of filteredRides || []) {
-			if (!validCoords(r)) continue;
-			const lat = Number(r.startLatitude);
-			const lng = Number(r.startLongitude);
-			const m = L.marker([lat, lng]);
-			m.bindPopup(buildRidePopupContent(r));
-			clusterLayer.addLayer(m);
-			pts.push([lat, lng]);
-		}
-
-		if (pts.length) {
-			const b = L.latLngBounds(pts);
-			map.fitBounds(b.pad(0.1));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		void filteredRides;
-		void viewerTimezone;
-		updateMarkers();
 	});
 
 	$effect(() => {
@@ -586,12 +477,6 @@
 	$effect(() => {
 		if (!calendarMonthTouched && calendarReference.getTime() !== defaultCalendarMonth.getTime()) {
 			calendarReference = defaultCalendarMonth;
-		}
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 180);
 		}
 	});
 </script>
@@ -1283,14 +1168,17 @@
 				</table>
 			</div>
 		{:else if view === 'map'}
-			<div transition:slide class="border-surface-50 border-[3px]">
-				<div bind:this={mapEl} class="h-[480px] w-full"></div>
-				<div
-					class="bg-surface-900 text-surface-300 border-surface-50 border-t-[3px] px-6 py-4 text-sm font-medium"
-				>
-					Zoom and click markers to preview ride details. Listings without mapped coordinates are
-					hidden from the map view.
-				</div>
+			<div transition:slide>
+				<DirectoryMapExplorer
+					regionLabel="Community ride locations map"
+					items={rideMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					cluster
+					shellClass="border-surface-50 border-[3px]"
+					canvasClass="h-[480px] w-full"
+					footerHint="Activate a ride pin or cluster to inspect details here. Listings without mapped coordinates are hidden from the map view."
+				/>
 			</div>
 		{/if}
 	</section>

@@ -1,0 +1,292 @@
+{
+	"version": 1,
+	"description": "Staged multimodal AI alt-text captions for legacy 3ftwiki guides. Only entries with reviewed=true are applied to docs/3ftwiki, learn_assets, or learn_articles.",
+	"items": [
+		{
+			"guidePath": "education/crash-response.md",
+			"guideSlug": "crash-response",
+			"assetPath": "education/crash_response.png",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgvp150IU/hw47tRQZ_PuLgxHKqUDaHg/view?utm_content=DAGgvp150IU&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Five-step bike crash checklist: stay safe, call police, gather info, seek medical care, and protect your rights",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "policies/sarahs-law.md",
+			"guideSlug": "sarahs-law",
+			"assetPath": "social-media/2025_asks_postcard_1.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGho3Ejlmo/xt2ZAD4rByc4w-G6uns5YQ/view?utm_content=DAGho3Ejlmo&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Safer Streets, Stronger Families postcard urging Congress to co-sponsor Sarah's Law and protect bike safety grants",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "policies/sarahs-law.md",
+			"guideSlug": "sarahs-law",
+			"assetPath": "social-media/2025_asks_postcard_2.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGhqoxLc7I/qKrXcVZ81hNFsh44O1kKmA/view?utm_content=DAGhqoxLc7I&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Local Solutions for Safer Streets postcard urging legislators to co-sponsor Sarah's Law and fund local safety grants",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "policies/sarahs-law.md",
+			"guideSlug": "sarahs-law",
+			"assetPath": "social-media/2025_asks_postcard_3.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGhqg3erJs/M_UmtaTigfXBcp9WKo7hkw/view?utm_content=DAGhqg3erJs&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Freedom to Move, Safe for All postcard urging Congress to co-sponsor Sarah's Law and fund walking and biking projects",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "policies/sarahs-law.md",
+			"guideSlug": "sarahs-law",
+			"assetPath": "social-media/2025_asks_postcard_4.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGhq8N8NA4/S69Kcb7KIS7pwgxBWQX40w/view?utm_content=DAGhq8N8NA4&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Safe Streets, Stronger Economy postcard urging Congress to co-sponsor Sarah's Law and keep 2% active travel funding",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "policies/sarahs-law.md",
+			"guideSlug": "sarahs-law",
+			"assetPath": "social-media/2025_asks_postcard_3.png",
+			"enclosingLinkUrl": "",
+			"isSoleLinkContent": false,
+			"altText": "Postcard back template with a personal biking story prompt and mailing address lines for a legislator",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/ghost-bikes.md",
+			"guideSlug": "ghost-bikes",
+			"assetPath": "stories/university_&_perry.jpg",
+			"enclosingLinkUrl": "",
+			"isSoleLinkContent": false,
+			"altText": "White ghost bike memorial locked beside a residential street corner at University Drive and Perry Lane",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/ghost-bikes.md",
+			"guideSlug": "ghost-bikes",
+			"assetPath": "stories/10_&_maple1.jpg",
+			"enclosingLinkUrl": "",
+			"isSoleLinkContent": false,
+			"altText": "White ghost bike memorial at 10th Street and Maple Avenue beside a Slow Down intersection changes sign",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/ghost-bikes.md",
+			"guideSlug": "ghost-bikes",
+			"assetPath": "stories/vista_del_cerro_&_rural.jpg",
+			"enclosingLinkUrl": "",
+			"isSoleLinkContent": false,
+			"altText": "White ghost bike memorial with flowers locked to a roadside post at Vista del Cerro Drive and Rural Road",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/ghost-bikes.md",
+			"guideSlug": "ghost-bikes",
+			"assetPath": "stories/university_&_ash.jpg",
+			"enclosingLinkUrl": "",
+			"isSoleLinkContent": false,
+			"altText": "White ghost bike memorial decorated with flowers at the University Drive and Ash Avenue intersection",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/robdollar_ride_2024_(square).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGRhZeBzxk/Y22N1ROsJz9r5Wjj7qax1Q/view?utm_content=DAGRhZeBzxk&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Rob Dollar Kids Bike Safety Rodeo Canva template: Oct 27 South Mountain event with free helmets and raffle",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/broadmor_bike_bash_-_square_sm.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGclX_kJ70/IlId_GXy6tWTz2WVma_dPA/view?utm_content=DAGclX_kJ70&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Broadmor Neighborhood Bike Bash Canva template: Feb 8 event with free helmets, bike repairs, and ride",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/bike_rodeo_(square).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAF3eWH7zN0/5kA86O4KQ9UCHh6gYD9f2w/view?utm_content=DAF3eWH7zN0&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Kids Bike Rodeo Canva template: safe cycling skills, bike games, obstacle course, tune-ups, and helmets",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "1.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLdUMGKw/tup38gK1pOYKH1CgozXzhQ/view?utm_content=DAGgLdUMGKw&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open TBAG business bike rack program Canva template: Pedal Powered Profit Surge 5-hoop rack installation flyer",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/adult_ed_bike_safety_classes_(1080_x_1350_px).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLR2PZVw/xFZSGFYjDNkRY_Xt-t_MYw/view?utm_content=DAGgLR2PZVw&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open TBAG Bike Safety and Street Skills Clinic Canva template: free customized group cycling classes flyer",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/dec_23_bike_rodeo_(4.25_x_5.5_in)_(1080_x_1350_px).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLbGlL8k/DbBcZd2QvnSlURGAv-ZKIA/view?utm_content=DAGgLbGlL8k&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Kids Bike Rodeo flyer Canva template: Curry Elementary event with bike games, tune-ups, and free helmets",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/trick-or-treat_ride_(1080_x_1350_px).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLatqBEE/7YIM1gCi8oUxGJD7ukw0wA/view?utm_content=DAGgLatqBEE&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open TBAG Trick-or-Treat Ride Canva template: family-friendly two-mile costume bike ride with candy and games",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/tempe_bicycle_action_group_(8.5_x_11_in).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAFxwPVPb3Q/bMJ1PJBECQlGiQ7WTe5tTw/view?utm_content=DAFxwPVPb3Q&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Tempe Bicycle Action Group flyer Canva template: community rides, street advocacy, education, and donations",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/bfc_scottsdale_survey_(1080_x_1350_px).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLdiI30U/gocd3OI759dnuTJw6LHSkQ/view?utm_content=DAGgLdiI30U&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Scottsdale Bike Survey Canva template: social graphic inviting riders to share feedback on Scottsdale cycling",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/social-media.md",
+			"guideSlug": "social-media-graphic-templates",
+			"assetPath": "social-media/asu_cycling(1080_x_1350_px).jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGgLW-PESY/XwvoL8T6PLEoi5SMDsQLFg/view?utm_content=DAGgLW-PESY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open ASU Bike Co-op and TBAG welcome ride Canva template: free pizza, group ride, bike lights, and safety checks",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/neighborhood-events.md",
+			"guideSlug": "neighborhood-events",
+			"assetPath": "social-media/neighborhood_bike_bash_-_24_x_18_coroplast_double_sided.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGcmCanzGg/o99hxJFBmsQmkg-kMkuj0Q/view?utm_content=DAGcmCanzGg&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Neighborhood Bike Bash double-sided yard sign template for University Presbyterian Church on Feb 8, 9 to 11 AM",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/neighborhood-events.md",
+			"guideSlug": "neighborhood-events",
+			"assetPath": "social-media/neighborhood_bike_bash_banner.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGcmdMCQQg/QyuAnCeYbh0u1i4T0xQnnA/view?utm_content=DAGcmdMCQQg&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": false,
+			"altText": "Neighborhood Bike Bash vinyl banner template listing free helmets, bike repairs, safety clinic, and bike games",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/volunteers.md",
+			"guideSlug": "volunteers",
+			"assetPath": "social-media/broadmor_volunteers_needed.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGcmQlD7co/Ax_inbjdAlKBQPJr9sHrIA/view?utm_content=DAGcmQlD7co&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Broadmor Bike Bash volunteer callout Canva template: Feb 8 shifts and biketempe.org/volunteer signup",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/volunteers.md",
+			"guideSlug": "volunteers",
+			"assetPath": "social-media/rob_dollar_bike_rodeo_volunteer.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAGULb83ii8/d9XkjdO5iq_gttSeZqKqtA/view?utm_content=DAGULb83ii8&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Rob Dollar Bike Rodeo volunteer recruitment Canva template: Oct 27 South Mountain signup graphic",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/volunteers.md",
+			"guideSlug": "volunteers",
+			"assetPath": "social-media/kid's_bikes_donation_drive.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAFytTUBuBQ/PtYRngIjeHTqB-Gv5mTltw/view?utm_content=DAFytTUBuBQ&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open Kids' Bikes Donation Drive Canva template: donate used children's bikes for TBAG youth education programs",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		},
+		{
+			"guidePath": "community/volunteers.md",
+			"guideSlug": "volunteers",
+			"assetPath": "social-media/board_elections.jpg",
+			"enclosingLinkUrl": "https://www.canva.com/design/DAFxknRevZY/ZI_y0Em842vVl3iaCzJjQA/view?utm_content=DAFxknRevZY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview",
+			"isSoleLinkContent": true,
+			"altText": "Open TBAG Board Elections Canva template: We Want You board member recruitment graphic at Boulders on Broadway",
+			"isDecorative": false,
+			"altGenerated": true,
+			"reviewed": true
+		}
+	]
+}
