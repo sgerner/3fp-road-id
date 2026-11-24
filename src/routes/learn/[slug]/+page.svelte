@@ -10,6 +10,7 @@
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
+	import { filterLearnAttachmentAssets } from '#lib/learn/altText';
 	import { page } from '$app/state';
 	import {
 		buildAbsoluteUrl,
@@ -27,7 +28,10 @@
 
 	// ── Reading progress bar ─────────────────────────────────────────────
 	let scrollProgress = $state(0);
+	/** @type {HTMLElement | null} */
 	let articleEl = $state(null);
+	/** @type {HTMLElement | null} */
+	let proseEl = $state(null);
 
 	function onScroll() {
 		if (!articleEl) return;
@@ -72,18 +76,228 @@
 		return () => window.removeEventListener('scroll', onScroll);
 	});
 
+	/**
+	 * @param {Node} node
+	 */
+	function selectNodeText(node) {
+		const selection = window.getSelection?.();
+		if (!selection) return;
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
+	/**
+	 * @param {Element} target
+	 * @param {HTMLElement} root
+	 */
+	function findNearestSectionHeading(target, root) {
+		const candidates = Array.from(root.querySelectorAll('h1, h2, h3, h4'));
+		/** @type {string} */
+		let headingText = '';
+		for (const candidate of candidates) {
+			const relation = candidate.compareDocumentPosition(target);
+			if (relation & Node.DOCUMENT_POSITION_FOLLOWING) {
+				const text = candidate.textContent?.trim() || '';
+				if (text) headingText = text;
+			}
+		}
+		return headingText;
+	}
+
+	/**
+	 * @param {HTMLElement | null} container
+	 */
+	function enhanceLearnProse(container) {
+		if (!container) return () => {};
+
+		/** @type {Array<() => void>} */
+		const cleanups = [];
+		const usedCopyLabels = new Map();
+
+		const preBlocks = Array.from(container.querySelectorAll('pre'));
+		preBlocks.forEach((pre, index) => {
+			if (pre.dataset.learnEnhanced === 'true' || pre.closest('.learn-pre-block')) return;
+			pre.dataset.learnEnhanced = 'true';
+
+			const headingText = findNearestSectionHeading(pre, container);
+			const baseLabel = headingText ? `Copy template: ${headingText}` : 'Copy template';
+			const seenCount = usedCopyLabels.get(baseLabel) ?? 0;
+			usedCopyLabels.set(baseLabel, seenCount + 1);
+			const ariaLabel =
+				seenCount > 0
+					? `${baseLabel} (${seenCount + 1})`
+					: !headingText && preBlocks.length > 1
+						? `Copy template ${index + 1}`
+						: baseLabel;
+
+			const block = document.createElement('div');
+			block.className = 'learn-pre-block';
+
+			const header = document.createElement('div');
+			header.className = 'learn-pre-header no-print';
+
+			const status = document.createElement('span');
+			status.className = 'sr-only';
+			status.setAttribute('role', 'status');
+			status.setAttribute('aria-live', 'polite');
+
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'learn-copy-btn min-h-11 min-w-11 no-print';
+			button.dataset.copyState = 'idle';
+			button.setAttribute('aria-label', ariaLabel);
+
+			const labelSpan = document.createElement('span');
+			labelSpan.className = 'learn-copy-label';
+			labelSpan.textContent = 'Copy template';
+			button.appendChild(labelSpan);
+
+			/** @type {ReturnType<typeof setTimeout> | undefined} */
+			let resetTimer;
+			const handleCopyClick = async () => {
+				const codeNode = pre.querySelector('code') ?? pre;
+				const templateText = (codeNode.textContent ?? '').replace(/\n$/, '');
+				if (resetTimer) clearTimeout(resetTimer);
+				try {
+					if (!navigator.clipboard?.writeText) {
+						throw new Error('Clipboard unavailable');
+					}
+					await navigator.clipboard.writeText(templateText);
+					button.dataset.copyState = 'copied';
+					labelSpan.textContent = 'Copied';
+					status.textContent = 'Template copied. Ready to paste anywhere.';
+					resetTimer = setTimeout(() => {
+						button.dataset.copyState = 'idle';
+						labelSpan.textContent = 'Copy template';
+						status.textContent = '';
+					}, 2200);
+				} catch {
+					selectNodeText(codeNode);
+					button.dataset.copyState = 'selected';
+					labelSpan.textContent = 'Select & copy';
+					status.textContent = 'Select and copy the template below.';
+					resetTimer = setTimeout(() => {
+						button.dataset.copyState = 'idle';
+						labelSpan.textContent = 'Copy template';
+						status.textContent = '';
+					}, 3500);
+				}
+			};
+
+			button.addEventListener('click', handleCopyClick);
+			cleanups.push(() => {
+				if (resetTimer) clearTimeout(resetTimer);
+				button.removeEventListener('click', handleCopyClick);
+			});
+
+			pre.parentNode?.insertBefore(block, pre);
+			header.append(status, button);
+			block.append(header, pre);
+		});
+
+		/** @type {Array<() => void>} */
+		const overflowUpdaters = [];
+		const resizeObserver =
+			typeof ResizeObserver !== 'undefined'
+				? new ResizeObserver(() => {
+						overflowUpdaters.forEach((fn) => fn());
+					})
+				: null;
+
+		const tables = Array.from(container.querySelectorAll('table'));
+		tables.forEach((table, index) => {
+			if (table.dataset.learnEnhanced === 'true' || table.closest('.learn-table-wrap')) return;
+			table.dataset.learnEnhanced = 'true';
+
+			const headingText = findNearestSectionHeading(table, container);
+			const regionLabel = headingText
+				? `Scrollable table: ${headingText}`
+				: tables.length > 1
+					? `Scrollable table ${index + 1}`
+					: 'Scrollable table';
+
+			const wrap = document.createElement('div');
+			wrap.className = 'learn-table-wrap';
+			wrap.dataset.overflowing = 'false';
+			wrap.dataset.canScrollRight = 'false';
+
+			const cue = document.createElement('div');
+			cue.className = 'learn-table-cue no-print';
+			cue.setAttribute('aria-hidden', 'true');
+			cue.textContent = 'Scroll horizontally for more columns →';
+
+			const scrollBox = document.createElement('div');
+			scrollBox.className = 'learn-table-scroll';
+
+			table.parentNode?.insertBefore(wrap, table);
+			scrollBox.appendChild(table);
+			wrap.append(cue, scrollBox);
+
+			const updateTableOverflow = () => {
+				const maxScrollLeft = scrollBox.scrollWidth - scrollBox.clientWidth;
+				const isOverflowing = maxScrollLeft > 1;
+				const canScrollRight = isOverflowing && scrollBox.scrollLeft < maxScrollLeft - 1;
+				wrap.dataset.overflowing = isOverflowing ? 'true' : 'false';
+				wrap.dataset.canScrollRight = canScrollRight ? 'true' : 'false';
+				cue.textContent = canScrollRight
+					? 'Scroll horizontally for more columns →'
+					: '← Scroll horizontally to view all columns';
+				if (isOverflowing) {
+					scrollBox.setAttribute('tabindex', '0');
+					scrollBox.setAttribute('role', 'region');
+					scrollBox.setAttribute('aria-label', regionLabel);
+				} else {
+					scrollBox.removeAttribute('tabindex');
+					scrollBox.removeAttribute('role');
+					scrollBox.removeAttribute('aria-label');
+				}
+			};
+
+			scrollBox.addEventListener('scroll', updateTableOverflow, { passive: true });
+			overflowUpdaters.push(updateTableOverflow);
+			resizeObserver?.observe(scrollBox);
+			resizeObserver?.observe(table);
+			updateTableOverflow();
+
+			cleanups.push(() => {
+				scrollBox.removeEventListener('scroll', updateTableOverflow);
+			});
+		});
+
+		const handleWindowResize = () => {
+			overflowUpdaters.forEach((fn) => fn());
+		};
+		if (overflowUpdaters.length) {
+			window.addEventListener('resize', handleWindowResize, { passive: true });
+			cleanups.push(() => window.removeEventListener('resize', handleWindowResize));
+		}
+		if (resizeObserver) {
+			cleanups.push(() => resizeObserver.disconnect());
+		}
+
+		return () => {
+			cleanups.forEach((fn) => fn());
+		};
+	}
+
 	$effect(() => {
 		const content = data.article.bodyHtml;
 		let cancelled = false;
+		/** @type {(() => void) | null} */
+		let cleanupProse = null;
 		activeHeadingId = '';
 		void tick().then(() => {
 			if (!cancelled && content) {
+				cleanupProse = enhanceLearnProse(proseEl);
 				setupScrollSpy();
 				onScroll();
 			}
 		});
 		return () => {
 			cancelled = true;
+			cleanupProse?.();
 			observer?.disconnect();
 		};
 	});
@@ -91,6 +305,7 @@
 	// Keep the TOC focused on the main sections across screen sizes.
 	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
 	const tocHeadingsMobile = $derived(tocHeadingsDesktop);
+	const attachedMediaAssets = $derived(filterLearnAttachmentAssets(data.article.assets));
 	const seoTitle = $derived.by(() => cleanSeoText(data.article.title || 'Learn'));
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
@@ -320,7 +535,7 @@
 				<img
 					class="absolute inset-0 h-full w-full object-cover"
 					src={optimizedArticleImage}
-					alt={data.article.title}
+					alt={data.article.coverImageAlt || data.article.title}
 					width="1200"
 					height="600"
 					decoding="async"
@@ -430,25 +645,28 @@
 
 				<!-- ── ARTICLE BODY ────────────────────────────────────────────── -->
 				<div class="learn-article-body border-surface-800 border-t-2 pt-8">
-					<div class="prose prose-invert learn-prose max-w-none">
-						{@html data.article.bodyHtml}
-					</div>
+					{#key data.article.bodyHtml}
+						<div class="prose prose-invert learn-prose max-w-none" bind:this={proseEl}>
+							{@html data.article.bodyHtml}
+						</div>
+					{/key}
 				</div>
 
 				<!-- ── ATTACHED MEDIA ──────────────────────────────────────────── -->
-				{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
+				{#if attachedMediaAssets.length}
 					<details class="border-surface-800 bg-surface-950 border-2">
 						<summary
 							class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-black uppercase transition [&::-webkit-details-marker]:hidden"
 						>
 							<span>Attached media</span>
 							<span class="flex items-center gap-2 text-xs font-bold tracking-[0.18em]">
-								{data.article.assets.filter((asset) => asset.usage_kind !== 'embedded').length} files
+								{attachedMediaAssets.length}
+								{attachedMediaAssets.length === 1 ? 'file' : 'files'}
 								<IconChevronDown class="h-4 w-4" />
 							</span>
 						</summary>
 						<div class="border-surface-800 flex flex-col border-t-2">
-							{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
+							{#each attachedMediaAssets as asset}
 								<a
 									class="border-surface-800 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-4 border-b p-4 text-sm transition last:border-b-0 hover:no-underline"
 									href={asset.public_url}
@@ -819,7 +1037,12 @@
 	.learn-prose :global(ul),
 	.learn-prose :global(ol),
 	.learn-prose :global(blockquote) {
-		max-width: 72ch;
+		max-width: min(100%, 72ch);
+	}
+
+	.learn-prose :global(li) {
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.learn-prose :global(h2) {
@@ -849,21 +1072,239 @@
 	}
 
 	.learn-prose :global(pre),
-	.learn-prose :global(table) {
+	.learn-prose :global(code) {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+
+	.learn-prose :global(pre) {
 		max-width: 100%;
 		overflow-x: auto;
+		border: 2px solid var(--color-surface-800);
+		background: var(--color-surface-900);
+		padding: 1rem;
+	}
+
+	.learn-prose :global(.learn-pre-block) {
+		margin: 1.5rem 0;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		border: 2px solid var(--color-surface-800);
+		background: var(--color-surface-900);
+	}
+
+	.learn-prose :global(.learn-pre-block > pre) {
+		margin: 0;
+		border: 0;
+	}
+
+	.learn-prose :global(.learn-pre-header) {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		border-bottom: 2px solid var(--color-surface-800);
+		background: var(--color-surface-950);
+	}
+
+	.learn-prose :global(.learn-copy-btn) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.75rem;
+		min-width: 2.75rem;
+		padding: 0.5rem 1rem;
+		border: 0;
+		border-left: 2px solid var(--color-surface-800);
+		border-radius: 0;
+		box-shadow: none;
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
+		font-size: 0.75rem;
+		font-weight: 900;
+		line-height: 1;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.learn-prose :global(.learn-copy-btn:hover) {
+		background: var(--color-tertiary-500);
+		color: var(--color-surface-950);
+	}
+
+	.learn-prose :global(.learn-copy-btn[data-copy-state='copied']) {
+		background: var(--color-success-500);
+		color: var(--color-surface-950);
+	}
+
+	.learn-prose :global(.learn-copy-btn[data-copy-state='selected']) {
+		background: var(--color-warning-500);
+		color: var(--color-surface-950);
+	}
+
+	.learn-prose :global(.learn-copy-btn:focus-visible) {
+		outline: 2px solid var(--color-surface-50);
+		outline-offset: -2px;
+	}
+
+	.learn-prose :global(.learn-table-wrap) {
+		margin: 1.75rem 0;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+	}
+
+	.learn-prose :global(li .learn-table-wrap),
+	.learn-prose :global(li .learn-pre-block) {
+		margin: 1rem 0;
+	}
+
+	.learn-prose :global(.learn-table-cue) {
+		display: none;
+		padding: 0.45rem 0.75rem;
+		background: var(--color-primary-500);
+		color: var(--color-surface-950);
+		font-size: 0.7rem;
+		font-weight: 900;
+		line-height: 1.3;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+	}
+
+	.learn-prose :global(.learn-table-wrap[data-overflowing='true'] > .learn-table-cue) {
+		display: block;
+	}
+
+	.learn-prose :global(.learn-table-scroll) {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-x: auto;
+	}
+
+	.learn-prose :global(.learn-table-wrap[data-can-scroll-right='true'] > .learn-table-scroll) {
+		border-right: 4px solid var(--color-primary-500);
+	}
+
+	.learn-prose :global(.learn-table-scroll:focus-visible) {
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: 2px;
 	}
 
 	.learn-prose :global(table) {
 		display: block;
 		width: max-content;
+		max-width: 100%;
+		overflow-x: auto;
 		border-collapse: collapse;
+	}
+
+	.learn-prose :global(.learn-table-scroll > table) {
+		display: table;
+		max-width: none;
+		margin: 0;
+		overflow-x: visible;
 	}
 
 	.learn-prose :global(th),
 	.learn-prose :global(td) {
 		padding: 0.5rem 0.75rem;
 		border: 1px solid var(--color-surface-800);
+	}
+
+	@media (max-width: 639.98px) {
+		.learn-prose :global(table[data-stackable='true']),
+		.learn-prose :global(.learn-table-scroll > table[data-stackable='true']) {
+			display: block;
+			width: 100%;
+			max-width: 100%;
+			overflow-x: visible;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > thead) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			clip-path: inset(50%);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > tbody) {
+			display: block;
+			width: 100%;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > tbody > tr),
+		.learn-prose :global(table[data-stackable='true'] > tr) {
+			display: block;
+			width: 100%;
+			max-width: 100%;
+			box-sizing: border-box;
+			border: 2px solid var(--color-surface-800);
+			background: var(--color-surface-950);
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > tbody > tr + tr),
+		.learn-prose :global(table[data-stackable='true'] > tr + tr) {
+			margin-top: 0.75rem;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > tbody > tr > td),
+		.learn-prose :global(table[data-stackable='true'] > tr > td),
+		.learn-prose :global(table[data-stackable='true'] > tbody > tr > th),
+		.learn-prose :global(table[data-stackable='true'] > tr > th) {
+			display: block;
+			width: 100%;
+			max-width: 100%;
+			min-width: 0;
+			box-sizing: border-box;
+			padding: 0.625rem 0.75rem;
+			border: 0;
+			border-bottom: 1px solid var(--color-surface-800);
+			overflow-wrap: anywhere;
+			word-break: break-word;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] > tbody > tr > :last-child),
+		.learn-prose :global(table[data-stackable='true'] > tr > :last-child) {
+			border-bottom: 0;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] td[data-label]::before) {
+			content: attr(data-label);
+			display: block;
+			margin-bottom: 0.25rem;
+			color: var(--color-primary-500);
+			font-size: 0.7rem;
+			font-weight: 800;
+			line-height: 1.35;
+			letter-spacing: 0.14em;
+			text-transform: uppercase;
+			white-space: normal;
+			overflow-wrap: anywhere;
+			word-break: break-word;
+		}
+
+		.learn-prose :global(table[data-stackable='true'] td:empty::after) {
+			content: '\00a0';
+			display: block;
+			min-height: 1.25rem;
+		}
+	}
+
+	@media print {
+		.learn-prose :global(.learn-pre-header),
+		.learn-prose :global(.learn-copy-btn),
+		.learn-prose :global(.learn-table-cue) {
+			display: none !important;
+		}
 	}
 
 	.learn-prose :global(img) {

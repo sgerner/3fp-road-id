@@ -11,6 +11,7 @@ import {
 import { mirrorRemoteImageToStorage as mirrorPreparedRemoteImage } from '#lib/server/remoteImages';
 import { readFormData } from '#lib/server/security';
 import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -255,6 +256,7 @@ export const actions = {
 				return Number.isFinite(n) ? n : null;
 			})(),
 			service_area_description: form.get('service_area_description')?.toString().trim() || null,
+			zip_code: form.get('zip_code')?.toString().trim() || null,
 			// skill_levels now managed via join table
 			activity_frequency: form.get('activity_frequency')?.toString().trim() || null,
 			typical_activity_day_time: form.get('typical_activity_day_time')?.toString().trim() || null,
@@ -452,6 +454,7 @@ export const actions = {
 			if (insErr) return fail(500, { error: insErr.message });
 		}
 
+		invalidateGroupSnapshotCache({ groupId: group_id, slug });
 		throw redirect(303, `/groups/${slug}/manage/edit?saved=1`);
 	},
 	delete: async ({ params, cookies }) => {
@@ -468,6 +471,7 @@ export const actions = {
 			.eq('id', group_id);
 		if (deleteError) return fail(500, { error: deleteError.message });
 
+		invalidateGroupSnapshotCache({ groupId: group_id, slug: params.slug });
 		throw redirect(303, `/groups/my`);
 	}
 };

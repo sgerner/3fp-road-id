@@ -13,11 +13,17 @@
 	import IconBike from '@lucide/svelte/icons/bike';
 	import IconHeart from '@lucide/svelte/icons/heart';
 	import { merchCart } from '#lib/merch/cart';
-	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 
 	let { data } = $props();
 	let selectedVariantIdByProduct = $state({});
 	let quantityByProduct = $state({});
+	let failedImageUrls = $state({});
+
+	function markImageFailed(url) {
+		if (!url || failedImageUrls[url]) return;
+		failedImageUrls = { ...failedImageUrls, [url]: true };
+	}
 	let addedProductId = $state(null);
 	let cartBounce = $state(false);
 	let lightboxOpen = $state(false);
@@ -78,12 +84,21 @@
 	function productImages(product) {
 		const list = Array.isArray(product?.images) ? product.images : [];
 		const images = list.length ? list : product?.image_url ? [product.image_url] : [];
-		return images.map((image) => optimizedImageUrl(image, { width: 768, quality: 64 }));
+		return images
+			.map((image) => optimizedImageUrl(image, { width: 768, quality: 64 }))
+			.filter((image) => image && !failedImageUrls[image]);
 	}
 
 	function productFeaturedImage(product) {
 		return productImages(product)[0] || '';
 	}
+
+	const activeLightboxImages = $derived(
+		lightboxImages.filter((image) => image && !failedImageUrls[image])
+	);
+	const activeLightboxIndex = $derived(
+		Math.min(lightboxIndex, Math.max(0, activeLightboxImages.length - 1))
+	);
 
 	function openLightbox(product, startIndex = 0) {
 		const images = productImages(product);
@@ -103,13 +118,15 @@
 	}
 
 	function prevLightbox() {
-		if (!lightboxImages.length) return;
-		lightboxIndex = lightboxIndex <= 0 ? lightboxImages.length - 1 : lightboxIndex - 1;
+		if (!activeLightboxImages.length) return;
+		lightboxIndex =
+			activeLightboxIndex <= 0 ? activeLightboxImages.length - 1 : activeLightboxIndex - 1;
 	}
 
 	function nextLightbox() {
-		if (!lightboxImages.length) return;
-		lightboxIndex = lightboxIndex >= lightboxImages.length - 1 ? 0 : lightboxIndex + 1;
+		if (!activeLightboxImages.length) return;
+		lightboxIndex =
+			activeLightboxIndex >= activeLightboxImages.length - 1 ? 0 : activeLightboxIndex + 1;
 	}
 
 	function onLightboxKeydown(event) {
@@ -274,8 +291,9 @@
 
 			{#if data.products?.length > 0}
 				{@const featured = data.products[0]}
+				{@const featuredImage = productFeaturedImage(featured)}
 				<div class="flex flex-1 flex-col justify-between pl-2">
-					{#if productFeaturedImage(featured)}
+					{#if featuredImage}
 						<button
 							type="button"
 							class="group bg-surface-900 relative flex min-h-[13rem] w-full flex-1 cursor-pointer items-center justify-center overflow-hidden p-6 text-left"
@@ -289,7 +307,7 @@
 								Featured Drop
 							</span>
 							<img
-								src={productFeaturedImage(featured)}
+								src={featuredImage}
 								alt={featured.name}
 								class="max-h-48 w-full object-contain transition duration-300 group-hover:scale-105"
 								width="768"
@@ -297,6 +315,7 @@
 								loading="eager"
 								fetchpriority="high"
 								decoding="async"
+								use:watchImageError={() => markImageFailed(featuredImage)}
 							/>
 							<span
 								class="bg-surface-950 text-primary-500 border-surface-700 absolute right-0 bottom-0 inline-flex items-center gap-1.5 border-t border-l px-2.5 py-1 text-[0.65rem] font-black tracking-[0.18em] uppercase"
@@ -305,6 +324,18 @@
 								View
 							</span>
 						</button>
+					{:else}
+						<div
+							class="bg-surface-900 relative flex min-h-[13rem] w-full flex-1 items-center justify-center p-6"
+						>
+							<span
+								class="bg-secondary-500 text-surface-50 absolute top-0 left-0 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 text-[0.65rem] font-black tracking-[0.2em] uppercase"
+							>
+								<IconSparkles class="text-primary-500 h-3 w-3" />
+								Featured Drop
+							</span>
+							<IconSparkles class="text-surface-300 h-8 w-8" />
+						</div>
 					{/if}
 
 					<div
@@ -418,6 +449,7 @@
 					{#each data.products as product, productIndex (product.id)}
 						{@const activeVariant = selectedVariant(product)}
 						{@const optionSummary = summarizeOptions(activeVariant?.option_values)}
+						{@const images = productImages(product)}
 						<article
 							class="border-surface-800 bg-surface-950 group flex flex-col justify-between border-r-[3px] border-b-[3px]"
 						>
@@ -439,9 +471,9 @@
 
 							<!-- Image carousel -->
 							<div class="bg-surface-900 border-surface-800 relative border-b-2">
-								{#if productImages(product).length > 0}
+								{#if images.length > 0}
 									<div class="cinema-rail">
-										{#each productImages(product) as image, index (`${product.id}-${image}`)}
+										{#each images as image, index (`${product.id}-${image}`)}
 											<button
 												type="button"
 												class="cinema-slide group/slide"
@@ -456,6 +488,7 @@
 													height="768"
 													loading={index === 0 ? 'eager' : 'lazy'}
 													decoding="async"
+													use:watchImageError={() => markImageFailed(image)}
 												/>
 												<span
 													class="bg-surface-950 text-surface-50 border-surface-700 absolute right-0 bottom-0 inline-flex items-center gap-1.5 border-t-2 border-l-2 px-3 py-1.5 text-[0.65rem] font-black tracking-[0.18em] uppercase"
@@ -472,9 +505,9 @@
 									</div>
 								{/if}
 
-								{#if productImages(product).length > 1}
+								{#if images.length > 1}
 									<div class="absolute bottom-2 left-3 flex gap-1.5" aria-hidden="true">
-										{#each productImages(product) as _, i}
+										{#each images as _, i}
 											<span class="h-1.5 w-4 {i === 0 ? 'bg-primary-500' : 'bg-surface-700'}"
 											></span>
 										{/each}
@@ -620,14 +653,26 @@
 						<ul class="border-surface-800 m-0 list-none border-t-2 p-0">
 							{#each $merchCart as line (line.variantId)}
 								{@const qty = Number(line.quantity || 1)}
+								{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
+									width: 128,
+									quality: 64
+								})}
 								<li class="border-surface-800 border-b py-3.5">
 									<div class="flex items-start gap-3">
-										{#if line.productImageUrl}
+										{#if thumbUrl && !failedImageUrls[thumbUrl]}
 											<img
-												src={line.productImageUrl}
+												src={thumbUrl}
 												alt={line.productName}
 												class="bg-surface-950 border-surface-700 h-14 w-14 shrink-0 border object-contain p-1"
+												use:watchImageError={() => markImageFailed(thumbUrl)}
 											/>
+										{:else}
+											<div
+												class="bg-surface-950 border-surface-700 flex h-14 w-14 shrink-0 items-center justify-center border"
+												aria-hidden="true"
+											>
+												<IconSparkles class="text-surface-300 h-5 w-5" />
+											</div>
 										{/if}
 										<div class="min-w-0 flex-1">
 											<p class="m-0 truncate text-sm leading-tight font-black uppercase">
@@ -841,13 +886,25 @@
 			{:else}
 				{#each $merchCart as line (line.variantId)}
 					{@const qty = Number(line.quantity || 1)}
+					{@const thumbUrl = optimizedImageUrl(line.productImageUrl, {
+						width: 128,
+						quality: 64
+					})}
 					<div class="border-secondary-300/40 flex items-start gap-3 border-b py-3">
-						{#if line.productImageUrl}
+						{#if thumbUrl && !failedImageUrls[thumbUrl]}
 							<img
-								src={line.productImageUrl}
+								src={thumbUrl}
 								alt={line.productName}
 								class="bg-surface-50 h-12 w-12 shrink-0 object-contain p-1"
+								use:watchImageError={() => markImageFailed(thumbUrl)}
 							/>
+						{:else}
+							<div
+								class="bg-surface-950 border-surface-700 flex h-12 w-12 shrink-0 items-center justify-center border"
+								aria-hidden="true"
+							>
+								<IconSparkles class="text-surface-300 h-5 w-5" />
+							</div>
 						{/if}
 						<div class="min-w-0 flex-1">
 							<p class="m-0 truncate text-sm font-black uppercase">{line.productName}</p>
@@ -951,14 +1008,20 @@
 			</div>
 
 			<div class="bg-surface-900 relative aspect-square max-h-[65vh] w-full overflow-hidden">
-				{#if lightboxImages.length > 0}
+				{#if activeLightboxImages.length > 0}
+					{@const currentLightboxImage = activeLightboxImages[activeLightboxIndex]}
 					<img
-						src={lightboxImages[lightboxIndex]}
-						alt={`${lightboxProductName} image ${lightboxIndex + 1}`}
+						src={currentLightboxImage}
+						alt={`${lightboxProductName} image ${activeLightboxIndex + 1}`}
 						class="h-full w-full object-contain p-4"
+						use:watchImageError={() => markImageFailed(currentLightboxImage)}
 					/>
+				{:else}
+					<div class="flex h-full w-full items-center justify-center">
+						<IconSparkles class="text-surface-300 h-8 w-8" />
+					</div>
 				{/if}
-				{#if lightboxImages.length > 1}
+				{#if activeLightboxImages.length > 1}
 					<button
 						type="button"
 						class="bg-surface-950 text-primary-500 border-primary-500 hover:bg-primary-500 hover:text-surface-950 absolute top-1/2 left-3 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center border-2 transition"
@@ -978,13 +1041,13 @@
 				{/if}
 			</div>
 
-			{#if lightboxImages.length > 1}
+			{#if activeLightboxImages.length > 1}
 				<div class="flex gap-2 overflow-x-auto pb-1">
-					{#each lightboxImages as image, index (`${image}-${index}`)}
+					{#each activeLightboxImages as image, index (`${image}-${index}`)}
 						<button
 							type="button"
 							class="bg-surface-900 h-16 w-16 shrink-0 cursor-pointer border-2 p-1 transition {index ===
-							lightboxIndex
+							activeLightboxIndex
 								? 'border-primary-500 opacity-100'
 								: 'border-surface-700 opacity-60 hover:opacity-100'}"
 							onclick={() => (lightboxIndex = index)}
@@ -994,6 +1057,7 @@
 								src={image}
 								alt={`${lightboxProductName} thumbnail ${index + 1}`}
 								class="h-full w-full object-contain"
+								use:watchImageError={() => markImageFailed(image)}
 							/>
 						</button>
 					{/each}
