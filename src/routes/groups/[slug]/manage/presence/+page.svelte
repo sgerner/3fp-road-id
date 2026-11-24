@@ -363,11 +363,12 @@
 
 	// Stripe Connect & Membership Tiers Shortcut
 	let stripeAccount = $state(untrack(() => data.donation_account || null));
+	const membershipInfoValue = $derived((profileDraft.membership_info || '').trim());
 	const activeMembershipTierCount = $derived(
 		Number(data.membership_billing_guard?.active_tier_count || 0)
 	);
 	const showProgramAndTiersShortcut = $derived(
-		Boolean((profileDraft.membership_info || '').trim()) && activeMembershipTierCount === 0
+		Boolean(membershipInfoValue) && activeMembershipTierCount === 0
 	);
 
 	// Co-owners

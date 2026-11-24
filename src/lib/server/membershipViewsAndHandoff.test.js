@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	buildMembershipReturnPath,
+	consumeMembershipContactHandoff,
+	MEMBERSHIP_CONTACT_HANDOFF_TTL_MS,
 	normalizeMembershipManageViewParam,
 	parseMembershipHandoffParams,
-	resolveInitialMembershipManageView
+	resolveInitialMembershipManageView,
+	stashMembershipContactHandoff
 } from '../groups/membershipHandoff.js';
 import {
 	isSafeInternalPath,
@@ -362,44 +365,130 @@ test('Stripe disconnect guard blocks disconnects with a Program and Tiers link w
 	assert.equal(allowed.block_reason, '');
 });
 
-test('guest magic-link return path round-trips name, email, phone, annual interval, and custom amount safely', () => {
-	const returnTo = buildMembershipReturnPath({
-		slug: 'metro-velo',
-		tierId: 'tier-pwyw',
-		billingInterval: 'year',
-		customAmount: '75.50',
-		fullName: 'Alex Rider',
-		email: 'Alex@Example.com',
-		phone: '(555) 019-2834'
-	});
+test('guest magic-link return path omits PII from query string while short-lived sessionStorage carries contact details', () => {
+	const returnTo = buildMembershipReturnPath(
+		/** @type {any} */ ({
+			slug: 'metro-velo',
+			tierId: 'tier-pwyw',
+			billingInterval: 'year',
+			customAmount: '75.50',
+			fullName: 'Alex Rider',
+			email: 'Alex@Example.com',
+			phone: '(555) 019-2834'
+		})
+	);
 
 	assert.equal(isSafeInternalPath(returnTo), true);
+	assert.equal(returnTo.includes('Alex'), false);
+	assert.equal(returnTo.includes('Example.com'), false);
+	assert.equal(returnTo.includes('019-2834'), false);
+	assert.equal(returnTo, '/groups/metro-velo/membership?tier=tier-pwyw&interval=year&amount=75.50');
+
 	const restored = parseMembershipHandoffParams(returnTo);
 	assert.deepEqual(restored, {
 		tier: 'tier-pwyw',
 		interval: 'year',
-		amount: '75.50',
-		name: 'Alex Rider',
-		email: 'alex@example.com',
-		phone: '(555) 019-2834'
+		amount: '75.50'
 	});
 
-	const legacyMicrosite = parseMembershipHandoffParams(
-		'/groups/metro-velo/membership?tier=tier-supporter&interval=annual&custom_amount=40'
+	// Even if a stale URL includes name/email/phone query params, parseMembershipHandoffParams ignores them
+	const withLegacyPiiParams = parseMembershipHandoffParams(
+		'/groups/metro-velo/membership?tier=tier-supporter&interval=annual&custom_amount=40&name=Leak&email=leak@example.com&phone=555'
 	);
-	assert.equal(legacyMicrosite.tier, 'tier-supporter');
-	assert.equal(legacyMicrosite.interval, 'year');
-	assert.equal(legacyMicrosite.amount, '40');
+	assert.deepEqual(withLegacyPiiParams, {
+		tier: 'tier-supporter',
+		interval: 'year',
+		amount: '40'
+	});
 
 	assert.equal(buildMembershipReturnPath({ slug: '' }), '/');
 	const sanitized = buildMembershipReturnPath({
 		slug: 'metro-velo',
-		customAmount: '-99',
-		fullName: 'Safe\nHeader\\Name'
+		customAmount: '-99'
 	});
 	assert.equal(isSafeInternalPath(sanitized), true);
 	assert.equal(parseMembershipHandoffParams(sanitized).amount, '');
-	assert.equal(parseMembershipHandoffParams(sanitized).name, 'SafeHeaderName');
+
+	// Short-lived sessionStorage contact handoff round-trip, consume-once, and TTL expiry
+	/** @type {Map<string, string>} */
+	const backing = new Map();
+	const mockSessionStorage = {
+		/** @param {string} k */
+		getItem: (k) => backing.get(k) ?? null,
+		/**
+		 * @param {string} k
+		 * @param {string} v
+		 */
+		setItem: (k, v) => {
+			backing.set(k, v);
+		},
+		/** @param {string} k */
+		removeItem: (k) => {
+			backing.delete(k);
+		}
+	};
+
+	const baseNow = 1_700_000_000_000;
+	assert.equal(
+		stashMembershipContactHandoff(
+			'metro-velo',
+			{
+				fullName: 'Alex\nRider\\Alias',
+				email: 'Alex@Example.com',
+				phone: '(555) 019-2834'
+			},
+			{ storage: mockSessionStorage, now: baseNow }
+		),
+		true
+	);
+	// Peek while logged out preserves entry
+	assert.deepEqual(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 5_000,
+			consume: false
+		}),
+		{
+			full_name: 'AlexRiderAlias',
+			email: 'alex@example.com',
+			phone: '(555) 019-2834'
+		}
+	);
+	// Consuming after sign-in returns entry and clears sessionStorage
+	assert.deepEqual(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 10_000,
+			consume: true
+		}),
+		{
+			full_name: 'AlexRiderAlias',
+			email: 'alex@example.com',
+			phone: '(555) 019-2834'
+		}
+	);
+	assert.equal(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 11_000
+		}),
+		null
+	);
+
+	// Expired entry is discarded and removed
+	stashMembershipContactHandoff(
+		'metro-velo',
+		{ fullName: 'Expired User', email: 'expired@example.com' },
+		{ storage: mockSessionStorage, now: baseNow }
+	);
+	assert.equal(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + MEMBERSHIP_CONTACT_HANDOFF_TTL_MS + 1
+		}),
+		null
+	);
+	assert.equal(backing.size, 0);
 });
 
 test('submitting a club join form with alternate display name or phone leaves an existing user global profile unchanged', async () => {

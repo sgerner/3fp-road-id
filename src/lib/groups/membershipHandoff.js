@@ -1,5 +1,16 @@
 import { isSafeInternalPath } from '#lib/security/navigation.js';
 
+export const MEMBERSHIP_CONTACT_HANDOFF_TTL_MS = 30 * 60 * 1000;
+const MEMBERSHIP_CONTACT_STORAGE_PREFIX = '3fp:membership_handoff_contact:';
+
+/**
+ * @typedef {{
+ *   getItem: (key: string) => string | null;
+ *   setItem: (key: string, value: string) => void;
+ *   removeItem: (key: string) => void;
+ * }} StorageLike
+ */
+
 /**
  * @param {unknown} value
  * @param {number} [maxLength]
@@ -15,6 +26,124 @@ function sanitizeParamText(value, maxLength = 120) {
 	}
 	cleaned = cleaned.trim();
 	return maxLength > 0 ? cleaned.slice(0, maxLength) : cleaned;
+}
+
+/**
+ * @param {StorageLike | null | undefined} [storageOverride]
+ * @returns {StorageLike | null}
+ */
+function resolveSessionStorage(storageOverride) {
+	if (storageOverride !== undefined) return storageOverride || null;
+	if (typeof window === 'undefined') return null;
+	try {
+		return window.sessionStorage || null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * @param {unknown} slug
+ * @returns {string}
+ */
+export function buildMembershipContactStorageKey(slug) {
+	const cleanSlug = sanitizeParamText(slug, 120);
+	return cleanSlug ? `${MEMBERSHIP_CONTACT_STORAGE_PREFIX}${cleanSlug}` : '';
+}
+
+/**
+ * @param {unknown} slug
+ * @param {{
+ *   fullName?: unknown;
+ *   full_name?: unknown;
+ *   email?: unknown;
+ *   phone?: unknown;
+ * }} [contact]
+ * @param {{
+ *   storage?: StorageLike | null;
+ *   now?: number;
+ *   ttlMs?: number;
+ * }} [options]
+ * @returns {boolean}
+ */
+export function stashMembershipContactHandoff(slug, contact = {}, options = {}) {
+	const key = buildMembershipContactStorageKey(slug);
+	const storage = resolveSessionStorage(options.storage);
+	if (!key || !storage) return false;
+
+	const full_name = sanitizeParamText(contact?.fullName ?? contact?.full_name ?? '', 120);
+	const email = sanitizeParamText(contact?.email ?? '', 254).toLowerCase();
+	const phone = sanitizeParamText(contact?.phone ?? '', 40);
+
+	try {
+		if (!full_name && !email && !phone) {
+			storage.removeItem(key);
+			return false;
+		}
+		const now = Number.isFinite(options.now) ? Number(options.now) : Date.now();
+		const ttlMs =
+			Number.isFinite(options.ttlMs) && Number(options.ttlMs) > 0
+				? Number(options.ttlMs)
+				: MEMBERSHIP_CONTACT_HANDOFF_TTL_MS;
+		storage.setItem(
+			key,
+			JSON.stringify({
+				full_name,
+				email,
+				phone,
+				expires_at: now + ttlMs
+			})
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * @param {unknown} slug
+ * @param {{
+ *   storage?: StorageLike | null;
+ *   now?: number;
+ *   consume?: boolean;
+ * }} [options]
+ * @returns {{ full_name: string; email: string; phone: string } | null}
+ */
+export function consumeMembershipContactHandoff(slug, options = {}) {
+	const key = buildMembershipContactStorageKey(slug);
+	const storage = resolveSessionStorage(options.storage);
+	if (!key || !storage) return null;
+
+	try {
+		const raw = storage.getItem(key);
+		if (!raw) return null;
+
+		const parsed = JSON.parse(raw);
+		const now = Number.isFinite(options.now) ? Number(options.now) : Date.now();
+		const expiresAt = Number(parsed?.expires_at || 0);
+		if (!parsed || typeof parsed !== 'object' || !Number.isFinite(expiresAt) || expiresAt <= now) {
+			storage.removeItem(key);
+			return null;
+		}
+
+		if (options.consume !== false) {
+			storage.removeItem(key);
+		}
+
+		const full_name = sanitizeParamText(parsed.full_name, 120);
+		const email = sanitizeParamText(parsed.email, 254).toLowerCase();
+		const phone = sanitizeParamText(parsed.phone, 40);
+		if (!full_name && !email && !phone) return null;
+
+		return { full_name, email, phone };
+	} catch {
+		try {
+			storage.removeItem(key);
+		} catch {
+			// Ignore storage cleanup errors.
+		}
+		return null;
+	}
 }
 
 /**
@@ -42,14 +171,24 @@ export function normalizeHandoffAmount(value) {
 	return raw;
 }
 
+/**
+ * Builds the magic-link / sign-in return URL for a club membership page.
+ * Intentionally includes ONLY non-PII selection params (`tier`, `interval`, `amount`);
+ * contact details (`name`, `email`, `phone`) must never be placed in URL query strings.
+ *
+ * @param {{
+ *   slug?: unknown;
+ *   tierId?: unknown;
+ *   billingInterval?: unknown;
+ *   customAmount?: unknown;
+ * }} [options]
+ * @returns {string}
+ */
 export function buildMembershipReturnPath({
 	slug = '',
 	tierId = '',
 	billingInterval = '',
-	customAmount = '',
-	fullName = '',
-	email = '',
-	phone = ''
+	customAmount = ''
 } = {}) {
 	const cleanSlug = sanitizeParamText(slug, 120);
 	if (!cleanSlug) return '/';
@@ -61,16 +200,10 @@ export function buildMembershipReturnPath({
 	const cleanTier = sanitizeParamText(tierId, 64);
 	const cleanInterval = normalizeHandoffInterval(billingInterval);
 	const cleanAmount = normalizeHandoffAmount(customAmount);
-	const cleanName = sanitizeParamText(fullName, 120);
-	const cleanEmail = sanitizeParamText(email, 254).toLowerCase();
-	const cleanPhone = sanitizeParamText(phone, 40);
 
 	if (cleanTier) params.set('tier', cleanTier);
 	if (cleanInterval) params.set('interval', cleanInterval);
 	if (cleanAmount) params.set('amount', cleanAmount);
-	if (cleanName) params.set('name', cleanName);
-	if (cleanEmail) params.set('email', cleanEmail);
-	if (cleanPhone) params.set('phone', cleanPhone);
 
 	const query = params.toString();
 	const candidate = query ? `${basePath}?${query}` : basePath;
@@ -78,7 +211,10 @@ export function buildMembershipReturnPath({
 }
 
 /**
+ * Parses non-PII membership selection query parameters (`tier`, `interval`, `amount`).
+ *
  * @param {unknown} input
+ * @returns {{ tier: string; interval: '' | 'month' | 'year'; amount: string }}
  */
 export function parseMembershipHandoffParams(input) {
 	/** @type {{ get: (key: string) => string | null } | null} */
@@ -103,20 +239,14 @@ export function parseMembershipHandoffParams(input) {
 		return {
 			tier: '',
 			interval: '',
-			amount: '',
-			name: '',
-			email: '',
-			phone: ''
+			amount: ''
 		};
 	}
 
 	return {
 		tier: sanitizeParamText(params.get('tier') || '', 64),
 		interval: normalizeHandoffInterval(params.get('interval') || ''),
-		amount: normalizeHandoffAmount(params.get('amount') ?? params.get('custom_amount') ?? ''),
-		name: sanitizeParamText(params.get('name') || '', 120),
-		email: sanitizeParamText(params.get('email') || '', 254),
-		phone: sanitizeParamText(params.get('phone') || '', 40)
+		amount: normalizeHandoffAmount(params.get('amount') ?? params.get('custom_amount') ?? '')
 	};
 }
 

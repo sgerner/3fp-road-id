@@ -29,7 +29,9 @@
 	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import {
 		buildMembershipReturnPath,
-		parseMembershipHandoffParams
+		consumeMembershipContactHandoff,
+		parseMembershipHandoffParams,
+		stashMembershipContactHandoff
 	} from '#lib/groups/membershipHandoff';
 	import { isSafeInternalPath, registerLoginReturnPathBuilder } from '#lib/security/navigation';
 
@@ -82,9 +84,9 @@
 	let selectedBillingInterval = $state(initialBillingInterval);
 	let answers = $state({});
 	let memberProfile = $state({
-		full_name: initialHandoff.name || initialCurrentUserProfile?.full_name || '',
-		email: initialHandoff.email || initialCurrentUserProfile?.email || '',
-		phone: initialHandoff.phone || initialCurrentUserProfile?.phone || ''
+		full_name: initialCurrentUserProfile?.full_name || '',
+		email: initialCurrentUserProfile?.email || '',
+		phone: initialCurrentUserProfile?.phone || ''
 	});
 	let busy = $state(false);
 	let guestMagicLinkBusy = $state(false);
@@ -117,6 +119,7 @@
 	/** @type {HTMLDivElement | null} */
 	let paymentElementHost = $state(null);
 	let lastAppliedHandoffSearch = $state(page?.url?.search || '');
+	let restoredStashedContactKey = $state('');
 
 	const handoffPrefill = $derived.by(() => parseMembershipHandoffParams(page?.url?.searchParams));
 
@@ -253,15 +256,26 @@
 				customAnnualInput = '';
 			}
 		}
-
-		if (prefill.name || prefill.email || prefill.phone) {
-			memberProfile = {
-				full_name: prefill.name || memberProfile.full_name,
-				email: prefill.email || memberProfile.email,
-				phone: prefill.phone || memberProfile.phone
-			};
-		}
 	}
+
+	$effect(() => {
+		const slug = group?.slug || '';
+		const authScope = currentUserId ? `auth:${currentUserId}` : 'guest';
+		const nextKey = slug ? `${slug}:${authScope}` : '';
+		if (!nextKey || restoredStashedContactKey === nextKey) return;
+		restoredStashedContactKey = nextKey;
+		untrack(() => {
+			const stashed = consumeMembershipContactHandoff(slug, {
+				consume: Boolean(currentUserId)
+			});
+			if (!stashed) return;
+			memberProfile = {
+				full_name: stashed.full_name || memberProfile.full_name,
+				email: stashed.email || memberProfile.email,
+				phone: stashed.phone || memberProfile.phone
+			};
+		});
+	});
 
 	$effect(() => {
 		const currentSearch = page?.url?.search || '';
@@ -296,25 +310,32 @@
 		});
 	});
 
-	function buildCurrentHandoffReturnPath() {
+	function buildCurrentHandoffReturnPath({ stashContact = false } = {}) {
+		const slug = group?.slug || '';
+		if (stashContact && slug) {
+			stashMembershipContactHandoff(slug, {
+				fullName: memberProfile.full_name,
+				email: memberProfile.email,
+				phone: memberProfile.phone
+			});
+		}
 		const activeCustomAmount = selectedTierAllowsCustom
 			? String(selectedBillingInterval === 'year' ? customAnnualInput : customMonthlyInput).trim()
 			: '';
 		return buildMembershipReturnPath({
-			slug: group?.slug || '',
+			slug,
 			tierId: selectedTierId,
 			billingInterval: selectedBillingInterval,
-			customAmount: activeCustomAmount,
-			fullName: memberProfile.full_name,
-			email: memberProfile.email,
-			phone: memberProfile.phone
+			customAmount: activeCustomAmount
 		});
 	}
 
 	$effect(() => {
 		const pathname = page?.url?.pathname || '';
 		if (!pathname) return;
-		return registerLoginReturnPathBuilder(pathname, () => buildCurrentHandoffReturnPath());
+		return registerLoginReturnPathBuilder(pathname, () =>
+			buildCurrentHandoffReturnPath({ stashContact: true })
+		);
 	});
 
 	function setFeedback(message = '', error = '') {
@@ -757,7 +778,7 @@
 					return false;
 				}
 
-				returnTo = buildCurrentHandoffReturnPath();
+				returnTo = buildCurrentHandoffReturnPath({ stashContact: true });
 				if (!isSafeInternalPath(returnTo)) {
 					setFeedback('', 'Unable to prepare return link. Please reload and try again.');
 					return false;
