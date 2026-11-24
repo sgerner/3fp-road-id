@@ -6,11 +6,18 @@ import {
 	parseMembershipHandoffParams,
 	resolveInitialMembershipManageView
 } from '../groups/membershipHandoff.js';
-import { isSafeInternalPath } from '../security/navigation.js';
 import {
+	isSafeInternalPath,
+	registerLoginReturnPathBuilder,
+	resolveRegisteredLoginReturnPath
+} from '../security/navigation.js';
+import {
+	appendConnectStatusParams,
+	buildConnectReturnPath,
 	buildProgramAndTiersPath,
 	evaluateStripeBillingGuard,
-	getGroupStripeBillingGuard
+	getGroupStripeBillingGuard,
+	sanitizeGroupConnectReturnPath
 } from './groupStripeConnection.js';
 import {
 	buildViewerStripeConnection,
@@ -21,7 +28,11 @@ import {
 	ensureUserGlobalProfileDefaults,
 	executeUnifiedProgramAndTiersSave,
 	extractScopedContactColumns,
-	mergeScopedMemberContact
+	insertWithScopedContactFallback,
+	isMissingScopedContactColumnError,
+	mergeScopedMemberContact,
+	stripScopedContactColumns,
+	updateExistingMembershipContactWithFallback
 } from './membershipProgramAndContacts.js';
 
 function createMembershipSupabaseMock({
@@ -563,4 +574,193 @@ test('resolveMembershipProgramForViewer enriches manager stripe_connection with 
 		stripe_account_id: null
 	});
 	assert.equal('stripe_account_id' in riderResult.data.tiers[0], false);
+});
+
+test('pre-migration PostgREST missing-column fallback strips scoped contact columns on PGRST204/42703 while surfacing unrelated errors', async () => {
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: 'PGRST204',
+			message:
+				"Could not find the 'contact_full_name' column of 'group_memberships' in the schema cache"
+		}),
+		true
+	);
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: '42703',
+			message: 'column "contact_phone" of relation "group_membership_applications" does not exist'
+		}),
+		true
+	);
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: '23505',
+			message: 'duplicate key value violates unique constraint'
+		}),
+		false
+	);
+
+	const stripped = stripScopedContactColumns({
+		group_id: 'group-1',
+		user_id: 'user-1',
+		contact_full_name: 'Alex',
+		contact_email: 'alex@example.com',
+		contact_phone: '555-0100'
+	});
+	assert.deepEqual(stripped, {
+		group_id: 'group-1',
+		user_id: 'user-1'
+	});
+
+	const insertPayloads = [];
+	const preMigrationClient = {
+		from(tableName) {
+			return {
+				insert(payload) {
+					insertPayloads.push({ tableName, payload: { ...payload } });
+					return {
+						select() {
+							return {
+								async single() {
+									if ('contact_full_name' in payload) {
+										return {
+											data: null,
+											error: {
+												code: 'PGRST204',
+												message: `Could not find the 'contact_full_name' column of '${tableName}' in the schema cache`
+											}
+										};
+									}
+									return { data: { id: 'inserted-1', ...payload }, error: null };
+								}
+							};
+						}
+					};
+				},
+				update(payload) {
+					return {
+						eq() {
+							return {
+								select() {
+									return {
+										async single() {
+											if ('contact_email' in payload) {
+												return {
+													data: null,
+													error: {
+														code: '42703',
+														message:
+															'column "contact_email" of relation "group_memberships" does not exist'
+													}
+												};
+											}
+											return { data: payload, error: null };
+										}
+									};
+								}
+							};
+						}
+					};
+				}
+			};
+		}
+	};
+
+	const insertRes = await insertWithScopedContactFallback(preMigrationClient, 'group_memberships', {
+		group_id: 'group-1',
+		user_id: 'user-1',
+		tier_id: 'tier-1',
+		contact_full_name: 'Alex Rider',
+		contact_email: 'alex@example.com',
+		contact_phone: '555-0100'
+	});
+	assert.equal(insertRes.error, null);
+	assert.equal(insertRes.data.id, 'inserted-1');
+	assert.equal(insertPayloads.length, 2);
+	assert.equal('contact_full_name' in insertPayloads[0].payload, true);
+	assert.equal('contact_full_name' in insertPayloads[1].payload, false);
+
+	const existingRow = { id: 'mem-existing', group_id: 'group-1', user_id: 'user-1' };
+	const updateRes = await updateExistingMembershipContactWithFallback(
+		preMigrationClient,
+		existingRow,
+		{ contact_email: 'alex@example.com' },
+		'2026-11-23T00:00:00.000Z'
+	);
+	assert.equal(updateRes.error, null);
+	assert.equal(updateRes.skippedScopedContactColumns, true);
+	assert.deepEqual(updateRes.data, existingRow);
+});
+
+test('route-scoped login return path builder enriches only matching pathnames without mutating window', () => {
+	const unregister = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/groups/metro-velo/membership?tier=tier-1&interval=year&name=Alex+Rider'
+	);
+
+	assert.equal(
+		resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'),
+		'/groups/metro-velo/membership?tier=tier-1&interval=year&name=Alex+Rider'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/other-club/membership'), '');
+	assert.equal(resolveRegisteredLoginReturnPath('/ride'), '');
+	unregister();
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+
+	const unregisterSpoofed = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/admin/users?elevated=1'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+	unregisterSpoofed();
+
+	const unregisterTraversal = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/groups/metro-velo/membership/../manage'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+	unregisterTraversal();
+});
+
+test('Stripe Connect return_to sanitization blocks traversal and cross-group redirects while preserving manage views', () => {
+	assert.equal(
+		sanitizeGroupConnectReturnPath(
+			'metro-velo',
+			'/groups/metro-velo/manage/membership?view=program&stripe=error&reason=old#billing'
+		),
+		'/groups/metro-velo/manage/membership?view=program#billing'
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/presence'),
+		'/groups/metro-velo/manage/presence'
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/../../donate'),
+		''
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/%2e%2e/membership'),
+		''
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/other-club/manage/membership'),
+		''
+	);
+	assert.equal(sanitizeGroupConnectReturnPath('metro-velo', 'https://evil.example/groups'), '');
+
+	assert.equal(
+		buildConnectReturnPath({
+			type: 'group',
+			slug: 'metro-velo',
+			returnTo: '/groups/metro-velo/manage/../../donate'
+		}),
+		'/groups/metro-velo/manage/edit'
+	);
+	assert.equal(
+		appendConnectStatusParams(
+			'/groups/metro-velo/manage/membership?view=program&stripe=error&reason=stale#stripe',
+			'connected'
+		),
+		'/groups/metro-velo/manage/membership?view=program&stripe=connected#stripe'
+	);
 });

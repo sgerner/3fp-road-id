@@ -1,8 +1,115 @@
+import { isSafeInternalPath } from '../security/navigation.js';
+
+/**
+ * @param {unknown} value
+ * @param {number} [maxLength]
+ * @returns {string}
+ */
+function cleanConnectText(value, maxLength = 0) {
+	if (value === null || value === undefined) return '';
+	const trimmed = String(value).trim();
+	if (!maxLength) return trimmed;
+	return trimmed.slice(0, maxLength);
+}
+
+/**
+ * @param {string} rawPath
+ * @returns {boolean}
+ */
+function hasRawDotSegment(rawPath) {
+	let decoded = rawPath;
+	try {
+		decoded = decodeURIComponent(rawPath);
+	} catch {
+		return true;
+	}
+	const pathnameOnly = decoded.split(/[?#]/, 1)[0] || '';
+	return pathnameOnly.split('/').some((segment) => segment === '.' || segment === '..');
+}
+
+/**
+ * @param {unknown} slug
+ * @param {unknown} returnTo
+ * @returns {string}
+ */
+export function sanitizeGroupConnectReturnPath(slug, returnTo) {
+	const cleanSlug = cleanConnectText(slug);
+	const candidate = cleanConnectText(returnTo, 512);
+	if (!cleanSlug || !candidate || !isSafeInternalPath(candidate) || hasRawDotSegment(candidate)) {
+		return '';
+	}
+	let parsed;
+	try {
+		parsed = new URL(candidate, 'https://internal.invalid');
+	} catch {
+		return '';
+	}
+	if (parsed.origin !== 'https://internal.invalid') return '';
+	const allowedPrefix = `/groups/${encodeURIComponent(cleanSlug)}/manage`;
+	if (parsed.pathname !== allowedPrefix && !parsed.pathname.startsWith(`${allowedPrefix}/`)) {
+		return '';
+	}
+	parsed.searchParams.delete('stripe');
+	parsed.searchParams.delete('reason');
+	const search = parsed.searchParams.toString();
+	return `${parsed.pathname}${search ? `?${search}` : ''}${parsed.hash || ''}`;
+}
+
+/**
+ * @param {string} path
+ * @param {string} status
+ * @param {string} [reason]
+ * @returns {string}
+ */
+export function appendConnectStatusParams(path, status, reason = '') {
+	const safePath = isSafeInternalPath(path) ? path : '/donate?manage=1';
+	const parsed = new URL(safePath, 'https://internal.invalid');
+	parsed.searchParams.delete('stripe');
+	parsed.searchParams.delete('reason');
+	if (status) {
+		parsed.searchParams.set('stripe', String(status));
+	}
+	if (reason) {
+		parsed.searchParams.set('reason', String(reason));
+	}
+	const search = parsed.searchParams.toString();
+	return `${parsed.pathname}${search ? `?${search}` : ''}${parsed.hash || ''}`;
+}
+
+/**
+ * @param {{ type?: string; slug?: unknown; returnTo?: unknown } | null | undefined} target
+ * @returns {string}
+ */
+export function buildConnectReturnPath(target) {
+	if (!target || target.type === 'main') return '/donate?manage=1';
+	if (target.type === 'group') {
+		const cleanSlug = cleanConnectText(target.slug);
+		if (!cleanSlug) return '/donate?manage=1';
+		const customReturn = sanitizeGroupConnectReturnPath(cleanSlug, target.returnTo);
+		if (customReturn) return customReturn;
+		return `/groups/${encodeURIComponent(cleanSlug)}/manage/edit`;
+	}
+	return '/donate';
+}
+
+/**
+ * @param {unknown} groupSlug
+ * @returns {string}
+ */
 export function buildProgramAndTiersPath(groupSlug) {
 	const slug = String(groupSlug ?? '').trim();
 	return slug ? `/groups/${encodeURIComponent(slug)}/manage/membership?view=program` : '';
 }
 
+/**
+ * @param {{
+ *   program?: Record<string, any> | null;
+ *   tiers?: Array<Record<string, any>>;
+ *   memberships?: Array<Record<string, any>>;
+ *   billings?: Array<Record<string, any>>;
+ *   groupSlug?: string;
+ * }} [options]
+ */
 export function evaluateStripeBillingGuard({
 	program = null,
 	tiers = [],
@@ -74,6 +181,11 @@ export function evaluateStripeBillingGuard({
 	};
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {string | null | undefined} groupId
+ * @param {string} [groupSlug]
+ */
 export async function getGroupStripeBillingGuard(serviceSupabase, groupId, groupSlug = '') {
 	if (!serviceSupabase || !groupId) {
 		return evaluateStripeBillingGuard({ groupSlug });
@@ -95,7 +207,7 @@ export async function getGroupStripeBillingGuard(serviceSupabase, groupId, group
 	if (membershipsRes.error) throw new Error(membershipsRes.error.message);
 
 	const program = programRes.data || null;
-	const memberships = membershipsRes.data || [];
+	const memberships = /** @type {Array<Record<string, any>>} */ (membershipsRes.data || []);
 	const membershipIds = memberships.map((row) => row?.id).filter(Boolean);
 
 	const [tiersRes, billingsRes] = await Promise.all([
@@ -126,6 +238,9 @@ export async function getGroupStripeBillingGuard(serviceSupabase, groupId, group
 	});
 }
 
+/**
+ * @param {any} auth
+ */
 export async function loadGroupStripeConnection(auth) {
 	const { data: donationAccount, error } = await auth.serviceSupabase
 		.from('donation_accounts')

@@ -9,6 +9,7 @@ import {
 } from '#lib/server/donations';
 
 export const POST = async ({ request, cookies }) => {
+	/** @type {Record<string, any>} */
 	let payload = {};
 	try {
 		payload = await request.json();
@@ -22,7 +23,7 @@ export const POST = async ({ request, cookies }) => {
 	let accountId = MAIN_ORG_DONATION_ACCOUNT_ID;
 	if (recipientType === 'group') {
 		const auth = await requireGroupDonationManager(cookies, groupSlug);
-		if (!auth?.ok) {
+		if (!auth?.ok || !('group' in auth)) {
 			return json({ error: auth?.error || 'Not authorized.' }, { status: auth?.status || 403 });
 		}
 		try {
@@ -43,7 +44,12 @@ export const POST = async ({ request, cookies }) => {
 			}
 		} catch (guardError) {
 			return json(
-				{ error: guardError?.message || 'Unable to verify membership billing state.' },
+				{
+					error:
+						guardError instanceof Error
+							? guardError.message
+							: 'Unable to verify membership billing state.'
+				},
 				{ status: 500 }
 			);
 		}
@@ -60,7 +66,9 @@ export const POST = async ({ request, cookies }) => {
 		return json({ ok: true });
 	} catch (error) {
 		return json(
-			{ error: error?.message || 'Failed to disconnect Stripe account.' },
+			{
+				error: error instanceof Error ? error.message : 'Failed to disconnect Stripe account.'
+			},
 			{ status: 500 }
 		);
 	}

@@ -1,6 +1,11 @@
 const PROGRAM_ACCESS_MODES = new Set(['public', 'private_request']);
 const PROGRAM_CONTRIBUTION_MODES = new Set(['paid', 'donation']);
 
+/**
+ * @param {unknown} value
+ * @param {number} [maxLength]
+ * @returns {string}
+ */
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
 	const trimmed = String(value).trim();
@@ -8,17 +13,31 @@ function cleanText(value, maxLength = 0) {
 	return trimmed.slice(0, maxLength);
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} [maxLength]
+ * @returns {string | null}
+ */
 function cleanNullableText(value, maxLength = 0) {
 	const cleaned = cleanText(value, maxLength);
 	return cleaned || null;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function sanitizeEmail(value) {
 	const cleaned = cleanText(value, 320).toLowerCase();
 	if (!cleaned) return '';
 	return /^\S+@\S+\.\S+$/.test(cleaned) ? cleaned : '';
 }
 
+/**
+ * @param {unknown} value
+ * @param {boolean} [fallback]
+ * @returns {boolean}
+ */
 function normalizeBoolean(value, fallback = false) {
 	if (typeof value === 'boolean') return value;
 	if (value === 'true' || value === '1' || value === 1) return true;
@@ -26,12 +45,21 @@ function normalizeBoolean(value, fallback = false) {
 	return fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @param {number | null} [fallback]
+ * @returns {number | null}
+ */
 function normalizeInteger(value, fallback = null) {
 	if (value === null || value === undefined || value === '') return fallback;
 	const parsed = Number.parseInt(String(value), 10);
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
 function normalizeNullableAmountCents(value) {
 	if (value === null || value === undefined || value === '') return null;
 	const parsed = Number.parseInt(String(value), 10);
@@ -39,11 +67,20 @@ function normalizeNullableAmountCents(value) {
 	return parsed;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function normalizeCurrency(value) {
 	const cleaned = cleanText(value || 'usd', 10).toLowerCase();
 	return cleaned || 'usd';
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} [fallback]
+ * @returns {string}
+ */
 function normalizeContributionMode(value, fallback = 'donation') {
 	const cleaned = cleanText(value || '', 32).toLowerCase();
 	if (cleaned === 'none') return 'donation';
@@ -52,6 +89,9 @@ function normalizeContributionMode(value, fallback = 'donation') {
 	return fallback;
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} profile
+ */
 function normalizeProfilePayload(profile) {
 	if (!profile || typeof profile !== 'object') return null;
 	const fullName = cleanText(profile.full_name || profile.fullName || '', 120);
@@ -65,6 +105,89 @@ function normalizeProfilePayload(profile) {
 	};
 }
 
+export const SCOPED_CONTACT_COLUMNS = ['contact_full_name', 'contact_email', 'contact_phone'];
+
+/**
+ * @param {Record<string, any> | null | undefined} payload
+ */
+export function stripScopedContactColumns(payload) {
+	if (!payload || typeof payload !== 'object') return payload;
+	const next = { ...payload };
+	for (const column of SCOPED_CONTACT_COLUMNS) {
+		delete next[column];
+	}
+	return next;
+}
+
+/**
+ * @param {any} error
+ * @returns {boolean}
+ */
+export function isMissingScopedContactColumnError(error) {
+	if (!error) return false;
+	const code = cleanText(error?.code || '', 32).toUpperCase();
+	const text = [error?.message, error?.details, error?.hint]
+		.filter((part) => typeof part === 'string' && part.trim())
+		.join(' ')
+		.toLowerCase();
+	const mentionsContactColumn = SCOPED_CONTACT_COLUMNS.some((column) => text.includes(column));
+	if (!mentionsContactColumn) return false;
+	if (code === 'PGRST204' || code === '42703') return true;
+	return (
+		text.includes('schema cache') ||
+		text.includes('does not exist') ||
+		text.includes('could not find')
+	);
+}
+
+/**
+ * @param {any} serviceSupabase
+ * @param {string} tableName
+ * @param {Record<string, any>} payload
+ */
+export async function insertWithScopedContactFallback(serviceSupabase, tableName, payload) {
+	const first = await serviceSupabase.from(tableName).insert(payload).select('*').single();
+	if (!first.error || !isMissingScopedContactColumnError(first.error)) {
+		return first;
+	}
+	return serviceSupabase
+		.from(tableName)
+		.insert(stripScopedContactColumns(payload))
+		.select('*')
+		.single();
+}
+
+/**
+ * @param {any} serviceSupabase
+ * @param {Record<string, any>} existingRow
+ * @param {Record<string, any>} contactUpdates
+ * @param {string} updatedAt
+ */
+export async function updateExistingMembershipContactWithFallback(
+	serviceSupabase,
+	existingRow,
+	contactUpdates,
+	updatedAt
+) {
+	const result = await serviceSupabase
+		.from('group_memberships')
+		.update({
+			...contactUpdates,
+			updated_at: updatedAt
+		})
+		.eq('id', existingRow.id)
+		.select('*')
+		.single();
+	if (result.error && isMissingScopedContactColumnError(result.error)) {
+		return { data: existingRow, error: null, skippedScopedContactColumns: true };
+	}
+	return result;
+}
+
+/**
+ * @param {Record<string, any> | null | undefined} profilePayload
+ * @param {Record<string, any> | null} [fallbackContact]
+ */
 export function extractScopedContactColumns(profilePayload, fallbackContact = null) {
 	const normalized = normalizeProfilePayload(profilePayload);
 	const fallbackName = cleanNullableText(
@@ -85,6 +208,10 @@ export function extractScopedContactColumns(profilePayload, fallbackContact = nu
 	};
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} existingProfile
+ * @param {{ currentEmail?: string | null; profilePayload?: Record<string, any> | null }} [options]
+ */
 export function computeGlobalProfileBackfill(
 	existingProfile,
 	{ currentEmail = null, profilePayload = null } = {}
@@ -114,6 +241,10 @@ export function computeGlobalProfileBackfill(
 	};
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} record
+ * @param {Record<string, any> | null} [globalProfile]
+ */
 export function mergeScopedMemberContact(record, globalProfile = null) {
 	const scopedName = cleanNullableText(record?.contact_full_name, 120);
 	const scopedEmail = sanitizeEmail(record?.contact_email || '') || null;
@@ -137,11 +268,19 @@ export function mergeScopedMemberContact(record, globalProfile = null) {
 	};
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any;
+ *   userId: string | null | undefined;
+ *   currentEmail?: string | null;
+ *   profilePayload?: Record<string, any> | null;
+ * }} params
+ */
 export async function ensureUserGlobalProfileDefaults({
 	serviceSupabase,
 	userId,
 	currentEmail = null,
-	profilePayload
+	profilePayload = null
 }) {
 	if (!userId) return { updated: false };
 	const { data: existing, error: existingError } = await serviceSupabase
@@ -174,6 +313,11 @@ export async function ensureUserGlobalProfileDefaults({
 	return { updated: true, payload };
 }
 
+/**
+ * @param {Record<string, any>} before
+ * @param {Record<string, any>} payload
+ * @param {string} [now]
+ */
 export function buildTierUpdatePayload(before, payload, now = new Date().toISOString()) {
 	const nextMonthlyAmount =
 		payload?.monthly_amount_cents !== undefined || payload?.amount_cents !== undefined
@@ -255,6 +399,12 @@ export function buildTierUpdatePayload(before, payload, now = new Date().toISOSt
 	};
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {string} programId
+ * @param {string | null} [desiredDefaultTierId]
+ * @param {string} [now]
+ */
 export async function syncProgramDefaultTier(
 	serviceSupabase,
 	programId,
@@ -267,7 +417,7 @@ export async function syncProgramDefaultTier(
 		.eq('program_id', programId);
 	if (tierError) return { ok: false, status: 400, error: tierError.message };
 
-	const tiers = tierRows || [];
+	const tiers = /** @type {Array<Record<string, any>>} */ (tierRows || []);
 	const tierById = new Map(tiers.map((tier) => [tier.id, tier]));
 	let resolvedDefaultTierId = cleanNullableText(desiredDefaultTierId, 64);
 
@@ -320,6 +470,16 @@ export async function syncProgramDefaultTier(
 	};
 }
 
+/**
+ * @param {{
+ *   serviceSupabase: any;
+ *   before: Record<string, any>;
+ *   existingTiers?: Array<Record<string, any>>;
+ *   payload?: Record<string, any>;
+ *   now?: string;
+ *   onTierUpdated?: ((beforeTier: Record<string, any>, updatedTier: Record<string, any>) => Promise<void> | void) | null;
+ * }} params
+ */
 export async function executeUnifiedProgramAndTiersSave({
 	serviceSupabase,
 	before,
@@ -416,6 +576,7 @@ export async function executeUnifiedProgramAndTiersSave({
 	const shouldBumpPolicyVersion =
 		hasPolicyMarkdown && (explicitBump !== null ? explicitBump : policyChanged);
 
+	/** @type {Record<string, any>} */
 	const updates = {
 		enabled: normalizeBoolean(payload?.enabled, before.enabled !== false),
 		access_mode: accessMode,

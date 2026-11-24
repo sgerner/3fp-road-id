@@ -31,7 +31,7 @@
 		buildMembershipReturnPath,
 		parseMembershipHandoffParams
 	} from '#lib/groups/membershipHandoff';
-	import { isSafeInternalPath } from '#lib/security/navigation';
+	import { isSafeInternalPath, registerLoginReturnPathBuilder } from '#lib/security/navigation';
 
 	let { data } = $props();
 	const initialData = (() => data)();
@@ -307,11 +307,9 @@
 	}
 
 	$effect(() => {
-		if (typeof window === 'undefined') return;
-		window.__3fpLoginReturnPathBuilder = () => buildCurrentHandoffReturnPath();
-		return () => {
-			delete window.__3fpLoginReturnPathBuilder;
-		};
+		const pathname = page?.url?.pathname || '';
+		if (!pathname) return;
+		return registerLoginReturnPathBuilder(pathname, () => buildCurrentHandoffReturnPath());
 	});
 
 	function setFeedback(message = '', error = '') {

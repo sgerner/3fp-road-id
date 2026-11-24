@@ -18,6 +18,8 @@
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import { slide } from 'svelte/transition';
 	import GroupStripePaymentCard from '#lib/components/groups/GroupStripePaymentCard.svelte';
+	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		normalizeMembershipManageViewParam,
 		resolveInitialMembershipManageView
@@ -727,7 +729,7 @@
 			</button>
 		</div>
 
-		<div class="view-header-actions">
+		<ManageActionRow class="view-header-actions">
 			<button type="button" class="btn preset-tonal-surface" onclick={copyJoinLink}>
 				<IconLink class="h-4 w-4" />
 				<span>Copy Join Link</span>
@@ -749,7 +751,7 @@
 					{/if}
 				</button>
 			{/if}
-		</div>
+		</ManageActionRow>
 	</div>
 
 	<!-- Notifications -->
@@ -834,19 +836,27 @@
 			<!-- Member Roster -->
 			<section class="card">
 				<div class="card-accent" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon primary">
-							<IconUsers class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Member Roster</h2>
-							{#if pendingApplications.length > 0}
-								<span class="badge warning">{pendingApplications.length} pending</span>
-							{/if}
-						</div>
-					</div>
-				</div>
+				<ManageCardHeader
+					title="Member Roster"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconUsers}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						{#if pendingApplications.length > 0}
+							<span class="badge warning">{pendingApplications.length} pending</span>
+						{/if}
+					{/snippet}
+					{#snippet actions()}
+						<button type="button" class="btn preset-tonal-surface" onclick={copyJoinLink}>
+							<IconLink class="h-4 w-4" />
+							<span>Copy Join Link</span>
+						</button>
+					{/snippet}
+				</ManageCardHeader>
 
 				<div class="card-body">
 					<div class="filters-row">
@@ -960,7 +970,7 @@
 
 											<div class="status-actions">
 												<span class="action-label">Change status:</span>
-												<div class="action-buttons">
+												<ManageActionRow>
 													{#each STATUS_OPTIONS as status}
 														{@const isActive = member.status === status}
 														{@const statusPreset =
@@ -988,7 +998,7 @@
 															{status}
 														</button>
 													{/each}
-												</div>
+												</ManageActionRow>
 											</div>
 										</div>
 									{/if}
@@ -1003,17 +1013,19 @@
 			{#if applications.length > 0}
 				<section class="card">
 					<div class="card-accent warning" aria-hidden="true"></div>
-					<div class="card-header">
-						<div class="card-header-left">
-							<div class="card-icon warning">
-								<IconUsers class="h-5 w-5" />
-							</div>
-							<div class="card-title-group">
-								<h2 class="card-title">Applications</h2>
-								<span class="badge warning">{pendingApplications.length} pending</span>
-							</div>
-						</div>
-					</div>
+					<ManageCardHeader
+						title="Applications"
+						titleClass="text-[0.9375rem] font-semibold tracking-tight"
+						icon={IconUsers}
+						tone="warning"
+						iconVariant="tile"
+						padded
+						divider
+					>
+						{#snippet badges()}
+							<span class="badge warning">{pendingApplications.length} pending</span>
+						{/snippet}
+					</ManageCardHeader>
 
 					<div class="card-body">
 						<div class="application-list">
@@ -1048,7 +1060,7 @@
 										</span>
 									</div>
 									{#if ['submitted', 'under_review', 'payment_pending'].includes(app.status)}
-										<div class="application-actions">
+										<ManageActionRow>
 											<button
 												type="button"
 												class="btn preset-tonal-success"
@@ -1067,7 +1079,7 @@
 												<IconTrash class="h-4 w-4" />
 												Reject
 											</button>
-										</div>
+										</ManageActionRow>
 									{/if}
 								</div>
 							{/each}
@@ -1079,16 +1091,15 @@
 			<!-- Add Member (Manual — Members view only) -->
 			<section class="card" data-testid="manual-add-member-section">
 				<div class="card-accent success" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon success">
-							<IconPlus class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Add Member</h2>
-						</div>
-					</div>
-				</div>
+				<ManageCardHeader
+					title="Add Member"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconPlus}
+					tone="success"
+					iconVariant="tile"
+					padded
+					divider
+				/>
 
 				<div class="card-body">
 					<p class="card-description">
@@ -1191,20 +1202,16 @@
 			{#if activeTiers.length === 0 && (groupInfo?.membership_info || '').trim()}
 				<section class="card" data-testid="membership-notes-reference">
 					<div class="card-accent" aria-hidden="true"></div>
-					<div class="card-header">
-						<div class="card-header-left">
-							<div class="card-icon primary">
-								<IconFileText class="h-5 w-5" />
-							</div>
-							<div>
-								<h2 class="card-title">Saved Membership Notes from Group Profile</h2>
-								<p class="text-xs opacity-70">
-									Use your existing notes as a reference when setting up structured tiers below, or
-									import starter tiers to get started quickly.
-								</p>
-							</div>
-						</div>
-					</div>
+					<ManageCardHeader
+						title="Saved Membership Notes from Group Profile"
+						titleClass="text-[0.9375rem] font-semibold tracking-tight"
+						subtitle="Use your existing notes as a reference when setting up structured tiers below, or import starter tiers to get started quickly."
+						icon={IconFileText}
+						tone="primary"
+						iconVariant="tile"
+						padded
+						divider
+					/>
 					<div class="card-body">
 						<div class="reference-notes-box">{groupInfo.membership_info}</div>
 					</div>
@@ -1214,16 +1221,15 @@
 			<!-- Program Options (Flat Card) -->
 			<section class="card">
 				<div class="card-accent" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon primary">
-							<IconSettings class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Program Options</h2>
-						</div>
-					</div>
-				</div>
+				<ManageCardHeader
+					title="Program Options"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconSettings}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				/>
 				<div class="card-body">
 					<div class="settings-grid">
 						<div class="setting-item">
@@ -1290,17 +1296,19 @@
 			<!-- Tiers Setup (Flat Card) -->
 			<section class="card">
 				<div class="card-accent success" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon success">
-							<IconPlus class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Membership Tiers</h2>
-							<span class="badge">{activeTiers.length} active</span>
-						</div>
-					</div>
-					<div class="card-header-right">
+				<ManageCardHeader
+					title="Membership Tiers"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconPlus}
+					tone="success"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						<span class="badge">{activeTiers.length} active</span>
+					{/snippet}
+					{#snippet actions()}
 						<button
 							type="button"
 							class="btn btn-sm preset-tonal-tertiary"
@@ -1309,8 +1317,8 @@
 						>
 							Import Starter Tiers
 						</button>
-					</div>
-				</div>
+					{/snippet}
+				</ManageCardHeader>
 
 				<div class="card-body">
 					{#if tiers.length === 0}
@@ -1376,41 +1384,43 @@
 											</div>
 										</div>
 									</div>
-									<div class="tier-actions">
-										<div class="flex flex-wrap items-center gap-4">
-											<label class="checkbox-label">
-												<input
-													type="checkbox"
-													checked={program.default_tier_id === tier.id}
-													disabled={tier.is_active === false}
-													onchange={(e) =>
-														selectDefaultTier(e.currentTarget.checked ? tier.id : null)}
-												/>
-												<span>Default tier</span>
-											</label>
-											<label class="checkbox-label">
-												<input
-													type="checkbox"
-													checked={tier.is_active !== false}
-													onchange={(e) => {
-														const checked = e.currentTarget.checked;
-														tier.is_active = checked;
-														if (!checked && program.default_tier_id === tier.id) {
-															selectDefaultTier(null);
-														}
-													}}
-												/>
-												<span>Active</span>
-											</label>
-											<label class="checkbox-label">
-												<input
-													type="checkbox"
-													checked={tier.allow_custom_amount === true}
-													onchange={(e) => (tier.allow_custom_amount = e.currentTarget.checked)}
-												/>
-												<span>Allow custom amount</span>
-											</label>
-										</div>
+									<ManageActionRow>
+										{#snippet lead()}
+											<div class="flex flex-wrap items-center gap-4">
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={program.default_tier_id === tier.id}
+														disabled={tier.is_active === false}
+														onchange={(e) =>
+															selectDefaultTier(e.currentTarget.checked ? tier.id : null)}
+													/>
+													<span>Default tier</span>
+												</label>
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={tier.is_active !== false}
+														onchange={(e) => {
+															const checked = e.currentTarget.checked;
+															tier.is_active = checked;
+															if (!checked && program.default_tier_id === tier.id) {
+																selectDefaultTier(null);
+															}
+														}}
+													/>
+													<span>Active</span>
+												</label>
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={tier.allow_custom_amount === true}
+														onchange={(e) => (tier.allow_custom_amount = e.currentTarget.checked)}
+													/>
+													<span>Allow custom amount</span>
+												</label>
+											</div>
+										{/snippet}
 										<button
 											type="button"
 											class="btn-text danger"
@@ -1420,7 +1430,7 @@
 										>
 											<IconTrash class="h-4 w-4" />
 										</button>
-									</div>
+									</ManageActionRow>
 								</div>
 							{/each}
 						</div>
@@ -1465,13 +1475,13 @@
 								</div>
 							</div>
 						</div>
-						<div class="tier-actions">
-							<div class="tier-actions-left">
+						<ManageActionRow>
+							{#snippet lead()}
 								<label class="checkbox-label">
 									<input type="checkbox" bind:checked={newTier.is_default} />
 									<span>Set as default</span>
 								</label>
-							</div>
+							{/snippet}
 							<button
 								type="button"
 								class="btn preset-tonal-primary"
@@ -1481,7 +1491,7 @@
 								<IconPlus class="h-4 w-4" />
 								Add Tier
 							</button>
-						</div>
+						</ManageActionRow>
 					</div>
 				</div>
 			</section>
@@ -1489,17 +1499,19 @@
 			<!-- Membership Policy (Flat Card) -->
 			<section class="card">
 				<div class="card-accent" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon primary">
-							<IconFileText class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Membership Policy</h2>
-							<span class="version-badge">Version {program.policy_version || 1}</span>
-						</div>
-					</div>
-				</div>
+				<ManageCardHeader
+					title="Membership Policy"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconFileText}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						<span class="version-badge">Version {program.policy_version || 1}</span>
+					{/snippet}
+				</ManageCardHeader>
 				<div class="card-body">
 					<p class="card-description">
 						Shown to prospective members during signup. Editing policy text increments the policy
@@ -1517,16 +1529,15 @@
 			<!-- Custom Application Questions (Flat Card) -->
 			<section class="card">
 				<div class="card-accent warning" aria-hidden="true"></div>
-				<div class="card-header">
-					<div class="card-header-left">
-						<div class="card-icon warning">
-							<IconUsers class="h-5 w-5" />
-						</div>
-						<div class="card-title-group">
-							<h2 class="card-title">Custom Questions</h2>
-						</div>
-					</div>
-				</div>
+				<ManageCardHeader
+					title="Custom Questions"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconUsers}
+					tone="warning"
+					iconVariant="tile"
+					padded
+					divider
+				/>
 				<div class="card-body">
 					<p class="card-description">
 						Custom fields asked when access mode is set to Private (review required).
@@ -1591,11 +1602,13 @@
 								bind:value={newField.options_text}
 								rows="3"></textarea>
 						{/if}
-						<div class="field-actions-row">
-							<label class="checkbox-label">
-								<input type="checkbox" bind:checked={newField.required} />
-								<span>Required</span>
-							</label>
+						<ManageActionRow>
+							{#snippet lead()}
+								<label class="checkbox-label">
+									<input type="checkbox" bind:checked={newField.required} />
+									<span>Required</span>
+								</label>
+							{/snippet}
 							<button
 								type="button"
 								class="btn preset-tonal-primary"
@@ -1605,7 +1618,7 @@
 								<IconPlus class="h-4 w-4" />
 								Add Question
 							</button>
-						</div>
+						</ManageActionRow>
 					</div>
 				</div>
 			</section>
@@ -1749,13 +1762,6 @@
 		color: var(--color-warning-300);
 	}
 
-	.view-header-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
 	.view-panel {
 		display: flex;
 		flex-direction: column;
@@ -1844,13 +1850,13 @@
 	/* Stats Grid */
 	.stats-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.75rem;
 	}
 
 	@media (min-width: 640px) {
 		.stats-grid {
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 			gap: 1rem;
 		}
 	}
@@ -1891,12 +1897,8 @@
 		position: relative;
 		background: var(--card-bg);
 		border: 1px solid var(--card-border);
-		border-radius: 1.25rem;
 		overflow: hidden;
 		animation: card-in 360ms ease both;
-		box-shadow:
-			0 1px 3px color-mix(in oklab, black 8%, transparent),
-			0 4px 12px color-mix(in oklab, black 4%, transparent);
 	}
 
 	.card-accent {
@@ -1905,78 +1907,16 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.8;
+		background: var(--color-primary-500);
 		pointer-events: none;
 	}
 
 	.card-accent.warning {
-		background: linear-gradient(90deg, var(--color-warning-500), var(--color-tertiary-500));
+		background: var(--color-warning-500);
 	}
 
 	.card-accent.success {
-		background: linear-gradient(90deg, var(--color-success-500), var(--color-secondary-500));
-	}
-
-	.card-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 1rem 1.25rem;
-		border-bottom: 1px solid var(--card-border);
-	}
-
-	@media (max-width: 480px) {
-		.card-header {
-			padding: 0.875rem 1rem;
-		}
-	}
-
-	.card-header-left {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.card-header-right {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.card-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.25rem;
-		height: 2.25rem;
-		border-radius: 0.625rem;
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		color: var(--color-primary-400);
-		flex-shrink: 0;
-	}
-
-	.card-icon.warning {
-		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
-		color: var(--color-warning-400);
-	}
-
-	.card-icon.success {
-		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
-		color: var(--color-success-400);
-	}
-
-	.card-title-group {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		flex-wrap: wrap;
-	}
-
-	.card-title {
-		font-size: 1.0625rem;
-		font-weight: 650;
+		background: var(--color-success-500);
 	}
 
 	.card-body {
@@ -2013,7 +1953,7 @@
 	.search-input {
 		position: relative;
 		flex: 1;
-		min-width: 14rem;
+		min-width: min(100%, 200px);
 	}
 
 	.search-input :global(.search-icon) {
@@ -2036,13 +1976,19 @@
 	}
 
 	.filters-row .select {
-		min-width: 10rem;
+		min-width: min(100%, 140px);
 		padding: 0.625rem 2rem 0.625rem 0.875rem;
 		font-size: 0.875rem;
 		border-radius: 0.625rem;
 		background: var(--input-bg);
 		border: 1px solid var(--input-border);
 		color: inherit;
+		cursor: pointer;
+	}
+
+	.select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
 	}
 
 	.member-list,
@@ -2125,6 +2071,22 @@
 		margin-top: 0.125rem;
 	}
 
+	.tier-badge {
+		font-size: 0.6875rem;
+		font-weight: 500;
+		padding: 0.125rem 0.375rem;
+		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		border-radius: 0.25rem;
+	}
+
+	.dot {
+		opacity: 0.5;
+	}
+
+	.member-status {
+		flex-shrink: 0;
+	}
+
 	.status-badge {
 		display: inline-flex;
 		align-items: center;
@@ -2169,9 +2131,9 @@
 	}
 
 	.details-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+		gap: 0.75rem;
 		font-size: 0.8125rem;
 	}
 
@@ -2179,6 +2141,13 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.375rem;
+		min-width: 0;
+	}
+
+	.detail-item a {
+		color: inherit;
+		text-decoration: underline;
+		overflow-wrap: anywhere;
 	}
 
 	.detail-label {
@@ -2197,12 +2166,6 @@
 		opacity: 0.7;
 	}
 
-	.action-buttons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-	}
-
 	.application-row {
 		display: flex;
 		flex-wrap: wrap;
@@ -2215,11 +2178,6 @@
 		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
 	}
 
-	.application-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
 	/* Manual Add Member Form */
 	.manual-form {
 		display: flex;
@@ -2229,12 +2187,12 @@
 
 	.form-row {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.875rem;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
+		gap: 0.75rem;
 	}
 
 	.form-row.three-col {
-		grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+		grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, auto);
 	}
 
 	@media (max-width: 640px) {
@@ -2320,7 +2278,7 @@
 	/* Program Settings & Tiers */
 	.settings-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 		gap: 1rem;
 	}
 
@@ -2518,14 +2476,6 @@
 		overflow-wrap: anywhere;
 	}
 
-	.tier-actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-
 	.new-tier-form,
 	.new-field-form {
 		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
@@ -2618,22 +2568,15 @@
 
 	.field-row-inputs {
 		display: grid;
-		grid-template-columns: 2fr 1fr;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 		gap: 0.5rem;
 		margin-bottom: 0.75rem;
 	}
 
 	@media (max-width: 480px) {
 		.field-row-inputs {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
-	}
-
-	.field-actions-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
 	}
 
 	.empty-text {

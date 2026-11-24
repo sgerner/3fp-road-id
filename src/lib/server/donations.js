@@ -17,9 +17,14 @@ import {
 	verifySignedConnectState
 } from '#lib/server/stripe';
 import { postDonationToGroupAccounting } from '#lib/server/groupAccounting';
-import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection';
+import {
+	appendConnectStatusParams,
+	buildConnectReturnPath,
+	getGroupStripeBillingGuard,
+	sanitizeGroupConnectReturnPath
+} from '#lib/server/groupStripeConnection.js';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
-import { isSafeInternalPath, timingSafeStringEqual } from '#lib/server/security';
+import { timingSafeStringEqual } from '#lib/server/security';
 
 function normalizeEmail(value) {
 	if (!value || typeof value !== 'string') return '';
@@ -132,30 +137,7 @@ export async function requireGroupDonationManager(cookies, groupSlug) {
 	return { ok: true, ...auth, group };
 }
 
-function sanitizeGroupConnectReturnPath(slug, returnTo) {
-	const cleanSlug = cleanText(slug);
-	const candidate = cleanText(returnTo, 512);
-	if (!cleanSlug || !candidate || !isSafeInternalPath(candidate)) return '';
-	const allowedPrefix = `/groups/${encodeURIComponent(cleanSlug)}/manage`;
-	if (
-		candidate === allowedPrefix ||
-		candidate.startsWith(`${allowedPrefix}/`) ||
-		candidate.startsWith(`${allowedPrefix}?`)
-	) {
-		return candidate;
-	}
-	return '';
-}
-
-function buildConnectReturnPath(target) {
-	if (!target || target.type === 'main') return '/donate?manage=1';
-	if (target.type === 'group') {
-		const customReturn = sanitizeGroupConnectReturnPath(target.slug, target.returnTo);
-		if (customReturn) return customReturn;
-		return `/groups/${encodeURIComponent(target.slug)}/manage/edit`;
-	}
-	return '/donate';
-}
+export { appendConnectStatusParams, sanitizeGroupConnectReturnPath };
 
 export function createConnectStateToken(target, userId) {
 	const isGroup = target?.type === 'group';

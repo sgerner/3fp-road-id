@@ -1,5 +1,10 @@
 import { isSafeInternalPath } from '#lib/security/navigation.js';
 
+/**
+ * @param {unknown} value
+ * @param {number} [maxLength]
+ * @returns {string}
+ */
 function sanitizeParamText(value, maxLength = 120) {
 	if (value === null || value === undefined) return '';
 	let cleaned = '';
@@ -12,6 +17,10 @@ function sanitizeParamText(value, maxLength = 120) {
 	return maxLength > 0 ? cleaned.slice(0, maxLength) : cleaned;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {'' | 'month' | 'year'}
+ */
 export function normalizeHandoffInterval(value) {
 	const raw = sanitizeParamText(value, 16).toLowerCase();
 	if (raw === 'year' || raw === 'annual' || raw === 'yearly') return 'year';
@@ -19,6 +28,10 @@ export function normalizeHandoffInterval(value) {
 	return '';
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function normalizeHandoffAmount(value) {
 	if (value === null || value === undefined) return '';
 	const raw = sanitizeParamText(value, 24);
@@ -64,7 +77,11 @@ export function buildMembershipReturnPath({
 	return isSafeInternalPath(candidate) ? candidate : basePath;
 }
 
+/**
+ * @param {unknown} input
+ */
 export function parseMembershipHandoffParams(input) {
+	/** @type {{ get: (key: string) => string | null } | null} */
 	let params = null;
 	if (input instanceof URLSearchParams) {
 		params = input;
@@ -73,8 +90,13 @@ export function parseMembershipHandoffParams(input) {
 		const queryIndex = trimmed.indexOf('?');
 		const query = queryIndex >= 0 ? trimmed.slice(queryIndex + 1) : trimmed;
 		params = new URLSearchParams(query);
-	} else if (input && typeof input.get === 'function') {
-		params = input;
+	} else if (
+		input &&
+		typeof input === 'object' &&
+		'get' in input &&
+		typeof input.get === 'function'
+	) {
+		params = /** @type {{ get: (key: string) => string | null }} */ (input);
 	}
 
 	if (!params) {
@@ -98,6 +120,10 @@ export function parseMembershipHandoffParams(input) {
 	};
 }
 
+/**
+ * @param {unknown} value
+ * @returns {'' | 'program' | 'members'}
+ */
 export function normalizeMembershipManageViewParam(value) {
 	const raw = sanitizeParamText(value, 32).toLowerCase();
 	if (raw === 'program' || raw === 'setup' || raw === 'tiers' || raw === 'program-and-tiers') {
@@ -109,6 +135,10 @@ export function normalizeMembershipManageViewParam(value) {
 	return '';
 }
 
+/**
+ * @param {{ requestedView?: unknown; tiers?: Array<Record<string, any>> }} [options]
+ * @returns {'program' | 'members'}
+ */
 export function resolveInitialMembershipManageView({ requestedView = '', tiers = [] } = {}) {
 	const explicit = normalizeMembershipManageViewParam(requestedView);
 	if (explicit) return explicit;

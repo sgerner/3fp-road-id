@@ -31,8 +31,10 @@ import {
 	ensureUserGlobalProfileDefaults,
 	executeUnifiedProgramAndTiersSave,
 	extractScopedContactColumns,
+	insertWithScopedContactFallback,
 	mergeScopedMemberContact,
-	syncProgramDefaultTier
+	syncProgramDefaultTier,
+	updateExistingMembershipContactWithFallback
 } from '#lib/server/membershipProgramAndContacts.js';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
@@ -1051,15 +1053,13 @@ async function findOrCreateMembership({
 			contactUpdates.contact_phone = contactColumns.contact_phone;
 		}
 		if (Object.keys(contactUpdates).length > 0) {
-			const { data: updatedExisting, error: updateExistingError } = await serviceSupabase
-				.from('group_memberships')
-				.update({
-					...contactUpdates,
-					updated_at: toIsoNow()
-				})
-				.eq('id', existingRow.id)
-				.select('*')
-				.single();
+			const { data: updatedExisting, error: updateExistingError } =
+				await updateExistingMembershipContactWithFallback(
+					serviceSupabase,
+					existingRow,
+					contactUpdates,
+					toIsoNow()
+				);
 			if (updateExistingError) throw new Error(updateExistingError.message);
 			return updatedExisting;
 		}
@@ -1078,9 +1078,10 @@ async function findOrCreateMembership({
 		? plusInterval(now, billingInterval, 1).toISOString()
 		: calculateRenewalDate(tier, now);
 
-	const { data, error } = await serviceSupabase
-		.from('group_memberships')
-		.insert({
+	const { data, error } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_memberships',
+		{
 			group_id: groupId,
 			user_id: userId,
 			tier_id: tierId,
@@ -1097,9 +1098,8 @@ async function findOrCreateMembership({
 			created_from_application_id: applicationId,
 			created_at: now.toISOString(),
 			updated_at: now.toISOString()
-		})
-		.select('*')
-		.single();
+		}
+	);
 	if (error) throw new Error(error.message);
 	return data;
 }
@@ -2610,11 +2610,11 @@ export async function applyForMembership({ cookies, groupSlug, payload, fetchImp
 		updated_at: submittedAt
 	};
 
-	const { data: application, error: appError } = await serviceSupabase
-		.from('group_membership_applications')
-		.insert(applicationPayload)
-		.select('*')
-		.single();
+	const { data: application, error: appError } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_membership_applications',
+		applicationPayload
+	);
 	if (appError) return { ok: false, status: 400, error: appError.message };
 
 	if (answers.length && fields.length) {
@@ -4285,9 +4285,10 @@ export async function createManualMembership({
 		0
 	);
 
-	const { data, error } = await serviceSupabase
-		.from('group_memberships')
-		.insert({
+	const { data, error } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_memberships',
+		{
 			group_id: auth.group.id,
 			user_id: userId,
 			tier_id: tier.id,
@@ -4306,9 +4307,8 @@ export async function createManualMembership({
 			created_by_owner_id: auth.userId,
 			created_at: toIsoNow(),
 			updated_at: toIsoNow()
-		})
-		.select('*')
-		.single();
+		}
+	);
 	if (error) return { ok: false, status: 400, error: error.message };
 
 	await writeAuditLog(serviceSupabase, {

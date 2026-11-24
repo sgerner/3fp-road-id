@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import {
+	appendConnectStatusParams,
 	buildConnectReturnPath,
 	parseConnectStateToken,
 	requireGroupDonationManager,
@@ -9,11 +10,14 @@ import {
 } from '#lib/server/donations';
 import { getStripeClient } from '#lib/server/stripe';
 
+/**
+ * @param {string} path
+ * @param {string} status
+ * @param {string} [reason]
+ * @returns {string}
+ */
 function buildReturnUrl(path, status, reason = '') {
-	const qp = new URLSearchParams();
-	qp.set('stripe', status);
-	if (reason) qp.set('reason', reason);
-	return `${path}${path.includes('?') ? '&' : '?'}${qp.toString()}`;
+	return appendConnectStatusParams(path, status, reason);
 }
 
 export const GET = async ({ url, cookies }) => {
@@ -47,7 +51,7 @@ export const GET = async ({ url, cookies }) => {
 	} else {
 		auth = await requireMainDonationManager(cookies);
 	}
-	if (!auth?.ok) {
+	if (!auth?.ok || !('userId' in auth)) {
 		throw redirect(303, buildReturnUrl(returnPath, 'error', 'unauthorized'));
 	}
 	if (state.userId && state.userId !== auth.userId) {
@@ -80,7 +84,7 @@ export const GET = async ({ url, cookies }) => {
 	}
 
 	try {
-		if (state.type === 'group') {
+		if (state.type === 'group' && 'group' in auth) {
 			await upsertDonationAccountForGroup(auth.group, stripeAccount);
 		} else {
 			await upsertDonationAccountForMain(stripeAccount);

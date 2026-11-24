@@ -1,4 +1,6 @@
 <script>
+	import ManageActionRow from './ManageActionRow.svelte';
+
 	let {
 		slug = '',
 		stripeConnection = null,
@@ -131,12 +133,15 @@
 			statusMessage = 'Stripe account disconnected.';
 			onDisconnected?.();
 		} catch (err) {
-			errorMessage = err?.message || 'Failed to disconnect Stripe account.';
+			errorMessage = err instanceof Error ? err.message : 'Failed to disconnect Stripe account.';
 		} finally {
 			busy = false;
 		}
 	}
 
+	/**
+	 * @param {MouseEvent} event
+	 */
 	function handleManageLinkClick(event) {
 		if (typeof onOpenProgramAndTiers === 'function') {
 			event.preventDefault();
@@ -154,8 +159,8 @@
 	</div>
 
 	<div class="border-surface-500/25 bg-surface-900/35 rounded-xl border p-4">
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div class="space-y-1 text-sm">
+		<div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
+			<div class="min-w-[min(100%,12rem)] flex-1 space-y-1 text-sm [overflow-wrap:anywhere]">
 				<div class="flex flex-wrap items-center gap-2 font-semibold">
 					<span>{connected ? 'Stripe account connected' : 'Stripe not connected'}</span>
 					{#if connected}
@@ -195,7 +200,7 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-wrap items-center gap-2">
+			<ManageActionRow>
 				<button
 					type="button"
 					class="btn preset-filled-primary-500"
@@ -214,7 +219,7 @@
 						{busy ? 'Disconnecting…' : 'Disconnect'}
 					</button>
 				{/if}
-			</div>
+			</ManageActionRow>
 		</div>
 
 		{#if blockedReason}

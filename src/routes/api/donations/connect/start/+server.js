@@ -21,7 +21,7 @@ export const GET = async ({ url, cookies }) => {
 		target = { type: 'main' };
 	}
 
-	if (!auth?.ok) {
+	if (!auth?.ok || !('userId' in auth)) {
 		return json(
 			{ error: auth?.error || 'Authentication failed.' },
 			{ status: auth?.status || 401 }
@@ -38,7 +38,9 @@ export const GET = async ({ url, cookies }) => {
 		clientId = getStripeConnectClientId();
 	} catch (error) {
 		return json(
-			{ error: error?.message || 'Stripe Connect client id is missing.' },
+			{
+				error: error instanceof Error ? error.message : 'Stripe Connect client id is missing.'
+			},
 			{ status: 500 }
 		);
 	}

@@ -490,7 +490,7 @@
 					{#if recipient?.accountConnected}
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-2.5 text-sm font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-[3px] px-6 py-2.5 text-sm font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							disabled={disconnecting}
 							onclick={disconnectMainStripe}
 						>
@@ -545,7 +545,7 @@
 				</p>
 				<a
 					href={`/groups/${encodeURIComponent(groupSlug)}`}
-					class="text-primary-500 self-start text-sm font-black uppercase underline"
+					class="text-primary-500 inline-flex min-h-6 items-center self-start py-1 text-sm font-black uppercase underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 				>
 					Back to {recipientLabel}
 				</a>
@@ -579,7 +579,7 @@
 					</p>
 					<a
 						href={isGroupRecipient && groupSlug ? `/groups/${encodeURIComponent(groupSlug)}` : '/'}
-						class="text-primary-500 self-start text-sm font-black uppercase underline"
+						class="text-primary-500 inline-flex min-h-6 items-center self-start py-1 text-sm font-black uppercase underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						Back to {recipientLabel}
 					</a>
