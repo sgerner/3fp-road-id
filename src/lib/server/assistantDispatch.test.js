@@ -302,6 +302,26 @@ test('dispatchContextualAssistantRequest delegates authoring modes and preserves
 					takeaways: ['Check tire pressure', 'Pack front and rear lights']
 				});
 			}
+			if (body.action === 'audit_alt') {
+				return json({
+					totalImages: 2,
+					flaggedCount: 1,
+					proposals: [
+						{
+							index: 1,
+							imageUrl: '/community/1.jpg',
+							currentAlt: '1.jpg',
+							proposedAlt: 'Open Volunteer Tabling Canva template: neighborhood flyer',
+							isDecorative: false,
+							isSoleLinkContent: true,
+							isCanvaLink: true,
+							enclosingLinkUrl: 'https://www.canva.com/design/DAGabc/view',
+							sectionHeading: 'Canva Flyers',
+							status: 'ok'
+						}
+					]
+				});
+			}
 			return json({ draft: '# Updated Guide\n\nClear steps for new riders.' });
 		},
 		rideWriter: async () =>
@@ -377,6 +397,32 @@ test('dispatchContextualAssistantRequest delegates authoring modes and preserves
 	assert.equal(takeawaysData.proposal.kind, 'learn-takeaways');
 	assert.equal(takeawaysData.proposal.baseSummary, 'Old summary');
 	assert.equal(takeawaysData.proposal.takeaways.length, 2);
+
+	// Alt-text audit preview (both explicit learnAction and natural-language prompt)
+	const altAuditRes = await dispatchContextualAssistantRequest({
+		event: createMockEvent({ headers: { 'x-auth': 'user-1' } }),
+		payload: {
+			mode: 'learn-write',
+			learnAction: 'audit_alt',
+			messages: [{ role: 'user', content: 'Audit image alt text in my current draft' }],
+			editorContext: {
+				title: 'Volunteer Outreach',
+				bodyMarkdown: '[![1.jpg](/community/1.jpg)](https://www.canva.com/design/DAGabc/view)',
+				baseMarkdown: '[![1.jpg](/community/1.jpg)](https://www.canva.com/design/DAGabc/view)'
+			}
+		},
+		byteLength: 400,
+		handlers
+	});
+	const altAuditData = await altAuditRes.json();
+	assert.equal(altAuditData.proposal.kind, 'learn-alt-audit');
+	assert.equal(altAuditData.proposal.totalImages, 2);
+	assert.equal(altAuditData.proposal.flaggedCount, 1);
+	assert.equal(altAuditData.proposal.items.length, 1);
+	assert.equal(altAuditData.proposal.items[0].isCanvaLink, true);
+	assert.equal(altAuditData.proposal.items[0].isSoleLinkContent, true);
+	assert.equal(altAuditData.proposal.items[0].selected, true);
+	assert.match(altAuditData.reply, /Flagged 1 image/);
 
 	// Ride writer returns preview proposal with baseFingerprint and diff summary
 	const initialRide = { title: '', estimatedDistanceMiles: '' };

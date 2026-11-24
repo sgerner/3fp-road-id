@@ -19,6 +19,7 @@
 		normalizeNavigationTarget,
 		renderAssistantMessageHtml
 	} from '#lib/ai/assistantMessage';
+	import { LEARN_ALT_TEXT_MAX_LENGTH } from '#lib/learn/altText.js';
 	import { safeHttpUrl } from '#lib/security/urls';
 
 	const DEFAULT_WELCOME = {
@@ -113,14 +114,7 @@
 				input = req.prompt.slice(0, maxInputLength);
 			}
 			if (req.learnAction) {
-				const fallbackPrompt =
-					req.learnAction === 'takeaways'
-						? req.prompt || 'Preview key takeaways for my current draft'
-						: req.prompt;
-				if (fallbackPrompt) {
-					input = fallbackPrompt.slice(0, maxInputLength);
-					void sendMessage({ learnAction: req.learnAction });
-				}
+				triggerLearnStudioAction(req.learnAction);
 			} else if (req.submit && req.prompt.trim()) {
 				void sendMessage();
 			}
@@ -598,6 +592,18 @@
 			void sendMessage({ learnAction: 'takeaways' });
 			return;
 		}
+		if (action === 'audit_alt') {
+			const current = pageConfig?.getContext?.() ?? {};
+			if (!String(current.bodyMarkdown || '').trim()) {
+				error = 'Add markdown content with images before auditing image alt text.';
+				return;
+			}
+			if (!input.trim()) {
+				input = 'Audit image alt text in my current draft';
+			}
+			void sendMessage({ learnAction: 'audit_alt' });
+			return;
+		}
 		if (!input.trim()) {
 			error =
 				action === 'ask'
@@ -613,6 +619,30 @@
 		if (!proposal || !pageConfig) return;
 		error = '';
 		statusBanner = null;
+
+		if (proposal.kind === 'learn-alt-audit') {
+			const result = await pageConfig.applyAltAudit?.(proposal);
+			if (!result?.ok) {
+				proposalStates = {
+					...proposalStates,
+					[messageId]: {
+						status: result?.validationError ? 'validation' : 'conflict',
+						message:
+							result?.error ||
+							'Your draft changed after this alt-text audit was created. Run the audit again so your latest edits are preserved.'
+					}
+				};
+				return;
+			}
+			proposalStates = {
+				...proposalStates,
+				[messageId]: {
+					status: 'applied',
+					message: `Updated alt text on ${result.updatedCount || 1} image(s). You can undo before making conflicting edits.`
+				}
+			};
+			return;
+		}
 
 		if (proposal.kind === 'learn-draft' || proposal.kind === 'ride-draft') {
 			const result = await pageConfig.applyDraft?.(proposal);
@@ -812,6 +842,11 @@
 				/\b(?:preview|generate|find|create)\s+(?:key\s+)?takeaways?\b|^takeaways\b/i.test(message);
 			if (looksLikeTakeaways && !String(ctx.bodyMarkdown || '').trim()) {
 				error = 'Add some article text before generating takeaways.';
+				return;
+			}
+			const looksLikeAltAudit = /\baudit\b.*\balt\b|\balt[- ]text\s+audit\b/i.test(message);
+			if (looksLikeAltAudit && !String(ctx.bodyMarkdown || '').trim()) {
+				error = 'Add markdown content with images before auditing image alt text.';
 				return;
 			}
 		}
@@ -1427,6 +1462,144 @@
 												<li>{takeaway}</li>
 											{/each}
 										</ul>
+									{:else if entry.proposal.kind === 'learn-alt-audit'}
+										<p
+											class="text-primary-500 m-0 text-[10px] font-bold tracking-[0.2em] uppercase"
+										>
+											Image alt-text review
+										</p>
+										{#if pState.status === 'conflict'}
+											<p
+												class="bg-warning-500 text-surface-950 m-0 px-3 py-2 text-xs font-bold"
+												role="alert"
+											>
+												{pState.message}
+											</p>
+										{:else if pState.status === 'applied'}
+											<div class="flex flex-wrap items-center justify-between gap-2">
+												<span class="text-primary-500 text-xs font-bold">{pState.message}</span>
+												<button
+													type="button"
+													class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-1.5 rounded-none border-2 px-3 py-1.5 text-xs font-black uppercase transition"
+													onclick={() => handleUndoActiveDraft(entry.id)}
+												>
+													<IconUndo2 class="h-3.5 w-3.5" />
+													Undo
+												</button>
+											</div>
+										{:else if pState.status === 'dismissed' || pState.status === 'undone'}
+											<p class="text-surface-300 m-0 text-xs">{pState.message}</p>
+										{:else}
+											<div class="max-h-72 space-y-2.5 overflow-y-auto pr-1">
+												{#each entry.proposal.items as item (item.index)}
+													<div class="border-surface-800 bg-surface-950 space-y-2 border p-2.5">
+														<div class="flex flex-wrap items-center justify-between gap-2">
+															<label class="flex items-center gap-2 text-xs font-bold">
+																<input
+																	type="checkbox"
+																	class="checkbox accent-primary-500"
+																	bind:checked={item.selected}
+																/>
+																<span>
+																	Current alt:
+																	<code class="text-primary-500"
+																		>{item.currentAlt || '(empty)'}</code
+																	>
+																</span>
+															</label>
+															<div class="flex flex-wrap gap-1">
+																{#if item.isCanvaLink}
+																	<span
+																		class="bg-tertiary-500 text-surface-950 px-1.5 py-0.5 text-[10px] font-black uppercase"
+																		>Canva template link</span
+																	>
+																{:else if item.isSoleLinkContent}
+																	<span
+																		class="bg-secondary-500 text-surface-50 px-1.5 py-0.5 text-[10px] font-black uppercase"
+																		>Image-only link</span
+																	>
+																{/if}
+																{#if item.sectionHeading}
+																	<span
+																		class="border-surface-700 text-surface-300 border px-1.5 py-0.5 text-[10px] font-bold"
+																		>{item.sectionHeading}</span
+																	>
+																{/if}
+															</div>
+														</div>
+														<p class="text-surface-300 m-0 truncate text-[11px]">
+															{item.imageUrl}
+														</p>
+														<div class="space-y-1">
+															<div class="flex items-center justify-between gap-2">
+																<label
+																	class="text-surface-200 text-[11px] font-bold"
+																	for={`assistant-audit-alt-${entry.id}-${item.index}`}
+																>
+																	Replacement alt text
+																</label>
+																<span class="text-surface-300 text-[11px] tabular-nums">
+																	{item.isDecorative
+																		? 0
+																		: item.proposedAlt.length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+																</span>
+															</div>
+															<input
+																id={`assistant-audit-alt-${entry.id}-${item.index}`}
+																class="border-surface-500 bg-surface-900 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full rounded-none border-2 px-2.5 py-1.5 text-xs focus:ring-0 focus:outline-none"
+																type="text"
+																maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+																disabled={item.isDecorative}
+																bind:value={item.proposedAlt}
+																oninput={() => {
+																	if (item.proposedAlt.trim()) item.selected = true;
+																}}
+																placeholder={item.isCanvaLink
+																	? 'Describe the Canva template link purpose and poster subject…'
+																	: 'Describe the image content in 150 characters or fewer…'}
+															/>
+														</div>
+														{#if !item.isSoleLinkContent}
+															<label class="text-surface-300 flex items-center gap-2 text-xs">
+																<input
+																	type="checkbox"
+																	class="checkbox accent-primary-500"
+																	bind:checked={item.isDecorative}
+																	onchange={() => {
+																		if (item.isDecorative) item.selected = true;
+																	}}
+																/>
+																<span>Decorative image (use empty <code>alt=""</code>)</span>
+															</label>
+														{/if}
+													</div>
+												{/each}
+											</div>
+											{#if pState.status === 'validation'}
+												<p
+													class="bg-warning-500 text-surface-950 m-0 px-3 py-2 text-xs font-bold"
+													role="alert"
+												>
+													{pState.message}
+												</p>
+											{/if}
+											<div class="flex flex-wrap gap-2">
+												<button
+													type="button"
+													class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 rounded-none px-3 py-2 text-xs font-black tracking-wider uppercase transition"
+													onclick={() => handleApplyProposal(entry.id, entry.proposal)}
+												>
+													Apply alt text updates
+												</button>
+												<button
+													type="button"
+													class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 rounded-none border-2 px-3 py-2 text-xs font-bold uppercase transition"
+													onclick={() => dismissProposal(entry.id)}
+												>
+													Keep current
+												</button>
+											</div>
+										{/if}
 									{:else if entry.proposal.kind === 'ride-draft' || entry.proposal.kind === 'group-site-draft'}
 										<p
 											class="text-primary-500 m-0 text-[10px] font-bold tracking-[0.2em] uppercase"
@@ -1573,11 +1746,13 @@
 								<span>
 									{activeLearnAction === 'takeaways'
 										? 'Preparing takeaway preview…'
-										: activeMode === 'safety-report'
-											? 'Reading the review & sources…'
-											: isAuthoringMode
-												? 'Preparing draft preview…'
-												: 'Searching 3 Feet Please…'}
+										: activeLearnAction === 'audit_alt'
+											? 'Auditing image alt text…'
+											: activeMode === 'safety-report'
+												? 'Reading the review & sources…'
+												: isAuthoringMode
+													? 'Preparing draft preview…'
+													: 'Searching 3 Feet Please…'}
 								</span>
 							</div>
 						</div>
@@ -1642,6 +1817,14 @@
 						onclick={() => triggerLearnStudioAction('takeaways')}
 					>
 						Preview takeaways
+					</button>
+					<button
+						type="button"
+						class="border-surface-500 bg-surface-900 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 rounded-none border px-2.5 py-1 text-[11px] font-black tracking-wide uppercase transition disabled:opacity-50"
+						disabled={sending}
+						onclick={() => triggerLearnStudioAction('audit_alt')}
+					>
+						Audit alt text
 					</button>
 					{#if pageConfig?.canAskSavedArticle}
 						<button

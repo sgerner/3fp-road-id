@@ -390,7 +390,12 @@ export async function dispatchContextualAssistantRequest({
 				: {};
 		const rawAction = cleanString(payload?.learnAction, 24).toLowerCase();
 		let action =
-			rawAction === 'takeaways' || rawAction === 'ask' || rawAction === 'write' ? rawAction : '';
+			rawAction === 'takeaways' ||
+			rawAction === 'audit_alt' ||
+			rawAction === 'ask' ||
+			rawAction === 'write'
+				? rawAction
+				: '';
 		if (!action) {
 			if (
 				/\b(?:preview|generate|find|create)\s+(?:key\s+)?takeaways?\b|^takeaways\b/i.test(
@@ -398,6 +403,8 @@ export async function dispatchContextualAssistantRequest({
 				)
 			) {
 				action = 'takeaways';
+			} else if (/\baudit\b.*\balt\b|\balt[- ]text\s+audit\b/i.test(latestUserMessage)) {
+				action = 'audit_alt';
 			} else {
 				action = 'write';
 			}
@@ -414,7 +421,7 @@ export async function dispatchContextualAssistantRequest({
 			...(articleId ? { articleId } : {}),
 			...(action === 'ask' ? { question: latestUserMessage.slice(0, 700) } : {}),
 			...(action === 'write' ? { prompt: latestUserMessage.slice(0, 1200), content, title } : {}),
-			...(action === 'takeaways' ? { content, title, summary } : {})
+			...(action === 'takeaways' || action === 'audit_alt' ? { content, title, summary } : {})
 		};
 
 		const subEvent = createDelegatedEvent(event, '/api/learn/ai', learnBody);
@@ -435,6 +442,57 @@ export async function dispatchContextualAssistantRequest({
 				{
 					mode: 'learn-write',
 					reply: String(data.answer || '').trim(),
+					recommendations: [],
+					navigationTarget: null,
+					followUpQuestion: null
+				},
+				{ status: 200, headers: copySafeHeaders(response) }
+			);
+		}
+
+		if (action === 'audit_alt') {
+			const totalImages = Number(data.totalImages ?? 0);
+			const rawProposals = Array.isArray(data.proposals) ? data.proposals : [];
+			const items = rawProposals.map((item) => ({
+				index: Number(item.index ?? 0),
+				imageUrl: String(item.imageUrl || ''),
+				currentAlt: String(item.currentAlt || ''),
+				proposedAlt: String(item.proposedAlt || ''),
+				isDecorative: Boolean(item.isDecorative),
+				isSoleLinkContent: Boolean(item.isSoleLinkContent),
+				isCanvaLink: Boolean(item.isCanvaLink),
+				enclosingLinkUrl: String(item.enclosingLinkUrl || ''),
+				sectionHeading: String(item.sectionHeading || ''),
+				status: String(item.status || 'ok'),
+				selected: Boolean(item.proposedAlt || item.isDecorative)
+			}));
+			let replyText = '';
+			if (!totalImages) {
+				replyText = 'No markdown images were found in this draft.';
+			} else if (!items.length) {
+				replyText = `Checked ${totalImages} image(s). All markdown images already have descriptive alt text.`;
+			} else {
+				const draftedCount = items.filter((item) => item.proposedAlt || item.isDecorative).length;
+				replyText = draftedCount
+					? `Flagged ${items.length} image(s) with filename or missing alt text. Review and edit the proposed descriptions below before applying.`
+					: `Flagged ${items.length} image(s) with filename or missing alt text. AI suggestions were unavailable—enter descriptions manually below and apply.`;
+			}
+			return json(
+				{
+					mode: 'learn-write',
+					reply: replyText,
+					proposal: items.length
+						? {
+								kind: 'learn-alt-audit',
+								totalImages,
+								flaggedCount: Number(data.flaggedCount ?? items.length),
+								items,
+								baseMarkdown:
+									typeof editorContext.baseMarkdown === 'string'
+										? editorContext.baseMarkdown
+										: content
+							}
+						: null,
 					recommendations: [],
 					navigationTarget: null,
 					followUpQuestion: null

@@ -4,6 +4,11 @@
 	import IconUndo2 from '@lucide/svelte/icons/undo-2';
 	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
+	import {
+		LEARN_ALT_TEXT_MAX_LENGTH,
+		applyMarkdownAltReplacements,
+		sanitizeAltText
+	} from '#lib/learn/altText.js';
 
 	let {
 		articleId = null,
@@ -77,6 +82,70 @@
 		return { ok: false, error: 'Unable to apply this draft right now.' };
 	}
 
+	function applyAltAuditProposal(proposal) {
+		const editor = getEditor?.();
+		if (!editor) {
+			return {
+				ok: false,
+				error: 'The article editor is still loading. Try applying again in a moment.'
+			};
+		}
+		const currentMarkdown = editor.getMarkdown?.() ?? '';
+		const check = verifyBaseFingerprint(
+			currentMarkdown,
+			proposal?.baseMarkdown,
+			'Your article draft changed after this alt-text audit was created. Run the audit again so your latest edits are preserved.'
+		);
+		if (!check.ok) return check;
+
+		const items = Array.isArray(proposal?.items) ? proposal.items : [];
+		const replacements = items
+			.filter((item) => item?.selected)
+			.map((item) => ({
+				index: item.index,
+				altText: item.proposedAlt,
+				isDecorative: Boolean(item.isDecorative && !item.isSoleLinkContent)
+			}))
+			.filter(
+				(item) =>
+					item.isDecorative ||
+					Boolean(
+						sanitizeAltText(item.altText, {
+							maxLength: LEARN_ALT_TEXT_MAX_LENGTH
+						})
+					)
+			);
+
+		if (!replacements.length) {
+			return {
+				ok: false,
+				validationError: true,
+				error:
+					'Enter descriptive alt text (not a filename) for at least one selected image before applying.'
+			};
+		}
+
+		const nextMarkdown = applyMarkdownAltReplacements(currentMarkdown, replacements);
+		if (nextMarkdown === currentMarkdown) {
+			return {
+				ok: false,
+				validationError: true,
+				error: 'No image tags were updated. Ensure descriptions are descriptive and not filenames.'
+			};
+		}
+
+		appliedPrevious = currentMarkdown;
+		appliedText = nextMarkdown;
+		undoConflictMessage = '';
+		if (editor.setMarkdown?.(nextMarkdown)) {
+			appliedText = editor.getMarkdown?.() ?? nextMarkdown;
+			return { ok: true, updatedCount: replacements.length };
+		}
+		appliedPrevious = null;
+		appliedText = null;
+		return { ok: false, error: 'Unable to apply alt text updates right now.' };
+	}
+
 	function undoDraft() {
 		if (appliedPrevious === null) {
 			return { ok: false, error: 'No applied draft to undo.' };
@@ -144,6 +213,7 @@
 			canAskSavedArticle: Boolean(canAsk),
 			getContext: buildAssistantEditorContext,
 			applyDraft,
+			applyAltAudit: applyAltAuditProposal,
 			undoDraft,
 			applySummary: applySummaryProposal,
 			undoSummary: undoSummaryProposal,
@@ -181,8 +251,8 @@
 					{heading}
 				</h2>
 				<p class="text-surface-300 text-xs leading-relaxed">
-					Draft revisions, takeaway previews, and saved-article questions open in the 3FP Assistant
-					so you can review changes before applying.
+					Draft revisions, takeaway previews, image alt-text audits, and saved-article questions
+					open in the 3FP Assistant so you can review changes before applying.
 				</p>
 			</div>
 		</div>
@@ -220,6 +290,18 @@
 				})}
 		>
 			Preview takeaways
+		</button>
+		<button
+			type="button"
+			class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+			onclick={(event) =>
+				openStudio({
+					prompt: 'Audit image alt text in my current draft',
+					learnAction: 'audit_alt',
+					triggerEl: event.currentTarget
+				})}
+		>
+			Audit image alt text
 		</button>
 		{#if canAsk}
 			<button
