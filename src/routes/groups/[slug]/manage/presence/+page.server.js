@@ -157,7 +157,7 @@ export const load = async ({ parent, url, cookies }) => {
 				.eq('group_id', group.id)
 				.maybeSingle()
 		).catch(() => ({ data: null })),
-		getGroupSiteConfig(group.id, { group }),
+		getGroupSiteConfig(group.id, { group, supabaseClient: supabase }),
 		supabase
 			.from('groups')
 			.select('id,slug,name,city,state_region')
@@ -254,7 +254,7 @@ export const actions = {
 			parsedForm.ok && [...parsedForm.value.keys()].length > 0
 				? extractPresenceStudioFormValues(parsedForm.value, { group })
 				: null;
-		const previousConfig = await getGroupSiteConfig(groupId, { group });
+		const previousConfig = await getGroupSiteConfig(groupId, { group, supabaseClient: supabase });
 		const { error } = await supabase.from('group_site_configs').delete().eq('group_id', groupId);
 		if (error) {
 			return fail(400, {

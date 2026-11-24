@@ -133,6 +133,11 @@ export async function removeStorageObjects(storageClient, bucket, paths) {
 	}
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} groupId
+ * @returns {Promise<{ ok: true, snapshot: Record<string, number[]> } | { ok: false, error: any }>}
+ */
 export async function snapshotGroupTaxonomies(supabase, groupId) {
 	const results = await Promise.all(
 		GROUP_TAXONOMY_TABLES.map(({ table, column }) =>
@@ -140,6 +145,7 @@ export async function snapshotGroupTaxonomies(supabase, groupId) {
 		)
 	);
 
+	/** @type {Record<string, number[]>} */
 	const snapshot = {};
 	for (let index = 0; index < GROUP_TAXONOMY_TABLES.length; index += 1) {
 		const { table, column } = GROUP_TAXONOMY_TABLES[index];
@@ -155,8 +161,65 @@ export async function snapshotGroupTaxonomies(supabase, groupId) {
 	return { ok: true, snapshot };
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} groupId
+ * @param {string} table
+ * @param {string} column
+ * @param {number[]} targetIds
+ * @param {number[]} currentIds
+ */
+async function syncSingleTaxonomyTable(supabase, groupId, table, column, targetIds, currentIds) {
+	const targetSet = new Set(targetIds);
+	const currentSet = new Set(currentIds);
+	const addedIds = targetIds.filter((id) => !currentSet.has(id));
+	const removedIds = currentIds.filter((id) => !targetSet.has(id));
+
+	if (addedIds.length) {
+		const insertResult = await supabase
+			.from(table)
+			.insert(addedIds.map((id) => ({ group_id: groupId, [column]: id })));
+		if (insertResult?.error) {
+			return { ok: false, stage: 'insert', error: insertResult.error };
+		}
+	}
+
+	if (removedIds.length) {
+		const deleteResult = await supabase
+			.from(table)
+			.delete()
+			.eq('group_id', groupId)
+			.in(column, removedIds);
+		if (deleteResult?.error) {
+			return { ok: false, stage: 'delete', error: deleteResult.error };
+		}
+	}
+
+	return { ok: true, mutated: addedIds.length > 0 || removedIds.length > 0 };
+}
+
+/**
+ * @param {any} supabase
+ * @param {string} groupId
+ * @param {Record<string, number[]> | null | undefined} snapshot
+ */
 export async function restoreGroupTaxonomySnapshot(supabase, groupId, snapshot) {
 	if (!supabase || !snapshot) return;
+	const currentResult = await snapshotGroupTaxonomies(supabase, groupId);
+	if (currentResult.ok && currentResult.snapshot) {
+		const currentSnapshot = currentResult.snapshot;
+		const syncResults = await Promise.all(
+			GROUP_TAXONOMY_TABLES.map(({ table, column }) => {
+				const targetIds = Array.isArray(snapshot[table]) ? snapshot[table] : [];
+				const currentIds = Array.isArray(currentSnapshot[table]) ? currentSnapshot[table] : [];
+				return syncSingleTaxonomyTable(supabase, groupId, table, column, targetIds, currentIds);
+			})
+		);
+		if (syncResults.every((result) => result.ok)) {
+			return;
+		}
+	}
+
 	await Promise.all(
 		GROUP_TAXONOMY_TABLES.map(({ table }) => supabase.from(table).delete().eq('group_id', groupId))
 	);
@@ -302,7 +365,7 @@ async function prepareSponsorLogoUploads({ formData, optimizeImage }) {
  *   supabase: any,
  *   form: FormData,
  *   getSiteConfig: (groupId: string, opts?: any) => Promise<any>,
- *   upsertSiteConfig: (groupId: string, config: any) => Promise<any>,
+ *   upsertSiteConfig: (groupId: string, config: any, opts?: any) => Promise<any>,
  *   getServiceSupabase?: () => any,
  *   invalidateSnapshotCache?: (target: any) => any,
  *   optimizeImage?: (buffer: any, opts?: any) => Promise<any>,
@@ -448,7 +511,7 @@ export async function publishGroupPresence({
 				slot: 'logo',
 				croppedDataUrl: logoCropped,
 				rawFile: logoFile,
-				incomingUrl: incomingLogo,
+				incomingUrl: clearLogo ? '' : incomingLogo,
 				currentUrl: group.logo_url || '',
 				allowStoragePassthrough: false,
 				supabaseOrigin,
@@ -459,7 +522,7 @@ export async function publishGroupPresence({
 				slot: 'cover',
 				croppedDataUrl: coverCropped,
 				rawFile: coverFile,
-				incomingUrl: incomingCover,
+				incomingUrl: clearCover ? '' : incomingCover,
 				currentUrl: group.cover_photo_url || '',
 				allowStoragePassthrough: true,
 				supabaseOrigin,
@@ -512,10 +575,23 @@ export async function publishGroupPresence({
 	}
 
 	// Snapshot existing site config and all 4 taxonomy join tables before any storage or DB writes.
-	const [previousConfig, taxonomySnapshotResult] = await Promise.all([
-		getSiteConfig(groupId, { group }),
-		snapshotGroupTaxonomies(supabase, groupId)
-	]);
+	let previousConfig;
+	let taxonomySnapshotResult;
+	try {
+		[previousConfig, taxonomySnapshotResult] = await Promise.all([
+			getSiteConfig(groupId, { group, supabaseClient: supabase }),
+			snapshotGroupTaxonomies(supabase, groupId)
+		]);
+	} catch (error) {
+		return {
+			ok: false,
+			status: 500,
+			body: {
+				error: error?.message || 'Unable to load current group presence state.',
+				values
+			}
+		};
+	}
 	if (!taxonomySnapshotResult.ok) {
 		return {
 			ok: false,
@@ -667,22 +743,34 @@ export async function publishGroupPresence({
 	/** @type {Record<string, any>} */
 	const rollbackGroupSnapshot = {};
 	for (const key of Object.keys(groupPayload)) {
-		if (Object.prototype.hasOwnProperty.call(group, key)) {
-			rollbackGroupSnapshot[key] = group[key];
-		}
+		rollbackGroupSnapshot[key] = Object.prototype.hasOwnProperty.call(group, key)
+			? group[key]
+			: null;
 	}
 
 	const rollbackAllMutations = async ({ groupUpdated = false, taxonomiesMutated = false } = {}) => {
 		const cleanupService = serviceSupabase || getServiceSupabase();
-		await Promise.all([
-			removeStorageObjects(supabase, GROUP_MEDIA_BUCKET, uploadedGroupMediaPaths),
-			removeStorageObjects(cleanupService, SPONSOR_LOGO_BUCKET, uploadedSponsorPaths)
-		]);
+		try {
+			await Promise.allSettled([
+				removeStorageObjects(supabase, GROUP_MEDIA_BUCKET, uploadedGroupMediaPaths),
+				removeStorageObjects(cleanupService, SPONSOR_LOGO_BUCKET, uploadedSponsorPaths)
+			]);
+		} catch {
+			// Best-effort staged asset cleanup.
+		}
 		if (taxonomiesMutated) {
-			await restoreGroupTaxonomySnapshot(supabase, groupId, taxonomySnapshot);
+			try {
+				await restoreGroupTaxonomySnapshot(supabase, groupId, taxonomySnapshot);
+			} catch {
+				// Continue to group row restoration even if taxonomy restore throws.
+			}
 		}
 		if (groupUpdated && Object.keys(rollbackGroupSnapshot).length) {
-			await supabase.from('groups').update(rollbackGroupSnapshot).eq('id', groupId);
+			try {
+				await supabase.from('groups').update(rollbackGroupSnapshot).eq('id', groupId);
+			} catch {
+				// Avoid masking primary error.
+			}
 		}
 	};
 
@@ -713,21 +801,9 @@ export async function publishGroupPresence({
 		};
 	}
 
-	const deleteResults = await Promise.all(
-		GROUP_TAXONOMY_TABLES.map(({ table }) => supabase.from(table).delete().eq('group_id', groupId))
-	);
-	const taxonomyDeleteError = deleteResults.find((result) => result?.error)?.error;
-	if (taxonomyDeleteError) {
-		await rollbackAllMutations({ groupUpdated: true, taxonomiesMutated: true });
-		return {
-			ok: false,
-			status: 500,
-			body: { error: taxonomyDeleteError.message, values }
-		};
-	}
-
-	const taxonomyInserts = [];
-	for (const { table, column, formKey } of GROUP_TAXONOMY_TABLES) {
+	// Diff-based taxonomy updates: skip unchanged tables, insert newly added IDs first,
+	// and delete removed IDs second so existing categories are never wiped empty.
+	const taxonomyPlans = GROUP_TAXONOMY_TABLES.map(({ table, column, formKey }) => {
 		const selectedIds = [
 			...new Set(
 				form
@@ -736,14 +812,26 @@ export async function publishGroupPresence({
 					.filter((value) => Number.isFinite(value) && value > 0)
 			)
 		];
-		if (selectedIds.length) {
-			taxonomyInserts.push(
-				supabase.from(table).insert(selectedIds.map((id) => ({ group_id: groupId, [column]: id })))
-			);
-		}
-	}
-	if (taxonomyInserts.length) {
-		const insertResults = await Promise.all(taxonomyInserts);
+		const previousIds = Array.isArray(taxonomySnapshot[table]) ? taxonomySnapshot[table] : [];
+		const previousSet = new Set(previousIds);
+		const selectedSet = new Set(selectedIds);
+		return {
+			table,
+			column,
+			addedIds: selectedIds.filter((id) => !previousSet.has(id)),
+			removedIds: previousIds.filter((id) => !selectedSet.has(id))
+		};
+	});
+
+	let taxonomiesMutated = false;
+	const plansWithInserts = taxonomyPlans.filter((plan) => plan.addedIds.length > 0);
+	if (plansWithInserts.length) {
+		taxonomiesMutated = true;
+		const insertResults = await Promise.all(
+			plansWithInserts.map(({ table, column, addedIds }) =>
+				supabase.from(table).insert(addedIds.map((id) => ({ group_id: groupId, [column]: id })))
+			)
+		);
 		const taxonomyInsertError = insertResults.find((result) => result?.error)?.error;
 		if (taxonomyInsertError) {
 			await rollbackAllMutations({ groupUpdated: true, taxonomiesMutated: true });
@@ -751,6 +839,25 @@ export async function publishGroupPresence({
 				ok: false,
 				status: 500,
 				body: { error: taxonomyInsertError.message, values }
+			};
+		}
+	}
+
+	const plansWithDeletes = taxonomyPlans.filter((plan) => plan.removedIds.length > 0);
+	if (plansWithDeletes.length) {
+		taxonomiesMutated = true;
+		const deleteResults = await Promise.all(
+			plansWithDeletes.map(({ table, column, removedIds }) =>
+				supabase.from(table).delete().eq('group_id', groupId).in(column, removedIds)
+			)
+		);
+		const taxonomyDeleteError = deleteResults.find((result) => result?.error)?.error;
+		if (taxonomyDeleteError) {
+			await rollbackAllMutations({ groupUpdated: true, taxonomiesMutated: true });
+			return {
+				ok: false,
+				status: 500,
+				body: { error: taxonomyDeleteError.message, values }
 			};
 		}
 	}
@@ -764,9 +871,9 @@ export async function publishGroupPresence({
 	});
 
 	try {
-		await upsertSiteConfig(groupId, syncedSiteConfig);
+		await upsertSiteConfig(groupId, syncedSiteConfig, { supabaseClient: supabase });
 	} catch (error) {
-		await rollbackAllMutations({ groupUpdated: true, taxonomiesMutated: true });
+		await rollbackAllMutations({ groupUpdated: true, taxonomiesMutated });
 		return {
 			ok: false,
 			status: 400,

@@ -405,6 +405,10 @@ function createPublishMockHarness({
 
 	const uploadCalls = [];
 	const removeCalls = [];
+	/** @type {Array<{ table: string, ids: number[] | null }>} */
+	const taxonomyDeleteCalls = [];
+	/** @type {Array<{ table: string, ids: number[] }>} */
+	const taxonomyInsertCalls = [];
 	let groupUpdateCount = 0;
 	let siteConfigSaved = buildDefaultGroupSiteConfig(groupRow);
 	const invalidatedSnapshots = [];
@@ -478,15 +482,36 @@ function createPublishMockHarness({
 					},
 					delete() {
 						return {
-							async eq(_col, targetId) {
-								taxonomyRows[table] = taxonomyRows[table].filter(
-									(row) => row.group_id !== targetId
-								);
-								return { error: null };
+							eq(_col, targetId) {
+								const executeDelete = async (/** @type {number[] | null} */ filterIds = null) => {
+									taxonomyDeleteCalls.push({
+										table,
+										ids: filterIds ? [...filterIds] : null
+									});
+									const filterSet = filterIds ? new Set(filterIds.map(Number)) : null;
+									taxonomyRows[table] = taxonomyRows[table].filter((row) => {
+										if (row.group_id !== targetId) return true;
+										if (!filterSet) return false;
+										return !filterSet.has(Number(row[column]));
+									});
+									return { error: null };
+								};
+								return {
+									in(_inCol, ids) {
+										return executeDelete(ids);
+									},
+									then(onFulfilled, onRejected) {
+										return executeDelete(null).then(onFulfilled, onRejected);
+									}
+								};
 							}
 						};
 					},
 					async insert(rows) {
+						taxonomyInsertCalls.push({
+							table,
+							ids: rows.map((row) => Number(row[column]))
+						});
 						if (failTaxonomyInsertTable === table) {
 							failTaxonomyInsertTable = null;
 							return { error: { message: `Foreign key error on ${table}` } };
@@ -531,6 +556,8 @@ function createPublishMockHarness({
 		buckets,
 		uploadCalls,
 		removeCalls,
+		taxonomyDeleteCalls,
+		taxonomyInsertCalls,
 		readTaxonomyIds,
 		supabase,
 		serviceSupabase,
@@ -784,4 +811,67 @@ test('publishGroupPresence restores group fields, all 4 taxonomy tables, and pre
 		'existing-cover'
 	);
 	assert.equal(harness.buckets['group-assets'].size, 0);
+});
+
+test('publishGroupPresence skips unchanged taxonomy tables, inserts before deleting, and honors clear_logo/clear_cover over stale URLs', async () => {
+	const harness = createPublishMockHarness();
+	const form = buildSamplePublishForm({ includeUploads: false });
+	// Keep group_x_group_types [1, 3] and group_x_audience_focuses [2] identical to initial snapshot
+	form.delete('group_type_ids');
+	form.append('group_type_ids', '1');
+	form.append('group_type_ids', '3');
+	form.delete('audience_focus_ids');
+	form.append('audience_focus_ids', '2');
+	// Keep 4 and replace 5 -> 8 on riding_disciplines
+	form.delete('riding_discipline_ids');
+	form.append('riding_discipline_ids', '4');
+	form.append('riding_discipline_ids', '8');
+	// Pass clear_logo=1 alongside a stale logo_url
+	form.set('clear_logo', '1');
+	form.set('logo_url', 'https://legacy.example.org/stale-logo.png');
+
+	const result = await publishGroupPresence({
+		slug: 'desert-spokes',
+		group: harness.initialSnapshot,
+		groupId: harness.groupId,
+		supabase: harness.supabase,
+		form,
+		getSiteConfig: harness.getSiteConfig,
+		upsertSiteConfig: harness.upsertSiteConfig,
+		getServiceSupabase: () => harness.serviceSupabase,
+		optimizeImage: harness.optimizeImage,
+		supabasePublicUrl: 'https://example.supabase.co'
+	});
+
+	assert.equal(result.ok, true);
+	// Unchanged tables incurred zero writes
+	assert.equal(
+		harness.taxonomyDeleteCalls.some(
+			(call) => call.table === 'group_x_group_types' || call.table === 'group_x_audience_focuses'
+		),
+		false
+	);
+	assert.equal(
+		harness.taxonomyInsertCalls.some(
+			(call) => call.table === 'group_x_group_types' || call.table === 'group_x_audience_focuses'
+		),
+		false
+	);
+	// Partial update on riding_disciplines only inserted [8] and deleted [5] (preserving [4] untouched)
+	assert.deepEqual(
+		harness.taxonomyInsertCalls.find((call) => call.table === 'group_x_riding_disciplines')?.ids,
+		[8]
+	);
+	assert.deepEqual(
+		harness.taxonomyDeleteCalls.find((call) => call.table === 'group_x_riding_disciplines')?.ids,
+		[5]
+	);
+	assert.deepEqual(harness.readTaxonomyIds(), {
+		group_x_group_types: [1, 3],
+		group_x_audience_focuses: [2],
+		group_x_riding_disciplines: [4, 8],
+		group_x_skill_levels: [6]
+	});
+	// clear_logo=1 cleared logo_url instead of mirroring the stale logo_url field
+	assert.equal(harness.groupRow.logo_url, null);
 });
