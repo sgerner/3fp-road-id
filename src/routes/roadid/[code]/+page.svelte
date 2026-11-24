@@ -52,7 +52,7 @@
 				errorMessage = payload?.error || 'Unable to claim this bracelet code.';
 				return;
 			}
-			await goto('/profile#road-id');
+			await goto(`/profile?claimed=${encodeURIComponent(code)}#road-id`);
 		} catch (err) {
 			errorMessage = err?.message || 'Unable to claim this bracelet code.';
 		} finally {
@@ -118,7 +118,7 @@
 </svelte:head>
 
 <div
-	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
+	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-x-clip"
 >
 	<!-- HERO -->
 	<header

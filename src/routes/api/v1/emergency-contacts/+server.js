@@ -1,12 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
-import {
-	createRequestSupabaseClient,
-	createServiceSupabaseClient
-} from '#lib/server/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
 import { ensureRoadIdProfileExists } from '#lib/server/roadId';
+import { normalizeContactPhoneInput } from '#lib/server/roadIdProfile';
 
 export async function POST({ request, cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -26,13 +24,13 @@ export async function POST({ request, cookies }) {
 	if (!safeFields) {
 		return json({ error: 'No valid contact fields were provided.' }, { status: 400 });
 	}
+	if (typeof safeFields.contact_phone === 'string') {
+		safeFields.contact_phone = normalizeContactPhoneInput(safeFields.contact_phone);
+	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
-
 	const ensured = await ensureRoadIdProfileExists({
-		client,
+		client: requestSupabase,
 		userId: user.id,
 		fallbackFullName:
 			typeof user.user_metadata?.full_name === 'string'
@@ -43,7 +41,7 @@ export async function POST({ request, cookies }) {
 		return json({ error: ensured.error }, { status: 400 });
 	}
 
-	const { data, error } = await client
+	const { data, error } = await requestSupabase
 		.from('emergency_contacts')
 		.insert([{ ...safeFields, profile_id: user.id }])
 		.select();

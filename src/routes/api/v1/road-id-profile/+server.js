@@ -1,11 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
-import {
-	createRequestSupabaseClient,
-	createServiceSupabaseClient
-} from '#lib/server/supabaseClient';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { loadUserRoadIdBundle, pickRoadIdProfileFields } from '#lib/server/roadId';
+import {
+	ALLOWED_BLOOD_TYPES,
+	formatMedicationList,
+	normalizeContactPhoneInput
+} from '#lib/server/roadIdProfile';
 
 export async function GET({ cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -14,9 +16,7 @@ export async function GET({ cookies }) {
 	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
-	const bundle = await loadUserRoadIdBundle(client, user.id);
+	const bundle = await loadUserRoadIdBundle(requestSupabase, user.id);
 
 	return json({
 		profile: bundle.roadIdProfile,
@@ -47,11 +47,21 @@ export async function PUT({ request, cookies }) {
 	if (!safeFields) {
 		return json({ error: 'No valid profile fields were provided.' }, { status: 400 });
 	}
+	if (
+		Object.prototype.hasOwnProperty.call(safeFields, 'blood_type') &&
+		!ALLOWED_BLOOD_TYPES.has(safeFields.blood_type)
+	) {
+		return json({ error: 'Select a valid blood type.' }, { status: 400 });
+	}
+	if (Object.prototype.hasOwnProperty.call(safeFields, 'medication')) {
+		safeFields.medication = formatMedicationList(safeFields.medication);
+	}
+	if (Object.prototype.hasOwnProperty.call(safeFields, 'phone') && safeFields.phone) {
+		safeFields.phone = normalizeContactPhoneInput(safeFields.phone);
+	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
-	const { data, error } = await client
+	const { data, error } = await requestSupabase
 		.from('road_id_profiles')
 		.upsert({ user_id: user.id, ...safeFields }, { onConflict: 'user_id' })
 		.select('user_id,full_name,phone,blood_type,allergies,medication,created_at')

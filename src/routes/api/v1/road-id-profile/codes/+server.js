@@ -6,6 +6,7 @@ import {
 } from '#lib/server/supabaseClient';
 import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import { claimRoadIdCodeForUser, loadUserRoadIdBundle } from '#lib/server/roadId';
+import { reconcileAfterBraceletClaim } from '#lib/server/roadIdProfile';
 
 export async function GET({ cookies }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -14,9 +15,7 @@ export async function GET({ cookies }) {
 	}
 
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const serviceSupabase = createServiceSupabaseClient();
-	const client = serviceSupabase ?? requestSupabase;
-	const bundle = await loadUserRoadIdBundle(client, user.id);
+	const bundle = await loadUserRoadIdBundle(requestSupabase, user.id);
 
 	return json({ codes: bundle.linkedCodes });
 }
@@ -29,7 +28,7 @@ export async function POST(event) {
 	});
 	if (limited) return limited;
 
-	const { user } = await resolveVerifiedSession(event.cookies);
+	const { accessToken, user } = await resolveVerifiedSession(event.cookies);
 	if (!user?.id) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
@@ -67,11 +66,25 @@ export async function POST(event) {
 		return json({ error: result.error }, { status: result.status });
 	}
 
+	let resolvedProfile = result.profile;
+	let resolvedCodes = result.codes;
+	if (accessToken) {
+		try {
+			const requestSupabase = createRequestSupabaseClient(accessToken);
+			await reconcileAfterBraceletClaim(requestSupabase, user.id);
+			const refreshed = await loadUserRoadIdBundle(requestSupabase, user.id);
+			resolvedProfile = refreshed.roadIdProfile ?? resolvedProfile;
+			resolvedCodes = refreshed.linkedCodes.length ? refreshed.linkedCodes : resolvedCodes;
+		} catch (err) {
+			console.warn('Unable to reconcile rider safety data after bracelet claim:', err);
+		}
+	}
+
 	return json({
 		ok: true,
 		status: result.claimStatus,
 		code: result.code,
-		profile: result.profile,
-		codes: result.codes
+		profile: resolvedProfile,
+		codes: resolvedCodes
 	});
 }
