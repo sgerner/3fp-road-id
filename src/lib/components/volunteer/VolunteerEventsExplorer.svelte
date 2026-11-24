@@ -1,5 +1,6 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import {
 		buildMonthGrid,
 		formatEventTime,
@@ -14,9 +15,9 @@
 	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { applyVolunteerUrlState, parseVolunteerUrlState } from '#lib/url/directoryUrlState';
-	import { onMount, tick, untrack } from 'svelte';
-	import 'leaflet/dist/leaflet.css';
+	import { onMount, untrack } from 'svelte';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
@@ -193,11 +194,9 @@
 	}
 
 	function coordsFor(e) {
-		if (e?.latitude != null && e?.longitude != null)
-			return [Number(e.latitude), Number(e.longitude)];
+		if (isValidLatLng(e?.latitude, e?.longitude)) return [Number(e.latitude), Number(e.longitude)];
 		const g = eventHostGroup(e);
-		if (g?.latitude != null && g?.longitude != null)
-			return [Number(g.latitude), Number(g.longitude)];
+		if (isValidLatLng(g?.latitude, g?.longitude)) return [Number(g.latitude), Number(g.longitude)];
 		return null;
 	}
 
@@ -427,119 +426,27 @@
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
-	let mapContainer = $state(null);
-	let leafletModule = $state(null);
-	let mapInstance = $state(null);
-	let markerLayer = $state(null);
-
-	async function ensureMap() {
-		if (!browser) return;
-		if (!leafletModule) {
-			leafletModule = await import('leaflet');
-		}
-		if (!mapInstance && mapContainer && leafletModule) {
-			mapInstance = leafletModule.map(mapContainer, {
-				center: [39.5, -98.35],
-				zoom: 4,
-				scrollWheelZoom: false
-			});
-			leafletModule
-				.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-					attribution: '&copy; OpenStreetMap contributors'
-				})
-				.addTo(mapInstance);
-			markerLayer = leafletModule.layerGroup().addTo(mapInstance);
-		}
-	}
-
-	let markerQueued = false;
-	function queueMarkerUpdate() {
-		if (markerQueued) return;
-		markerQueued = true;
-		requestAnimationFrame(() => {
-			markerQueued = false;
-			updateMarkers();
-		});
-	}
-	function updateMarkers() {
-		if (!browser || !leafletModule || !mapInstance || !markerLayer) return;
-		markerLayer.clearLayers();
-		const pts = [];
-		for (const e of filteredEvents) {
-			const coords = e._coords;
-			if (!coords) continue;
-			const m = leafletModule.marker(coords).addTo(markerLayer);
-			const popup = document.createElement('div');
-			popup.className = 'space-y-1 text-sm';
-			popup.style.maxWidth = '240px';
-			popup.style.overflowWrap = 'anywhere';
-			const link = document.createElement('a');
-			link.href = `/volunteer/${e.slug}`;
-			link.className = 'text-secondary-600-400 font-semibold hover:underline';
-			link.textContent = e.title || 'Volunteer event';
-			popup.appendChild(link);
-			const t = document.createElement('div');
-			t.className = 'flex flex-wrap items-center gap-1.5';
-			const timeSpan = document.createElement('span');
-			timeSpan.textContent = eventTimeRange(e);
-			t.appendChild(timeSpan);
-			const tzBadge = eventTimezoneBadge(e);
-			if (tzBadge) {
-				const badgeEl = document.createElement('span');
-				badgeEl.textContent = tzBadge;
-				badgeEl.style.padding = '1px 5px';
-				badgeEl.style.fontSize = '10px';
-				badgeEl.style.fontWeight = '800';
-				badgeEl.style.letterSpacing = '0.08em';
-				badgeEl.style.textTransform = 'uppercase';
-				badgeEl.style.background = '#09090b';
-				badgeEl.style.color = '#eab308';
-				t.appendChild(badgeEl);
-			}
-			popup.appendChild(t);
-			const loc = eventLocation(e);
-			if (loc) {
-				const el = document.createElement('div');
-				el.textContent = loc;
-				popup.appendChild(el);
-			}
-			const hostName = hostGroupLabel(e) || e._hostOrgName;
-			if (hostName) {
-				const el = document.createElement('div');
-				el.textContent = `Hosted by ${hostName}`;
-				popup.appendChild(el);
-			}
-			m.bindPopup(popup);
-			pts.push(m.getLatLng());
-		}
-		if (pts.length) {
-			const bounds = leafletModule.latLngBounds(pts);
-			mapInstance.fitBounds(bounds, { padding: [32, 32], maxZoom: 13 });
-		} else {
-			mapInstance.setView([39.5, -98.35], 3);
-		}
-	}
-	async function activateMap() {
-		if (!browser) return;
-		await ensureMap();
-		queueMarkerUpdate();
-	}
-
-	$effect(() => {
-		if (browser && view === 'map') tick().then(() => activateMap());
-	});
-	$effect(() => {
-		void filteredEvents;
-		void viewerTimezone;
-		if (browser && view === 'map' && mapInstance) queueMarkerUpdate();
-	});
-	$effect(() => () => {
-		if (mapInstance) {
-			mapInstance.remove();
-			mapInstance = null;
-			markerLayer = null;
-		}
-	});
+	const volunteerMapItems = $derived(
+		filteredEvents
+			.filter((e) => Array.isArray(e._coords) && isValidLatLng(e._coords[0], e._coords[1]))
+			.map((e) => {
+				const hostName = hostGroupLabel(e) || e._hostOrgName;
+				const tzBadge = eventTimezoneBadge(e);
+				return {
+					id: e.id ?? e.slug,
+					lat: e._coords[0],
+					lng: e._coords[1],
+					title: e.title || 'Volunteer event',
+					subtitle: [eventTimeRange(e), tzBadge].filter(Boolean).join(' '),
+					meta: [eventLocation(e), hostName ? `Hosted by ${hostName}` : '']
+						.filter(Boolean)
+						.join(' · '),
+					badge: eventTypeLabel(e),
+					href: `/volunteer/${e.slug}`,
+					ctaLabel: 'View details'
+				};
+			})
+	);
 
 	const heroStats = $derived([
 		{ value: totalUpcoming, label: 'Upcoming events', tone: 'text-primary-500' },
@@ -1091,12 +998,20 @@
 				</table>
 			</div>
 		{:else if view === 'map'}
-			<div transition:slide class="border-surface-50 bg-surface-950 border-[3px]">
-				<div bind:this={mapContainer} class="h-[480px] w-full"></div>
-				<div class="text-surface-300 border-surface-800 border-t-2 px-6 py-4 text-sm">
-					Zoom and click markers to preview event details. Some opportunities without mapped
-					coordinates are hidden from the map view.
-				</div>
+			<div transition:slide>
+				<DirectoryMapExplorer
+					regionLabel="Volunteer event locations map"
+					items={volunteerMapItems}
+					itemNounSingular="volunteer event"
+					itemNounPlural="volunteer events"
+					cluster
+					scrollWheelZoom={false}
+					defaultCenter={[39.5, -98.35]}
+					defaultZoom={4}
+					shellClass="border-surface-50 bg-surface-950 border-[3px]"
+					canvasClass="h-[480px] w-full"
+					footerHint="Activate an event pin or cluster to inspect details here. Opportunities without mapped coordinates are hidden from the map view."
+				/>
 			</div>
 		{/if}
 	</section>
