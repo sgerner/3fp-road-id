@@ -27,18 +27,18 @@ let originalWindow;
 let localStorageMock;
 
 beforeEach(() => {
-	originalWindow = globalThis.window;
+	originalWindow = /** @type {any} */ (globalThis).window;
 	localStorageMock = createMemoryStorage();
-	globalThis.window = { localStorage: localStorageMock };
+	/** @type {any} */ (globalThis).window = { localStorage: localStorageMock };
 	merchCart.clear();
 });
 
 afterEach(() => {
 	merchCart.clear();
 	if (originalWindow === undefined) {
-		delete globalThis.window;
+		delete (/** @type {any} */ (globalThis).window);
 	} else {
-		globalThis.window = originalWindow;
+		/** @type {any} */ (globalThis).window = originalWindow;
 	}
 });
 
@@ -170,7 +170,7 @@ test('merchCart.load hydrates persisted items and ignores malformed storage', ()
 	merchCart.load();
 	assert.deepEqual(get(merchCart), savedItems);
 
-	delete globalThis.window;
+	delete (/** @type {any} */ (globalThis).window);
 	assert.doesNotThrow(() => {
 		merchCart.load();
 		merchCart.setQuantity('var-cap', 6);

@@ -246,6 +246,10 @@ function findConnectedAccount(accounts, platform) {
 	);
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ groupId?: string, postId?: string, post?: any, requestedBy?: string | null }} [options]
+ */
 export async function publishSingleGroupSocialPost(
 	supabase,
 	{ groupId, postId, post = null, requestedBy = null } = {}
@@ -257,6 +261,7 @@ export async function publishSingleGroupSocialPost(
 			error: 'Post not found.'
 		};
 	}
+	const targetGroupId = String(groupId || targetPost.group_id || '');
 
 	const platforms = normalizePlatforms(targetPost.platforms);
 	const postTarget = normalizePostTarget(targetPost.post_target);
@@ -293,7 +298,7 @@ export async function publishSingleGroupSocialPost(
 	});
 	if (!platforms.length) {
 		appendDebugTimelineEntry(debugTimeline, 'validation_failed_no_platforms');
-		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+		await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: 'No target platforms were selected.',
@@ -308,7 +313,7 @@ export async function publishSingleGroupSocialPost(
 		appendDebugTimelineEntry(debugTimeline, 'validation_failed_media', {
 			error: mediaValidation.error
 		});
-		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+		await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: mediaValidation.error,
@@ -320,7 +325,7 @@ export async function publishSingleGroupSocialPost(
 	}
 	if (postTarget === 'story' && extractPostMedia(targetPost).length === 0) {
 		appendDebugTimelineEntry(debugTimeline, 'validation_failed_story_requires_media');
-		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+		await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 			status: 'failed',
 			updated_by: requestedBy,
 			last_publish_error: 'Stories require at least one media item.',
@@ -357,7 +362,7 @@ export async function publishSingleGroupSocialPost(
 			});
 			if (prepared.changed) {
 				preparedMedia = prepared.media;
-				await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+				await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 					media: preparedMedia,
 					updated_by: requestedBy || targetPost.updated_by || targetPost.created_by || null
 				});
@@ -383,7 +388,7 @@ export async function publishSingleGroupSocialPost(
 				group_id: groupId,
 				error: message
 			});
-			await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+			await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 				status: 'failed',
 				updated_by: requestedBy,
 				last_publish_error: message,
@@ -429,7 +434,7 @@ export async function publishSingleGroupSocialPost(
 	const persistPublishingProgress = async () => {
 		const attemptedAtIso = new Date().toISOString();
 		const mergedResults = buildMergedResults(attemptedAtIso);
-		await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+		await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 			status: 'publishing',
 			updated_by: requestedBy,
 			last_publish_error: buildFailureMessage(),
@@ -500,7 +505,7 @@ export async function publishSingleGroupSocialPost(
 				platform,
 				ok: publishResult.ok === true,
 				error: publishResult?.ok === true ? null : publishResult?.error || null,
-				meta_id: publishResult?.meta_id || null
+				meta_id: publishResult?.ok === true ? publishResult.meta_id || null : null
 			});
 			logSocialPublishEvent('social_publish_platform_result', {
 				post_id: targetPost.id,
@@ -508,7 +513,7 @@ export async function publishSingleGroupSocialPost(
 				platform,
 				ok: publishResult.ok === true,
 				error: publishResult?.ok === true ? null : publishResult?.error || null,
-				meta_id: publishResult?.meta_id || null
+				meta_id: publishResult?.ok === true ? publishResult.meta_id || null : null
 			});
 			await persistPublishingProgress();
 		} catch (error) {
@@ -556,7 +561,7 @@ export async function publishSingleGroupSocialPost(
 
 	const mergedResults = buildMergedResults(nowIso);
 
-	const updated = await updateGroupSocialPost(supabase, groupId, targetPost.id, {
+	const updated = await updateGroupSocialPost(supabase, targetGroupId, targetPost.id, {
 		status: nextStatus,
 		updated_by: requestedBy,
 		published_at: allSucceeded ? nowIso : targetPost.published_at,

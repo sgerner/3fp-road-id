@@ -6,12 +6,18 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import SecondarySectionNav from '#lib/components/ui/SecondarySectionNav.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, children } = $props();
 
+	/** @type {any} */
 	const pathname = $derived(page.url.pathname);
+	/** @type {any} */
 	const currentGroup = $derived(data?.group ?? null);
+	/** @type {any} */
 	const ownedGroups = $derived((data?.groupsNavOwnedGroups ?? []).filter((group) => group?.slug));
+	/** @type {any} */
 	const currentGroupSlug = $derived(currentGroup?.slug ?? null);
+	/** @type {any} */
 	const currentGroupCanEdit = $derived(
 		Boolean(
 			currentGroupSlug &&
@@ -21,7 +27,9 @@
 		)
 	);
 
+	/** @type {any} */
 	const navSections = $derived.by(() => {
+		/** @type {any} */
 		const primaryItems = [
 			{
 				label: 'Browse Groups',
@@ -62,6 +70,7 @@
 			}
 		}
 
+		/** @type {any} */
 		const sections = [
 			{
 				label: '',

@@ -22,6 +22,10 @@ import {
 	upsertMerchVariant
 } from '#lib/server/merch';
 
+/**
+ * @param {any} formData
+ * @param {any} key
+ */
 function formValue(formData, key) {
 	return formData.get(key)?.toString() ?? '';
 }
@@ -188,8 +192,9 @@ export const actions = {
 				? maybeImageFile
 				: null;
 		try {
+			/** @type {any} */
 			let uploadedImageUrl;
-			if (imageFile?.size > 0) {
+			if (/** @type {any} */ (imageFile)?.size > 0) {
 				uploadedImageUrl = await uploadMerchProductImage({
 					storeId,
 					productId: existingProductId,

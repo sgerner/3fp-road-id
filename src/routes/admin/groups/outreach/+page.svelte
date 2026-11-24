@@ -23,20 +23,27 @@
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 	let removedGroupIds = $state(new Set());
 	const groups = $derived((data.groups || []).filter((group) => !removedGroupIds.has(group.id)));
 	const total = $derived(groups.length);
 
+	/** @type {any} */
 	let selectedGroupId = $state(null);
+	/** @type {any} */
 	let copiedGroupId = $state(null);
+	/** @type {any} */
 	let messageByGroup = $state({});
+	/** @type {any} */
 	let subjectByGroup = $state({});
+	/** @type {any} */
 	let emailStatusByGroup = $state({});
 	let sending = $state(false);
 	let generating = $state(false);
 	let enriching = $state(false);
 	let deletingGroup = $state(false);
+	/** @type {any} */
 	let confirmDeleteFor = $state(null);
 
 	let imageModalOpen = $state(false);
@@ -48,12 +55,16 @@
 	let cropPanX = $state(0);
 	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	/** @type {any} */
 	let cropFramer = $state(null);
 	let savingAssets = $state(false);
 	let logoCroppedDataUrl = $state('');
 	let coverCroppedDataUrl = $state('');
+	/** @type {any} */
 	let imageFormEl = $state(null);
+	/** @type {any} */
 	let generateFormEl = $state(null);
+	/** @type {any} */
 	let imageDialogEl = $state(null);
 
 	// Keep the native dialog in step with imageModalOpen. showModal() provides the focus trap,

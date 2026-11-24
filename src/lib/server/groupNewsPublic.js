@@ -98,6 +98,11 @@ async function isPublishedPublicGroup(serviceSupabase, groupId) {
 	return Boolean(data?.id && data.is_published === true);
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {any} groupId
+ * @param {{ limit?: number | null }} [options]
+ */
 export async function listPublicGroupNewsPosts(serviceSupabase, groupId, { limit = null } = {}) {
 	const normalizedGroupId = safeTrim(groupId);
 	if (!serviceSupabase || !normalizedGroupId) return [];

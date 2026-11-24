@@ -49,6 +49,12 @@ export function requireGroupAssetsServiceClient() {
 	return client;
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, group: any, user: any, userId: string, isAdmin: boolean, requestSupabase: any, serviceSupabase: any }
+ * >}
+ */
 export async function requireGroupAssetManager(cookies, groupSlug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {

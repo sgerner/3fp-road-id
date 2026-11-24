@@ -21,6 +21,7 @@
 		class: className = ''
 	} = $props();
 
+	/** @type {HTMLDivElement | null} */
 	let slotEl = $state(null);
 	let interactive = $state(false);
 

@@ -270,6 +270,11 @@ function deriveSemanticBaseColors(palette) {
 	};
 }
 
+/**
+ * @param {string} prefix
+ * @param {Record<string | number, string>} scale
+ * @returns {Array<[string, string]>}
+ */
 function toCssVars(prefix, scale) {
 	return Object.entries(scale).flatMap(([step, color]) => {
 		const contrast = readableTextColor(color);
@@ -299,6 +304,9 @@ export function normalizePalette(value, fallbackSeed = '') {
 	};
 }
 
+/**
+ * @param {{ palette?: Record<string, any> | null, fontPairing?: string }} [options]
+ */
 export function buildMicrositeThemeStyle({ palette, fontPairing = 'poster' } = {}) {
 	const resolvedPalette = normalizePalette(palette);
 	const fonts = FONT_PAIRINGS[fontPairing] || FONT_PAIRINGS.poster;

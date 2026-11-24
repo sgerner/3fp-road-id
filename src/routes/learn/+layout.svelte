@@ -5,6 +5,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSquarePen from '@lucide/svelte/icons/square-pen';
 
+	/** @type {Record<string, any>} */
 	let { children } = $props();
 
 	const pathname = $derived(page.url.pathname);

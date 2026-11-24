@@ -21,12 +21,18 @@
 	} = $props();
 
 	const assistantContext = getAssistantContext();
+	/** @type {HTMLButtonElement | null} */
 	let openBtnEl = $state(null);
+	/** @type {string | null} */
 	let appliedPrevious = $state(null);
+	/** @type {string | null} */
 	let appliedText = $state(null);
+	/** @type {string | null} */
 	let summaryPrevious = $state(null);
+	/** @type {string | null} */
 	let summaryApplied = $state(null);
 	let undoConflictMessage = $state('');
+	/** @type {any[]} */
 	let altAuditProposals = $state([]);
 	let altAuditMessage = $state('');
 	let altAuditPending = $state(false);
@@ -276,6 +282,12 @@
 		}));
 	});
 
+	/**
+	 * @param {object} [options]
+	 * @param {string} [options.prompt]
+	 * @param {string} [options.learnAction]
+	 * @param {HTMLElement | null} [options.triggerEl]
+	 */
 	function openStudio({ prompt = '', learnAction = '', triggerEl = openBtnEl } = {}) {
 		assistantContext.open({
 			mode: 'page',

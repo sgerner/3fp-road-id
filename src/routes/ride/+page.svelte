@@ -83,6 +83,7 @@
 	let view = $state(initialUrlState.view);
 	let currentPage = $state(initialUrlState.page);
 	let viewerTimezone = $state('UTC');
+	/** @type {HTMLElement | null} */
 	let rideListEl = $state(null);
 	let routerReady = false;
 	let searchDebounceTimer;
@@ -777,9 +778,10 @@
 										height="432"
 										decoding="async"
 										onerror={(e) => {
-											if (!e.currentTarget.dataset.fallback) {
-												e.currentTarget.dataset.fallback = '1';
-												e.currentTarget.src = '/images/default-ride.webp';
+											const img = /** @type {HTMLImageElement} */ (e.currentTarget);
+											if (!img.dataset.fallback) {
+												img.dataset.fallback = '1';
+												img.src = '/images/default-ride.webp';
 											}
 										}}
 									/>
