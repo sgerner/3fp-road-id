@@ -4,6 +4,7 @@ import { resolveVerifiedSession } from '#lib/server/session';
 import { enforceRateLimit, readJsonBody } from '#lib/server/security';
 import { verifyOwnerInviteState } from '#lib/server/groupOwnerInvites';
 import { readGroupSiteManagerRoles } from '#lib/server/groupSiteAuth';
+import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 // Redeems a short-lived capability issued to an existing group manager.
 export async function POST(event) {
@@ -86,6 +87,7 @@ export async function POST(event) {
 			}
 		}
 
+		invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
 		return json({ ok: true, slug: group.slug });
 	} catch (e) {
 		console.error('Add owner error', e);

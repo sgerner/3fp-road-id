@@ -5,6 +5,14 @@ import path from 'node:path';
 import TurndownService from 'turndown';
 import { createClient } from '@supabase/supabase-js';
 import { generateLearnReadingAid } from '../src/lib/learn/readingAid.js';
+import { extractMarkdownImages } from '../src/lib/learn/altText.js';
+import {
+	DEFAULT_MANIFEST_PATH,
+	buildReviewedManifestMaps,
+	demangleWikiAssetPath,
+	loadAltTextManifest,
+	stageWikiAltCaptions
+} from './caption-3ftwiki-alt-text.mjs';
 
 const workspace = fileURLToPath(new URL('../', import.meta.url));
 const docsRoot = path.join(workspace, 'docs/3ftwiki');
@@ -174,16 +182,26 @@ function normalizeWikiPath(input) {
 
 function cleanMarkdownTarget(target) {
 	return safeTrim(target)
+		.replace(/^<|>$/g, '')
 		.replace(/\s+=\d.*$/, '')
-		.replace(/^['"]|['"]$/g, '');
+		.replace(/^['"]|['"]$/g, '')
+		.replace(/\\_/g, '_')
+		.replace(/\*/g, '_');
 }
 
 function unwrapParens(target) {
 	let output = safeTrim(target);
+	if (output.startsWith('<') && output.endsWith('>')) {
+		return output.slice(1, -1).trim();
+	}
 	while (output.startsWith('(') && output.endsWith(')')) {
 		output = output.slice(1, -1).trim();
 	}
 	return output;
+}
+
+function encodeMarkdownDestinationUrl(url) {
+	return safeTrim(url).replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
 function buildSlugEntries(entries) {
@@ -231,7 +249,7 @@ function buildContentKeyMap(entries) {
 	return { routeMap, basenameMap };
 }
 
-async function uploadAssets(supabase, assetPaths, authorId) {
+async function uploadAssets(supabase, assetPaths, authorId, reviewedAltByAsset = new Map()) {
 	const assetMap = new Map();
 	const basenameMap = new Map();
 	for (const assetPath of assetPaths) {
@@ -250,6 +268,8 @@ async function uploadAssets(supabase, assetPaths, authorId) {
 		const { data: urlData } = supabase.storage.from('learn-media').getPublicUrl(objectPath);
 		const publicUrl = urlData?.publicUrl;
 		const stat = await fs.stat(assetPath);
+		const reviewedCaption =
+			reviewedAltByAsset.get(relativePath) || reviewedAltByAsset.get(relativePath.toLowerCase());
 		const { data: assetRow, error: assetError } = await supabase
 			.from('learn_assets')
 			.upsert(
@@ -263,14 +283,17 @@ async function uploadAssets(supabase, assetPaths, authorId) {
 					size_bytes: stat.size,
 					source_type: 'import',
 					source_path: relativePath,
+					alt_text: reviewedCaption?.altText || null,
 					metadata: {
-						imported_from: relativePath
+						imported_from: relativePath,
+						alt_generated: Boolean(reviewedCaption?.altGenerated),
+						alt_reviewed: Boolean(reviewedCaption?.reviewed)
 					}
 				},
 				{ onConflict: 'object_path' }
 			)
 			.select(
-				'id, public_url, object_path, mime_type, file_name, size_bytes, source_type, source_path'
+				'id, public_url, object_path, mime_type, file_name, size_bytes, source_type, source_path, alt_text, metadata'
 			)
 			.single();
 		if (assetError) throw assetError;
@@ -280,7 +303,8 @@ async function uploadAssets(supabase, assetPaths, authorId) {
 			publicUrl,
 			objectPath,
 			mimeType,
-			relativePath
+			relativePath,
+			altText: assetRow.alt_text || reviewedCaption?.altText || ''
 		};
 		assetMap.set(route, assetDetails);
 		assetMap.set(route.toLowerCase(), assetDetails);
@@ -296,14 +320,42 @@ function resolveRelativeTarget(currentRoute, target) {
 	return normalizeWikiPath(path.posix.join(baseDir, target));
 }
 
-function normalizeLegacySizedLinks(markdown) {
+export function normalizeLegacySizedLinks(markdown) {
 	return safeTrim(markdown).replace(/\]\((.+?)\s+=\d+[^)]*\)/g, ']($1)');
 }
 
-function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
+function applyReviewedCaptionsBeforeRewrite(markdown, entry, maps) {
+	const byGuideAndAsset = maps?.reviewedAltByGuideAndAsset;
+	const byAsset = maps?.reviewedAltByAsset;
+	if (!byGuideAndAsset?.size && !byAsset?.size) return markdown;
+
+	const images = extractMarkdownImages(markdown);
+	if (!images.length) return markdown;
+
+	let updated = markdown;
+	const guidePath = safeTrim(entry?.relativePath).replace(/\\/g, '/');
+	for (let idx = images.length - 1; idx >= 0; idx -= 1) {
+		const image = images[idx];
+		if (!image.needsRemediation) continue;
+		const assetPath = demangleWikiAssetPath(image.rawTarget, guidePath);
+		const reviewed =
+			byGuideAndAsset?.get(`${guidePath}::${assetPath}`) ||
+			byGuideAndAsset?.get(`${guidePath.toLowerCase()}::${assetPath.toLowerCase()}`) ||
+			byAsset?.get(assetPath) ||
+			byAsset?.get(assetPath.toLowerCase());
+		if (!reviewed || reviewed.reviewed !== true) continue;
+		const nextAlt = reviewed.isDecorative ? '' : reviewed.altText;
+		const replacement = `![${nextAlt}](${image.rawTarget})`;
+		updated = updated.slice(0, image.start) + replacement + updated.slice(image.end);
+	}
+	return updated;
+}
+
+export function rewriteMarkdownLinks(markdown, entry, maps, unresolved = []) {
 	const referencedImages = [];
 	const referencedAssets = [];
-	const normalizedMarkdown = normalizeLegacySizedLinks(markdown);
+	const captionedMarkdown = applyReviewedCaptionsBeforeRewrite(markdown, entry, maps);
+	const normalizedMarkdown = normalizeLegacySizedLinks(captionedMarkdown);
 	const rewriteTarget = (rawTarget) => {
 		let target = cleanMarkdownTarget(unwrapParens(rawTarget));
 		if (!target || /^(https?:|mailto:|#)/i.test(target)) return target;
@@ -321,13 +373,13 @@ function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
 			const asset = maps.assetRoutes.get(aliasResolved);
 			if (asset.mimeType.startsWith('image/')) referencedImages.push(asset.publicUrl);
 			referencedAssets.push(asset);
-			return asset.publicUrl;
+			return encodeMarkdownDestinationUrl(asset.publicUrl);
 		}
 		if (maps.assetRoutes.has(aliasResolved.toLowerCase())) {
 			const asset = maps.assetRoutes.get(aliasResolved.toLowerCase());
 			if (asset.mimeType.startsWith('image/')) referencedImages.push(asset.publicUrl);
 			referencedAssets.push(asset);
-			return asset.publicUrl;
+			return encodeMarkdownDestinationUrl(asset.publicUrl);
 		}
 
 		const basename = path.basename(aliasResolved).toLowerCase();
@@ -335,7 +387,7 @@ function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
 			const asset = maps.assetBasenames.get(basename);
 			if (asset.mimeType.startsWith('image/')) referencedImages.push(asset.publicUrl);
 			referencedAssets.push(asset);
-			return asset.publicUrl;
+			return encodeMarkdownDestinationUrl(asset.publicUrl);
 		}
 		if (basename) {
 			const nameWithoutExt = slugify(path.basename(basename, path.extname(basename)));
@@ -351,7 +403,7 @@ function rewriteMarkdownLinks(markdown, entry, maps, unresolved) {
 	};
 
 	const rewritten = normalizedMarkdown.replace(
-		/\]\(((?:[^()\n]+|\([^()\n]*\))+)\)/g,
+		/\]\((<[^>\n]+>|(?:[^()\n]+|\([^()\n]*\))+)\)/g,
 		(match, target) => `](${rewriteTarget(target)})`
 	);
 	return {
@@ -431,13 +483,27 @@ function extractTitle(parsedData, relativePath) {
 	);
 }
 
+export async function loadReviewedAltManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
+	const manifest = await loadAltTextManifest(manifestPath);
+	return buildReviewedManifestMaps(manifest);
+}
+
 async function main() {
 	try {
 		loadEnvFile(envPath);
 	} catch (error) {
 		if (error.code !== 'ENOENT') throw error;
 	}
+	if (process.argv.includes('--stage-alt')) {
+		const staged = await stageWikiAltCaptions({ manifestPath: DEFAULT_MANIFEST_PATH });
+		console.log(
+			`Staged ${staged.items.length} alt-text caption(s) in ${DEFAULT_MANIFEST_PATH} for maintainer review.`
+		);
+		return;
+	}
 	const env = process.env;
+	const { byGuideAndAsset: reviewedAltByGuideAndAsset, byAsset: reviewedAltByAsset } =
+		await loadReviewedAltManifest(DEFAULT_MANIFEST_PATH);
 	const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
 		auth: { persistSession: false, autoRefreshToken: false }
 	});
@@ -491,7 +557,8 @@ async function main() {
 	const { assetMap, basenameMap: assetBasenames } = await uploadAssets(
 		supabase,
 		assetFiles,
-		authorId
+		authorId,
+		reviewedAltByAsset
 	);
 	const unresolved = [];
 
@@ -503,7 +570,9 @@ async function main() {
 				contentRoutes: routeMap,
 				contentBasenames: basenameMap,
 				assetRoutes: assetMap,
-				assetBasenames
+				assetBasenames,
+				reviewedAltByGuideAndAsset,
+				reviewedAltByAsset
 			},
 			unresolved
 		);
@@ -554,4 +623,8 @@ async function main() {
 	}
 }
 
-await main();
+const isDirectExecution =
+	process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectExecution) {
+	await main();
+}

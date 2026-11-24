@@ -147,8 +147,8 @@
 								{#if asset.description}
 									<AutoLinkText
 										text={asset.description}
+										plainText
 										className="resource-subtext block line-clamp-2 text-sm"
-										linkClass="text-primary-700-300 underline underline-offset-2"
 									/>
 								{/if}
 							</div>

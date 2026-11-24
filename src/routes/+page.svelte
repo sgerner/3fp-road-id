@@ -233,7 +233,7 @@
 				{#if data.locationSource && data.area}
 					<a
 						href="/profile"
-						class="border-surface-950 hover:border-tertiary-600 inline-flex items-center gap-1 border-b-2 tracking-normal normal-case hover:no-underline"
+						class="border-surface-950 hover:border-tertiary-600 inline-flex min-h-6 min-w-6 items-center gap-1 border-b-2 py-1 tracking-normal normal-case hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
 					>
 						<IconMapPin class="h-3.5 w-3.5" />
 						{data.area}
@@ -352,7 +352,7 @@
 					</p>
 					<a
 						href={groupsHref}
-						class="text-surface-50 hover:text-primary-500 inline-flex items-center gap-1.5 text-sm font-bold"
+						class="text-surface-50 hover:text-primary-500 inline-flex min-h-6 items-center gap-1.5 py-1 text-sm font-bold pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						All groups <IconArrowRight class="h-4 w-4" />
 					</a>
@@ -443,7 +443,7 @@
 			{#if data.locationSource === 'profile' || data.locationSource === 'approximate'}
 				<a
 					href="/profile"
-					class="text-surface-300 decoration-tertiary-500 hover:text-surface-50 self-start text-sm underline decoration-2 underline-offset-4"
+					class="text-surface-300 decoration-tertiary-500 hover:text-surface-50 inline-flex min-h-6 items-center self-start py-1 text-sm underline decoration-2 underline-offset-4 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 				>
 					{data.locationSource === 'profile' ? 'Change home area' : 'Set a more useful home area'}
 				</a>
@@ -499,7 +499,10 @@
 							Open this ride
 							<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 						</a>
-						<a href="/ride" class="text-surface-50 text-sm font-bold underline underline-offset-4">
+						<a
+							href="/ride"
+							class="text-surface-50 inline-flex min-h-6 items-center py-1 text-sm font-bold underline underline-offset-4 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						>
 							All rides
 						</a>
 					</div>
@@ -617,13 +620,13 @@
 			<div class="flex flex-wrap gap-x-6 gap-y-3">
 				<a
 					href="/learn"
-					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-2"
 				>
 					Safety library <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 				</a>
 				<a
 					href="/roadid"
-					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+					class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-2"
 				>
 					Road ID <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 				</a>

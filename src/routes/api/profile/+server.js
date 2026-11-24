@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '#lib/server/activities';
 import { searchGeocode } from '#lib/server/geocoding';
+import { getSmsServiceClient, hasSmsInboxAccess } from '#lib/server/sms';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 import { normalizeE164PhoneNumber } from '#lib/utils/phone';
 
@@ -102,9 +103,17 @@ export async function GET({ cookies }) {
 	}
 
 	const profile = normalizeProfileShape(data);
+	const smsAccessClient = getSmsServiceClient() ?? supabase;
+	const canManageSms =
+		profile?.admin === true ||
+		(await hasSmsInboxAccess(smsAccessClient, user.id).catch((err) => {
+			console.warn('Unable to resolve SMS inbox access for profile', err);
+			return false;
+		}));
 	return json({
 		profile,
-		context: extractRecommendationContext(profile?.metadata ?? {})
+		context: extractRecommendationContext(profile?.metadata ?? {}),
+		canManageSms
 	});
 }
 
@@ -196,8 +205,15 @@ export async function PUT({ cookies, fetch, request }) {
 	}
 
 	const profile = normalizeProfileShape(data);
+	const canManageSms =
+		profile?.admin === true ||
+		(await hasSmsInboxAccess(profileWriteClient, user.id).catch((err) => {
+			console.warn('Unable to resolve SMS inbox access for profile update', err);
+			return false;
+		}));
 	return json({
 		profile,
-		context: extractRecommendationContext(profile?.metadata ?? {})
+		context: extractRecommendationContext(profile?.metadata ?? {}),
+		canManageSms
 	});
 }

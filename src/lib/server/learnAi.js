@@ -3,22 +3,28 @@ import {
 	isAiModelConfigured,
 	requireAiModel
 } from '#lib/server/ai/models';
+import { extractMarkdownHeadings } from '#lib/learn/markdown';
 import { generateLearnReadingAid } from '#lib/learn/readingAid';
 import { buildHybridArticleCandidates } from '#lib/server/learnRecommendations';
+import { fetchPublicHttp, readResponseBuffer } from '#lib/server/security';
 import {
+	buildLearnArticleQuestionPrompt,
 	buildLearnNavigationExplanationPrompt,
 	buildLearnNavigationIntentPrompt,
-	buildLearnArticleQuestionPrompt,
-	buildLearnWritingPrompt,
 	buildLearnTakeawaysPrompt,
+	buildLearnWritingPrompt,
 	cleanLearnAiString,
-	rankLearnNavigationCandidates,
-	parseLearnAiJson,
+	executeLearnMultimodalAltRequest,
+	extractMarkdownImages,
+	generateReadingAidWithFallback,
+	LEARN_AI_SOURCE_LIMIT,
 	normalizeLearnAiTakeaways,
 	normalizeLearnAiTextResult,
-	generateReadingAidWithFallback,
-	withLearnAiTimeout,
-	LEARN_AI_SOURCE_LIMIT
+	parseLearnAiJson,
+	rankLearnNavigationCandidates,
+	runLearnMarkdownAltAudit,
+	sanitizeAltText,
+	withLearnAiTimeout
 } from './learnAiCore.js';
 
 const TAKEAWAYS_SCHEMA = {
@@ -43,6 +49,10 @@ const TEXT_SCHEMA = {
 	properties: { text: { type: 'string' } }
 };
 
+const MAX_AUDIT_IMAGES = 24;
+const MAX_AUDIT_IMAGE_BYTES = 8 * 1024 * 1024;
+const AUDIT_CONCURRENCY = 3;
+
 const cleanText = cleanLearnAiString;
 
 async function generateJson(prompt, schema, schemaName) {
@@ -64,6 +74,201 @@ async function generateJson(prompt, schema, schemaName) {
 	const parsed = parseLearnAiJson(text);
 	if (!parsed) throw new Error('AI returned an invalid response.');
 	return parsed;
+}
+
+function resolveMultimodalClient({ hasImage = true, clientOverride = null } = {}) {
+	if (clientOverride?.client && clientOverride?.model) {
+		return clientOverride;
+	}
+	const profileName = hasImage
+		? 'multimodal_structured'
+		: isAiModelConfigured('multimodal_structured')
+			? 'multimodal_structured'
+			: 'structured_text';
+	if (!isAiModelConfigured(profileName)) {
+		const error = new Error(getAiConfigurationError(profileName));
+		error.code = 'AI_UNAVAILABLE';
+		throw error;
+	}
+	return requireAiModel(profileName);
+}
+
+export async function generateLearnImageAltText({
+	imageBuffer = null,
+	imageBase64 = '',
+	mimeType = 'image/png',
+	fileName = '',
+	imageUrl = '',
+	title = '',
+	summary = '',
+	sectionHeading = '',
+	headings = [],
+	surroundingContext = '',
+	enclosingLinkUrl = '',
+	enclosingLinkText = '',
+	isSoleLinkContent = false,
+	target = 'learn',
+	context = null,
+	timeoutMs = 18_000,
+	clientOverride = null
+} = {}) {
+	const hasImage = Boolean(imageBase64 || (imageBuffer && imageBuffer.byteLength > 0));
+	const { client, model } = resolveMultimodalClient({ hasImage, clientOverride });
+	return executeLearnMultimodalAltRequest({
+		client,
+		model,
+		imageBuffer,
+		imageBase64,
+		mimeType,
+		fileName,
+		imageUrl,
+		title,
+		summary,
+		sectionHeading,
+		headings,
+		surroundingContext,
+		enclosingLinkUrl,
+		enclosingLinkText,
+		isSoleLinkContent,
+		target,
+		context,
+		timeoutMs
+	});
+}
+
+async function fetchAuditImageBytes(url, fetchImageImpl = null) {
+	const cleanUrl = cleanText(url, 2000);
+	if (!/^https?:\/\//i.test(cleanUrl)) return null;
+	if (typeof fetchImageImpl === 'function') {
+		return fetchImageImpl(cleanUrl);
+	}
+	try {
+		const response = await fetchPublicHttp(
+			cleanUrl,
+			{ headers: { accept: 'image/*' } },
+			{ timeoutMs: 8_000, maxRedirects: 2 }
+		);
+		if (!response?.ok) return null;
+		const headerType = cleanText(response.headers?.get?.('content-type') || '', 120)
+			.split(';')[0]
+			.trim()
+			.toLowerCase();
+		if (headerType && !headerType.startsWith('image/')) return null;
+		const buffer = await readResponseBuffer(response, MAX_AUDIT_IMAGE_BYTES);
+		if (!buffer?.byteLength) return null;
+		return {
+			buffer,
+			mimeType: headerType || 'image/jpeg'
+		};
+	} catch {
+		return null;
+	}
+}
+
+export async function auditLearnMarkdownAltText({
+	supabase = null,
+	title = '',
+	summary = '',
+	content = '',
+	articleId = '',
+	fetchImageImpl = null,
+	generateAltImpl = null
+} = {}) {
+	if (typeof content !== 'string' || !content.trim()) {
+		throw Object.assign(new Error('Add article content first.'), { code: 'INVALID_INPUT' });
+	}
+
+	const allImages = extractMarkdownImages(content);
+	const flagged = allImages.filter((item) => item.needsRemediation).slice(0, MAX_AUDIT_IMAGES);
+	if (!flagged.length) {
+		return {
+			totalImages: allImages.length,
+			flaggedCount: 0,
+			issues: [],
+			proposals: [],
+			draft: content
+		};
+	}
+
+	const headings = extractMarkdownHeadings(content).map((heading) => heading.text);
+	const storedAltByUrl = new Map();
+
+	if (supabase) {
+		try {
+			const urls = [...new Set(flagged.map((item) => item.imageUrl).filter(Boolean))];
+			if (urls.length) {
+				const { data: assetRows } = await supabase
+					.from('learn_assets')
+					.select('public_url, file_name, mime_type, alt_text')
+					.in('public_url', urls);
+				for (const row of assetRows ?? []) {
+					const verifiedAlt = sanitizeAltText(row?.alt_text || '', {
+						fileName: row?.file_name || '',
+						imageUrl: row?.public_url || ''
+					});
+					if (row?.public_url && verifiedAlt) {
+						storedAltByUrl.set(row.public_url, verifiedAlt);
+					}
+				}
+			}
+			if (articleId && !storedAltByUrl.size) {
+				const { data: linkedRows } = await supabase
+					.from('learn_assets')
+					.select('public_url, file_name, alt_text')
+					.eq('article_id', articleId);
+				for (const row of linkedRows ?? []) {
+					const verifiedAlt = sanitizeAltText(row?.alt_text || '', {
+						fileName: row?.file_name || '',
+						imageUrl: row?.public_url || ''
+					});
+					if (row?.public_url && verifiedAlt) {
+						storedAltByUrl.set(row.public_url, verifiedAlt);
+					}
+				}
+			}
+		} catch {
+			// Best-effort asset metadata lookup; continue with AI synthesis.
+		}
+	}
+
+	const aiConfigured =
+		Boolean(generateAltImpl) ||
+		isAiModelConfigured('multimodal_structured') ||
+		isAiModelConfigured('structured_text');
+
+	return runLearnMarkdownAltAudit({
+		title,
+		summary,
+		content,
+		headings,
+		storedAltByUrl,
+		maxImages: MAX_AUDIT_IMAGES,
+		concurrency: AUDIT_CONCURRENCY,
+		generateAlt: aiConfigured
+			? async (item) => {
+					if (typeof generateAltImpl === 'function') {
+						return generateAltImpl(item);
+					}
+					const fetched = isAiModelConfigured('multimodal_structured')
+						? await fetchAuditImageBytes(item.imageUrl, fetchImageImpl)
+						: null;
+					return generateLearnImageAltText({
+						imageBuffer: fetched?.buffer ?? null,
+						mimeType: fetched?.mimeType || 'image/jpeg',
+						imageUrl: item.imageUrl,
+						fileName: item.currentAlt,
+						title,
+						summary,
+						sectionHeading: item.sectionHeading,
+						headings,
+						surroundingContext: item.surroundingContext,
+						enclosingLinkUrl: item.enclosingLinkUrl,
+						enclosingLinkText: item.enclosingLinkText,
+						isSoleLinkContent: item.isSoleLinkContent
+					});
+				}
+			: null
+	});
 }
 
 export async function generateLearnAiTakeaways({ title = '', summary = '', content = '' } = {}) {
