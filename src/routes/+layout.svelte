@@ -10,6 +10,7 @@
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
@@ -695,6 +696,11 @@
 			hasError: page.error !== null && page.error !== undefined
 		})
 	);
+	const assistantContext = setAssistantContext();
+
+	$effect(() => {
+		assistantContext.setPathname(page.url.pathname);
+	});
 </script>
 
 <svelte:head>

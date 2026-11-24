@@ -3,7 +3,6 @@
 	import '@toast-ui/editor/dist/toastui-editor.css';
 	import { attachLearnEditorAccessibility } from '#lib/learn/editorAccessibility.js';
 
-	/** @type {Record<string, any>} */
 	let {
 		name = 'bodyMarkdown',
 		modeName = 'editorMode',
@@ -26,17 +25,12 @@
 			'Rich text editor'
 	);
 
-	/** @type {any} */
 	let editorEl = $state(null);
-	/** @type {any} */
 	let textareaEl = $state(null);
-	/** @type {any} */
 	let modeEl = $state(null);
 	let currentMode = $state('wysiwyg');
-	let lastExternalValue = $state('');
-	/** @type {any} */
+	let lastExternalValue = '';
 	let editor = null;
-	/** @type {any} */
 	let detachAccessibility = null;
 	let ready = $state(false);
 

@@ -1,7 +1,7 @@
 <script>
 	import { navigateAfterMutation } from '#lib/client/navigation';
 	import { Combobox, Portal, useListCollection } from '@skeletonlabs/skeleton-svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import {
 		DEFAULT_RIDE_FORM,
 		MONTH_POSITION_OPTIONS,
@@ -25,9 +25,17 @@
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash';
+	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconUndo2 from '@lucide/svelte/icons/undo-2';
 	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import {
+		getContextualModeDefaults,
+		rideDraftFingerprint,
+		verifyAppliedFingerprint,
+		verifyBaseFingerprint
+	} from '#lib/ai/assistantHelpers.js';
 
-	/** @type {Record<string, any>} */
 	let {
 		pageTitle = 'New Ride',
 		pageDescription = '',
@@ -631,51 +639,58 @@
 		form = { ...form, imageUrls: nextImages };
 	}
 
-	async function sendAiPrompt() {
-		if (!aiPrompt.trim()) return;
-		aiError = '';
-		aiLoading = true;
-		const nextMessages = [...aiMessages, { role: 'user', content: aiPrompt.trim() }];
-		aiMessages = nextMessages;
-		const promptToSend = aiPrompt;
-		aiPrompt = '';
-		try {
-			const response = await fetch('/api/ai/ride-writer', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					messages: nextMessages,
-					context: buildPayload()
-				})
-			});
-			const result = await response.json().catch(() => ({}));
-			if (!response.ok) throw new Error(result?.error || 'Unable to generate ride draft.');
-			const reply =
-				safeTrim(result.reply) || 'Tell me the route, pace, and timing, and I can keep drafting.';
-			aiMessages = [...nextMessages, { role: 'assistant', content: reply }];
-			latestAiDraft = result.draft ?? null;
-			if (result.draft) {
-				mergeDraft(result.draft);
-			}
-			if (result.follow_up_questions?.length) {
-				aiMessages = [
-					...aiMessages,
-					{
-						role: 'assistant',
-						content: result.follow_up_questions.map((question) => `• ${question}`).join('\n')
-					}
-				];
-			}
-		} catch (error) {
-			aiMessages = [
-				...nextMessages,
-				{ role: 'assistant', content: 'The drafting line went quiet for a minute.' }
-			];
-			aiError = error.message || 'Unable to generate ride draft.';
-			aiPrompt = promptToSend;
-		} finally {
-			aiLoading = false;
+	function applyRideAiProposal(proposal) {
+		if (!proposal?.draft) {
+			return { ok: false, error: 'No ride draft to apply.' };
 		}
+		const currentFp = rideDraftFingerprint(buildPayload());
+		const check = verifyBaseFingerprint(
+			currentFp,
+			proposal.baseFingerprint,
+			'Your ride form changed after this draft was created. Ask Ride Muse again so it uses your latest edits.'
+		);
+		if (!check.ok) return check;
+
+		const previous = {
+			form: JSON.parse(JSON.stringify(form)),
+			slugTouched
+		};
+		mergeDraft(proposal.draft);
+		aiAppliedSnapshot = previous;
+		aiAppliedFingerprint = rideDraftFingerprint(buildPayload());
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoRideAiProposal() {
+		if (!aiAppliedSnapshot) {
+			return { ok: false, error: 'No applied Ride Muse draft to undo.' };
+		}
+		const currentFp = rideDraftFingerprint(buildPayload());
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'You edited the ride form after applying this draft, so undo was skipped to protect your newer changes.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		form = JSON.parse(JSON.stringify(aiAppliedSnapshot.form));
+		slugTouched = aiAppliedSnapshot.slugTouched;
+		aiAppliedSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function openRideMuse(prompt = '', triggerEl = rideMuseBtnEl) {
+		assistantContext.open({
+			mode: 'page',
+			prompt,
+			submit: Boolean(prompt),
+			triggerEl
+		});
 	}
 
 	function beginOccurrenceEdit(occurrence) {
@@ -811,40 +826,28 @@
 	let leadImageAlt = $state('');
 	let geocodeLoading = $state('');
 	let geocodeError = $state('');
-	let aiMessages = $state([
-		{
-			role: 'assistant',
-			content:
-				'Give me the vibe, route, timing, and who the ride is for. I can draft the copy and the structure.'
-		}
-	]);
-	let aiPrompt = $state('');
-	let aiLoading = $state(false);
-	let aiError = $state('');
-	/** @type {any} */
-	let latestAiDraft = $state(null);
-	let aiMessagesEl = $state();
-	/** @type {any} */
+	const assistantContext = getAssistantContext();
+	const rideMuseStarters = getContextualModeDefaults('ride-write').starterPrompts;
+	let rideMuseBtnEl = $state(null);
+	let aiAppliedSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
 	let occurrenceDraft = $state(null);
 	let occurrenceSaving = $state(false);
 	let occurrenceSaveError = $state('');
 	let newHostEmail = $state('');
 	let hostSaving = $state(false);
 	let hostError = $state('');
-	/** @type {any} */
 	let hostEntries = $state([]);
 	let organizerEmailSubject = $state('');
 	let organizerEmailBody = $state('');
 	let organizerEmailSending = $state(false);
 	let organizerEmailError = $state('');
 	let organizerEmailSuccess = $state('');
-	/** @type {any} */
 	let selectedManageOccurrenceId = $state(null);
 	let applyFromOccurrenceStart = $state('');
-	/** @type {any} */
 	let hostGroupSelection = $state([]);
 	let hostGroupQuery = $state('');
-	/** @type {any} */
 	let hostGroupItems = $state([]);
 	let activeManageTab = $state('details');
 	let deleteError = $state('');
@@ -865,7 +868,6 @@
 		) ?? null
 	);
 	const selectedOccurrenceRsvps = $derived(selectedOccurrence?.rsvps ?? []);
-	const aiConversationStarted = $derived(aiMessages.length > 1);
 	const hostGroupOptions = $derived(buildHostGroupOptions(hostGroups));
 	const hostGroupCollection = $derived(
 		useListCollection({
@@ -876,6 +878,23 @@
 	);
 
 	let initializedFromProps = $state(false);
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'ride-write',
+			getContext: () => {
+				const payload = buildPayload();
+				return {
+					payload,
+					fingerprint: rideDraftFingerprint(payload)
+				};
+			},
+			applyDraft: applyRideAiProposal,
+			undoDraft: undoRideAiProposal,
+			canUndoDraft: Boolean(aiAppliedSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
 
 	$effect(() => {
 		if (initializedFromProps) return;
@@ -901,16 +920,6 @@
 	$effect(() => {
 		if (!initializedFromProps) return;
 		hostGroupItems = filterHostGroupOptions(hostGroupOptions, hostGroupQuery);
-	});
-
-	$effect(() => {
-		const messageCount = aiMessages.length;
-		if (!messageCount || !aiMessagesEl) return;
-
-		tick().then(() => {
-			if (!aiMessagesEl) return;
-			aiMessagesEl.scrollTop = aiMessagesEl.scrollHeight;
-		});
 	});
 
 	onMount(() => {
@@ -2043,72 +2052,54 @@
 				<!-- AI Intake -->
 				<section class="ai-panel card overflow-hidden">
 					<div class="ai-panel-header p-4 pb-3">
-						<div class="flex items-center gap-2">
-							<IconSparkles class="h-4 w-4" />
-							<span class="text-sm font-bold tracking-[0.18em] uppercase">Ride Muse</span>
-							{#if aiLoading}
-								<span class="ml-auto flex items-center gap-1.5 text-xs opacity-60">
-									<IconLoader class="h-3 w-3 animate-spin" />
-									Drafting…
-								</span>
-							{/if}
+						<div class="flex items-center justify-between gap-2">
+							<div class="flex items-center gap-2">
+								<IconSparkles class="h-4 w-4" />
+								<span class="text-sm font-bold tracking-[0.18em] uppercase">Ride Muse</span>
+							</div>
+							<span class="text-[11px] font-bold tracking-wider uppercase opacity-80">AI Draft</span
+							>
 						</div>
 					</div>
-					<div bind:this={aiMessagesEl} class="ai-messages space-y-2 px-4 py-3">
-						{#each aiMessages as message, index (`${message.role}-${index}`)}
-							<div class={`ai-bubble ai-bubble-${message.role}`}>
-								<div class="ai-bubble-label">
-									{message.role === 'assistant' ? '✦ Ride Muse' : 'You'}
-								</div>
-								<div class="text-sm leading-relaxed break-words whitespace-pre-wrap">
-									{message.content}
-								</div>
-							</div>
-						{/each}
-						{#if aiLoading}
-							<div class="ai-bubble ai-bubble-assistant ai-bubble-loading">
-								<div class="ai-bubble-label">✦ Ride Muse</div>
-								<div class="flex items-center gap-2 text-sm">
-									<span class="ai-loader-dot"></span>
-									<span class="ai-loader-dot ai-loader-dot-delay-1"></span>
-									<span class="ai-loader-dot ai-loader-dot-delay-2"></span>
-									<span class="opacity-70">Drafting your ride…</span>
-								</div>
-							</div>
-						{/if}
-					</div>
-					<div class="border-surface-500/15 space-y-3 border-t p-4 pt-3">
-						<textarea
-							class="textarea preset-tonal-surface min-h-24 text-sm"
-							bind:value={aiPrompt}
-							placeholder="Monthly coffee ride, 18 miles, casual pace, first and third Monday, start downtown…"
-						></textarea>
-						<div class="flex items-center gap-2">
+					<div class="space-y-3 p-4">
+						<p class="text-surface-300 m-0 text-xs leading-relaxed">
+							Describe your route, meetup, timing, and pace in the 3FP Assistant. Ride Muse previews
+							all changes before applying them to your form.
+						</p>
+						<button
+							bind:this={rideMuseBtnEl}
+							type="button"
+							class="btn preset-filled-primary-500 min-h-11 w-full justify-between gap-2"
+							onclick={() => openRideMuse('', rideMuseBtnEl)}
+						>
+							<span class="inline-flex items-center gap-1.5">
+								<IconSparkles class="h-3.5 w-3.5" />
+								Open Ride Muse
+							</span>
+							<IconArrowRight class="h-4 w-4" />
+						</button>
+						<div class="grid grid-cols-1 gap-1.5" aria-label="Ride Muse starter prompts">
+							{#each rideMuseStarters as starter}
+								<button
+									type="button"
+									class="border-surface-700 bg-surface-900 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 min-h-11 min-w-0 border px-3 py-2 text-left text-xs font-semibold break-words transition"
+									onclick={(event) => openRideMuse(starter, event.currentTarget)}
+								>
+									{starter}
+								</button>
+							{/each}
+						</div>
+						{#if aiUndoConflictMessage}
+							<p class="text-surface-300 m-0 text-xs" role="status">{aiUndoConflictMessage}</p>
+						{:else if aiAppliedSnapshot}
 							<button
 								type="button"
-								class="btn preset-filled-secondary-500 min-h-11 flex-1 gap-1.5"
-								onclick={sendAiPrompt}
-								disabled={aiLoading}
+								class="btn btn-sm preset-tonal-surface min-h-11 w-full gap-1.5"
+								onclick={undoRideAiProposal}
 							>
-								<IconSparkles class="h-3.5 w-3.5" />
-								{aiLoading ? 'Drafting…' : aiConversationStarted ? 'Send' : 'Ask Ride Muse'}
+								<IconUndo2 class="h-3.5 w-3.5" />
+								Undo Ride Muse draft
 							</button>
-						</div>
-						{#if aiLoading}
-							<div class="card preset-tonal-secondary flex items-center gap-3 p-3 text-xs">
-								<span class="relative flex h-3 w-3">
-									<span
-										class="bg-secondary-400 absolute inline-flex h-full w-full animate-ping opacity-75"
-									></span>
-									<span class="bg-secondary-500 relative inline-flex h-3 w-3"></span>
-								</span>
-								<span>Ride Muse is shaping copy, timing, and structure from your prompt.</span>
-							</div>
-						{/if}
-						{#if aiError}
-							<div class="border-warning-500 bg-warning-500 text-surface-950 border p-2.5 text-xs">
-								{aiError}
-							</div>
 						{/if}
 					</div>
 				</section>
@@ -2177,38 +2168,6 @@
 		background: var(--color-surface-900);
 	}
 
-	.ai-loader-dot {
-		width: 0.5rem;
-		height: 0.5rem;
-		background: var(--color-primary-500);
-		animation: ai-loader-bounce 1.2s ease-in-out infinite;
-	}
-
-	.ai-loader-dot-delay-1 {
-		animation-delay: 0.15s;
-	}
-
-	.ai-loader-dot-delay-2 {
-		animation-delay: 0.3s;
-	}
-
-	.ai-bubble-loading {
-		border-style: dashed;
-	}
-
-	@keyframes ai-loader-bounce {
-		0%,
-		80%,
-		100% {
-			transform: scale(0.72);
-			opacity: 0.45;
-		}
-		40% {
-			transform: scale(1);
-			opacity: 1;
-		}
-	}
-
 	.editor-section-icon {
 		display: flex;
 		align-items: center;
@@ -2243,49 +2202,10 @@
 		color: var(--color-surface-50);
 	}
 
-	.ai-messages {
-		max-height: 320px;
-		overflow-y: auto;
-		scroll-behavior: smooth;
-	}
-
-	.ai-bubble {
-		padding: 0.625rem 0.875rem;
-	}
-
-	.ai-bubble-assistant {
-		background: var(--color-surface-900);
-		border: 1px solid var(--color-surface-700);
-	}
-
-	.ai-bubble-user {
-		background: var(--color-secondary-500);
-		border: 1px solid var(--color-secondary-500);
-		color: var(--color-surface-50);
-		margin-left: 1rem;
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		.ai-loader-dot {
-			animation: none;
-		}
-
-		.ai-messages {
-			scroll-behavior: auto;
-		}
-
 		:global(.animate-spin),
 		:global(.animate-ping) {
 			animation: none;
 		}
-	}
-
-	.ai-bubble-label {
-		font-size: 0.65rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.18em;
-		opacity: 0.55;
-		margin-bottom: 0.25rem;
 	}
 </style>

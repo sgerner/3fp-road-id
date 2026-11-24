@@ -31,6 +31,8 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
 	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		buildGroupSiteEditorState,
@@ -38,6 +40,7 @@
 		GROUP_SITE_LOGO_MAX_BYTES,
 		mergeGroupSiteEditorConfig,
 		normalizeGroupSiteEditorView,
+		siteEditorConfigFingerprint,
 		toIsoDateTimeValue
 	} from '#lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
@@ -65,9 +68,7 @@
 		GROUP_SITE_SECTION_KEYS
 	} from '#lib/microsites/config';
 
-	/** @type {Record<string, any>} */
 	let { data, form } = $props();
-	/** @type {any} */
 	const clone = (value) => JSON.parse(JSON.stringify(value));
 	const initialSavedState = untrack(() =>
 		buildGroupSiteEditorState({
@@ -88,80 +89,50 @@
 				})
 			: initialSavedState
 	);
-	/** @type {any} */
 	let siteConfig = $state(initialEditorState.siteConfig);
-	/** @type {any} */
 	let pageBlocks = $state(initialEditorState.pageBlocks);
-	/** @type {any} */
 	let sitePages = $state(initialEditorState.sitePages);
-	/** @type {any} */
 	let selectedPageId = $state(initialEditorState.selectedPageId);
 	let sponsorSequence = initialEditorState.nextSponsorSequence;
-	/** @type {any} */
 	let sponsorItems = $state(initialEditorState.sponsorItems);
-	/** @type {any} */
 	let faqItems = $state(initialEditorState.faqItems);
-	/** @type {any} */
 	let slugInput = $state(initialEditorState.slugInput);
-	/** @type {any} */
 	let activeView = $state(initialEditorState.activeView);
-	/** @type {any} */
 	let showPreview = $state(false);
-	/** @type {any} */
 	let previewVersion = $state(0);
-	/** @type {any} */
 	let localNotice = $state('');
-	/** @type {any} */
 	let localError = $state('');
-	/** @type {any} */
 	let groupSearch = $state('');
-	/** @type {any} */
 	let submitting = $state(false);
-	/** @type {any} */
 	let refreshingPalette = $state(false);
-	/** @type {any} */
 	let sponsorFileRevision = $state(0);
-	/** @type {any} */
 	let sponsorFileNames = $state({});
+	let aiUndoSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
+	const assistantContext = getAssistantContext();
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
-	/** @type {any} */
 	let rideFilterMode = $state(initialEditorState.rideFilterMode);
-	/** @type {any} */
 	let rideLocation = $state(initialEditorState.rideLocation);
-	/** @type {any} */
 	let rideNear = $state(initialEditorState.rideNear);
-	/** @type {any} */
 	let rideRadius = $state(initialEditorState.rideRadius);
-	/** @type {any} */
 	let rideDefaultTab = $state(initialEditorState.rideDefaultTab);
-	/** @type {any} */
 	let rideTheme = $state(initialEditorState.rideTheme);
-	/** @type {any} */
 	let rideDensity = $state(initialEditorState.rideDensity);
-	/** @type {any} */
 	let rideShowFilters = $state(initialEditorState.rideShowFilters);
-	/** @type {any} */
 	let rideShowAdd = $state(initialEditorState.rideShowAdd);
-	/** @type {any} */
 	let ridePrefixCity = $state(initialEditorState.ridePrefixCity);
-	/** @type {any} */
 	let rideDifficultyColors = $state(initialEditorState.rideDifficultyColors);
-	/** @type {any} */
 	let selectedRideGroupIds = $state(initialEditorState.selectedRideGroupIds);
-	/** @type {any} */
 	const selectedSitePage = $derived(
 		sitePages.find((page) => page.id === selectedPageId) || sitePages[0]
 	);
-	/** @type {any} */
 	const navigationItems = $derived(sitePages[0]?.navigation?.items || []);
-	/** @type {any} */
 	const primaryNavigationCount = $derived(
 		navigationItems.filter((item) => item.placement === 'primary').length
 	);
-	/** @type {any} */
 	const announcementExpiresIso = $derived(toIsoDateTimeValue(siteConfig.announcement_expires_at));
-	/** @type {any} */
 	const aiCurrentConfig = $derived({
 		...siteConfig,
 		page_blocks: sitePages[0]?.blocks || pageBlocks,
@@ -188,7 +159,6 @@
 		}
 	});
 
-	/** @type {any} */
 	const views = [
 		{
 			id: 'builder',
@@ -218,40 +188,34 @@
 		},
 		{ id: 'more', label: 'Settings', hint: 'Search, safety, and publishing', icon: IconSettings }
 	];
-	/** @type {any} */
 	const heroLabels = {
 		immersive: ['Immersive', 'Big, cinematic welcome'],
 		bold: ['Editorial', 'Strong type and clear hierarchy'],
 		orbit: ['Community cards', 'Friendly, layered highlights']
 	};
-	/** @type {any} */
 	const backgroundLabels = {
 		cinematic: 'Cinematic photo',
 		aurora: 'Soft color glow',
 		prism: 'Bright geometric',
 		void: 'Minimal dark'
 	};
-	/** @type {any} */
 	const panelStyleLabels = {
 		glass: 'Soft translucent',
 		filled: 'Solid cards',
 		outlined: 'Light outlines'
 	};
 	const densityLabels = { compact: 'Compact', comfortable: 'Comfortable', airy: 'Spacious' };
-	/** @type {any} */
 	const toneLabels = {
 		surface: 'Neutral',
 		primary: 'Brand color',
 		secondary: 'Supporting color',
 		tertiary: 'Accent color'
 	};
-	/** @type {any} */
 	const navigationPlacementLabels = {
 		primary: 'Primary header',
 		more: 'More menu',
 		hidden: 'Hidden'
 	};
-	/** @type {any} */
 	const sitePalettes = [
 		{
 			id: 'brand',
@@ -278,7 +242,6 @@
 			colors: { primary: '#2563EB', secondary: '#0F766E', accent: '#06B6D4', surface: '#F8FAFC' }
 		}
 	];
-	/** @type {any} */
 	const filteredGroups = $derived(
 		(data.availableGroups || []).filter((candidate) =>
 			`${candidate.name} ${candidate.city || ''} ${candidate.state_region || ''}`
@@ -286,7 +249,6 @@
 				.includes(groupSearch.toLowerCase())
 		)
 	);
-	/** @type {any} */
 	const previewPath = $derived(`${data.previewPath || '/'}?editor=${previewVersion}`);
 
 	function snapshot() {
@@ -312,9 +274,7 @@
 			sponsorFileRevision
 		});
 	}
-	/** @type {any} */
 	let savedSnapshot = $state(untrack(() => createGroupSiteEditorSnapshot(initialSavedState)));
-	/** @type {any} */
 	const dirty = $derived(snapshot() !== savedSnapshot);
 	const pendingLogoWarning = $derived.by(() => {
 		const pendingFiles = Array.isArray(form?.values?.pending_sponsor_logo_files)
@@ -323,9 +283,6 @@
 		if (!pendingFiles.length || Object.values(sponsorFileNames).some(Boolean)) return '';
 		return `Your draft text was kept, but the page reload cleared your selected partner logo (${pendingFiles.join(', ')}). Please choose the file again before publishing.`;
 	});
-	/**
-	 * @param {any} [fallbackView]
-	 */
 	function syncViewFromUrl(fallbackView = null) {
 		const requested = new URL(window.location.href).searchParams.get('view');
 		if (requested) {
@@ -368,6 +325,9 @@
 		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
 			input.value = '';
 		}
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
 		localNotice = '';
 		localError = '';
 		previewVersion += 1;
@@ -429,18 +389,11 @@
 		};
 	}
 
-	/**
-	 * @param {any} view
-	 */
 	function selectView(view) {
 		activeView = view;
 		void replaceShallowQueryParam('view', view);
 	}
 
-	/**
-	 * @param {any} event
-	 * @param {any} index
-	 */
 	function handleViewKeydown(event, index) {
 		if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
 		event.preventDefault();
@@ -457,9 +410,6 @@
 	function addFaq() {
 		if (faqItems.length < 2) faqItems = [...faqItems, { question: '', answer: '' }];
 	}
-	/**
-	 * @param {any} index
-	 */
 	function removeFaq(index) {
 		faqItems = faqItems.filter((_, candidate) => candidate !== index);
 	}
@@ -476,9 +426,6 @@
 				}
 			];
 	}
-	/**
-	 * @param {any} index
-	 */
 	function removeSponsor(index) {
 		const removedId = sponsorItems[index]?._editorId;
 		sponsorItems = sponsorItems.filter((_, candidate) => candidate !== index);
@@ -488,27 +435,16 @@
 			sponsorFileNames = nextNames;
 		}
 	}
-	/**
-	 * @param {any} index
-	 * @param {any} patch
-	 */
 	function updateSponsor(index, patch) {
 		sponsorItems = sponsorItems.map((sponsor, candidate) =>
 			candidate === index ? { ...sponsor, ...patch } : sponsor
 		);
 	}
-	/**
-	 * @param {any} id
-	 * @param {any} checked
-	 */
 	function toggleRideGroup(id, checked) {
 		selectedRideGroupIds = checked
 			? [...new Set([...selectedRideGroupIds, id])]
 			: selectedRideGroupIds.filter((candidate) => candidate !== id);
 	}
-	/**
-	 * @param {any} palette
-	 */
 	function applySitePalette(palette) {
 		if (!palette.colors) {
 			siteConfig.theme_mode = 'derived';
@@ -546,10 +482,6 @@
 			refreshingPalette = false;
 		}
 	}
-	/**
-	 * @param {any} nextConfig
-	 * @param {any} source
-	 */
 	function applyAiConfig(nextConfig, source) {
 		siteConfig = mergeGroupSiteEditorConfig(clone(siteConfig), clone(nextConfig));
 		sitePages = clone(siteConfig.site_pages || sitePages);
@@ -598,9 +530,116 @@
 					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
 	}
-	/**
-	 * @param {any} template
-	 */
+
+	function captureFullSiteEditorState() {
+		return clone({
+			siteConfig,
+			sitePages,
+			selectedPageId,
+			pageBlocks,
+			sponsorItems,
+			sponsorFileNames,
+			faqItems,
+			slugInput,
+			rideFilterMode,
+			rideLocation,
+			rideNear,
+			rideRadius,
+			rideDefaultTab,
+			rideTheme,
+			rideDensity,
+			rideShowFilters,
+			rideShowAdd,
+			ridePrefixCity,
+			rideDifficultyColors,
+			selectedRideGroupIds
+		});
+	}
+
+	function restoreFullSiteEditorState(saved) {
+		if (!saved) return;
+		siteConfig = clone(saved.siteConfig);
+		sitePages = clone(saved.sitePages);
+		selectedPageId = saved.selectedPageId || sitePages[0]?.id || 'home';
+		pageBlocks = clone(saved.pageBlocks);
+		sponsorItems = clone(saved.sponsorItems);
+		sponsorFileNames = clone(saved.sponsorFileNames || {});
+		faqItems = clone(saved.faqItems);
+		slugInput = saved.slugInput;
+		rideFilterMode = saved.rideFilterMode;
+		rideLocation = saved.rideLocation;
+		rideNear = saved.rideNear;
+		rideRadius = saved.rideRadius;
+		rideDefaultTab = saved.rideDefaultTab;
+		rideTheme = saved.rideTheme;
+		rideDensity = saved.rideDensity;
+		rideShowFilters = saved.rideShowFilters;
+		rideShowAdd = saved.rideShowAdd;
+		ridePrefixCity = saved.ridePrefixCity;
+		rideDifficultyColors = saved.rideDifficultyColors;
+		selectedRideGroupIds = clone(saved.selectedRideGroupIds);
+	}
+
+	function applyAiProposal(proposal) {
+		if (!proposal?.config) {
+			return { ok: false, error: 'No website proposal to apply.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyBaseFingerprint(
+			currentFp,
+			proposal.baseFingerprint,
+			'Your page changed after this draft was created. Ask the assistant again so it can use your latest edits.'
+		);
+		if (!check.ok) return check;
+
+		const previousState = captureFullSiteEditorState();
+		applyAiConfig(proposal.config, proposal.source || 'ai');
+		aiUndoSnapshot = previousState;
+		aiAppliedFingerprint = siteEditorConfigFingerprint(aiCurrentConfig);
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoAiProposal() {
+		if (!aiUndoSnapshot) {
+			return { ok: false, error: 'No applied AI draft to undo.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'Your page changed after you applied this AI draft. Keep your manual edits or ask the assistant for a fresh update.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		restoreFullSiteEditorState(aiUndoSnapshot);
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		previewVersion += 1;
+		localNotice = 'Reverted AI draft changes.';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'group-site-write',
+			groupSlug: data.group?.slug || '',
+			getContext: () => {
+				const currentCopy = clone(aiCurrentConfig);
+				return {
+					currentConfig: currentCopy,
+					baseFingerprint: siteEditorConfigFingerprint(currentCopy)
+				};
+			},
+			applyDraft: applyAiProposal,
+			undoDraft: undoAiProposal,
+			canUndoDraft: Boolean(aiUndoSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
@@ -611,9 +650,6 @@
 		localNotice = `${template.label} applied as a draft. Personalize the sections, then publish when ready.`;
 	}
 
-	/**
-	 * @param {any} nextBlocks
-	 */
 	function updatePageBlocks(nextBlocks) {
 		pageBlocks = clone(nextBlocks);
 		sitePages = sitePages.map((page) =>
@@ -630,9 +666,6 @@
 		};
 	}
 
-	/**
-	 * @param {any} patch
-	 */
 	function updateSiteConfig(patch) {
 		siteConfig = {
 			...siteConfig,
@@ -642,9 +675,6 @@
 		};
 	}
 
-	/**
-	 * @param {any} pageId
-	 */
 	function selectSitePage(pageId) {
 		const page = sitePages.find((candidate) => candidate.id === pageId);
 		if (!page) return;
@@ -676,9 +706,6 @@
 		localNotice = 'New page added as a draft.';
 	}
 
-	/**
-	 * @param {any} patch
-	 */
 	function updateSelectedPage(patch) {
 		sitePages = normalizeGroupSitePages(
 			sitePages.map((page) => {
@@ -696,9 +723,6 @@
 		};
 	}
 
-	/**
-	 * @param {any} offset
-	 */
 	function moveSelectedPage(offset) {
 		const index = sitePages.findIndex((page) => page.id === selectedPageId);
 		const target = index + offset;
@@ -720,9 +744,6 @@
 		localNotice = `${page.title} removed from the draft.`;
 	}
 
-	/**
-	 * @param {any} item
-	 */
 	function navigationItemMeta(item) {
 		if (item.id.startsWith('page:')) {
 			const pageId = item.id.slice(5);
@@ -741,9 +762,6 @@
 		};
 	}
 
-	/**
-	 * @param {any} nextItems
-	 */
 	function setNavigationItems(nextItems) {
 		const pagesWithVisibility = sitePages.map((page) => {
 			if (page.is_home) return page;
@@ -764,19 +782,12 @@
 		};
 	}
 
-	/**
-	 * @param {any} itemId
-	 * @param {any} patch
-	 */
 	function updateNavigationItem(itemId, patch) {
 		setNavigationItems(
 			navigationItems.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
 		);
 	}
 
-	/**
-	 * @param {any} visible
-	 */
 	function setSelectedPageNavigationVisible(visible) {
 		const itemId = `page:${selectedPageId}`;
 		setNavigationItems(
@@ -795,10 +806,6 @@
 		);
 	}
 
-	/**
-	 * @param {any} itemId
-	 * @param {any} offset
-	 */
 	function moveNavigationItem(itemId, offset) {
 		const index = navigationItems.findIndex((item) => item.id === itemId);
 		const target = index + offset;
@@ -817,7 +824,6 @@
 
 	onMount(() => {
 		syncViewFromUrl();
-		/** @type {any} */
 		const warn = (event) => {
 			if (!dirty || submitting) return;
 			event.preventDefault();
@@ -1336,24 +1342,11 @@
 					</p>
 				</section>
 			{:else if activeView === 'quick'}
-				<details class="card preset-tonal-secondary">
-					<summary class="flex cursor-pointer items-center gap-3 p-4 sm:p-5"
-						><span class="card preset-tonal-secondary p-2.5"><IconSparkles class="h-5 w-5" /></span
-						><span class="grow"
-							><span class="block font-semibold">Improve my website with AI</span><span
-								class="block text-sm opacity-65"
-								>Describe the feeling and let the assistant propose the first draft.</span
-							></span
-						></summary
-					>
-					<div class="preset-divider-top p-4 sm:p-5">
-						<GroupSiteAiAssistant
-							groupSlug={data.group.slug}
-							currentConfig={aiCurrentConfig}
-							onapplied={applyAiConfig}
-						/>
-					</div>
-				</details>
+				<GroupSiteAiAssistant
+					canUndo={Boolean(aiUndoSnapshot) && !aiUndoConflictMessage}
+					undoConflictMessage={aiUndoConflictMessage}
+					onundo={undoAiProposal}
+				/>
 				<div class="grid gap-4 xl:grid-cols-2">
 					<div class="card preset-tonal-primary grid content-start gap-3 p-4">
 						<div>

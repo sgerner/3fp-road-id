@@ -472,7 +472,7 @@
 	═══════════════════════════════════════════════ -->
 	<div class="bg-secondary-500 text-surface-50 px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
 		<div class="flex flex-col gap-6">
-			<LearnNavigator />
+			<LearnNavigator categoryName={data.category.name} />
 
 			{#if data.canEdit}
 				<details class="border-surface-50 bg-surface-950 text-surface-50 border-2">
