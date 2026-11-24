@@ -235,6 +235,7 @@ export async function PUT(event) {
 	await refreshActivityNextOccurrence(supabase, rideId);
 
 	let sponsorshipRequest = null;
+	let sponsorshipWarning = '';
 	if (sponsorshipGroupId && serviceSupabase) {
 		const sponsorshipResult = await createOrUpdateEventSponsorshipRequest({
 			supabase,
@@ -249,7 +250,8 @@ export async function PUT(event) {
 		if (sponsorshipResult.ok) {
 			sponsorshipRequest = sponsorshipResult.data;
 		} else {
-			return invalid(sponsorshipResult.error, sponsorshipResult.status || 400);
+			console.warn('Ride updated, but sponsorship request returned error:', sponsorshipResult);
+			sponsorshipWarning = sponsorshipResult.error || '';
 		}
 	} else if ((payload.activity.host_group_id || cancelPendingSponsorship) && serviceSupabase) {
 		await cancelPendingSponsorshipRequestsForEvent({
@@ -262,7 +264,11 @@ export async function PUT(event) {
 		includeTemplates: true,
 		includePrivateRsvps: true
 	});
-	return json({ data: ride, sponsorshipRequest });
+	return json({
+		data: ride,
+		sponsorshipRequest,
+		...(sponsorshipWarning ? { sponsorshipWarning } : {})
+	});
 }
 
 export async function DELETE({ params, cookies }) {

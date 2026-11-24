@@ -22,29 +22,29 @@ export {
 	shouldAuthorizeRideHostGroupChange
 };
 
-export function loadActiveEventSponsorshipRequest({
-	serviceSupabase = createServiceSupabaseClient(),
-	...options
-} = {}) {
-	return loadActiveEventSponsorshipRequestCore({ ...options, serviceSupabase });
+/** @param {Parameters<typeof loadActiveEventSponsorshipRequestCore>[0]} [options] */
+export function loadActiveEventSponsorshipRequest(options = {}) {
+	const { serviceSupabase = createServiceSupabaseClient(), ...rest } = options;
+	return loadActiveEventSponsorshipRequestCore({ ...rest, serviceSupabase });
 }
 
-export function cancelPendingSponsorshipRequestsForEvent({
-	serviceSupabase = createServiceSupabaseClient(),
-	...options
-} = {}) {
-	return cancelPendingSponsorshipRequestsForEventCore({ ...options, serviceSupabase });
+/** @param {Parameters<typeof cancelPendingSponsorshipRequestsForEventCore>[0]} [options] */
+export function cancelPendingSponsorshipRequestsForEvent(options = {}) {
+	const { serviceSupabase = createServiceSupabaseClient(), ...rest } = options;
+	return cancelPendingSponsorshipRequestsForEventCore({ ...rest, serviceSupabase });
 }
 
-export function createOrUpdateEventSponsorshipRequest({
-	serviceSupabase = createServiceSupabaseClient(),
-	canManageRideFn = canManageActivity,
-	sendEmailFn = sendServerEmail,
-	publicOrigin = getConfiguredPublicOrigin(),
-	...options
-} = {}) {
+/** @param {Parameters<typeof createOrUpdateEventSponsorshipRequestCore>[0]} [options] */
+export function createOrUpdateEventSponsorshipRequest(options = {}) {
+	const {
+		serviceSupabase = createServiceSupabaseClient(),
+		canManageRideFn = canManageActivity,
+		sendEmailFn = sendServerEmail,
+		publicOrigin = getConfiguredPublicOrigin(),
+		...rest
+	} = options;
 	return createOrUpdateEventSponsorshipRequestCore({
-		...options,
+		...rest,
 		serviceSupabase,
 		canManageRideFn,
 		sendEmailFn,
@@ -52,33 +52,36 @@ export function createOrUpdateEventSponsorshipRequest({
 	});
 }
 
-export function cancelEventSponsorshipRequest({
-	serviceSupabase = createServiceSupabaseClient(),
-	canManageRideFn = canManageActivity,
-	...options
-} = {}) {
+/** @param {Parameters<typeof cancelEventSponsorshipRequestCore>[0]} [options] */
+export function cancelEventSponsorshipRequest(options = {}) {
+	const {
+		serviceSupabase = createServiceSupabaseClient(),
+		canManageRideFn = canManageActivity,
+		...rest
+	} = options;
 	return cancelEventSponsorshipRequestCore({
-		...options,
+		...rest,
 		serviceSupabase,
 		canManageRideFn
 	});
 }
 
-export function listGroupSponsorshipRequests({
-	serviceSupabase = createServiceSupabaseClient(),
-	...options
-} = {}) {
-	return listGroupSponsorshipRequestsCore({ ...options, serviceSupabase });
+/** @param {Parameters<typeof listGroupSponsorshipRequestsCore>[0]} [options] */
+export function listGroupSponsorshipRequests(options = {}) {
+	const { serviceSupabase = createServiceSupabaseClient(), ...rest } = options;
+	return listGroupSponsorshipRequestsCore({ ...rest, serviceSupabase });
 }
 
-export function reviewEventSponsorshipRequest({
-	serviceSupabase = createServiceSupabaseClient(),
-	sendEmailFn = sendServerEmail,
-	publicOrigin = getConfiguredPublicOrigin(),
-	...options
-} = {}) {
+/** @param {Parameters<typeof reviewEventSponsorshipRequestCore>[0]} [options] */
+export function reviewEventSponsorshipRequest(options = {}) {
+	const {
+		serviceSupabase = createServiceSupabaseClient(),
+		sendEmailFn = sendServerEmail,
+		publicOrigin = getConfiguredPublicOrigin(),
+		...rest
+	} = options;
 	return reviewEventSponsorshipRequestCore({
-		...options,
+		...rest,
 		serviceSupabase,
 		sendEmailFn,
 		publicOrigin

@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { getActivityClient } from '#lib/server/activities';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import {
+	dispatchContextualAssistantRequest,
+	MAX_ASSISTANT_ENVELOPE_BYTES
+} from '#lib/server/assistantDispatch.js';
+import { enforceRateLimit, readRequestBytes } from '#lib/server/security';
 import {
 	extractLatestUserMessage,
 	normalizeMessages,
@@ -9,6 +13,10 @@ import {
 	safeTrim,
 	uniqStrings
 } from '#lib/server/assistantCore';
+import { POST as learnAiPost } from '../../learn/ai/+server.js';
+import { POST as safetyReportAskPost } from '../../learn/safety-report/ask/+server.js';
+import { POST as rideWriterPost } from '../ride-writer/+server.js';
+import { POST as groupSiteDraftChatPost } from '../../groups/[slug]/site/ai-draft-chat/+server.js';
 
 export const config = { maxDuration: 60 };
 
@@ -226,6 +234,54 @@ async function loadUserData(supabase, user) {
 
 export async function POST(event) {
 	const { request, cookies } = event;
+	const rawBody = await readRequestBytes(request, MAX_ASSISTANT_ENVELOPE_BYTES);
+	if (!rawBody.ok) {
+		const limited = enforceRateLimit(event, {
+			name: 'ai-assistant',
+			limit: 30,
+			windowMs: 10 * 60 * 1000
+		});
+		if (limited) return limited;
+		return json({ error: rawBody.error }, { status: rawBody.status });
+	}
+
+	let payload = null;
+	try {
+		const text = rawBody.value.toString('utf8').trim();
+		payload = text ? JSON.parse(text) : null;
+	} catch {
+		const limited = enforceRateLimit(event, {
+			name: 'ai-assistant',
+			limit: 30,
+			windowMs: 10 * 60 * 1000
+		});
+		if (limited) return limited;
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		const limited = enforceRateLimit(event, {
+			name: 'ai-assistant',
+			limit: 30,
+			windowMs: 10 * 60 * 1000
+		});
+		if (limited) return limited;
+		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
+	}
+
+	const delegated = await dispatchContextualAssistantRequest({
+		event,
+		payload,
+		byteLength: rawBody.value.byteLength,
+		handlers: {
+			learnAi: learnAiPost,
+			safetyReportAsk: safetyReportAskPost,
+			rideWriter: rideWriterPost,
+			groupSiteDraftChat: groupSiteDraftChatPost
+		}
+	});
+	if (delegated) return delegated;
+
 	const limited = enforceRateLimit(event, {
 		name: 'ai-assistant',
 		limit: 30,
@@ -233,20 +289,11 @@ export async function POST(event) {
 	});
 	if (limited) return limited;
 
-	const parsedBody = await readJsonBody(request, { maxBytes: 64 * 1024 });
-	if (!parsedBody.ok) {
-		return json({ error: parsedBody.error }, { status: parsedBody.status });
-	}
-	if (
-		!parsedBody.value ||
-		typeof parsedBody.value !== 'object' ||
-		Array.isArray(parsedBody.value)
-	) {
-		return json({ error: 'Invalid JSON payload.' }, { status: 400 });
-	}
-
-	const payload = parsedBody.value;
-	const messages = normalizeMessages(payload?.messages);
+	const messages = normalizeMessages(
+		Array.isArray(payload?.messages)
+			? payload.messages.filter((entry) => entry?.synthetic !== true)
+			: payload?.messages
+	);
 	if (!messages.length) {
 		return json({ error: 'messages array required' }, { status: 400 });
 	}
@@ -281,6 +328,7 @@ export async function POST(event) {
 	});
 
 	return json({
+		mode: 'discover',
 		reply: turnResult.reply,
 		followUpQuestion: turnResult.followUpQuestion || null,
 		recommendations: turnResult.recommendations,

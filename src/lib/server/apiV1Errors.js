@@ -5,6 +5,10 @@ export const UNAUTHORIZED_HOST_GROUP_MESSAGE =
 
 export const INSUFFICIENT_PRIVILEGE_MESSAGE = 'You do not have permission to perform this action.';
 
+/**
+ * @param {any} error
+ * @param {number} [fallback]
+ */
 export function getApiV1ErrorStatus(error, fallback = 400) {
 	const rawCode = String(error?.code ?? '').trim();
 	if (rawCode === '42501') {
@@ -14,6 +18,10 @@ export function getApiV1ErrorStatus(error, fallback = 400) {
 	return parsedCode >= 200 && parsedCode <= 599 ? parsedCode : fallback;
 }
 
+/**
+ * @param {any} error
+ * @param {{ tableName?: string, body?: Record<string, any> | null, fallbackStatus?: number }} [options]
+ */
 export function resolveApiV1WriteError(
 	error,
 	{ tableName = '', body = null, fallbackStatus = 400 } = {}

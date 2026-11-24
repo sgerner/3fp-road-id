@@ -12,6 +12,7 @@
 		onRequestsChange = () => {}
 	} = $props();
 
+	/** @type {Record<string, any>} */
 	let updatedRequestsById = $state({});
 	let busyRequestId = $state('');
 	let busyDecision = $state('');
@@ -30,6 +31,10 @@
 			.slice(0, 5)
 	);
 
+	/**
+	 * @param {string | null | undefined} isoValue
+	 * @param {string} [timezone]
+	 */
 	function formatWhen(isoValue, timezone = 'UTC') {
 		if (!isoValue) return 'Date TBD';
 		const date = new Date(isoValue);
@@ -45,6 +50,10 @@
 		}
 	}
 
+	/**
+	 * @param {Record<string, any>} requestItem
+	 * @param {'approve' | 'decline'} action
+	 */
 	async function handleDecision(requestItem, action) {
 		if (!requestItem?.id || !groupSlug || busyRequestId) return;
 		busyRequestId = requestItem.id;
@@ -82,7 +91,8 @@
 					? `Approved "${requestItem.eventTitle}". ${groupName} is now linked on the public event page.`
 					: `Declined "${requestItem.eventTitle}". The event remains under personal hosting.`;
 		} catch (error) {
-			actionError = error?.message || `Unable to ${action} sponsorship request.`;
+			actionError =
+				error instanceof Error ? error.message : `Unable to ${action} sponsorship request.`;
 		} finally {
 			busyRequestId = '';
 			busyDecision = '';
@@ -207,7 +217,7 @@
 					<div class="flex shrink-0 flex-wrap items-center gap-2">
 						<button
 							type="button"
-							class="bg-success-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60"
+							class="bg-success-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60 pointer-coarse:min-h-11"
 							disabled={Boolean(busyRequestId)}
 							onclick={() => handleDecision(req, 'approve')}
 						>
@@ -221,7 +231,7 @@
 						</button>
 						<button
 							type="button"
-							class="border-surface-600 text-surface-200 hover:border-error-500 hover:text-error-400 inline-flex items-center gap-1.5 rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors disabled:opacity-60"
+							class="border-surface-600 text-surface-200 hover:border-error-500 hover:text-error-400 inline-flex items-center gap-1.5 rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors disabled:opacity-60 pointer-coarse:min-h-11"
 							disabled={Boolean(busyRequestId)}
 							onclick={() => handleDecision(req, 'decline')}
 						>

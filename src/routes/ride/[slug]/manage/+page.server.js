@@ -35,7 +35,7 @@ export const load = async ({ params, cookies }) => {
 			userId: user.id,
 			allowSiteAdmin: false
 		}),
-		loadActiveEventSponsorshipRequest({ activityEventId: ride.activity.id })
+		loadActiveEventSponsorshipRequest({ activityEventId: ride.activity.id }).catch(() => null)
 	]);
 
 	return {

@@ -8,11 +8,10 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import '#lib/map/leaflet.css';
-	import * as env from '$app/env/public';
-	import { geocodeAddress } from '#lib/groups/geocoding';
+	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
+	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
 	import { toaster } from '../../../routes/toaster-svelte';
 	import IconGlobe from '@lucide/svelte/icons/globe';
 	import IconMail from '@lucide/svelte/icons/mail';
@@ -34,16 +33,17 @@
 	}
 	const pageData = getPageData();
 
-	let L; // loaded dynamically on client
-
 	const MAX_BYTES = 10 * 1024 * 1024; // 10MB
-	const ZOOM_MIN = 0.1;
-	const ZOOM_MAX = 6;
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let submitError = $state('');
 	let logoPreview = $state('');
 	let coverPreview = $state('');
+	let coverAlt = $state('');
+	let effectiveCoverAlt = $derived(
+		coverAlt.trim() ||
+			(data.group?.name ? `Cover banner for ${data.group.name}` : 'Group cover banner')
+	);
 	let logoFiles = $state([]);
 	let coverFiles = $state([]);
 	let logoUploadKey = $state(0);
@@ -52,16 +52,20 @@
 	let cropTarget = $state(''); // 'logo' | 'cover'
 	let cropSrc = $state('');
 	let cropScale = $state(1);
-	let cropMinScale = $state(1);
-	let cropOffset = $state({ x: 0, y: 0 });
-	let cropDragging = false;
-	let cropStart = { x: 0, y: 0 };
-	let cropImgNatural = { w: 0, h: 0 };
+	let cropPanX = $state(0);
+	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	let cropFramer = $state(null);
 	let cropDialogEl = $state(null);
 	let cropReturnFocusEl = null;
 	let coverFieldRef = $state(null);
 	let formEl = $state();
+
+	$effect(() => {
+		if (!cropDialogEl) return;
+		if (cropping && !cropDialogEl.open) cropDialogEl.showModal();
+		else if (!cropping && cropDialogEl.open) cropDialogEl.close();
+	});
 	let stripeAccount = $state(pageData.donation_account || null);
 	let stripeBusy = $state(false);
 	let stripeError = $state('');
@@ -75,28 +79,31 @@
 	let stripeConnected = $derived(Boolean(stripeAccount?.stripe_account_id));
 	let stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
 
-	// Crop viewport container ref (no measurements used)
-	let cropContainerEl = $state(null);
-
 	// Server logs now print profile; no client logging needed
 
-	// Map + Places
-	let mapEl;
-	let map;
-	let marker;
-	let placesContainer;
-	let placesEl;
-	let placesLoading = $state(false);
-	let searchText = $state('');
+	// Location & Coordinate Picker state
 	let cityValue = $state((pageData.group?.city || '').trim());
 	let stateValue = $state((pageData.group?.state_region || '').trim());
 	let countryValue = $state((pageData.group?.country || 'US').toUpperCase());
-	let locationGeocodeTimeout;
-	let locationPendingGeocode;
-	let locationLastKey = '';
-	let locationGeocoder;
-	let googlePlacesReady = false;
 	let meetingAddress = $state((pageData.group?.specific_meeting_point_address || '').trim());
+	let groupLatitude = $state(pageData.group?.latitude ?? '');
+	let groupLongitude = $state(pageData.group?.longitude ?? '');
+	let geocodeRevision = $state(0);
+
+	const externalLocationQuery = $derived.by(() => {
+		const meetingTrim = (meetingAddress || '').trim();
+		if (meetingTrim) return meetingTrim;
+		const parts = [];
+		const cityTrim = (cityValue || '').trim();
+		const stateTrim = (stateValue || '').trim();
+		const countryTrim = (countryValue || '').trim().toUpperCase();
+		if (cityTrim) parts.push(cityTrim);
+		if (stateTrim) parts.push(stateTrim);
+		if (!parts.length) return '';
+		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
+		return parts.join(', ');
+	});
+
 	function formatDefaultSearch() {
 		const meetingTrim = (meetingAddress || '').trim();
 		if (meetingTrim) return meetingTrim;
@@ -106,227 +113,18 @@
 		if (pageData.group?.country) p.push(pageData.group.country);
 		return p.join(', ');
 	}
-	async function doSearch() {
-		const q = (searchText || '').trim();
-		if (!q) return;
-		if (!window.google?.maps?.Geocoder) {
-			console.warn('Google Maps Geocoder not available');
-			return;
-		}
-		try {
-			const geocoder = new window.google.maps.Geocoder();
-			const { results } = await geocoder.geocode({ address: q });
-			const res = results?.[0];
-			const loc = res?.geometry?.location;
-			if (!loc) return;
-			const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-			const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-			if (typeof lat === 'number' && typeof lng === 'number') {
-				placeMarker(lat, lng);
-				queueSave({ fields: { latitude: lat, longitude: lng } });
-			}
-		} catch (e) {
-			console.error('Google geocode failed', e);
-		}
-	}
-	function ensureMap(lat = 37.8, lng = -96, zoom = 4) {
-		if (!L || !mapEl) return;
-		if (map) return;
-		map = L.map(mapEl).setView([lat, lng], zoom);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		map.on('click', (e) => {
-			const { lat, lng } = e.latlng;
-			placeMarker(lat, lng);
-			queueSave({ fields: { latitude: lat, longitude: lng } });
-		});
-	}
-	function syncLatLngInputs(lat, lng) {
-		const latInput = document.getElementById('latitude');
-		const lngInput = document.getElementById('longitude');
-		const latNum = Number(lat);
-		const lngNum = Number(lng);
-		const latStr = Number.isFinite(latNum) ? latNum.toFixed(6) : '';
-		const lngStr = Number.isFinite(lngNum) ? lngNum.toFixed(6) : '';
-		if (latInput) latInput.value = latStr;
-		if (lngInput) lngInput.value = lngStr;
-	}
-	function placeMarker(lat, lng) {
-		syncLatLngInputs(lat, lng);
-		if (!map) return;
-		if (!marker) marker = L.marker([lat, lng]).addTo(map);
-		marker.setLatLng([lat, lng]);
-		map.setView([lat, lng], Math.max(map.getZoom(), 12));
-	}
-	function ensurePlacesHelpers() {
-		if (typeof window === 'undefined') return false;
-		const maps = window.google?.maps;
-		if (!maps?.places) return false;
-		if (!locationGeocoder) locationGeocoder = new maps.Geocoder();
-		googlePlacesReady = Boolean(locationGeocoder);
-		return googlePlacesReady;
-	}
-	function buildLocationConfig() {
-		const countryTrim = (countryValue || '').trim().toUpperCase();
-		const meetingTrim = (meetingAddress || '').trim();
-		if (meetingTrim) {
-			const meetingCountry = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-			return {
-				query: meetingTrim,
-				country: meetingCountry,
-				key: `${meetingTrim}|${meetingCountry}`
-			};
-		}
-		const cityTrim = (cityValue || '').trim();
-		const stateTrim = (stateValue || '').trim();
-		const parts = [];
-		if (cityTrim) parts.push(cityTrim);
-		if (stateTrim) parts.push(stateTrim);
-		if (!parts.length) return null;
-		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
-		const query = parts.join(', ');
-		if (!query) return null;
-		const countryCode = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-		return { query, country: countryCode, key: `${query}|${countryCode}` };
-	}
-	function scheduleLocationGeocode(options = {}) {
-		const config = buildLocationConfig();
-		if (!config) return;
-		if (!options.force && config.key === locationLastKey) return;
-		locationPendingGeocode = config;
-		if (!ensurePlacesHelpers()) return;
-		const run = () => runLocationGeocode(config);
-		clearTimeout(locationGeocodeTimeout);
-		if (options.immediate) run();
-		else locationGeocodeTimeout = setTimeout(run, 600);
-	}
-	async function runLocationGeocode(config) {
-		if (!config) return;
-		const active = locationPendingGeocode;
-		try {
-			const coords = await fetchLocationWithGeocoder(config.query, config.country);
-			if (!coords) return;
-			if (active && active.key !== config.key) return;
-			locationLastKey = config.key;
-			placeMarker(coords.lat, coords.lng);
-			queueSave({ fields: { latitude: coords.lat, longitude: coords.lng } });
-		} catch (error) {
-			console.error('Failed to geocode city/state', error);
-		}
-	}
-	function fetchLocationWithGeocoder(query, countryCode) {
-		return geocodeAddress(
-			locationGeocoder,
-			query,
-			countryCode,
-			window.google?.maps?.GeocoderStatus?.OK
-		);
-	}
+
 	function onLocationBlur() {
-		scheduleLocationGeocode({ immediate: true, force: true });
-	}
-	function loadGooglePlaces() {
-		if (typeof window === 'undefined') return;
-		if (window.google?.maps?.places) {
-			ensurePlacesHelpers();
-			return initPlaces();
-		}
-		const key = env.PUBLIC_GOOGLE_MAPS_API_KEY;
-		if (!key) {
-			console.warn('Missing PUBLIC_GOOGLE_MAPS_API_KEY');
-			return;
-		}
-		if (document.getElementById('gmaps-places')) return; // already loading
-
-		placesLoading = true;
-		const s = document.createElement('script');
-		s.id = 'gmaps-places';
-		s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=beta&callback=initGooglePlaces`;
-		s.async = true;
-		s.defer = true;
-		s.onerror = () => {
-			placesLoading = false;
-			console.error('Failed to load Google Maps Places');
-		};
-		document.head.appendChild(s);
-	}
-	function initPlaces() {
-		placesLoading = false;
-		try {
-			if (!ensurePlacesHelpers()) return;
-			googlePlacesReady = true;
-			if (locationPendingGeocode?.query) {
-				scheduleLocationGeocode({ immediate: true, force: true });
-			}
-			if (!placesContainer || !window.google?.maps?.places) return;
-			const PAE = window.google.maps.places.PlaceAutocompleteElement;
-			if (PAE) {
-				placesEl = new PAE();
-				const def = formatDefaultSearch();
-				if (def) placesEl.value = def;
-				placesContainer.innerHTML = '';
-				placesContainer.appendChild(placesEl);
-				placesEl.addEventListener('gmp-select', async ({ placePrediction }) => {
-					try {
-						const place = placePrediction.toPlace();
-						await place.fetchFields({ fields: ['location', 'viewport'] });
-						const loc = place.location;
-						let lat, lng;
-						if (loc) {
-							lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-							lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-						}
-						if (typeof lat === 'number' && typeof lng === 'number') {
-							placeMarker(lat, lng);
-							queueSave({ fields: { latitude: lat, longitude: lng } });
-						}
-					} catch (err) {
-						console.error('Place selection failed', err);
-					}
-				});
-				return;
-			}
-			// Fallback to legacy Autocomplete
-			const input = document.createElement('input');
-			input.className = 'input bg-primary-50-950/30';
-			input.placeholder = 'Start typing a city or address…';
-			const def = formatDefaultSearch();
-			if (def) input.value = def;
-			placesContainer.innerHTML = '';
-			placesContainer.appendChild(input);
-			if (window.google.maps.places.Autocomplete) {
-				const ac = new window.google.maps.places.Autocomplete(input, {
-					fields: ['geometry'],
-					types: ['(regions)']
-				});
-				ac.addListener('place_changed', () => {
-					const p = ac.getPlace();
-					const loc = p?.geometry?.location;
-					if (!loc) return;
-					const lat = loc.lat();
-					const lng = loc.lng();
-					placeMarker(lat, lng);
-					queueSave({ fields: { latitude: lat, longitude: lng } });
-				});
-			}
-		} catch (e) {
-			console.error('Failed to init Places', e);
+		if (externalLocationQuery) {
+			geocodeRevision += 1;
 		}
 	}
 
-	// No resize listeners while modal is open to avoid layout loops
-
-	// Removed reactive loop on cropScale; clamp offsets on explicit events instead
-
-	onMount(async () => {
-		// Make initPlaces globally available for the callback
-		window.initGooglePlaces = initPlaces;
+	onMount(() => {
 		const readVal = (id) => document.getElementById(id)?.value?.trim() || '';
-		meetingAddress = readVal('specific_meeting_point_address');
-		cityValue = readVal('city');
-		stateValue = readVal('state_region');
+		meetingAddress = readVal('specific_meeting_point_address') || meetingAddress;
+		cityValue = readVal('city') || cityValue;
+		stateValue = readVal('state_region') || stateValue;
 		const countryEl = document.getElementById('country');
 		if (countryEl) countryValue = (countryEl.value || countryValue).toUpperCase();
 
@@ -336,37 +134,6 @@
 		if (data.group?.cover_photo_url) {
 			coverPreview = data.group.cover_photo_url;
 		}
-		// Map init
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-		}
-		const hasCoords =
-			Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
-		const lat = hasCoords ? Number(data.group.latitude) : 37.8;
-		const lng = hasCoords ? Number(data.group.longitude) : -96;
-		requestAnimationFrame(() => {
-			ensureMap(lat, lng, hasCoords ? 12 : 4);
-			if (hasCoords) placeMarker(lat, lng);
-		});
-		if (placesContainer) {
-			loadGooglePlaces();
-		}
-		if (!hasCoords && (meetingAddress || '').trim()) {
-			scheduleLocationGeocode({ force: true });
-		}
-
-		return () => {
-			// Cleanup the global function when the component is destroyed
-			if (window.initGooglePlaces === initPlaces) {
-				delete window.initGooglePlaces;
-			}
-			if (locationGeocodeTimeout) clearTimeout(locationGeocodeTimeout);
-		};
 	});
 
 	function openCropper(target, file) {
@@ -374,138 +141,23 @@
 		const arr = Array.from(file instanceof FileList || Array.isArray(file) ? file : [file]);
 		const f = arr[0];
 		if (!f) return;
+		if (cropSrc) URL.revokeObjectURL(cropSrc);
 		coverFieldRef?.closeStudio?.();
 		cropReturnFocusEl = typeof document !== 'undefined' ? document.activeElement : null;
 		const url = URL.createObjectURL(f);
 		cropSrc = url;
 		cropTarget = target;
 		cropScale = 1;
-		cropMinScale = 1;
-		cropOffset = { x: 0, y: 0 };
+		cropPanX = 0;
+		cropPanY = 0;
 		cropReady = false;
 		cropping = true;
 	}
 
-	$effect(() => {
-		if (!cropDialogEl) return;
-		if (cropping && !cropDialogEl.open) {
-			cropDialogEl.showModal();
-		} else if (!cropping && cropDialogEl.open) {
-			cropDialogEl.close();
-		}
-	});
-
-	function onCropImgLoad(e) {
-		const img = e.target;
-		cropImgNatural = { w: img.naturalWidth, h: img.naturalHeight };
-		// Load at 1x and centered via CSS transform; user will zoom as needed
-		cropScale = 1;
-		cropOffset = { x: 0, y: 0 };
-		cropReady = true;
-	}
-
-	// Pinch + drag handling
-	let activePointers = new Map(); // id -> { x, y }
-	let isPinching = false;
-	let pinchStartDistance = 0;
-	let pinchStartScale = 1;
-	let pinchStartOffset = { x: 0, y: 0 };
-	let pinchCenter = { x: 0, y: 0 };
-
-	function onCropPointerDown(e) {
-		activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		// Capture pointer to this element for consistent move/up events
-		try {
-			e.currentTarget?.setPointerCapture?.(e.pointerId);
-		} catch {}
-		if (activePointers.size === 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			pinchStartDistance = Math.hypot(dx, dy) || 1;
-			pinchStartScale = cropScale;
-			pinchStartOffset = { ...cropOffset };
-			const rect = cropContainerEl?.getBoundingClientRect?.();
-			const cx = (pts[0].x + pts[1].x) / 2 - (rect?.left || 0);
-			const cy = (pts[0].y + pts[1].y) / 2 - (rect?.top || 0);
-			pinchCenter = { x: cx, y: cy };
-			isPinching = true;
-			cropDragging = false;
-		} else if (activePointers.size === 1) {
-			cropDragging = true;
-			cropStart = { x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y };
-		}
-		e.preventDefault();
-	}
-	function onCropPointerMove(e) {
-		if (activePointers.has(e.pointerId)) {
-			activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		}
-		if (isPinching && activePointers.size >= 2) {
-			const pts = Array.from(activePointers.values());
-			const dx = pts[1].x - pts[0].x;
-			const dy = pts[1].y - pts[0].y;
-			const dist = Math.hypot(dx, dy) || 1;
-			const factor = dist / (pinchStartDistance || 1);
-			const maxScale = ZOOM_MAX;
-			const newScale = Math.max(ZOOM_MIN, Math.min(maxScale, pinchStartScale * factor));
-			const imgX = (pinchCenter.x - pinchStartOffset.x) / pinchStartScale;
-			const imgY = (pinchCenter.y - pinchStartOffset.y) / pinchStartScale;
-			cropScale = newScale;
-			cropOffset = { x: pinchCenter.x - imgX * cropScale, y: pinchCenter.y - imgY * cropScale };
-			// no clamping without measurements
-		} else if (cropDragging) {
-			cropOffset = { x: e.clientX - cropStart.x, y: e.clientY - cropStart.y };
-		}
-	}
-	function onCropPointerUp(e) {
-		// Release pointer capture if held
-		try {
-			e.currentTarget?.releasePointerCapture?.(e.pointerId);
-		} catch {}
-		cropDragging = false;
-		isPinching = false;
-		activePointers.clear();
-	}
-
 	async function applyCrop() {
-		// Render to canvas with desired aspect
-		const ar = cropTarget === 'logo' ? 1 : 16 / 9;
-		const outW = cropTarget === 'logo' ? 800 : 1600;
-		const outH = Math.round(outW / ar);
-		const img = document.getElementById('crop-img');
-		if (!img) return;
-
-		// Compute the visible area in image coordinates using DOM rects (robust to any CSS/layout)
-		const imgRect = img.getBoundingClientRect();
-		const contRect = cropContainerEl?.getBoundingClientRect?.() || {
-			left: 0,
-			top: 0,
-			width: 800,
-			height: 800
-		};
-		const left = imgRect.left - contRect.left; // image top-left within viewport (CSS px)
-		const top = imgRect.top - contRect.top;
-		const scaleDom = imgRect.width / cropImgNatural.w || 1; // CSS px per image px
-		const sx = Math.max(0, -left / scaleDom);
-		const sy = Math.max(0, -top / scaleDom);
-		const sWidth = Math.min(cropImgNatural.w - sx, contRect.width / scaleDom);
-		const sHeight = Math.min(cropImgNatural.h - sy, contRect.height / scaleDom);
-
-		const canvas = document.createElement('canvas');
-		canvas.width = outW;
-		canvas.height = outH;
-		const ctx = canvas.getContext('2d');
-		ctx.imageSmoothingQuality = 'high';
-		ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, outW, outH);
-
-		const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-		if (!blob) return;
-		const dataUrl = await new Promise((resolve) => {
-			const fr = new FileReader();
-			fr.onload = () => resolve(fr.result);
-			fr.readAsDataURL(blob);
-		});
+		const exported = await cropFramer?.exportCroppedImage({ quality: 0.9 });
+		if (!exported?.blob || !exported?.dataUrl) return;
+		const { blob, dataUrl } = exported;
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
@@ -633,12 +285,11 @@
 		if (key === 'state_region') stateValue = (val || '').trim();
 		if (key === 'specific_meeting_point_address') {
 			meetingAddress = (val || '').trim();
-			scheduleLocationGeocode({ force: true });
 		}
 		if (key === 'country') {
 			val = (val || '').toUpperCase();
 			countryValue = val;
-			scheduleLocationGeocode({ immediate: true, force: true });
+			geocodeRevision += 1;
 		}
 		if (key === 'website_url') websiteLocal = val;
 		if (key === 'public_contact_email') emailLocal = val;
@@ -884,8 +535,12 @@
 			fieldsPatch[key] = value.trim();
 		}
 		if (Number.isFinite(fields.latitude) && Number.isFinite(fields.longitude)) {
-			setField('latitude', Number(fields.latitude).toFixed(6));
-			setField('longitude', Number(fields.longitude).toFixed(6));
+			const latFixed = Number(fields.latitude).toFixed(6);
+			const lngFixed = Number(fields.longitude).toFixed(6);
+			groupLatitude = latFixed;
+			groupLongitude = lngFixed;
+			setField('latitude', latFixed);
+			setField('longitude', lngFixed);
 			fieldsPatch.latitude = Number(fields.latitude);
 			fieldsPatch.longitude = Number(fields.longitude);
 		}
@@ -980,6 +635,9 @@
 		if (!url) return;
 		if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		if (result?.alt_text || result?.altText) {
+			coverAlt = result.alt_text || result.altText;
+		}
 		coverTooLarge = false;
 		const croppedInput = document.getElementById('cover_file_cropped');
 		if (croppedInput) croppedInput.value = '';
@@ -1509,31 +1167,29 @@
 					</div>
 				</div>
 
-				<!-- Map -->
-				<div class="edit-map-panel p-3">
-					<label class="label mb-2" for="map_location">Map Location</label>
-					<input
-						id="map_location"
-						name="map_location"
-						type="text"
-						class="sr-only"
-						tabindex="-1"
-						aria-hidden="true"
-					/>
-					<div bind:this={placesContainer}></div>
-					<p class="text-surface-600-400 my-1.5 text-xs">
-						Search for a city or address to pin the map.
-					</p>
-					{#if placesLoading}
-						<p class="text-surface-600-400 text-xs">Loading places…</p>
-					{/if}
-					<div class="mt-2 overflow-hidden" style="height: 300px;">
-						<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
-					</div>
-					<p class="text-surface-600-400 mt-1.5 text-xs">
-						Or click directly on the map to set the pin.
-					</p>
-				</div>
+				<!-- Accessible Coordinate Pin Picker -->
+				<CoordinatePinPicker
+					regionLabel="Group meeting point coordinate picker"
+					latitude={groupLatitude}
+					longitude={groupLongitude}
+					latitudeInputId="latitude"
+					longitudeInputId="longitude"
+					latitudeName="latitude"
+					longitudeName="longitude"
+					searchLabel="Map Location"
+					searchPlaceholder="Search for a city or address to pin the map…"
+					searchValue={formatDefaultSearch()}
+					externalGeocodeQuery={externalLocationQuery}
+					countryCode={countryValue}
+					{geocodeRevision}
+					pinnedZoom={12}
+					canvasClass="h-[300px] w-full"
+					onCoordinatesChange={({ latitude, longitude, latitudeText, longitudeText }) => {
+						groupLatitude = latitudeText;
+						groupLongitude = longitudeText;
+						queueSave({ fields: { latitude, longitude } });
+					}}
+				/>
 
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<div class="flex flex-col gap-1">
@@ -1558,28 +1214,6 @@
 						/>
 					</div>
 				</div>
-			</div>
-
-			<!-- Hidden lat/lng -->
-			<div class="hidden">
-				<input
-					id="latitude"
-					name="latitude"
-					type="number"
-					step="any"
-					value={data.group?.latitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
-				<input
-					id="longitude"
-					name="longitude"
-					type="number"
-					step="any"
-					value={data.group?.longitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
 			</div>
 		</section>
 
@@ -1973,11 +1607,15 @@
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
 						<div class="relative mt-1 aspect-square w-24 overflow-hidden border border-white/10">
-							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+							<img
+								src={logoPreview}
+								alt={data.group?.name ? `${data.group.name} logo` : 'Group logo'}
+								class="h-full w-full object-cover"
+							/>
 							<button
 								type="button"
-								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								aria-label="Remove logo"
+								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -1994,6 +1632,8 @@
 						helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
 						accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 						imageUrl={coverPreview}
+						bind:imageAlt={coverAlt}
+						showAltField={true}
 						uploading={saving}
 						error={coverTooLarge ? 'File exceeds 10MB limit.' : ''}
 						target="group"
@@ -2118,96 +1758,67 @@
 	</section>
 
 	<!-- ── Crop modal ── -->
-	{#if cropping}
-		<dialog
-			bind:this={cropDialogEl}
-			class="crop-dialog"
-			aria-labelledby="group-crop-title"
-			onclose={closeCropper}
-			onpointermove={onCropPointerMove}
-			onpointerup={onCropPointerUp}
-			onpointercancel={onCropPointerUp}
-		>
-			<div class="edit-card w-full max-w-4xl p-5">
-				<div class="mb-4 flex items-center justify-between">
-					<h3 id="group-crop-title" class="text-xl font-bold">
-						Crop {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
+	<dialog
+		bind:this={cropDialogEl}
+		aria-labelledby="group-crop-heading"
+		onclose={closeCropper}
+		class="bg-surface-950 text-surface-50 border-surface-700 border-t-primary-500 backdrop:bg-surface-950/80 m-auto max-h-[92dvh] w-full max-w-[min(44rem,calc(100%-2rem))] flex-col overflow-hidden border-2 border-t-4 p-0 open:flex"
+	>
+		{#if cropping}
+			<div class="flex min-h-0 flex-1 flex-col">
+				<div
+					class="border-surface-800 bg-surface-900 flex shrink-0 items-center justify-between gap-3 border-b-2 px-5 py-4"
+				>
+					<h3 id="group-crop-heading" class="text-surface-50! m-0 text-xl font-black uppercase">
+						Frame {cropTarget === 'logo' ? 'Logo (1:1)' : 'Cover (16:9)'}
 					</h3>
 					<button
 						type="button"
-						class="btn btn-sm preset-outlined-surface-400"
-						onclick={closeCropper}>Cancel</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center border-2 px-3 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
+						Cancel
+					</button>
+				</div>
+				<div class="flex-1 overflow-y-auto p-5">
+					<SliderImageFramer
+						bind:this={cropFramer}
+						src={cropSrc}
+						target={cropTarget === 'logo' ? 'logo' : 'cover'}
+						alt={cropTarget === 'logo'
+							? 'Group logo framing preview'
+							: 'Group cover framing preview'}
+						bind:zoom={cropScale}
+						bind:panX={cropPanX}
+						bind:panY={cropPanY}
+						bind:ready={cropReady}
+					/>
 				</div>
 				<div
-					bind:this={cropContainerEl}
-					class="relative mx-auto w-full overflow-hidden border border-white/10"
-					style={`max-width: 800px; aspect-ratio: ${cropTarget === 'logo' ? '1 / 1' : '16 / 9'}`}
+					class="border-surface-800 bg-surface-900 flex shrink-0 justify-end gap-2.5 border-t-2 px-5 py-4"
 				>
-					<img
-						id="crop-img"
-						src={cropSrc}
-						alt="Crop source"
-						onload={onCropImgLoad}
-						onpointerdown={onCropPointerDown}
-						style={`position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropScale}); transform-origin: center center;`}
-						class={cropReady ? '' : 'opacity-0'}
-					/>
-					{#if !cropReady}<div
-							class="text-surface-700-300 absolute inset-0 grid place-items-center"
-						>
-							Loading…
-						</div>{/if}
-					<div class="pointer-events-none absolute inset-0">
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[33.333%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-0 bottom-0 left-[66.666%] w-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[33.333%] right-0 left-0 h-px"></div>
-						<div class="bg-surface-950-50/40 absolute top-[66.666%] right-0 left-0 h-px"></div>
-						<div class="border-surface-950-50/50 absolute inset-0 border"></div>
-					</div>
-				</div>
-				<div class="mt-4 flex flex-wrap items-center gap-3">
-					<input
-						id="crop-zoom"
-						type="range"
-						min={ZOOM_MIN}
-						max={ZOOM_MAX}
-						step="0.01"
-						bind:value={cropScale}
-						aria-label="Crop zoom"
-						class="range flex-1"
-					/>
 					<button
 						type="button"
-						class="btn preset-outlined-surface-400"
-						onclick={() => {
-							cropScale = 1;
-							cropOffset = { x: 0, y: 0 };
-						}}>Reset</button
+						class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-5 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
+						onclick={closeCropper}
 					>
-					<button type="button" class="btn preset-filled-primary-500" onclick={applyCrop}
-						>Apply</button
+						Cancel
+					</button>
+					<button
+						type="button"
+						disabled={!cropReady}
+						class="border-primary-500 bg-primary-500 text-surface-950 hover:bg-tertiary-500 hover:border-tertiary-500 focus-visible:outline-primary-500 inline-flex h-10 min-h-9 min-w-9 items-center justify-center border-2 px-6 text-xs font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-40"
+						onclick={applyCrop}
 					>
+						Apply
+					</button>
 				</div>
 			</div>
-		</dialog>
-	{/if}
+		{/if}
+	</dialog>
 </div>
 
 <style>
-	.crop-dialog {
-		margin: auto;
-		width: min(100% - 2rem, 56rem);
-		max-height: 92dvh;
-		padding: 0;
-		border: none;
-		background: transparent;
-		color: inherit;
-	}
-
-	.crop-dialog::backdrop {
-		background: rgb(0 0 0 / 82%);
-	}
 	/* ── Edit page header ── */
 	.edit-header {
 		background: var(--color-surface-900);
@@ -2260,12 +1871,6 @@
 		color: var(--color-primary-500);
 		opacity: 1;
 		margin-bottom: 0;
-	}
-
-	/* ── Map panel ── */
-	.edit-map-panel {
-		background: var(--color-surface-950);
-		border: 1px solid var(--color-surface-700);
 	}
 
 	/* ── Check cards ── */

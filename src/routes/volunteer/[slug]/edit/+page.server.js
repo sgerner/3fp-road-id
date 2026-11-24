@@ -184,7 +184,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 			console.warn('Failed to load volunteer event types for edit page', err);
 			return [];
 		}),
-		loadActiveEventSponsorshipRequest({ volunteerEventId: eventId })
+		loadActiveEventSponsorshipRequest({ volunteerEventId: eventId }).catch(() => null)
 	]);
 
 	return {

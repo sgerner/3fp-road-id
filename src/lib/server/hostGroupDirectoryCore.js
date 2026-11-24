@@ -4,6 +4,10 @@ import { getClaimedGroupIdSet } from '#lib/server/groupClaimStatus.js';
 const DEFAULT_PAGE_SIZE = 500;
 const MAX_DIRECTORY_PAGES = 50;
 
+/**
+ * @param {any} supabase
+ * @param {{ pageSize?: number, maxPages?: number }} [options]
+ */
 export async function fetchAllGroupDirectoryRows(
 	supabase,
 	{ pageSize = DEFAULT_PAGE_SIZE, maxPages = MAX_DIRECTORY_PAGES } = {}
@@ -42,6 +46,11 @@ export async function fetchAllGroupDirectoryRows(
 	return allGroups;
 }
 
+/**
+ * @param {any} supabase
+ * @param {string | null | undefined} userId
+ * @param {{ pageSize?: number, maxPages?: number }} [options]
+ */
 export async function fetchUserManagedGroupIds(
 	supabase,
 	userId,
@@ -78,8 +87,18 @@ export async function fetchUserManagedGroupIds(
 	return managedIds;
 }
 
+/**
+ * @param {{
+ *   supabase?: any,
+ *   serviceSupabase?: any,
+ *   userId?: string | null,
+ *   isAdmin?: boolean | null,
+ *   allowSiteAdmin?: boolean,
+ *   pageSize?: number
+ * }} [options]
+ */
 export async function loadHostGroupDirectoryCore({
-	supabase,
+	supabase = null,
 	serviceSupabase = null,
 	userId = null,
 	isAdmin = null,
@@ -129,6 +148,7 @@ export async function loadHostGroupDirectoryCore({
 		const isClaimed =
 			claimedGroupIds === null ? isDirectManager : claimedGroupIds.has(id) || isDirectManager;
 
+		/** @type {string} */
 		let status = HOST_GROUP_STATUS.EXTERNAL;
 		if (canManage) {
 			status = HOST_GROUP_STATUS.MANAGED;

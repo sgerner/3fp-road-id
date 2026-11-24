@@ -4,11 +4,13 @@ export const HOST_GROUP_STATUS = Object.freeze({
 	EXTERNAL: 'external'
 });
 
+/** @param {unknown} value */
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
 }
 
+/** @param {Record<string, any> | null | undefined} group */
 export function formatHostGroupLocation(group) {
 	if (!group || typeof group !== 'object') return '';
 	const cityState = [safeTrim(group.city), safeTrim(group.state_region)].filter(Boolean).join(', ');
@@ -16,6 +18,7 @@ export function formatHostGroupLocation(group) {
 	return safeTrim(group.country);
 }
 
+/** @param {Record<string, any> | null | undefined} group */
 export function getHostGroupStatus(group) {
 	const raw = safeTrim(group?.status).toLowerCase();
 	if (raw === HOST_GROUP_STATUS.MANAGED || group?.canManage === true) {
@@ -27,6 +30,7 @@ export function getHostGroupStatus(group) {
 	return HOST_GROUP_STATUS.EXTERNAL;
 }
 
+/** @param {unknown} status */
 export function getHostGroupBadgeMeta(status) {
 	const normalized = safeTrim(status).toLowerCase();
 	if (normalized === HOST_GROUP_STATUS.MANAGED) {
@@ -53,11 +57,17 @@ export function getHostGroupBadgeMeta(status) {
 	};
 }
 
+/** @param {string} status */
 function statusSortRank(status) {
 	if (status === HOST_GROUP_STATUS.MANAGED) return 0;
 	return 1;
 }
 
+/**
+ * @param {Array<Record<string, any>>} [groups]
+ * @param {string} [query]
+ * @param {{ limit?: number }} [options]
+ */
 export function filterHostGroups(groups = [], query = '', { limit = 60 } = {}) {
 	const list = Array.isArray(groups) ? groups : [];
 	const normalizedQuery = safeTrim(query).toLowerCase();

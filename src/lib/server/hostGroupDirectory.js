@@ -7,12 +7,13 @@ import { createServiceSupabaseClient } from '#lib/server/supabaseClient.js';
 
 export { fetchAllGroupDirectoryRows, fetchUserManagedGroupIds };
 
-export function loadHostGroupDirectory({
-	serviceSupabase = createServiceSupabaseClient(),
-	...options
-} = {}) {
+/**
+ * @param {Parameters<typeof loadHostGroupDirectoryCore>[0]} [options]
+ */
+export function loadHostGroupDirectory(options = {}) {
+	const { serviceSupabase = createServiceSupabaseClient(), ...rest } = options;
 	return loadHostGroupDirectoryCore({
-		...options,
+		...rest,
 		serviceSupabase
 	});
 }

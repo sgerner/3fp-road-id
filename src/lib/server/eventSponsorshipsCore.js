@@ -3,12 +3,28 @@ import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots.js';
 
 const VALID_EVENT_TYPES = new Set(['ride', 'volunteer']);
 const MAX_MESSAGE_LENGTH = 1000;
+const SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR =
+	'Event sponsorship requests are temporarily unavailable while database updates finish applying.';
 
+/** @param {unknown} value */
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
 }
 
+/** @param {any} error */
+export function isMissingSponsorshipSchemaError(error) {
+	if (!error) return false;
+	const code = safeTrim(error.code).toUpperCase();
+	if (code === '42P01' || code === 'PGRST205') return true;
+	const combined = `${safeTrim(error.message)} ${safeTrim(error.details)} ${safeTrim(error.hint)}`;
+	return (
+		/event_sponsorship_requests/i.test(combined) &&
+		/(does not exist|schema cache|could not find)/i.test(combined)
+	);
+}
+
+/** @param {unknown} value */
 function escapeHtml(value) {
 	return safeTrim(value)
 		.replaceAll('&', '&amp;')
@@ -18,6 +34,10 @@ function escapeHtml(value) {
 		.replaceAll("'", '&#39;');
 }
 
+/**
+ * @param {string | null | undefined} isoValue
+ * @param {string} [timezone]
+ */
 function formatEventDateLabel(isoValue, timezone = 'UTC') {
 	if (!isoValue) return 'Date TBD';
 	const parsed = new Date(isoValue);
@@ -40,6 +60,9 @@ function formatEventDateLabel(isoValue, timezone = 'UTC') {
 /**
  * Determine whether a ride update needs to authorize a new host_group_id.
  * Preserves unchanged host_group_id when invited co-hosts edit other ride details.
+ *
+ * @param {string | null | undefined} existingHostGroupId
+ * @param {string | null | undefined} nextHostGroupId
  */
 export function shouldAuthorizeRideHostGroupChange(existingHostGroupId, nextHostGroupId) {
 	const next = safeTrim(nextHostGroupId);
@@ -50,10 +73,17 @@ export function shouldAuthorizeRideHostGroupChange(existingHostGroupId, nextHost
 /**
  * Resolve the updated host_user_id on ride edits without clobbering the primary
  * host when an invited co-host saves changes.
+ *
+ * @param {{
+ *   existingHostUserId?: string | null,
+ *   editorUserId?: string | null,
+ *   isHost?: boolean,
+ *   sponsorshipGroupId?: string | null
+ * }} [options]
  */
 export function resolveUpdatedRideHostUserId({
 	existingHostUserId = null,
-	editorUserId,
+	editorUserId = null,
 	isHost = false,
 	sponsorshipGroupId = null
 } = {}) {
@@ -71,6 +101,12 @@ export function resolveUpdatedRideHostUserId({
 	return null;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} serviceSupabase
+ * @param {string | null | undefined} userId
+ * @param {string | null | undefined} groupId
+ */
 export async function canUserManageGroupCore(supabase, serviceSupabase, userId, groupId) {
 	if (!userId || !groupId) return false;
 	const db = serviceSupabase || supabase;
@@ -90,6 +126,12 @@ export async function canUserManageGroupCore(supabase, serviceSupabase, userId, 
 	return Array.isArray(memberRows) && memberRows.length > 0;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} serviceSupabase
+ * @param {string | null | undefined} userId
+ * @param {Record<string, any> | null | undefined} eventRecord
+ */
 export async function canUserManageVolunteerEventCore(
 	supabase,
 	serviceSupabase,
@@ -132,6 +174,12 @@ export async function canUserManageVolunteerEventCore(
 	return Boolean(cohostRow?.user_id || canManageHostGroup || profile?.admin === true);
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} serviceSupabase
+ * @param {string | null | undefined} userId
+ * @param {Record<string, any> | null | undefined} eventRecord
+ */
 async function defaultCanManageRide(supabase, serviceSupabase, userId, eventRecord) {
 	if (!userId || !eventRecord?.id) return false;
 	if (
@@ -161,6 +209,11 @@ async function defaultCanManageRide(supabase, serviceSupabase, userId, eventReco
 	return false;
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {string} eventType
+ * @param {string} eventId
+ */
 async function loadTargetEvent(serviceSupabase, eventType, eventId) {
 	if (eventType === 'ride') {
 		const { data, error } = await serviceSupabase
@@ -202,15 +255,21 @@ async function loadTargetEvent(serviceSupabase, eventType, eventId) {
 		: null;
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {Record<string, any> | null | undefined} group
+ */
 async function resolveGroupManagerEmails(serviceSupabase, group) {
 	const emails = new Set();
 	const { data: members } = await serviceSupabase
 		.from('group_members')
 		.select('user_id')
-		.eq('group_id', group.id)
-		.in('role', ['owner', 'admin']);
+		.eq('group_id', group?.id)
+		.eq('role', 'owner');
 
-	const userIds = Array.from(new Set((members ?? []).map((row) => row?.user_id).filter(Boolean)));
+	const userIds = Array.from(
+		new Set((members ?? []).map((/** @type {any} */ row) => row?.user_id).filter(Boolean))
+	);
 
 	if (userIds.length > 0) {
 		const { data: profiles } = await serviceSupabase
@@ -235,6 +294,10 @@ async function resolveGroupManagerEmails(serviceSupabase, group) {
 	return Array.from(emails);
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} row
+ * @param {{ group?: Record<string, any> | null, event?: Record<string, any> | null, requesterName?: string }} [context]
+ */
 function hydrateRequestSummary(row, { group = null, event = null, requesterName = '' } = {}) {
 	if (!row) return null;
 	const eventType = row.activity_event_id ? 'ride' : 'volunteer';
@@ -270,29 +333,47 @@ function hydrateRequestSummary(row, { group = null, event = null, requesterName 
 	};
 }
 
+/**
+ * @param {{
+ *   serviceSupabase?: any,
+ *   activityEventId?: string | null,
+ *   volunteerEventId?: string | null
+ * }} [options]
+ */
 export async function loadActiveEventSponsorshipRequestCore({
-	serviceSupabase,
+	serviceSupabase = null,
 	activityEventId = null,
 	volunteerEventId = null
 } = {}) {
 	if (!serviceSupabase || (!activityEventId && !volunteerEventId)) return null;
 
-	let query = serviceSupabase
-		.from('event_sponsorship_requests')
-		.select('*')
-		.in('status', ['pending', 'declined'])
-		.order('created_at', { ascending: false })
-		.limit(1);
+	let rows = null;
+	try {
+		let query = serviceSupabase
+			.from('event_sponsorship_requests')
+			.select('*')
+			.in('status', ['pending', 'declined'])
+			.order('created_at', { ascending: false })
+			.limit(1);
 
-	if (activityEventId) {
-		query = query.eq('activity_event_id', activityEventId);
-	} else {
-		query = query.eq('volunteer_event_id', volunteerEventId);
-	}
+		if (activityEventId) {
+			query = query.eq('activity_event_id', activityEventId);
+		} else {
+			query = query.eq('volunteer_event_id', volunteerEventId);
+		}
 
-	const { data: rows, error } = await query;
-	if (error) {
-		console.warn('Unable to load active sponsorship request', error);
+		const { data, error } = await query;
+		if (error) {
+			if (!isMissingSponsorshipSchemaError(error)) {
+				console.warn('Unable to load active sponsorship request', error);
+			}
+			return null;
+		}
+		rows = data;
+	} catch (error) {
+		if (!isMissingSponsorshipSchemaError(error)) {
+			console.warn('Unable to load active sponsorship request', error);
+		}
 		return null;
 	}
 	const row = rows?.[0];
@@ -307,33 +388,64 @@ export async function loadActiveEventSponsorshipRequestCore({
 	return hydrateRequestSummary(row, { group });
 }
 
+/**
+ * @param {{
+ *   serviceSupabase?: any,
+ *   activityEventId?: string | null,
+ *   volunteerEventId?: string | null
+ * }} [options]
+ */
 export async function cancelPendingSponsorshipRequestsForEventCore({
-	serviceSupabase,
+	serviceSupabase = null,
 	activityEventId = null,
 	volunteerEventId = null
 } = {}) {
 	if (!serviceSupabase || (!activityEventId && !volunteerEventId)) return;
 	const nowIso = new Date().toISOString();
-	let query = serviceSupabase
-		.from('event_sponsorship_requests')
-		.update({ status: 'cancelled', updated_at: nowIso })
-		.eq('status', 'pending');
+	try {
+		let query = serviceSupabase
+			.from('event_sponsorship_requests')
+			.update({ status: 'cancelled', updated_at: nowIso })
+			.eq('status', 'pending');
 
-	if (activityEventId) {
-		query = query.eq('activity_event_id', activityEventId);
-	} else {
-		query = query.eq('volunteer_event_id', volunteerEventId);
+		if (activityEventId) {
+			query = query.eq('activity_event_id', activityEventId);
+		} else {
+			query = query.eq('volunteer_event_id', volunteerEventId);
+		}
+		const { error } = await query;
+		if (error && !isMissingSponsorshipSchemaError(error)) {
+			console.warn('Unable to cancel superseded sponsorship requests', error);
+		}
+	} catch (error) {
+		if (!isMissingSponsorshipSchemaError(error)) {
+			console.warn('Unable to cancel superseded sponsorship requests', error);
+		}
 	}
-	await query;
 }
 
+/**
+ * @param {{
+ *   supabase?: any,
+ *   serviceSupabase?: any,
+ *   user?: Record<string, any> | null,
+ *   eventType?: string,
+ *   eventId?: string,
+ *   groupId?: string,
+ *   message?: string | null,
+ *   fetchImpl?: any,
+ *   canManageRideFn?: ((supabase: any, activityEventId: string) => Promise<boolean> | boolean) | null,
+ *   sendEmailFn?: ((payload: any, opts?: any) => Promise<any>) | null,
+ *   publicOrigin?: string
+ * }} [options]
+ */
 export async function createOrUpdateEventSponsorshipRequestCore({
-	supabase,
-	serviceSupabase,
-	user,
-	eventType,
-	eventId,
-	groupId,
+	supabase = null,
+	serviceSupabase = null,
+	user = null,
+	eventType = '',
+	eventId = '',
+	groupId = '',
 	message = '',
 	fetchImpl = undefined,
 	canManageRideFn = null,
@@ -421,6 +533,40 @@ export async function createOrUpdateEventSponsorshipRequestCore({
 	}
 
 	const nowIso = new Date().toISOString();
+	const eventColumn = normalizedType === 'ride' ? 'activity_event_id' : 'volunteer_event_id';
+	let existingPending = null;
+	try {
+		const { data: pendingRow, error: pendingError } = await serviceSupabase
+			.from('event_sponsorship_requests')
+			.select('*')
+			.eq(eventColumn, normalizedEventId)
+			.eq('status', 'pending')
+			.maybeSingle();
+		if (pendingError) {
+			if (isMissingSponsorshipSchemaError(pendingError)) {
+				return {
+					ok: false,
+					status: 503,
+					code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+					error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+				};
+			}
+			console.error('Unable to query pending sponsorship request', pendingError);
+			return { ok: false, status: 400, error: 'Unable to create sponsorship request.' };
+		}
+		existingPending = pendingRow;
+	} catch (error) {
+		if (isMissingSponsorshipSchemaError(error)) {
+			return {
+				ok: false,
+				status: 503,
+				code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+				error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+			};
+		}
+		console.error('Unable to query pending sponsorship request', error);
+		return { ok: false, status: 400, error: 'Unable to create sponsorship request.' };
+	}
 
 	if (targetEvent.host_group_id !== null) {
 		const tableName = normalizedType === 'ride' ? 'activity_events' : 'volunteer_events';
@@ -441,14 +587,6 @@ export async function createOrUpdateEventSponsorshipRequestCore({
 		}
 		targetEvent.host_group_id = null;
 	}
-
-	const eventColumn = normalizedType === 'ride' ? 'activity_event_id' : 'volunteer_event_id';
-	const { data: existingPending } = await serviceSupabase
-		.from('event_sponsorship_requests')
-		.select('*')
-		.eq(eventColumn, normalizedEventId)
-		.eq('status', 'pending')
-		.maybeSingle();
 
 	if (existingPending && String(existingPending.group_id) === String(group.id)) {
 		const { data: updatedRow, error: updateError } = await serviceSupabase
@@ -499,6 +637,14 @@ export async function createOrUpdateEventSponsorshipRequestCore({
 		.single();
 
 	if (insertError) {
+		if (isMissingSponsorshipSchemaError(insertError)) {
+			return {
+				ok: false,
+				status: 503,
+				code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+				error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+			};
+		}
 		console.error('Unable to create sponsorship request', insertError);
 		return { ok: false, status: 400, error: 'Unable to create sponsorship request.' };
 	}
@@ -577,10 +723,21 @@ export async function createOrUpdateEventSponsorshipRequestCore({
 	};
 }
 
+/**
+ * @param {{
+ *   supabase?: any,
+ *   serviceSupabase?: any,
+ *   user?: Record<string, any> | null,
+ *   requestId?: string,
+ *   eventType?: string,
+ *   eventId?: string,
+ *   canManageRideFn?: ((supabase: any, activityEventId: string) => Promise<boolean> | boolean) | null
+ * }} [options]
+ */
 export async function cancelEventSponsorshipRequestCore({
-	supabase,
-	serviceSupabase,
-	user,
+	supabase = null,
+	serviceSupabase = null,
+	user = null,
 	requestId = '',
 	eventType = '',
 	eventId = '',
@@ -608,8 +765,31 @@ export async function cancelEventSponsorshipRequestCore({
 		return { ok: false, status: 400, error: 'Request ID or event target is required.' };
 	}
 
-	const { data: row, error } = await query.maybeSingle();
-	if (error) {
+	let row = null;
+	try {
+		const { data: fetchedRow, error } = await query.maybeSingle();
+		if (error) {
+			if (isMissingSponsorshipSchemaError(error)) {
+				return {
+					ok: false,
+					status: 503,
+					code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+					error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+				};
+			}
+			console.error('Unable to look up sponsorship request to cancel', error);
+			return { ok: false, status: 400, error: 'Unable to cancel sponsorship request.' };
+		}
+		row = fetchedRow;
+	} catch (error) {
+		if (isMissingSponsorshipSchemaError(error)) {
+			return {
+				ok: false,
+				status: 503,
+				code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+				error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+			};
+		}
 		console.error('Unable to look up sponsorship request to cancel', error);
 		return { ok: false, status: 400, error: 'Unable to cancel sponsorship request.' };
 	}
@@ -652,24 +832,43 @@ export async function cancelEventSponsorshipRequestCore({
 	return { ok: true, status: 200, data: { cancelled: true, id: row.id } };
 }
 
+/**
+ * @param {{
+ *   serviceSupabase?: any,
+ *   groupId?: string | null,
+ *   group?: Record<string, any> | null,
+ *   limit?: number
+ * }} [options]
+ */
 export async function listGroupSponsorshipRequestsCore({
-	serviceSupabase,
-	groupId,
+	serviceSupabase = null,
+	groupId = null,
 	group = null,
 	limit = 50
 } = {}) {
 	if (!serviceSupabase || !groupId) return [];
 
-	const { data: rows, error } = await serviceSupabase
-		.from('event_sponsorship_requests')
-		.select('*')
-		.eq('group_id', groupId)
-		.in('status', ['pending', 'approved', 'declined'])
-		.order('created_at', { ascending: false })
-		.limit(Math.max(1, Math.min(200, Number(limit) || 50)));
+	let rows = null;
+	try {
+		const { data, error } = await serviceSupabase
+			.from('event_sponsorship_requests')
+			.select('*')
+			.eq('group_id', groupId)
+			.in('status', ['pending', 'approved', 'declined'])
+			.order('created_at', { ascending: false })
+			.limit(Math.max(1, Math.min(200, Number(limit) || 50)));
 
-	if (error || !Array.isArray(rows) || rows.length === 0) {
-		if (error) console.warn('Unable to list group sponsorship requests', error);
+		if (error || !Array.isArray(data) || data.length === 0) {
+			if (error && !isMissingSponsorshipSchemaError(error)) {
+				console.warn('Unable to list group sponsorship requests', error);
+			}
+			return [];
+		}
+		rows = data;
+	} catch (error) {
+		if (!isMissingSponsorshipSchemaError(error)) {
+			console.warn('Unable to list group sponsorship requests', error);
+		}
 		return [];
 	}
 
@@ -699,7 +898,7 @@ export async function listGroupSponsorshipRequestsCore({
 	]);
 
 	const activitiesById = new Map(
-		(activityRes.data ?? []).map((item) => [
+		(activityRes.data ?? []).map((/** @type {any} */ item) => [
 			String(item.id),
 			{
 				...item,
@@ -709,7 +908,7 @@ export async function listGroupSponsorshipRequestsCore({
 		])
 	);
 	const volunteersById = new Map(
-		(volunteerRes.data ?? []).map((item) => [
+		(volunteerRes.data ?? []).map((/** @type {any} */ item) => [
 			String(item.id),
 			{
 				...item,
@@ -719,7 +918,7 @@ export async function listGroupSponsorshipRequestsCore({
 		])
 	);
 	const requesterNamesById = new Map(
-		(profilesRes.data ?? []).map((profile) => [
+		(profilesRes.data ?? []).map((/** @type {any} */ profile) => [
 			String(profile.user_id),
 			safeTrim(profile.full_name) || safeTrim(profile.email) || 'Community organizer'
 		])
@@ -735,13 +934,28 @@ export async function listGroupSponsorshipRequestsCore({
 	});
 }
 
+/**
+ * @param {{
+ *   supabase?: any,
+ *   serviceSupabase?: any,
+ *   user?: Record<string, any> | null,
+ *   groupSlug?: string,
+ *   requestId?: string,
+ *   decision?: string,
+ *   decisionNote?: string | null,
+ *   fetchImpl?: any,
+ *   sendEmailFn?: ((payload: any, opts?: any) => Promise<any>) | null,
+ *   invalidateGroupCacheFn?: ((target: any, maybeSlug?: any) => any) | null,
+ *   publicOrigin?: string
+ * }} [options]
+ */
 export async function reviewEventSponsorshipRequestCore({
-	supabase,
-	serviceSupabase,
-	user,
-	groupSlug,
-	requestId,
-	decision,
+	supabase = null,
+	serviceSupabase = null,
+	user = null,
+	groupSlug = '',
+	requestId = '',
+	decision = '',
 	decisionNote = '',
 	fetchImpl = undefined,
 	sendEmailFn = null,
@@ -779,14 +993,40 @@ export async function reviewEventSponsorshipRequestCore({
 		};
 	}
 
-	const { data: existing, error: existingError } = await serviceSupabase
-		.from('event_sponsorship_requests')
-		.select('*')
-		.eq('id', safeTrim(requestId))
-		.eq('group_id', group.id)
-		.maybeSingle();
+	let existing = null;
+	try {
+		const { data: existingRow, error: existingError } = await serviceSupabase
+			.from('event_sponsorship_requests')
+			.select('*')
+			.eq('id', safeTrim(requestId))
+			.eq('group_id', group.id)
+			.maybeSingle();
 
-	if (existingError || !existing) {
+		if (existingError) {
+			if (isMissingSponsorshipSchemaError(existingError)) {
+				return {
+					ok: false,
+					status: 503,
+					code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+					error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+				};
+			}
+			return { ok: false, status: 404, error: 'Sponsorship request not found.' };
+		}
+		existing = existingRow;
+	} catch (error) {
+		if (isMissingSponsorshipSchemaError(error)) {
+			return {
+				ok: false,
+				status: 503,
+				code: 'SPONSORSHIP_SCHEMA_UNAVAILABLE',
+				error: SPONSORSHIP_SCHEMA_UNAVAILABLE_ERROR
+			};
+		}
+		return { ok: false, status: 404, error: 'Sponsorship request not found.' };
+	}
+
+	if (!existing) {
 		return { ok: false, status: 404, error: 'Sponsorship request not found.' };
 	}
 	if (existing.status !== 'pending') {

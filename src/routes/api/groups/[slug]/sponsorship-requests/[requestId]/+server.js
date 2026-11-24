@@ -33,10 +33,11 @@ export async function POST(event) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
 	}
 
-	const body = parsedBody.value;
-	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+	const rawBody = parsedBody.value;
+	if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
 		return json({ error: 'JSON object body is required.' }, { status: 400 });
 	}
+	const body = /** @type {Record<string, any>} */ (rawBody);
 
 	const supabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();

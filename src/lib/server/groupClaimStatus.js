@@ -5,6 +5,8 @@
  * resulting boolean to the page, never the owner rows themselves. Returning
  * null for an unavailable client lets authenticated fallback checks continue
  * to use their existing RLS-scoped rows.
+ * @param {any} serviceSupabase
+ * @param {string | null | undefined} groupId
  */
 export async function getGroupClaimStatus(serviceSupabase, groupId) {
 	if (!serviceSupabase || !groupId) return null;
@@ -24,6 +26,9 @@ export async function getGroupClaimStatus(serviceSupabase, groupId) {
  *
  * Queries only `group_id` (never `user_id`) and paginates across 500-row
  * PostgREST boundaries so large directories never truncate claim status.
+ *
+ * @param {any} serviceSupabase
+ * @param {{ pageSize?: number, maxPages?: number }} [options]
  */
 export async function getClaimedGroupIdSet(
 	serviceSupabase,

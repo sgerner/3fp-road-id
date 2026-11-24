@@ -8,14 +8,17 @@ stable
 security definer
 set search_path = public, pg_temp
 as $function$
-  select exists (
-    select 1
-    from public.volunteer_event_hosts veh
-    where veh.event_id = target_event_id
-      and veh.user_id = (select auth.uid())
-  );
+  select target_event_id is not null
+    and (select auth.uid()) is not null
+    and exists (
+      select 1
+      from public.volunteer_event_hosts veh
+      where veh.event_id = target_event_id
+        and veh.user_id = (select auth.uid())
+    );
 $function$;
 
+revoke all on function public.is_volunteer_event_host(uuid) from public;
 grant execute on function public.is_volunteer_event_host(uuid) to anon, authenticated, service_role;
 
 create or replace function public.can_view_volunteer_event(target_event_id uuid)

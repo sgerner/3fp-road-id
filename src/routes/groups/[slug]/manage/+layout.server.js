@@ -66,7 +66,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		isOwner = false;
 	}
 
-	const canEdit = isAdmin || isSocialManager;
+	const canEdit = isAdmin || isOwner;
 	const canManageSocial = (isAdmin || isSocialManager) && group !== null;
 	let assetSummary = { buckets: 3, assets: 0 };
 
@@ -87,6 +87,9 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		listGroupSponsorshipRequests({
 			groupId: group.id,
 			group
+		}).catch((err) => {
+			console.warn('Failed to load sponsorship requests for group manage layout', err);
+			return [];
 		})
 	]);
 

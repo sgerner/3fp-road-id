@@ -36,10 +36,11 @@ export async function POST(event) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
 	}
 
-	const body = parsedBody.value;
-	if (!body || typeof body !== 'object' || Array.isArray(body)) {
+	const rawBody = parsedBody.value;
+	if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
 		return json({ error: 'JSON object body is required.' }, { status: 400 });
 	}
+	const body = /** @type {Record<string, any>} */ (rawBody);
 
 	const supabase = createRequestSupabaseClient(accessToken);
 	const serviceSupabase = createServiceSupabaseClient();
@@ -62,6 +63,7 @@ export async function POST(event) {
 	return json({ data: result.data, notified: result.notified }, { status: result.status || 201 });
 }
 
+/** @param {import('./$types').RequestEvent} event */
 export async function DELETE(event) {
 	const ipLimited = enforceRateLimit(event, {
 		name: 'event-sponsorship-cancel-ip',
@@ -75,11 +77,17 @@ export async function DELETE(event) {
 		return json({ error: 'Authentication required.' }, { status: 401 });
 	}
 
+	/** @type {Record<string, any>} */
 	let body = {};
 	if (event.request.headers.get('content-type')?.includes('application/json')) {
 		const parsedBody = await readJsonBody(event.request, { maxBytes: 16 * 1024 });
-		if (parsedBody.ok && parsedBody.value && typeof parsedBody.value === 'object') {
-			body = parsedBody.value;
+		if (
+			parsedBody.ok &&
+			parsedBody.value &&
+			typeof parsedBody.value === 'object' &&
+			!Array.isArray(parsedBody.value)
+		) {
+			body = /** @type {Record<string, any>} */ (parsedBody.value);
 		}
 	}
 

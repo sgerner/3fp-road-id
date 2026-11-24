@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	cancelEventSponsorshipRequestCore,
+	cancelPendingSponsorshipRequestsForEventCore,
 	createOrUpdateEventSponsorshipRequestCore,
+	isMissingSponsorshipSchemaError,
 	listGroupSponsorshipRequestsCore,
+	loadActiveEventSponsorshipRequestCore,
 	resolveUpdatedRideHostUserId,
 	reviewEventSponsorshipRequestCore,
 	shouldAuthorizeRideHostGroupChange
@@ -372,4 +375,133 @@ test('co-host ride update helpers preserve unchanged host_group_id and primary h
 		}),
 		null
 	);
+});
+
+test('sponsorship dashboard notifications only email group owners so non-owner social admins do not get forbidden dashboard links', async () => {
+	const db = createInMemorySponsorshipDb();
+	db.state.group_members.push({
+		group_id: 'group-claimed',
+		user_id: 'club-social-admin-1',
+		role: 'admin'
+	});
+	db.state.profiles.push({
+		user_id: 'club-social-admin-1',
+		full_name: 'Casey Social',
+		email: 'casey-social@club.example',
+		admin: false
+	});
+
+	const sentEmails = [];
+	const res = await createOrUpdateEventSponsorshipRequestCore({
+		supabase: db.client,
+		serviceSupabase: db.client,
+		user: { id: 'organizer-1', email: 'alex@organizer.example' },
+		eventType: 'ride',
+		eventId: 'ride-1',
+		groupId: 'group-claimed',
+		sendEmailFn: async (payload) => {
+			sentEmails.push(payload);
+		}
+	});
+
+	assert.equal(res.ok, true);
+	assert.equal(sentEmails.length, 1);
+	assert.deepEqual(sentEmails[0].to, ['jordan@club.example']);
+});
+
+test('pre-migration missing schema (42P01 / PGRST205) degrades gracefully without crashing SSR loads or mutating existing host_group_id', async () => {
+	const db = createInMemorySponsorshipDb();
+	db.state.activity_events[0].host_group_id = 'group-managed';
+
+	const missingSchemaError = {
+		code: 'PGRST205',
+		message: "Could not find the table 'public.event_sponsorship_requests' in the schema cache"
+	};
+	assert.equal(isMissingSponsorshipSchemaError(missingSchemaError), true);
+	assert.equal(
+		isMissingSponsorshipSchemaError({
+			code: '42P01',
+			message: 'relation "public.event_sponsorship_requests" does not exist'
+		}),
+		true
+	);
+	assert.equal(isMissingSponsorshipSchemaError({ code: '23505', message: 'duplicate key' }), false);
+
+	const preMigrationClient = {
+		from(table) {
+			if (table !== 'event_sponsorship_requests') {
+				return db.client.from(table);
+			}
+			const chain = {
+				select: () => chain,
+				insert: () => chain,
+				update: () => chain,
+				eq: () => chain,
+				in: () => chain,
+				order: () => chain,
+				limit: () => chain,
+				maybeSingle: () => Promise.resolve({ data: null, error: missingSchemaError }),
+				single: () => Promise.resolve({ data: null, error: missingSchemaError }),
+				then: (resolve, reject) =>
+					Promise.resolve({ data: null, error: missingSchemaError }).then(resolve, reject)
+			};
+			return chain;
+		}
+	};
+
+	// SSR loads degrade to empty/null
+	const listed = await listGroupSponsorshipRequestsCore({
+		serviceSupabase: preMigrationClient,
+		groupId: 'group-claimed',
+		group: db.state.groups[0]
+	});
+	assert.deepEqual(listed, []);
+
+	const active = await loadActiveEventSponsorshipRequestCore({
+		serviceSupabase: preMigrationClient,
+		activityEventId: 'ride-1'
+	});
+	assert.equal(active, null);
+
+	// Superseded cancel on normal ride updates is a safe no-op
+	await cancelPendingSponsorshipRequestsForEventCore({
+		serviceSupabase: preMigrationClient,
+		activityEventId: 'ride-1'
+	});
+
+	// Direct sponsorship creation returns 503 SPONSORSHIP_SCHEMA_UNAVAILABLE BEFORE resetting targetEvent.host_group_id
+	const createRes = await createOrUpdateEventSponsorshipRequestCore({
+		supabase: preMigrationClient,
+		serviceSupabase: preMigrationClient,
+		user: { id: 'organizer-1', email: 'alex@organizer.example' },
+		eventType: 'ride',
+		eventId: 'ride-1',
+		groupId: 'group-claimed'
+	});
+	assert.equal(createRes.ok, false);
+	assert.equal(createRes.status, 503);
+	assert.equal(createRes.code, 'SPONSORSHIP_SCHEMA_UNAVAILABLE');
+	assert.equal(db.state.activity_events[0].host_group_id, 'group-managed');
+
+	const cancelRes = await cancelEventSponsorshipRequestCore({
+		supabase: preMigrationClient,
+		serviceSupabase: preMigrationClient,
+		user: { id: 'organizer-1' },
+		requestId: 'req-1'
+	});
+	assert.equal(cancelRes.ok, false);
+	assert.equal(cancelRes.status, 503);
+	assert.equal(cancelRes.code, 'SPONSORSHIP_SCHEMA_UNAVAILABLE');
+
+	const reviewRes = await reviewEventSponsorshipRequestCore({
+		supabase: preMigrationClient,
+		serviceSupabase: preMigrationClient,
+		user: { id: 'club-owner-1' },
+		groupSlug: 'desert-wheelmen',
+		requestId: 'req-1',
+		decision: 'approve'
+	});
+	assert.equal(reviewRes.ok, false);
+	assert.equal(reviewRes.status, 503);
+	assert.equal(reviewRes.code, 'SPONSORSHIP_SCHEMA_UNAVAILABLE');
 });

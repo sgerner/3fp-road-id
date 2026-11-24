@@ -31,7 +31,9 @@
 		onGroupClaimed = () => {}
 	} = $props();
 
+	/** @type {Record<string, boolean>} */
 	let claimedIdsOverride = $state({});
+	/** @type {Record<string, boolean>} */
 	let externalIdsOverride = $state({});
 	let searchQuery = $state('');
 	let isOpen = $state(false);
@@ -44,6 +46,7 @@
 	let sponsorshipCancelInFlight = $state(false);
 	let sponsorshipActionError = $state('');
 	let sponsorshipActionSuccess = $state('');
+	/** @type {HTMLDivElement | null} */
 	let containerEl = $state(null);
 
 	const listboxId = $derived(`${inputId}-listbox`);
@@ -113,9 +116,10 @@
 			: 'No organizations available'
 	);
 
+	/** @param {MouseEvent} event */
 	function handleWindowClick(event) {
 		if (!isOpen || !containerEl) return;
-		if (!containerEl.contains(event.target)) {
+		if (event.target instanceof Node && !containerEl.contains(event.target)) {
 			isOpen = false;
 		}
 	}
@@ -126,6 +130,7 @@
 		highlightedIndex = 0;
 	}
 
+	/** @param {Event & { currentTarget: HTMLInputElement }} event */
 	function handleSearchInput(event) {
 		searchQuery = event.currentTarget.value;
 		isOpen = true;
@@ -134,6 +139,7 @@
 		sponsorshipActionError = '';
 	}
 
+	/** @param {KeyboardEvent} event */
 	function handleKeydown(event) {
 		if (!isOpen && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
 			event.preventDefault();
@@ -163,6 +169,7 @@
 		}
 	}
 
+	/** @param {Record<string, any>} group */
 	function selectOrganization(group) {
 		if (!group?.id) return;
 		isOpen = false;
@@ -264,12 +271,13 @@
 			});
 			onHostGroupChange(String(group.id));
 		} catch (error) {
-			claimError = error?.message || 'Unable to claim organization.';
+			claimError = error instanceof Error ? error.message : 'Unable to claim organization.';
 		} finally {
 			claimInFlight = false;
 		}
 	}
 
+	/** @param {Event & { currentTarget: HTMLTextAreaElement }} event */
 	function handleMessageInput(event) {
 		const nextMessage = event.currentTarget.value;
 		onSponsorshipChange({
@@ -306,7 +314,8 @@
 			onSponsorshipChange({ groupId: '', message: '' });
 			sponsorshipActionSuccess = `Sponsorship request sent to ${group.name}. This event stays under personal hosting until approved.`;
 		} catch (error) {
-			sponsorshipActionError = error?.message || 'Unable to send sponsorship request.';
+			sponsorshipActionError =
+				error instanceof Error ? error.message : 'Unable to send sponsorship request.';
 		} finally {
 			sponsorshipSendInFlight = false;
 		}
@@ -333,7 +342,8 @@
 			onActiveSponsorshipRequestChange(null);
 			sponsorshipActionSuccess = 'Pending sponsorship request cancelled.';
 		} catch (error) {
-			sponsorshipActionError = error?.message || 'Unable to cancel sponsorship request.';
+			sponsorshipActionError =
+				error instanceof Error ? error.message : 'Unable to cancel sponsorship request.';
 		} finally {
 			sponsorshipCancelInFlight = false;
 		}
@@ -384,7 +394,7 @@
 			{#if searchQuery}
 				<button
 					type="button"
-					class="text-surface-300 hover:text-surface-50 flex items-center px-2.5"
+					class="text-surface-300 hover:text-surface-50 flex items-center justify-center px-2.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					aria-label="Clear search query"
 					onclick={() => {
 						searchQuery = '';
@@ -396,7 +406,7 @@
 			{/if}
 			<button
 				type="button"
-				class="border-surface-700 text-surface-200 hover:bg-surface-800 flex items-center border-l px-3"
+				class="border-surface-700 text-surface-200 hover:bg-surface-800 flex items-center justify-center border-l px-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 				aria-label="Toggle organization directory"
 				disabled={!directoryGroups.length}
 				onclick={() => {
@@ -433,7 +443,7 @@
 							type="button"
 							role="option"
 							aria-selected={isSelected}
-							class="border-surface-800 flex w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left transition-colors {index ===
+							class="border-surface-800 flex w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left transition-colors pointer-coarse:min-h-11 {index ===
 							highlightedIndex
 								? 'bg-surface-800 text-surface-50'
 								: 'bg-surface-950 text-surface-100 hover:bg-surface-900'}"
@@ -519,7 +529,7 @@
 			</div>
 			<button
 				type="button"
-				class="border-surface-600 text-surface-200 hover:border-primary-500 hover:text-primary-500 shrink-0 rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors"
+				class="border-surface-600 text-surface-200 hover:border-primary-500 hover:text-primary-500 inline-flex shrink-0 items-center justify-center rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors pointer-coarse:min-h-11"
 				onclick={choosePersonalHosting}
 			>
 				Host independently
@@ -552,7 +562,7 @@
 			<div class="flex flex-wrap items-center gap-2">
 				<button
 					type="button"
-					class="bg-warning-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60"
+					class="bg-warning-500 text-surface-950 hover:bg-surface-50 inline-flex items-center gap-2 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60 pointer-coarse:min-h-11"
 					disabled={claimInFlight}
 					onclick={claimSelectedGroup}
 				>
@@ -565,7 +575,7 @@
 				</button>
 				<button
 					type="button"
-					class="border-surface-600 text-surface-100 hover:border-surface-300 rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors"
+					class="border-surface-600 text-surface-100 hover:border-surface-300 inline-flex items-center justify-center rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors pointer-coarse:min-h-11"
 					disabled={claimInFlight}
 					onclick={choosePersonalHosting}
 				>
@@ -616,7 +626,7 @@
 					<div class="flex flex-wrap items-center gap-2">
 						<button
 							type="button"
-							class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60"
+							class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex items-center gap-2 rounded-none px-4 py-2 text-xs font-black tracking-wide uppercase transition-colors disabled:opacity-60 pointer-coarse:min-h-11"
 							disabled={sponsorshipSendInFlight}
 							onclick={submitImmediateSponsorshipRequest}
 						>
@@ -629,7 +639,7 @@
 						</button>
 						<button
 							type="button"
-							class="border-surface-600 text-surface-100 hover:border-surface-300 rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors"
+							class="border-surface-600 text-surface-100 hover:border-surface-300 inline-flex items-center justify-center rounded-none border-2 px-4 py-2 text-xs font-bold tracking-wide uppercase transition-colors pointer-coarse:min-h-11"
 							disabled={sponsorshipSendInFlight}
 							onclick={choosePersonalHosting}
 						>
@@ -642,7 +652,7 @@
 					</span>
 					<button
 						type="button"
-						class="border-surface-600 text-surface-100 hover:border-surface-300 rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors"
+						class="border-surface-600 text-surface-100 hover:border-surface-300 inline-flex items-center justify-center rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors pointer-coarse:min-h-11"
 						onclick={choosePersonalHosting}
 					>
 						Host independently
@@ -672,7 +682,7 @@
 			</div>
 			<button
 				type="button"
-				class="border-surface-600 text-surface-200 hover:border-error-500 hover:text-error-400 inline-flex shrink-0 items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors disabled:opacity-60"
+				class="border-surface-600 text-surface-200 hover:border-error-500 hover:text-error-400 inline-flex shrink-0 items-center gap-1.5 rounded-none border px-3 py-1.5 text-xs font-bold uppercase transition-colors disabled:opacity-60 pointer-coarse:min-h-11"
 				disabled={sponsorshipCancelInFlight}
 				onclick={cancelActiveSponsorship}
 			>
