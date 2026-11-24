@@ -25,7 +25,7 @@
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash2 from '@lucide/svelte/icons/trash';
-	import ImageGeneratorPanel from '#lib/components/ai/ImageGeneratorPanel.svelte';
+	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 
 	let {
 		pageTitle = 'New Ride',
@@ -488,6 +488,39 @@
 		}
 	}
 
+	async function uploadCoverImage(files) {
+		const file = files?.[0];
+		if (!file) return;
+		imageUploadError = '';
+		imageUploading = true;
+		try {
+			const formData = new FormData();
+			formData.append('files', file);
+
+			const response = await fetch('/api/rides/images', {
+				method: 'POST',
+				body: formData
+			});
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error(result?.error || 'Unable to upload cover image.');
+
+			const uploadedUrl = (result?.files ?? []).map((entry) => entry?.url).find(Boolean);
+			if (!uploadedUrl) throw new Error('Unable to upload cover image.');
+
+			const rest = form.imageUrls
+				.slice(form.imageUrls.length ? 1 : 0)
+				.filter((imageUrl) => imageUrl !== uploadedUrl);
+			form = {
+				...form,
+				imageUrls: [uploadedUrl, ...rest].slice(0, 6)
+			};
+		} catch (error) {
+			imageUploadError = error.message || 'Unable to upload cover image.';
+		} finally {
+			imageUploading = false;
+		}
+	}
+
 	async function uploadImages(files) {
 		if (!files?.length) return;
 		imageUploadError = '';
@@ -567,6 +600,14 @@
 	function applyGeneratedRideImage(result) {
 		const url = safeTrim(result?.url);
 		if (!url) return;
+		const generatedAlt = safeTrim(result?.alt_text || result?.altText);
+		if (generatedAlt) {
+			imageAltByUrl = {
+				...imageAltByUrl,
+				[url]: generatedAlt
+			};
+			leadImageAlt = generatedAlt;
+		}
 
 		form = {
 			...form,
@@ -765,6 +806,8 @@
 	let saveSuccess = $state('');
 	let imageUploading = $state(false);
 	let imageUploadError = $state('');
+	let imageAltByUrl = $state({});
+	let leadImageAlt = $state('');
 	let geocodeLoading = $state('');
 	let geocodeError = $state('');
 	let aiMessages = $state([
@@ -898,6 +941,11 @@
 		})();
 
 		return undefined;
+	});
+
+	$effect(() => {
+		const leadUrl = form.imageUrls[0] || '';
+		leadImageAlt = leadUrl ? imageAltByUrl[leadUrl] || '' : '';
 	});
 
 	$effect(() => {
@@ -1163,80 +1211,104 @@
 						<h2 class="editor-section-title">Images</h2>
 					</div>
 					<div class="min-w-0 space-y-4 p-5 pt-4">
-						<ImageGeneratorPanel
+						<CoverMediaField
+							label="Lead cover photo"
+							description="The lead image appears at the top of the ride page and on featured cards on /ride."
+							helperNote="PNG, JPG, WebP, or GIF · Max 10 MB · 16:9 recommended"
+							imageUrl={form.imageUrls[0] || ''}
+							bind:imageAlt={leadImageAlt}
+							showAltField={true}
+							uploading={imageUploading}
+							error={imageUploadError}
+							disabled={!currentUser}
+							studioDisabled={!currentUser}
 							target="ride"
-							heading="Generate ride art"
-							description="Create a lead ride image from the ride details already on this page."
-							helperText=""
-							currentImageUrl={form.imageUrls[0] || ''}
+							studioHeading="Create ride cover art"
+							studioDescription="Create a lead ride illustration from the ride details already entered on this page."
 							buildContext={buildRideImageContext}
-							onApply={applyGeneratedRideImage}
+							onSelectFiles={uploadCoverImage}
+							onRemove={form.imageUrls.length ? () => removeImage(0) : null}
+							onAltChange={(nextAlt) => {
+								const leadUrl = form.imageUrls[0] || '';
+								if (leadUrl) {
+									imageAltByUrl = {
+										...imageAltByUrl,
+										[leadUrl]: nextAlt
+									};
+								}
+							}}
+							onApplyArtwork={applyGeneratedRideImage}
 						/>
-						<div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-							<div class="min-w-0 space-y-1">
-								<p class="font-medium">Attach up to 6 ride photos</p>
-								<p class="text-sm opacity-70">
-									The first image becomes the lead photo on the ride page. Featured cards on `/ride`
-									only show that lead image so the directory stays readable.
-								</p>
-							</div>
-							<label class="btn preset-outlined-primary-500 min-h-11 cursor-pointer gap-2">
-								<input
-									type="file"
-									class="hidden"
-									accept="image/jpeg,image/png,image/webp,image/gif"
-									multiple
-									disabled={!currentUser || imageUploading || form.imageUrls.length >= 6}
-									onchange={(event) => {
-										void uploadImages(event.currentTarget.files);
-										event.currentTarget.value = '';
-									}}
-								/>
-								{imageUploading ? 'Uploading…' : 'Add images'}
-							</label>
-						</div>
-						{#if imageUploadError}
-							<div class="card preset-tonal-warning p-3 text-sm">{imageUploadError}</div>
-						{/if}
-						{#if form.imageUrls.length}
-							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-								{#each form.imageUrls as imageUrl, index (imageUrl)}
-									<div class="ride-image-card border-surface-500 min-w-0 overflow-hidden border">
-										<img
-											src={imageUrl}
-											alt={`Ride image ${index + 1}`}
-											class="h-44 w-full object-cover"
-										/>
-										<div class="flex flex-wrap items-center justify-between gap-2 p-3">
-											<div class="text-sm font-medium">
-												{index === 0 ? 'Lead image' : `Image ${index + 1}`}
-											</div>
-											<div class="flex flex-wrap gap-2">
-												{#if index > 0}
-													<button
-														type="button"
-														class="btn btn-sm preset-outlined-secondary-500 min-h-11"
-														onclick={() => promoteImage(index)}
-													>
-														Use as lead
-													</button>
-												{/if}
-												<button
-													type="button"
-													class="btn btn-sm preset-outlined-error-500 min-h-11 min-w-11"
-													aria-label={`Remove ride image ${index + 1}`}
-													onclick={() => removeImage(index)}
-												>
-													<IconTrash2 class="h-3.5 w-3.5" />
-												</button>
-											</div>
-										</div>
+
+						{#if form.imageUrls.length > 0}
+							<div class="border-surface-500/25 min-w-0 space-y-3 border-t pt-4">
+								<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+									<div class="min-w-0 space-y-0.5">
+										<p class="text-sm font-medium">Additional ride photos</p>
+										<p class="text-xs opacity-70">
+											Attach up to 5 extra photos for the ride page gallery ({form.imageUrls
+												.length}/6 total).
+										</p>
 									</div>
-								{/each}
-							</div>
-						{:else}
-							<div class="border-surface-500 border border-dashed p-6 text-sm opacity-70">
-								No ride images yet.
+									{#if form.imageUrls.length < 6}
+										<label
+											class="btn btn-sm preset-outlined-primary-500 min-h-11 cursor-pointer gap-2"
+										>
+											<input
+												type="file"
+												class="hidden"
+												accept="image/jpeg,image/png,image/webp,image/gif"
+												multiple
+												disabled={!currentUser || imageUploading || form.imageUrls.length >= 6}
+												onchange={(event) => {
+													void uploadImages(event.currentTarget.files);
+													event.currentTarget.value = '';
+												}}
+											/>
+											{imageUploading ? 'Uploading…' : 'Add gallery photos'}
+										</label>
+									{/if}
+								</div>
+
+								{#if form.imageUrls.length > 1}
+									<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+										{#each form.imageUrls.slice(1) as imageUrl, extraIdx (imageUrl)}
+											{@const index = extraIdx + 1}
+											<div
+												class="ride-image-card border-surface-500 min-w-0 overflow-hidden border"
+											>
+												<img
+													src={imageUrl}
+													alt={imageAltByUrl[imageUrl] ||
+														(form.title
+															? `${form.title} ride photo ${index + 1}`
+															: `Community bike ride photo ${index + 1}`)}
+													class="h-44 w-full object-cover"
+												/>
+												<div class="flex flex-wrap items-center justify-between gap-2 p-3">
+													<div class="text-sm font-medium">Image {index + 1}</div>
+													<div class="flex flex-wrap gap-2">
+														<button
+															type="button"
+															class="btn btn-sm preset-outlined-secondary-500 min-h-11"
+															onclick={() => promoteImage(index)}
+														>
+															Use as cover
+														</button>
+														<button
+															type="button"
+															class="btn btn-sm preset-outlined-error-500 min-h-11 min-w-11"
+															aria-label={`Remove ride image ${index + 1}`}
+															onclick={() => removeImage(index)}
+														>
+															<IconTrash2 class="h-3.5 w-3.5" />
+														</button>
+													</div>
+												</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
