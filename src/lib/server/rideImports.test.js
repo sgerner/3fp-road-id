@@ -1190,7 +1190,7 @@ test(
 			}).trim();
 
 		const migrationSql = fs.readFileSync(
-			'supabase/migrations/20261124040000_add_structured_external_ride_fields.sql',
+			'supabase/migrations/20261124043000_add_structured_external_ride_fields.sql',
 			'utf8'
 		);
 

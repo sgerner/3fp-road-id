@@ -2,42 +2,36 @@ import { error } from '@sveltejs/kit';
 import {
 	createRequestSupabaseClient,
 	createServiceSupabaseClient
-} from '#lib/server/supabaseClient';
-import { resolveVerifiedSession } from '#lib/server/session';
+} from '#lib/server/supabaseClient.js';
+import { resolveVerifiedSession } from '#lib/server/session.js';
 import {
 	extractMarkdownHeadings,
 	renderLearnMarkdown,
 	splitMarkdownIntoSections
-} from '#lib/learn/markdown';
-import { sanitizeAltText } from '#lib/learn/altText';
-import { canManageLearnAsset, isLearnAdminUser } from '#lib/server/learnAiCore';
-import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid';
+} from '#lib/learn/markdown.js';
+import { sanitizeAltText } from '#lib/learn/altText.js';
+import { estimateReadMinutes, generateLearnReadingAid } from '#lib/learn/readingAid.js';
+import { canManageLearnAsset, isLearnAdminUser } from '#lib/server/learnAiCore.js';
+import {
+	enrichLearnArticleCards,
+	ensureUniqueLearnSlug,
+	mergeSafetyReportIntoCatalog,
+	normalizeLearnPayload,
+	slugifyLearn
+} from '#lib/server/learnCatalog.js';
 
-export { canManageLearnAsset };
+export {
+	canManageLearnAsset,
+	enrichLearnArticleCards,
+	ensureUniqueLearnSlug,
+	normalizeLearnPayload,
+	slugifyLearn
+};
 export const isLearnAdmin = isLearnAdminUser;
-
-const LEARN_EDITOR_MODES = ['wysiwyg', 'markdown'];
 
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
-}
-
-export function slugifyLearn(value) {
-	return safeTrim(value)
-		.toLowerCase()
-		.normalize('NFKD')
-		.replace(/[^\w\s-]/g, '')
-		.replace(/[\s_-]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-}
-
-function normalizeLearnCategory(categoryName) {
-	const label = safeTrim(categoryName) || 'General';
-	return {
-		name: label,
-		slug: slugifyLearn(label) || 'general'
-	};
 }
 
 export async function getLearnClient(cookies) {
@@ -64,67 +58,6 @@ export async function requireLearnUser(cookies) {
 	return { user, supabase };
 }
 
-/**
- * @param {any} supabase
- * @param {string} source
- * @param {string | null} [excludeId]
- */
-export async function ensureUniqueLearnSlug(supabase, source, excludeId = null) {
-	const base = slugifyLearn(source) || 'article';
-	let attempt = 0;
-	let candidate = base;
-
-	while (attempt < 50) {
-		let query = supabase
-			.from('learn_articles')
-			.select('id', { count: 'exact', head: true })
-			.eq('slug', candidate);
-		if (excludeId) query = query.neq('id', excludeId);
-		const { count, error: queryError } = await query;
-		if (queryError) throw queryError;
-		if (!count) return candidate;
-		attempt += 1;
-		candidate = `${base}-${attempt + 1}`;
-	}
-
-	return `${base}-${Date.now()}`;
-}
-
-export function normalizeLearnPayload(formData) {
-	const title = safeTrim(formData.get('title'));
-	const summary = safeTrim(formData.get('summary')) || null;
-	const bodyMarkdown = safeTrim(formData.get('bodyMarkdown'));
-	const requestedSlug = safeTrim(formData.get('slug'));
-	const editorMode = safeTrim(formData.get('editorMode')) || 'wysiwyg';
-	const category = normalizeLearnCategory(formData.get('categoryName'));
-	const subcategorySlug = safeTrim(formData.get('subcategorySlug')) || null;
-	const coverImageUrl = safeTrim(formData.get('coverImageUrl')) || null;
-
-	if (!title) {
-		throw error(400, 'Title is required.');
-	}
-
-	if (!bodyMarkdown) {
-		throw error(400, 'Article content is required.');
-	}
-
-	if (!LEARN_EDITOR_MODES.includes(editorMode)) {
-		throw error(400, 'Invalid editor mode.');
-	}
-
-	return {
-		title,
-		summary,
-		body_markdown: bodyMarkdown,
-		slug: requestedSlug,
-		editor_mode: editorMode,
-		category_slug: category.slug,
-		category_name: category.name,
-		subcategory_slug: subcategorySlug,
-		cover_image_url: coverImageUrl
-	};
-}
-
 export function learnFormDataValues(formData) {
 	const value = (key, limit = 80_000) => {
 		const raw = formData.get(key);
@@ -147,13 +80,14 @@ export async function listPublishedLearnArticles(supabase) {
 	const { data, error: queryError } = await supabase
 		.from('learn_articles')
 		.select(
-			'id, title, slug, summary, category_slug, category_name, cover_image_url, updated_at, created_at, created_by_user_id, updated_by_user_id, last_revision_number'
+			'id, title, slug, summary, reader_summary, key_takeaways, category_slug, category_name, subcategory_slug, subcategory_name, sort_order, content_type, import_source_path, cover_image_url, updated_at, created_at, created_by_user_id, updated_by_user_id, last_revision_number'
 		)
 		.eq('is_published', true)
 		.order('updated_at', { ascending: false });
 
 	if (queryError) throw queryError;
-	return data ?? [];
+	const enriched = await enrichLearnArticleCards(supabase, data ?? []);
+	return mergeSafetyReportIntoCatalog(enriched);
 }
 
 export async function getLearnArticleBySlug(supabase, slug) {

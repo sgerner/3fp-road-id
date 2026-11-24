@@ -12,7 +12,11 @@ import {
 	syncActivityOccurrences,
 	upsertActivityRelations
 } from '#lib/server/activities';
+import { UNAUTHORIZED_HOST_GROUP_MESSAGE } from '#lib/server/apiV1Errors';
+import { createOrUpdateEventSponsorshipRequest } from '#lib/server/eventSponsorships';
+import { getGroupClaimStatus } from '#lib/server/groupClaimStatus';
 import { queryPublishedUpcomingRides } from '#lib/server/rideDirectory';
+import { enforceRateLimit } from '#lib/server/security';
 
 /**
  * @param {any} request
@@ -45,9 +49,10 @@ export async function GET({ url, cookies }) {
 }
 
 /**
- * @param {any} param0
+ * @param {any} event
  */
-export async function POST({ request, cookies }) {
+export async function POST(event) {
+	const { request, cookies } = event;
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) {
 		return invalid('Authentication required.', 401);
@@ -63,7 +68,47 @@ export async function POST({ request, cookies }) {
 		return invalid('External registration link must be a valid http:// or https:// URL.');
 	}
 
+	const sponsorshipGroupId = String(rawPayload?.sponsorshipGroupId ?? '').trim() || null;
+	const sponsorshipMessage = String(rawPayload?.sponsorshipMessage ?? '').trim();
+
+	if (sponsorshipGroupId) {
+		const ipLimited = enforceRateLimit(event, {
+			name: 'event-sponsorship-ip',
+			limit: 20,
+			windowMs: 60 * 60 * 1000
+		});
+		if (ipLimited) return ipLimited;
+		const userLimited = enforceRateLimit(event, {
+			name: 'event-sponsorship-user',
+			limit: 10,
+			windowMs: 60 * 60 * 1000,
+			key: user.id
+		});
+		if (userLimited) return userLimited;
+
+		const { data: targetGroup, error: targetGroupError } = await writeSupabase
+			.from('groups')
+			.select('id')
+			.eq('id', sponsorshipGroupId)
+			.maybeSingle();
+		if (targetGroupError || !targetGroup) {
+			return invalid('Selected organization was not found.', 404);
+		}
+		const isClaimed = await getGroupClaimStatus(writeSupabase, sponsorshipGroupId);
+		if (isClaimed === false) {
+			return invalid(
+				'This organization is unclaimed. Claim it inline to publish under its name, or host independently.',
+				409
+			);
+		}
+	}
+
 	const payload = normalizeRidePayload(rawPayload);
+	if (sponsorshipGroupId) {
+		payload.activity.host_group_id = null;
+		payload.activity.is_host = true;
+	}
+
 	if (!payload.activity.title) return invalid('Ride title is required.');
 	if (!payload.activity.starts_at || !payload.activity.ends_at) {
 		return invalid('Ride start and end time are required.');
@@ -83,7 +128,7 @@ export async function POST({ request, cookies }) {
 			return invalid(manageGroupError.message, 400);
 		}
 		if (!canManageGroup) {
-			return invalid('You do not have permission to host this ride under that organization.', 403);
+			return invalid(UNAUTHORIZED_HOST_GROUP_MESSAGE, 403);
 		}
 	}
 
@@ -185,9 +230,28 @@ export async function POST({ request, cookies }) {
 	await syncActivityOccurrences(writeSupabase, activity.id, schedule);
 	await refreshActivityNextOccurrence(writeSupabase, activity.id);
 
+	let sponsorshipRequest = null;
+	if (sponsorshipGroupId) {
+		const sponsorshipResult = await createOrUpdateEventSponsorshipRequest({
+			supabase,
+			serviceSupabase: writeSupabase,
+			user,
+			eventType: 'ride',
+			eventId: activity.id,
+			groupId: sponsorshipGroupId,
+			message: sponsorshipMessage,
+			fetchImpl: event.fetch
+		});
+		if (sponsorshipResult.ok) {
+			sponsorshipRequest = sponsorshipResult.data;
+		} else {
+			console.warn('Ride created, but sponsorship request returned error:', sponsorshipResult);
+		}
+	}
+
 	const ride = await loadRideBySlug(supabase, slug, {
 		includeTemplates: true,
 		includePrivateRsvps: true
 	});
-	return json({ data: ride }, { status: 201 });
+	return json({ data: ride, sponsorshipRequest }, { status: 201 });
 }
