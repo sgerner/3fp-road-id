@@ -96,6 +96,7 @@
 		if (hasActiveBilling) {
 			blockedReason =
 				billingGuard?.disconnect_block_reason ||
+				billingGuard?.block_reason ||
 				effectiveConnection?.disconnect_block_reason ||
 				buildLocalBlockMessage();
 			blockedManageUrl = defaultManageUrl;

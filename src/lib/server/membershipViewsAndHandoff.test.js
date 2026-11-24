@@ -779,7 +779,7 @@ test('Stripe Connect return_to sanitization blocks traversal and cross-group red
 			slug: 'metro-velo',
 			returnTo: '/groups/metro-velo/manage/../../donate'
 		}),
-		'/groups/metro-velo/manage/edit'
+		'/groups/metro-velo/manage/presence'
 	);
 	assert.equal(
 		appendConnectStatusParams(

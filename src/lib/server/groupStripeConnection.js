@@ -87,7 +87,7 @@ export function buildConnectReturnPath(target) {
 		if (!cleanSlug) return '/donate?manage=1';
 		const customReturn = sanitizeGroupConnectReturnPath(cleanSlug, target.returnTo);
 		if (customReturn) return customReturn;
-		return `/groups/${encodeURIComponent(cleanSlug)}/manage/edit`;
+		return `/groups/${encodeURIComponent(cleanSlug)}/manage/presence`;
 	}
 	return '/donate';
 }

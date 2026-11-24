@@ -87,6 +87,13 @@ test('resolveAssistantDispatch infers contextual modes from pathname and respect
 	assert.equal(groupTarget.mode, 'group-site-write');
 	assert.equal(groupTarget.groupSlug, 'desert-spoke');
 
+	const presenceTarget = resolveAssistantDispatch({
+		pathname: '/groups/desert-spoke/manage/presence?view=quick'
+	});
+	assert.equal(presenceTarget.mode, 'group-site-write');
+	assert.equal(presenceTarget.pathname, '/groups/desert-spoke/manage/presence');
+	assert.equal(presenceTarget.groupSlug, 'desert-spoke');
+
 	// Explicit discover override always switches to general discovery even on contextual routes
 	assert.equal(
 		resolveAssistantDispatch({
