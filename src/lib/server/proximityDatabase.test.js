@@ -36,7 +36,7 @@ test(
 					'20260301100851_create_activity_and_ride_tables.sql',
 					'20260303061834_add_ride_images.sql',
 					'20260401090000_optimize_groups_search_and_filters.sql',
-					'20261124030000_add_proximity_rpcs.sql'
+					'20261124035028_add_proximity_rpcs.sql'
 				].map((name) => fs.readFileSync(path.join(root, 'migrations', name), 'utf8')),
 				fs.readFileSync(path.join(root, 'tests/proximity_rpcs.sql'), 'utf8')
 			].join('\n');
