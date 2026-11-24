@@ -16,6 +16,9 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const DELIVERY_STALE_MS = 15 * 60 * 1000;
 
+/**
+ * @param {any} request
+ */
 function enforceCronSecret(request) {
 	const secret =
 		env.CRON_SECRET || env.VOLUNTEER_EMAIL_CRON_SECRET || env.VERCEL_CRON_SECRET || null;
@@ -33,6 +36,9 @@ function enforceCronSecret(request) {
 	return null;
 }
 
+/**
+ * @param {any} value
+ */
 function toNumber(value) {
 	if (typeof value === 'number' && Number.isFinite(value)) return value;
 	if (typeof value === 'string' && value.trim()) {
@@ -42,18 +48,28 @@ function toNumber(value) {
 	return null;
 }
 
+/**
+ * @param {any} value
+ */
 function toStringId(value) {
 	if (value === null || value === undefined) return null;
 	const str = String(value).trim();
 	return str ? str : null;
 }
 
+/**
+ * @param {any} value
+ */
 function parseTimestamp(value) {
 	if (!value) return null;
 	const time = Date.parse(value);
 	return Number.isNaN(time) ? null : time;
 }
 
+/**
+ * @param {any} eventStart
+ * @param {any} offsetMinutes
+ */
 function computeScheduledTime(eventStart, offsetMinutes) {
 	const eventStartMs = parseTimestamp(eventStart);
 	if (eventStartMs === null) return null;
@@ -62,6 +78,9 @@ function computeScheduledTime(eventStart, offsetMinutes) {
 	return eventStartMs - offset * 60_000;
 }
 
+/**
+ * @param {any} assignments
+ */
 function deriveVolunteerStatus(assignments) {
 	if (!assignments || assignments.length === 0) return 'pending';
 	const statuses = assignments.map((assignment) => assignment.status);
@@ -73,6 +92,9 @@ function deriveVolunteerStatus(assignments) {
 	return statuses[0] || 'pending';
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeAssignment(row) {
 	if (!row) return null;
 	const id = toStringId(row.id);
@@ -84,6 +106,10 @@ function normalizeAssignment(row) {
 	return { id, signupId, shiftId, status };
 }
 
+/**
+ * @param {any} value
+ * @param {any} [fallback]
+ */
 function safeTrim(value, fallback = '') {
 	if (typeof value === 'string') {
 		const trimmed = value.trim();
@@ -92,6 +118,10 @@ function safeTrim(value, fallback = '') {
 	return fallback;
 }
 
+/**
+ * @param {any} signup
+ * @param {any} profile
+ */
 function resolveVolunteerName(signup, profile) {
 	return (
 		safeTrim(signup?.volunteer_name) ||
@@ -104,12 +134,20 @@ function resolveVolunteerName(signup, profile) {
 	);
 }
 
+/**
+ * @param {any} signup
+ * @param {any} profile
+ */
 function resolveVolunteerEmail(signup, profile) {
 	return (
 		safeTrim(signup?.volunteer_email) || safeTrim(signup?.email) || safeTrim(profile?.email) || ''
 	);
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} eventRecord
+ */
 async function loadEventContext(supabase, eventRecord) {
 	const eventId = toStringId(eventRecord?.id);
 	if (!eventId) return null;
@@ -237,6 +275,12 @@ async function loadEventContext(supabase, eventRecord) {
 	return { opportunities, volunteers, hostGroup };
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} templateId
+ * @param {any} volunteerSignupId
+ * @param {any} recipientEmail
+ */
 async function claimVolunteerEmailDelivery(
 	supabase,
 	templateId,
@@ -301,6 +345,11 @@ async function claimVolunteerEmailDelivery(
 		: { id: existing.id, state: 'pending' };
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} deliveryId
+ * @param {any} updates
+ */
 async function updateVolunteerEmailDelivery(supabase, deliveryId, updates) {
 	const { error } = await supabase
 		.from('volunteer_event_email_deliveries')
@@ -309,12 +358,16 @@ async function updateVolunteerEmailDelivery(supabase, deliveryId, updates) {
 	if (error) throw error;
 }
 
+/**
+ * @param {any} param0
+ */
 async function processEmailTemplate({ supabase, template, eventRecord, origin, fetchFn, now }) {
 	const contextData = await loadEventContext(supabase, eventRecord);
 	if (!contextData) {
 		return { templateId: template.id, sent: 0, skipped: true, reason: 'missing_context' };
 	}
 
+	/** @type {any} */
 	const eventDetailsForContext = {
 		title: eventRecord?.title ?? 'Volunteer event',
 		event_start: eventRecord?.event_start ?? eventRecord?.eventStart ?? null,
@@ -336,6 +389,7 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 	let sentCount = 0;
 	let eligibleCount = 0;
 	let pendingCount = 0;
+	/** @type {any} */
 	const errors = [];
 	for (const volunteer of approvedVolunteers) {
 		const to = safeTrim(volunteer.email);
@@ -378,6 +432,7 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 		const textWithCalendar = [textBody, calendarBlocks.text].filter(Boolean).join('\n\n');
 		eligibleCount += 1;
 
+		/** @type {any} */
 		let delivery;
 		try {
 			delivery = await claimVolunteerEmailDelivery(supabase, template.id, volunteer.id, to);
@@ -477,7 +532,12 @@ async function processEmailTemplate({ supabase, template, eventRecord, origin, f
 	};
 }
 
+/**
+ * @param {any} records
+ * @param {any} now
+ */
 function filterDueTemplates(records, now) {
+	/** @type {any} */
 	const due = [];
 	for (const template of records ?? []) {
 		if (!template) continue;
@@ -503,6 +563,9 @@ function filterDueTemplates(records, now) {
 	return due;
 }
 
+/**
+ * @param {any} event
+ */
 async function handleCron(event) {
 	const unauthorized = enforceCronSecret(event.request);
 	if (unauthorized) return unauthorized;
@@ -532,6 +595,7 @@ async function handleCron(event) {
 	}
 
 	const origin = getConfiguredPublicOrigin();
+	/** @type {any} */
 	const results = [];
 	for (const item of dueTemplates) {
 		try {

@@ -79,6 +79,12 @@ export async function canManageGroupSocial(requestSupabase, userId, groupId) {
 	return Array.isArray(data) && data.length > 0;
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string, group?: any, claimed?: boolean }
+ *   | { ok: true, accessToken: string, user: any, userId: string, isAdmin: boolean, requestSupabase: any, serviceSupabase: any, group: any, claimed: boolean, managerRoles: string[] }
+ * >}
+ */
 export async function requireGroupSocialManager(cookies, groupSlug) {
 	const auth = await getSocialAuthContext(cookies);
 	if (!auth) return { ok: false, status: 401, error: 'Authentication required.' };

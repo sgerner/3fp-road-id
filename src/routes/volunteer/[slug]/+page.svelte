@@ -459,6 +459,7 @@
 		subject: defaultQuestionSubject,
 		message: ''
 	});
+	/** @type {Record<string, string>} */
 	let questionErrors = $state({});
 	let questionStatus = $state({ loading: false, success: '', error: '' });
 
@@ -507,6 +508,7 @@
 		const subject = (questionForm.subject || '').trim();
 		const message = questionForm.message;
 
+		/** @type {Record<string, string>} */
 		const nextErrors = {};
 		if (!replyTo || !questionEmailPattern.test(replyTo)) {
 			nextErrors.replyTo = 'Enter a valid email address so the organizer can respond.';
@@ -645,6 +647,7 @@
 	function isSameDay(startIso, endIso, timezone) {
 		try {
 			const tz = timezone || event.timezone || 'UTC';
+			/** @type {Intl.DateTimeFormatOptions} */
 			const opts = { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' };
 			const fmt = new Intl.DateTimeFormat(undefined, opts);
 			return fmt.format(new Date(startIso)) === fmt.format(new Date(endIso));
@@ -1010,6 +1013,7 @@
 	async function maybeUpdateProfile(details) {
 		if (!user) return;
 		const current = profile || {};
+		/** @type {Record<string, any>} */
 		const payload = { user_id: user.id };
 		let changed = false;
 
@@ -1239,6 +1243,7 @@
 			const toAdd = selectedShiftIds.filter((shiftId) => !existingShiftIds.includes(shiftId));
 			const toRemove = existingShiftIds.filter((shiftId) => !selectedShiftIds.includes(shiftId));
 
+			/** @type {string} */
 			const status = opportunity.requires_approval ? 'pending' : 'approved';
 			const newlyAddedShifts = [];
 			const createdAssignmentIds = [];

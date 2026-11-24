@@ -62,8 +62,10 @@ test('distanceMiles enforces strict 250-mile radius and does not fall back to re
 		}
 	];
 
-	assert.ok(distanceMiles(visitor, groups[0]) < 10);
-	assert.ok(distanceMiles(visitor, groups[2]) > 250);
+	const omahaDistance = distanceMiles(visitor, groups[0]);
+	const dubuqueDistance = distanceMiles(visitor, groups[2]);
+	assert.ok(omahaDistance !== null && omahaDistance < 10);
+	assert.ok(dubuqueDistance !== null && dubuqueDistance > 250);
 
 	const matched = matchNearbyGroupsInMemory(groups, visitor, { maxMiles: 250, limit: 10 });
 	assert.deepEqual(
@@ -319,6 +321,7 @@ test('fetchNearbyGroups and fetchNearbyRides pass normalized RPC arguments and f
 });
 
 function createQueryChain(resolveRows) {
+	/** @type {{ filters: Array<Record<string, any>>, range: [number, number] | null, columns?: string, limit?: number }} */
 	const state = {
 		filters: [],
 		range: null

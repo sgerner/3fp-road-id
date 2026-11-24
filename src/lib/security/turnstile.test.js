@@ -251,6 +251,7 @@ test('standard SvelteKit enhance form actions attach fresh tokens, cancel on fai
 	assert.equal(duplicateCancelled, true);
 
 	let updatedWithReset = null;
+	if (!postSubmitCallback) throw new Error('Expected postSubmitCallback');
 	await postSubmitCallback({
 		update: async (opts) => {
 			updatedWithReset = opts?.reset;

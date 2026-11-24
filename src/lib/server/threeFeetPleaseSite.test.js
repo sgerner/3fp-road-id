@@ -7,6 +7,7 @@ import {
 import { THREE_FEET_LAWS, THREE_FEET_LAWS_LAST_REVIEWED } from '../microsites/laws.js';
 
 test('3 Feet Please website preserves the core legacy routes and clear next steps', () => {
+	/** @type {any} */
 	const config = buildThreeFeetPleaseSite({ group: { name: '3 Feet Please' } });
 	assert.deepEqual(
 		config.site_pages.map((page) => page.slug),

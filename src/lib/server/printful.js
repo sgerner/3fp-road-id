@@ -204,6 +204,7 @@ async function sendPrintfulTokenRequest(params) {
 	return normalizeTokenSet(payload);
 }
 
+/** @param {{ type?: string, slug?: string | null, userId?: string | null }} [options] */
 export function createPrintfulStateToken({ type = 'main', slug = null, userId = null } = {}) {
 	const payload = {
 		v: 1,
@@ -239,6 +240,7 @@ export function parsePrintfulStateToken(token) {
 	}
 }
 
+/** @param {{ redirectUrl?: string, state?: string }} [options] */
 export function buildPrintfulAuthorizeUrl({ redirectUrl, state } = {}) {
 	const clientId = getPrintfulClientId();
 	const cleanRedirectUrl = cleanText(redirectUrl, 2000);
@@ -275,6 +277,18 @@ export async function refreshPrintfulAccessToken({ refreshToken }) {
 	});
 }
 
+/**
+ * @param {{
+ *   path?: string,
+ *   method?: string,
+ *   accessToken?: string | null,
+ *   body?: any,
+ *   storeId?: string | number | null,
+ *   headers?: Record<string, string>,
+ *   timeoutMs?: number,
+ *   maxAttempts?: number
+ * }} [options]
+ */
 export async function sendPrintfulRequest({
 	path,
 	method = 'GET',
@@ -378,6 +392,17 @@ export async function sendPrintfulRequest({
 	};
 }
 
+/**
+ * @param {string} path
+ * @param {{
+ *   accessToken?: string | null,
+ *   method?: string,
+ *   body?: any,
+ *   storeId?: string | number | null,
+ *   timeoutMs?: number,
+ *   maxAttempts?: number
+ * }} [options]
+ */
 export async function printfulFetchV2(
 	path,
 	{ accessToken, method = 'GET', body, storeId, timeoutMs, maxAttempts } = {}

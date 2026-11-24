@@ -2,7 +2,6 @@
 	import { tick, onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
-
 	/** @type {{ report: Record<string, any>, type?: string, topic?: string, active?: boolean, onAsk?: (question: string) => void }} */
 	let {
 		report,
@@ -15,7 +14,9 @@
 	let activeIndex = $state(0);
 	let activePageIndex = $state(0);
 	let cardPages = $state(/** @type {Record<string, number>} */ ({}));
+	/** @type {HTMLDialogElement | undefined} */
 	let dialog = $state();
+	/** @type {HTMLElement | null | undefined} */
 	let trigger;
 	let reducedMotion = $state(true);
 
@@ -215,7 +216,7 @@
 	}
 
 	function openImage(index, pageIdx, event) {
-		trigger = event.currentTarget;
+		trigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
 		activeIndex = index;
 		activePageIndex = pageIdx;
 		dialog?.showModal();

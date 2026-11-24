@@ -12,14 +12,24 @@ import {
 } from '#lib/server/activities';
 import { queryPublishedUpcomingRides } from '#lib/server/rideDirectory';
 
+/**
+ * @param {any} request
+ */
 function parseJson(request) {
 	return request.json().catch(() => null);
 }
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ url, cookies }) {
 	const { supabase } = await getActivityClient(cookies);
 
@@ -32,6 +42,9 @@ export async function GET({ url, cookies }) {
 	}
 }
 
+/**
+ * @param {any} param0
+ */
 export async function POST({ request, cookies }) {
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) {
@@ -75,6 +88,7 @@ export async function POST({ request, cookies }) {
 		payload.activity.slug || payload.activity.title
 	);
 
+	/** @type {any} */
 	const activityInsert = {
 		activity_type: 'ride',
 		host_user_id: payload.activity.is_host ? user.id : null,

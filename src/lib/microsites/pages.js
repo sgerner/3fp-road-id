@@ -36,6 +36,29 @@ function defaultSpecialPlacement(item, blockTypes) {
 	return 'more';
 }
 
+/**
+ * @typedef {{ id: string, label: string, placement: string }} GroupSiteNavItem
+ * @typedef {{ items: GroupSiteNavItem[] }} GroupSiteNavigation
+ * @typedef {{
+ *   id: string,
+ *   slug: string,
+ *   title: string,
+ *   nav_label: string,
+ *   description: string,
+ *   seo_description: string,
+ *   source_revision?: string,
+ *   show_in_nav: boolean,
+ *   is_home: boolean,
+ *   blocks: import('./blocks.js').GroupSiteBlock[],
+ *   navigation?: GroupSiteNavigation
+ * }} GroupSitePage
+ */
+
+/**
+ * @param {any} value
+ * @param {{ pages?: any[] }} [options]
+ * @returns {GroupSiteNavigation}
+ */
 export function normalizeGroupSiteNavigation(value, { pages = [] } = {}) {
 	const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 	const sourceItems = Array.isArray(source.items) ? source.items : [];
@@ -45,7 +68,7 @@ export function normalizeGroupSiteNavigation(value, { pages = [] } = {}) {
 			.map((item) => [clean(item.id, 100), item])
 	);
 	const blockTypes = new Set(
-		pages.flatMap((page) => (page.blocks || []).map((block) => block.type)).filter(Boolean)
+		pages.flatMap((page) => (page.blocks || []).map((block) => block?.type)).filter(Boolean)
 	);
 	const candidates = [
 		...pages.map((page, index) => ({
@@ -72,6 +95,7 @@ export function normalizeGroupSiteNavigation(value, { pages = [] } = {}) {
 		...candidates.map((item) => item.id).filter((id) => id !== 'page:home' && !sourceById.has(id))
 	];
 	let primaryCount = 0;
+	/** @type {GroupSiteNavItem[]} */
 	const items = [];
 	for (const id of orderedIds) {
 		const candidate = candidateById.get(id);
@@ -105,6 +129,22 @@ function uniqueSlug(candidate, used) {
 	return slug;
 }
 
+/**
+ * @param {{
+ *   id?: string,
+ *   slug?: string,
+ *   title?: string,
+ *   nav_label?: string,
+ *   description?: string,
+ *   seo_description?: string,
+ *   source_revision?: string,
+ *   show_in_nav?: boolean,
+ *   is_home?: boolean,
+ *   blocks?: any[],
+ *   navigation?: any
+ * }} [options]
+ * @returns {GroupSitePage}
+ */
 export function createGroupSitePage({
 	id = '',
 	slug = '',
@@ -119,7 +159,7 @@ export function createGroupSitePage({
 	navigation = null
 } = {}) {
 	const pageTitle = clean(title, 120) || 'New page';
-	return {
+	return /** @type {GroupSitePage} */ ({
 		id: clean(id, 80) || `page-${normalizeGroupSitePageSlug(pageTitle) || 'new'}`,
 		slug: is_home ? '' : normalizeGroupSitePageSlug(slug || pageTitle),
 		title: pageTitle,
@@ -131,9 +171,13 @@ export function createGroupSitePage({
 		is_home: Boolean(is_home),
 		blocks: normalizeGroupSiteBlocks(blocks),
 		...(is_home && navigation && typeof navigation === 'object' ? { navigation } : {})
-	};
+	});
 }
 
+/**
+ * @param {any[]} [homeBlocks]
+ * @returns {GroupSitePage[]}
+ */
 export function buildDefaultGroupSitePages(homeBlocks = []) {
 	const pages = [
 		createGroupSitePage({
@@ -148,6 +192,11 @@ export function buildDefaultGroupSitePages(homeBlocks = []) {
 	return pages;
 }
 
+/**
+ * @param {any} value
+ * @param {{ homeBlocks?: any[] }} [options]
+ * @returns {GroupSitePage[]}
+ */
 export function normalizeGroupSitePages(value, { homeBlocks = [] } = {}) {
 	let source = value;
 	if (typeof source === 'string') {
@@ -161,6 +210,7 @@ export function normalizeGroupSitePages(value, { homeBlocks = [] } = {}) {
 
 	const usedIds = new Set();
 	const usedSlugs = new Set();
+	/** @type {GroupSitePage[]} */
 	const pages = [];
 	for (const [index, entry] of source.entries()) {
 		if (pages.length >= GROUP_SITE_PAGE_LIMIT) break;
@@ -189,7 +239,9 @@ export function normalizeGroupSitePages(value, { homeBlocks = [] } = {}) {
 	if (!home) {
 		home = createGroupSitePage({ id: 'home', title: 'Home', is_home: true, blocks: homeBlocks });
 	}
+	/** @type {GroupSitePage} */
 	const normalizedHome = { ...home, id: 'home', slug: '', is_home: true, show_in_nav: true };
+	/** @type {GroupSitePage[]} */
 	const normalizedPages = [
 		normalizedHome,
 		...pages.filter((page) => page !== home).map((page) => ({ ...page, is_home: false }))
@@ -200,11 +252,21 @@ export function normalizeGroupSitePages(value, { homeBlocks = [] } = {}) {
 	return normalizedPages;
 }
 
+/**
+ * @param {GroupSitePage[] | any} pages
+ * @param {string} [slug]
+ * @returns {GroupSitePage | null}
+ */
 export function groupSitePageBySlug(pages, slug = '') {
 	const normalized = normalizeGroupSitePageSlug(slug);
 	return (Array.isArray(pages) ? pages : []).find((page) => page.slug === normalized) || null;
 }
 
+/**
+ * @param {string} type
+ * @param {Record<string, any>} [overrides]
+ * @param {string} [id]
+ */
 export function pageBlock(type, overrides = {}, id = '') {
 	return createGroupSiteBlock(type, { id, overrides });
 }

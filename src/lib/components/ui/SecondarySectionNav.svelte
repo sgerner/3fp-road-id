@@ -1,4 +1,22 @@
 <script>
+	/**
+	 * @typedef {{
+	 *   label: string,
+	 *   href: string,
+	 *   icon?: import('svelte').Component<any>,
+	 *   tone?: string,
+	 *   match?: string
+	 * }} SecondaryNavItem
+	 */
+
+	/**
+	 * @type {{
+	 *   title: string,
+	 *   ariaLabel: string,
+	 *   sections?: Array<{ label?: string, items?: SecondaryNavItem[] }>,
+	 *   pathname?: string
+	 * }}
+	 */
 	let { title, ariaLabel, sections = [], pathname = '' } = $props();
 
 	function isActive(item) {

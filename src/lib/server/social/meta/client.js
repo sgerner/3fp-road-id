@@ -38,6 +38,18 @@ function parsePayload(text) {
 	}
 }
 
+/**
+ * @typedef {Object} MetaApiCallOptions
+ * @property {string} [baseUrl]
+ * @property {string} [path]
+ * @property {string} [method]
+ * @property {string | null} [accessToken]
+ * @property {Record<string, any>} [query]
+ * @property {any} [body]
+ * @property {number} [timeoutMs]
+ */
+
+/** @param {MetaApiCallOptions} [options] */
 export async function callMetaApi({
 	path,
 	method = 'GET',
@@ -57,6 +69,7 @@ export async function callMetaApi({
 	});
 }
 
+/** @param {MetaApiCallOptions} [options] */
 export async function callInstagramApi({
 	path,
 	method = 'GET',
@@ -76,6 +89,7 @@ export async function callInstagramApi({
 	});
 }
 
+/** @param {MetaApiCallOptions} [options] */
 async function callGraphApi({
 	baseUrl,
 	path,
@@ -112,8 +126,8 @@ async function callGraphApi({
 	const raw = await response.text();
 	const payload = parsePayload(raw);
 	if (!response.ok) {
-		const error = new Error(
-			normalizeMetaError(payload, `Meta API request failed (${response.status}).`)
+		const error = /** @type {Error & { status?: number, payload?: any }} */ (
+			new Error(normalizeMetaError(payload, `Meta API request failed (${response.status}).`))
 		);
 		error.status = response.status;
 		error.payload = payload;

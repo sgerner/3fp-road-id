@@ -11,6 +11,7 @@ test(
 	'Road ID claim RPC atomically creates emergency profiles, serializes concurrent claims, preserves overrides, and enforces RLS',
 	{ skip: !databaseUrl },
 	async () => {
+		if (!databaseUrl) return;
 		const url = new URL(databaseUrl);
 		assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname));
 		const dbName = `road_id_claim_test_${process.pid}`;
@@ -145,19 +146,21 @@ test(
 			assert.equal(retrySameOwner, 'already_owned');
 
 			// 2. Concurrent claims for the same unclaimed code serialize via FOR UPDATE
-			const runConcurrentSql = (sql) =>
-				new Promise((resolve, reject) => {
-					const child = execFile(
-						'psql',
-						[testDbUrl, '-X', '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-q'],
-						{ encoding: 'utf8' },
-						(err, stdout, stderr) => {
-							if (err) reject(new Error(stderr || err.message));
-							else resolve(stdout.trim());
-						}
-					);
-					child.stdin.end(sql);
-				});
+			const runConcurrentSql = (/** @type {string} */ sql) =>
+				/** @type {Promise<string>} */ (
+					new Promise((resolve, reject) => {
+						const child = execFile(
+							'psql',
+							[testDbUrl, '-X', '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-q'],
+							{ encoding: 'utf8' },
+							(err, stdout, stderr) => {
+								if (err) reject(new Error(stderr || err.message));
+								else resolve(stdout.trim());
+							}
+						);
+						child.stdin?.end(sql);
+					})
+				);
 
 			const [res1, res2] = await Promise.all([
 				runConcurrentSql(

@@ -31,6 +31,8 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint, verifyBaseFingerprint } from '#lib/ai/assistantHelpers.js';
 	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		buildGroupSiteEditorState,
@@ -38,6 +40,7 @@
 		GROUP_SITE_LOGO_MAX_BYTES,
 		mergeGroupSiteEditorConfig,
 		normalizeGroupSiteEditorView,
+		siteEditorConfigFingerprint,
 		toIsoDateTimeValue
 	} from '#lib/groups/siteEditor';
 	import { deriveLegacySiteVisibility } from '#lib/microsites/blocks';
@@ -104,6 +107,10 @@
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
 	let sponsorFileNames = $state({});
+	let aiUndoSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
+	const assistantContext = getAssistantContext();
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	let rideFilterMode = $state(initialEditorState.rideFilterMode);
@@ -276,6 +283,7 @@
 		if (!pendingFiles.length || Object.values(sponsorFileNames).some(Boolean)) return '';
 		return `Your draft text was kept, but the page reload cleared your selected partner logo (${pendingFiles.join(', ')}). Please choose the file again before publishing.`;
 	});
+	/** @param {string | null} [fallbackView] */
 	function syncViewFromUrl(fallbackView = null) {
 		const requested = new URL(window.location.href).searchParams.get('view');
 		if (requested) {
@@ -318,6 +326,9 @@
 		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
 			input.value = '';
 		}
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
 		localNotice = '';
 		localError = '';
 		previewVersion += 1;
@@ -520,6 +531,116 @@
 					: 'Generated proposal applied. Review it, then publish when ready.';
 		return true;
 	}
+
+	function captureFullSiteEditorState() {
+		return clone({
+			siteConfig,
+			sitePages,
+			selectedPageId,
+			pageBlocks,
+			sponsorItems,
+			sponsorFileNames,
+			faqItems,
+			slugInput,
+			rideFilterMode,
+			rideLocation,
+			rideNear,
+			rideRadius,
+			rideDefaultTab,
+			rideTheme,
+			rideDensity,
+			rideShowFilters,
+			rideShowAdd,
+			ridePrefixCity,
+			rideDifficultyColors,
+			selectedRideGroupIds
+		});
+	}
+
+	function restoreFullSiteEditorState(saved) {
+		if (!saved) return;
+		siteConfig = clone(saved.siteConfig);
+		sitePages = clone(saved.sitePages);
+		selectedPageId = saved.selectedPageId || sitePages[0]?.id || 'home';
+		pageBlocks = clone(saved.pageBlocks);
+		sponsorItems = clone(saved.sponsorItems);
+		sponsorFileNames = clone(saved.sponsorFileNames || {});
+		faqItems = clone(saved.faqItems);
+		slugInput = saved.slugInput;
+		rideFilterMode = saved.rideFilterMode;
+		rideLocation = saved.rideLocation;
+		rideNear = saved.rideNear;
+		rideRadius = saved.rideRadius;
+		rideDefaultTab = saved.rideDefaultTab;
+		rideTheme = saved.rideTheme;
+		rideDensity = saved.rideDensity;
+		rideShowFilters = saved.rideShowFilters;
+		rideShowAdd = saved.rideShowAdd;
+		ridePrefixCity = saved.ridePrefixCity;
+		rideDifficultyColors = saved.rideDifficultyColors;
+		selectedRideGroupIds = clone(saved.selectedRideGroupIds);
+	}
+
+	function applyAiProposal(proposal) {
+		if (!proposal?.config) {
+			return { ok: false, error: 'No website proposal to apply.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyBaseFingerprint(
+			currentFp,
+			proposal.baseFingerprint,
+			'Your page changed after this draft was created. Ask the assistant again so it can use your latest edits.'
+		);
+		if (!check.ok) return check;
+
+		const previousState = captureFullSiteEditorState();
+		applyAiConfig(proposal.config, proposal.source || 'ai');
+		aiUndoSnapshot = previousState;
+		aiAppliedFingerprint = siteEditorConfigFingerprint(aiCurrentConfig);
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoAiProposal() {
+		if (!aiUndoSnapshot) {
+			return { ok: false, error: 'No applied AI draft to undo.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'Your page changed after you applied this AI draft. Keep your manual edits or ask the assistant for a fresh update.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		restoreFullSiteEditorState(aiUndoSnapshot);
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		previewVersion += 1;
+		localNotice = 'Reverted AI draft changes.';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'group-site-write',
+			groupSlug: data.group?.slug || '',
+			getContext: () => {
+				const currentCopy = clone(aiCurrentConfig);
+				return {
+					currentConfig: currentCopy,
+					baseFingerprint: siteEditorConfigFingerprint(currentCopy)
+				};
+			},
+			applyDraft: applyAiProposal,
+			undoDraft: undoAiProposal,
+			canUndoDraft: Boolean(aiUndoSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This replaces the draft sections, starter wording, colors, and page style. Your web address, partners, announcements, and connected features stay in place.`
@@ -1222,24 +1343,11 @@
 					</p>
 				</section>
 			{:else if activeView === 'quick'}
-				<details class="card preset-tonal-secondary">
-					<summary class="flex cursor-pointer items-center gap-3 p-4 sm:p-5"
-						><span class="card preset-tonal-secondary p-2.5"><IconSparkles class="h-5 w-5" /></span
-						><span class="grow"
-							><span class="block font-semibold">Improve my website with AI</span><span
-								class="block text-sm opacity-65"
-								>Describe the feeling and let the assistant propose the first draft.</span
-							></span
-						></summary
-					>
-					<div class="preset-divider-top p-4 sm:p-5">
-						<GroupSiteAiAssistant
-							groupSlug={data.group.slug}
-							currentConfig={aiCurrentConfig}
-							onapplied={applyAiConfig}
-						/>
-					</div>
-				</details>
+				<GroupSiteAiAssistant
+					canUndo={Boolean(aiUndoSnapshot) && !aiUndoConflictMessage}
+					undoConflictMessage={aiUndoConflictMessage}
+					onundo={undoAiProposal}
+				/>
 				<div class="grid gap-4 xl:grid-cols-2">
 					<div class="card preset-tonal-primary grid content-start gap-3 p-4">
 						<div>

@@ -319,21 +319,21 @@ function parseAddressParts(text) {
 	for (let i = working.length - 1; i >= 1; i -= 1) {
 		const candidate = stripPostalSuffix(working[i]);
 		if (!candidate) continue;
-		if ((!country || country === 'US') && findRegionInMap(US_STATES, candidate)) {
-			const match = findRegionInMap(US_STATES, candidate);
-			region = match.code;
+		const usMatch = !country || country === 'US' ? findRegionInMap(US_STATES, candidate) : null;
+		if (usMatch) {
+			region = usMatch.code;
 			if (!country) country = 'US';
 			break;
 		}
-		if ((!country || country === 'CA') && findRegionInMap(CA_PROVINCES, candidate)) {
-			const match = findRegionInMap(CA_PROVINCES, candidate);
-			region = match.code;
+		const caMatch = !country || country === 'CA' ? findRegionInMap(CA_PROVINCES, candidate) : null;
+		if (caMatch) {
+			region = caMatch.code;
 			if (!country) country = 'CA';
 			break;
 		}
-		if ((!country || country === 'AU') && findRegionInMap(AU_STATES, candidate)) {
-			const match = findRegionInMap(AU_STATES, candidate);
-			region = match.code;
+		const auMatch = !country || country === 'AU' ? findRegionInMap(AU_STATES, candidate) : null;
+		if (auMatch) {
+			region = auMatch.code;
 			if (!country) country = 'AU';
 			break;
 		}
@@ -391,7 +391,7 @@ export function parseProfileLocation(metadata) {
 		label: label || formatVisitorAreaLabel({ city, stateRegion, region: rawRegion }),
 		latitude,
 		longitude,
-		source: 'profile',
+		source: /** @type {'profile'} */ ('profile'),
 		hasCoordinates,
 		hasLocalScope
 	};
@@ -429,7 +429,7 @@ export function readNetworkLocation(headers) {
 		label,
 		latitude,
 		longitude,
-		source: hasLocalScope ? 'approximate' : null,
+		source: /** @type {'approximate' | null} */ (hasLocalScope ? 'approximate' : null),
 		hasCoordinates,
 		hasLocalScope
 	};
@@ -481,7 +481,10 @@ async function defaultLoadUserProfile(cookies) {
 	}
 }
 
-export async function resolveVisitorLocation(event, { loadUserProfile } = {}) {
+export async function resolveVisitorLocation(
+	event,
+	{ loadUserProfile = /** @type {((cookies: any) => Promise<any>) | undefined} */ (undefined) } = {}
+) {
 	const profileLoader = loadUserProfile ?? defaultLoadUserProfile;
 	const metadata = await profileLoader(event?.cookies);
 	const savedLocation = parseProfileLocation(metadata);

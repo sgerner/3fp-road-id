@@ -1,3 +1,92 @@
+/**
+ * @typedef {Object} SmsCategoryOption
+ * @property {string} key
+ * @property {string} label
+ * @property {string} [description]
+ */
+
+/**
+ * @typedef {Object} SmsPreferencesState
+ * @property {string} phone
+ * @property {string} status
+ * @property {boolean} ride_reminders
+ * @property {boolean} volunteer_reminders
+ * @property {boolean} admin_messages
+ * @property {boolean} bike_valet_messages
+ * @property {string | null} consent_version
+ * @property {string | null} opted_in_at
+ * @property {string | null} opted_out_at
+ */
+
+/**
+ * @typedef {Object} LoadedSmsPreferences
+ * @property {SmsPreferencesState} preferences
+ * @property {string} consentText
+ */
+
+/**
+ * @typedef {Object} InlineSmsValidationResult
+ * @property {boolean} ok
+ * @property {string} phoneError
+ * @property {string} consentError
+ * @property {string} error
+ */
+
+/**
+ * @typedef {{
+ *   ok: true,
+ *   status: number,
+ *   error: string,
+ *   retryMessage: string,
+ *   phoneInvalid: false,
+ *   preferences: SmsPreferencesState,
+ *   consentText: string
+ * } | {
+ *   ok: false,
+ *   status: number,
+ *   error: string,
+ *   retryMessage: string,
+ *   phoneInvalid: boolean,
+ *   preferences: SmsPreferencesState | null,
+ *   consentText: string | null
+ * }} SaveInlineSmsResult
+ */
+
+/**
+ * @typedef {{
+ *   ok: false,
+ *   stage: 'sms_validation',
+ *   registrationSaved: false,
+ *   smsSaved: false,
+ *   smsRetryNeeded: false,
+ *   validation: InlineSmsValidationResult
+ * } | {
+ *   ok: false,
+ *   stage: 'registration',
+ *   registrationSaved: false,
+ *   smsSaved: false,
+ *   smsRetryNeeded: false,
+ *   registrationResult: any
+ * } | {
+ *   ok: false,
+ *   stage: 'sms_save',
+ *   registrationSaved: true,
+ *   smsSaved: false,
+ *   smsRetryNeeded: true,
+ *   registrationResult: any,
+ *   smsResult: Extract<SaveInlineSmsResult, { ok: false }>
+ * } | {
+ *   ok: true,
+ *   stage: 'complete',
+ *   registrationSaved: true,
+ *   smsSaved: boolean,
+ *   smsRetryNeeded: false,
+ *   registrationResult: any,
+ *   smsResult?: Extract<SaveInlineSmsResult, { ok: true }>
+ * }} SubmitRegistrationThenSmsOutcome
+ */
+
+/** @type {string} */
 export const SMS_INLINE_DEFAULT_CONSENT_TEXT =
 	'By checking the SMS consent box or selecting “Agree & enable SMS,” I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
 
@@ -36,6 +125,9 @@ export const VOLUNTEER_MANAGE_SMS_CATEGORIES = Object.freeze([
 	}
 ]);
 
+/**
+ * @returns {SmsPreferencesState}
+ */
 export function emptySmsPreferences() {
 	return {
 		phone: '',
@@ -50,6 +142,10 @@ export function emptySmsPreferences() {
 	};
 }
 
+/**
+ * @param {any} [payload]
+ * @returns {LoadedSmsPreferences}
+ */
 export function normalizeLoadedSmsPreferences(payload = {}) {
 	const raw =
 		payload?.preferences && typeof payload.preferences === 'object' ? payload.preferences : {};
@@ -72,10 +168,24 @@ export function normalizeLoadedSmsPreferences(payload = {}) {
 	};
 }
 
+/**
+ * @param {any} preferences
+ * @param {string} key
+ * @returns {boolean}
+ */
 export function isSmsCategoryActive(preferences, key) {
 	return preferences?.status === 'active' && preferences?.[key] === true;
 }
 
+/**
+ * @param {any} preferences
+ * @param {readonly SmsCategoryOption[]} [categoryOptions]
+ * @returns {{
+ *   mode: 'unsubscribed' | 'blocked' | 'all_active' | 'editable',
+ *   availableCategories: SmsCategoryOption[],
+ *   activeCategories: SmsCategoryOption[]
+ * }}
+ */
 export function getInlineSmsMode(preferences, categoryOptions = []) {
 	const status = preferences?.status || 'paused';
 	if (status === 'unsubscribed') {
@@ -93,7 +203,9 @@ export function getInlineSmsMode(preferences, categoryOptions = []) {
 		};
 	}
 
+	/** @type {SmsCategoryOption[]} */
 	const availableCategories = [];
+	/** @type {SmsCategoryOption[]} */
 	const activeCategories = [];
 	for (const option of categoryOptions) {
 		if (!option?.key) continue;
@@ -119,7 +231,13 @@ export function getInlineSmsMode(preferences, categoryOptions = []) {
 	};
 }
 
+/**
+ * @param {readonly SmsCategoryOption[]} [availableCategories]
+ * @param {Record<string, any>} [selectedMap]
+ * @returns {string[]}
+ */
 export function getSelectedNewCategoryKeys(availableCategories = [], selectedMap = {}) {
+	/** @type {string[]} */
 	const keys = [];
 	for (const option of availableCategories) {
 		if (option?.key && selectedMap?.[option.key] === true) {
@@ -129,6 +247,11 @@ export function getSelectedNewCategoryKeys(availableCategories = [], selectedMap
 	return keys;
 }
 
+/**
+ * @param {string} context
+ * @param {readonly string[]} [selectedKeys]
+ * @returns {string}
+ */
 export function resolveInlineConsentSource(context, selectedKeys = []) {
 	const selected = new Set(selectedKeys);
 	if (context === 'ride-rsvp') {
@@ -145,6 +268,15 @@ export function resolveInlineConsentSource(context, selectedKeys = []) {
 	return 'profile';
 }
 
+/**
+ * @param {{
+ *   selectedKeys?: readonly string[],
+ *   phone?: string,
+ *   consentChecked?: boolean,
+ *   requireSelection?: boolean
+ * }} [options]
+ * @returns {InlineSmsValidationResult}
+ */
 export function validateInlineSmsInput({
 	selectedKeys = [],
 	phone = '',
@@ -195,15 +327,28 @@ export function validateInlineSmsInput({
 	return { ok: true, phoneError: '', consentError: '', error: '' };
 }
 
+/**
+ * @param {(url: any, init?: any) => Promise<Response>} [fetchImpl]
+ */
 export function createSingleFlightPreferencesLoader(fetchImpl = fetch) {
+	/** @type {Map<string, Promise<LoadedSmsPreferences>>} */
 	const inFlightByKey = new Map();
+	/** @type {Map<string, LoadedSmsPreferences>} */
 	const cachedByKey = new Map();
 
 	return {
+		/**
+		 * @param {{ force?: boolean, cacheKey?: string }} [options]
+		 * @returns {Promise<LoadedSmsPreferences>}
+		 */
 		async load({ force = false, cacheKey = 'default' } = {}) {
 			const key = String(cacheKey ?? 'default');
-			if (!force && cachedByKey.has(key)) return cachedByKey.get(key);
-			if (!force && inFlightByKey.has(key)) return inFlightByKey.get(key);
+			if (!force && cachedByKey.has(key)) {
+				return /** @type {LoadedSmsPreferences} */ (cachedByKey.get(key));
+			}
+			if (!force && inFlightByKey.has(key)) {
+				return /** @type {Promise<LoadedSmsPreferences>} */ (inFlightByKey.get(key));
+			}
 
 			const request = (async () => {
 				const response = await fetchImpl('/api/sms/preferences');
@@ -223,15 +368,33 @@ export function createSingleFlightPreferencesLoader(fetchImpl = fetch) {
 				if (inFlightByKey.get(key) === request) inFlightByKey.delete(key);
 			}
 		},
+		/**
+		 * @param {LoadedSmsPreferences} nextValue
+		 * @param {{ cacheKey?: string }} [options]
+		 */
 		setCached(nextValue, { cacheKey = 'default' } = {}) {
 			cachedByKey.set(String(cacheKey ?? 'default'), nextValue);
 		},
+		/**
+		 * @param {{ cacheKey?: string }} [options]
+		 * @returns {LoadedSmsPreferences | null}
+		 */
 		getCached({ cacheKey = 'default' } = {}) {
 			return cachedByKey.get(String(cacheKey ?? 'default')) ?? null;
 		}
 	};
 }
 
+/**
+ * @param {{
+ *   fetchImpl?: (url: any, init?: any) => Promise<Response>,
+ *   phone?: string,
+ *   selectedKeys?: readonly string[],
+ *   source?: string,
+ *   registrationLabel?: string
+ * }} [options]
+ * @returns {Promise<SaveInlineSmsResult>}
+ */
 export async function saveInlineSmsPreferences({
 	fetchImpl = fetch,
 	phone = '',
@@ -317,6 +480,18 @@ export async function saveInlineSmsPreferences({
 	}
 }
 
+/**
+ * @param {{
+ *   register?: () => Promise<any>,
+ *   selectedKeys?: readonly string[],
+ *   phone?: string,
+ *   consentChecked?: boolean,
+ *   source?: string,
+ *   registrationLabel?: string,
+ *   fetchImpl?: (url: any, init?: any) => Promise<Response>
+ * }} [options]
+ * @returns {Promise<SubmitRegistrationThenSmsOutcome>}
+ */
 export async function submitRegistrationThenSms({
 	register,
 	selectedKeys = [],
@@ -343,7 +518,7 @@ export async function submitRegistrationThenSms({
 		};
 	}
 
-	const registrationResult = await register();
+	const registrationResult = await register?.();
 	if (!registrationResult?.ok) {
 		return {
 			ok: false,

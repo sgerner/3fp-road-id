@@ -425,6 +425,10 @@ async function mapWithConcurrency(items, concurrency, worker) {
 	return results;
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ topicUrlkey?: string, createdByUserId?: string, publish?: boolean, dryRun?: boolean, onlyNew?: boolean, slugPrefix?: string, requireGeocoding?: boolean, skipGeocoding?: boolean, skipImageUpload?: boolean, reconcileMissingImages?: boolean, existingOnly?: boolean, groupLimit?: number | null, groupFetchConcurrency?: number, eventsPerGroup?: number, maxEventPagesPerGroup?: number, horizonDays?: number, maintenance?: string | null, limit?: number | null }} [options]
+ */
 export async function importMeetupRoadCyclingTopic(
 	supabase,
 	{
@@ -450,7 +454,7 @@ export async function importMeetupRoadCyclingTopic(
 ) {
 	const normalizedTopicUrlkey = safeTrim(topicUrlkey) || MEETUP_TOPIC_URLKEY;
 	let groups = await fetchTopicGroups(normalizedTopicUrlkey);
-	if (Number.isInteger(groupLimit) && groupLimit > 0) {
+	if (typeof groupLimit === 'number' && Number.isInteger(groupLimit) && groupLimit > 0) {
 		groups = groups.slice(0, groupLimit);
 	}
 

@@ -212,12 +212,22 @@ class FakeElement {
 		return this.querySelectorAll(selector)[0] ?? null;
 	}
 
+	/**
+	 * @param {string} type
+	 * @param {any} fn
+	 * @param {boolean | { capture?: boolean }} [options]
+	 */
 	addEventListener(type, fn, options = false) {
 		const capture = typeof options === 'boolean' ? options : Boolean(options?.capture);
 		if (!this.listeners.has(type)) this.listeners.set(type, []);
 		this.listeners.get(type).push({ fn, capture });
 	}
 
+	/**
+	 * @param {string} type
+	 * @param {any} fn
+	 * @param {boolean | { capture?: boolean }} [options]
+	 */
 	removeEventListener(type, fn, options = false) {
 		const capture = typeof options === 'boolean' ? options : Boolean(options?.capture);
 		const list = this.listeners.get(type) ?? [];

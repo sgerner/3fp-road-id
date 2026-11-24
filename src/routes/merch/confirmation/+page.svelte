@@ -3,6 +3,7 @@
 	import { refreshPageData } from '#lib/client/navigation';
 	import { merchCart } from '#lib/merch/cart';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 	let refreshing = $state(false);
 

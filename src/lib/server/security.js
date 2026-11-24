@@ -46,6 +46,9 @@ function evictExpiredRateLimitBuckets(now) {
  * Best-effort per-instance rate limiting for public endpoints. Production
  * deployments should also enforce a distributed limit at the edge, but this
  * prevents a single instance from being trivially exhausted.
+ *
+ * @param {any} event
+ * @param {{ name?: string, limit?: number, windowMs?: number, key?: string }} [options]
  */
 export function enforceRateLimit(
 	event,
@@ -78,6 +81,7 @@ export function enforceRateLimit(
 	);
 }
 
+/** @returns {Promise<{ok: true, value: Buffer} | {ok: false, status: number, error: string}>} */
 export async function readRequestBytes(request, maxBytes) {
 	const declaredLength = Number(request?.headers?.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
@@ -128,7 +132,7 @@ export async function readRawBody(request, { maxBytes = 256 * 1024 } = {}) {
 	return { ok: true, value: result.value.toString('utf8') };
 }
 
-/** @returns {Promise<{ok: true, value: unknown} | {ok: false, status: number, error: string}>} */
+/** @returns {Promise<{ok: true, value: any} | {ok: false, status: number, error: string}>} */
 export async function readJsonBody(request, { maxBytes = 256 * 1024 } = {}) {
 	const result = await readRawBody(request, { maxBytes });
 	if (!result.ok) return result;
@@ -140,6 +144,7 @@ export async function readJsonBody(request, { maxBytes = 256 * 1024 } = {}) {
 	}
 }
 
+/** @returns {Promise<{ok: true, value: FormData} | {ok: false, status: number, error: string}>} */
 export async function readFormData(request, { maxBytes = 256 * 1024 } = {}) {
 	const result = await readRequestBytes(request, maxBytes);
 	if (!result.ok) return result;
@@ -151,7 +156,7 @@ export async function readFormData(request, { maxBytes = 256 * 1024 } = {}) {
 		const boundedRequest = new Request(request.url, {
 			method: request.method,
 			headers,
-			body: result.value
+			body: new Uint8Array(result.value)
 		});
 		return { ok: true, value: await boundedRequest.formData() };
 	} catch {
@@ -180,6 +185,11 @@ function normalizeSignatureCandidates(value) {
 /**
  * Supports a direct bearer/secret header and HMAC-SHA256 signatures. The
  * latter allows a webhook provider to sign the exact raw request body.
+ *
+ * @param {any} request
+ * @param {any} rawBody
+ * @param {any} secret
+ * @param {{ directHeaders?: string[], signatureHeaders?: string[] }} [options]
  */
 export function verifyWebhookRequest(
 	request,
@@ -256,6 +266,12 @@ function signatureHeaderMatches(supplied, expectedValues) {
  * current Messaging API for sends while still accepting classic phone-number
  * webhooks.
  */
+/**
+ * @param {any} request
+ * @param {any} rawBody
+ * @param {any} signingKey
+ * @param {{ publicUrl?: string, formPayload?: Record<string, any> | null }} [options]
+ */
 export function verifySignalWireWebhookRequest(
 	request,
 	rawBody,
@@ -328,6 +344,7 @@ function parseSignalWireWebhookPayload(rawBody, contentType) {
 	return Object.fromEntries(new URLSearchParams(rawBody));
 }
 
+/** @returns {Promise<{ok: true, payload: Record<string, any>} | {ok: false, status: number, error: string}>} */
 export async function readAuthenticatedSignalWirePayload(request, signingKey) {
 	const rawResult = await readRawBody(request, { maxBytes: 64 * 1024 });
 	if (!rawResult.ok) return rawResult;
@@ -425,6 +442,10 @@ function hostnameIsBlocked(hostname) {
 	);
 }
 
+/**
+ * @param {any} value
+ * @param {{ allowedHosts?: string[] | ((hostname: string, url: URL) => boolean) | null }} [options]
+ */
 async function resolvePublicHttpTarget(value, { allowedHosts = null } = {}) {
 	let parsed;
 	try {
@@ -514,7 +535,9 @@ function requestPinnedPublicTarget(target, options, signal) {
 			}
 			const status = Number(upstream.statusCode) || 502;
 			const noBody = method === 'HEAD' || [204, 205, 304].includes(status);
-			const body = noBody ? null : Readable.toWeb(upstream);
+			const body = noBody
+				? null
+				: /** @type {BodyInit} */ (/** @type {unknown} */ (Readable.toWeb(upstream)));
 			try {
 				resolve(
 					new Response(body, {
@@ -594,6 +617,11 @@ function limitResponseBody(response, maxBytes, onDone) {
 	});
 }
 
+/**
+ * @param {any} value
+ * @param {RequestInit & { headers?: any, body?: any }} [options]
+ * @param {{ timeoutMs?: number, maxRedirects?: number, maxResponseBytes?: number, allowedHosts?: string[] | ((hostname: string, url: URL) => boolean) | null }} [limits]
+ */
 export async function fetchPublicHttp(
 	value,
 	options = {},
@@ -660,6 +688,7 @@ export async function readResponseBuffer(response, maxBytes, { timeoutMs = 15_00
 	const declaredLength = Number(response.headers.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
 
+	/** @type {any} */
 	let reader = null;
 	let timer = null;
 	let timedOut = false;
@@ -680,16 +709,17 @@ export async function readResponseBuffer(response, maxBytes, { timeoutMs = 15_00
 			return buffer.byteLength <= maxBytes ? buffer : null;
 		}
 
-		reader = response.body.getReader();
+		const activeReader = response.body.getReader();
+		reader = activeReader;
 		const chunks = [];
 		let total = 0;
 		while (true) {
-			const { done, value } = await reader.read();
+			const { done, value } = await activeReader.read();
 			if (done) break;
 			const chunk = Buffer.from(value);
 			total += chunk.byteLength;
 			if (total > maxBytes) {
-				await reader.cancel();
+				await activeReader.cancel();
 				return null;
 			}
 			chunks.push(chunk);

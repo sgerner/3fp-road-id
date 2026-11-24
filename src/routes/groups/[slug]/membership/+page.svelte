@@ -71,9 +71,13 @@
 	let paymentSubscriptionId = $state('');
 	let paymentReturnUrl = $state('');
 	let preparedPaymentSignature = $state('');
+	/** @type {any} */
 	let stripe = null;
+	/** @type {any} */
 	let elements = null;
+	/** @type {any} */
 	let paymentElement = null;
+	/** @type {HTMLDivElement | null} */
 	let paymentElementHost = $state(null);
 	let handoffPrefillApplied = $state(false);
 
@@ -162,6 +166,7 @@
 		)
 	);
 	const selectedTierBlockedByStripe = $derived(Boolean(requiresPayment && !stripeReady));
+	const latestApplication = $derived(myApplications[0] || null);
 	const canCompletePrivatePayment = $derived(
 		Boolean(
 			latestApplication &&
@@ -180,7 +185,6 @@
 	const shouldShowInlinePayment = $derived(
 		Boolean(currentUserId && requiresPayment && (!isPrivate || canCompletePrivatePayment))
 	);
-	const latestApplication = $derived(myApplications[0] || null);
 
 	const currentPrice = $derived(
 		selectedTierAllowsCustom

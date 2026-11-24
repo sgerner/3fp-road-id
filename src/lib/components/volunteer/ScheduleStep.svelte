@@ -1,7 +1,12 @@
 <script>
 	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';
 
-	let { eventDetails, timezoneOptions = [], onEventDetailsChange = () => {} } = $props();
+	let {
+		eventDetails,
+		timezoneOptions = [],
+		showDateTimeFields = false,
+		onEventDetailsChange = () => {}
+	} = $props();
 
 	let geocodeRevision = $state(0);
 
@@ -12,45 +17,48 @@
 	}
 </script>
 
-<section class="grid gap-4 md:grid-cols-2">
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-start">Start *</label>
-		<input
-			id="event-start"
-			type="datetime-local"
-			class="input preset-tonal-surface min-h-10 w-full px-4 py-2"
-			value={eventDetails.eventStart}
-			oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
-		/>
-	</div>
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-end">End</label>
-		<input
-			id="event-end"
-			type="datetime-local"
-			class="input preset-tonal-surface min-h-10 w-full px-4 py-2"
-			value={eventDetails.eventEnd}
-			oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
-		/>
-	</div>
-	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-timezone">Timezone</label>
-		<select
-			id="event-timezone"
-			class="select preset-tonal-surface min-h-10 w-full px-4 py-2"
-			value={eventDetails.timezone}
-			onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
-		>
-			{#each timezoneOptions as tz}
-				<option value={tz}>{tz}</option>
-			{/each}
-		</select>
-	</div>
+<div class="grid gap-4 md:grid-cols-2">
+	{#if showDateTimeFields}
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-800-200 text-sm font-medium" for="event-start">Start *</label>
+			<input
+				id="event-start"
+				type="datetime-local"
+				class="input preset-tonal-surface min-h-11 w-full px-4 py-2"
+				value={eventDetails.eventStart}
+				oninput={(e) => onEventDetailsChange({ eventStart: e.currentTarget.value })}
+			/>
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-800-200 text-sm font-medium" for="event-end">End</label>
+			<input
+				id="event-end"
+				type="datetime-local"
+				class="input preset-tonal-surface min-h-11 w-full px-4 py-2"
+				value={eventDetails.eventEnd}
+				oninput={(e) => onEventDetailsChange({ eventEnd: e.currentTarget.value })}
+			/>
+		</div>
+		<div class="flex flex-col gap-1.5">
+			<label class="text-surface-800-200 text-sm font-medium" for="event-timezone">Timezone</label>
+			<select
+				id="event-timezone"
+				class="select preset-tonal-surface min-h-11 w-full px-4 py-2"
+				value={eventDetails.timezone}
+				onchange={(e) => onEventDetailsChange({ timezone: e.currentTarget.value })}
+			>
+				{#each timezoneOptions as tz}
+					<option value={tz}>{tz}</option>
+				{/each}
+			</select>
+		</div>
+	{/if}
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-location-name">Address</label>
+		<label class="text-surface-800-200 text-sm font-medium" for="event-location-name">Address</label
+		>
 		<input
 			id="event-location-name"
-			class="input preset-tonal-surface min-h-10 w-full px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full px-4 py-2"
 			value={eventDetails.locationName}
 			oninput={(e) => onEventDetailsChange({ locationName: e.currentTarget.value })}
 			onblur={handleAddressBlur}
@@ -58,7 +66,7 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
-		<label class="text-surface-200 text-sm font-medium" for="event-location-address"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-location-address"
 			>Location notes</label
 		>
 		<textarea
@@ -92,12 +100,12 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-email"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-contact-email"
 			>Contact email</label
 		>
 		<input
 			id="event-contact-email"
-			class="input preset-tonal-surface min-h-10 w-full px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full px-4 py-2"
 			type="email"
 			value={eventDetails.contactEmail}
 			oninput={(e) => onEventDetailsChange({ contactEmail: e.currentTarget.value })}
@@ -105,16 +113,16 @@
 		/>
 	</div>
 	<div class="flex flex-col gap-1.5">
-		<label class="text-surface-200 text-sm font-medium" for="event-contact-phone"
+		<label class="text-surface-800-200 text-sm font-medium" for="event-contact-phone"
 			>Contact phone</label
 		>
 		<input
 			id="event-contact-phone"
-			class="input preset-tonal-surface min-h-10 w-full px-4 py-2"
+			class="input preset-tonal-surface min-h-11 w-full px-4 py-2"
 			type="tel"
 			value={eventDetails.contactPhone}
 			oninput={(e) => onEventDetailsChange({ contactPhone: e.currentTarget.value })}
 			placeholder="(555) 123-4567"
 		/>
 	</div>
-</section>
+</div>

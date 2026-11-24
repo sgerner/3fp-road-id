@@ -535,7 +535,11 @@ async function fetchNearbyGroupsFallback(
 async function fetchNearbyRidesFallback(
 	supabase,
 	location,
-	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 25, nowIso } = {}
+	{
+		maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES,
+		limit = 25,
+		nowIso = /** @type {string | undefined} */ (undefined)
+	} = {}
 ) {
 	const visitorCoords = parseCoordinates(location?.latitude, location?.longitude);
 	if (visitorCoords.latitude === null && !resolveFallbackTarget(location)) {
@@ -579,7 +583,11 @@ async function fetchNearbyRidesFallback(
 export async function fetchNearbyGroups(
 	supabase,
 	location,
-	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 50, columns } = {}
+	{
+		maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES,
+		limit = 50,
+		columns = /** @type {string | undefined} */ (undefined)
+	} = {}
 ) {
 	if (!supabase || !location?.hasLocalScope) return { data: [], error: null };
 
@@ -611,7 +619,11 @@ export async function fetchNearbyGroups(
 export async function fetchNearbyRides(
 	supabase,
 	location,
-	{ maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES, limit = 25, nowIso } = {}
+	{
+		maxMiles = DEFAULT_PROXIMITY_RADIUS_MILES,
+		limit = 25,
+		nowIso = /** @type {string | undefined} */ (undefined)
+	} = {}
 ) {
 	if (!supabase || !location?.hasLocalScope) return { data: [], error: null };
 

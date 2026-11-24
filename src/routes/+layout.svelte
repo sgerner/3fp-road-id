@@ -1,5 +1,6 @@
 <script>
 	import '../app.css';
+	/** @type {Record<string, any>} */
 	let { children, data } = $props();
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { onMount, tick } from 'svelte';
@@ -9,6 +10,7 @@
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
 	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
 	// Nav icons
@@ -70,9 +72,11 @@
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
 	let ownedGroups = $state(initialOwnedGroups);
+	/** @type {boolean | null} */
 	let profileCanManageSms = $state(null);
 	let showLogin = $state(false);
 	let headerHeight = $state(73);
+	/** @type {any} */
 	let loginIntent = $state(null);
 	const activeLoginIntent = $derived(
 		loginIntent?.sourcePath === page.url.pathname ? loginIntent : null
@@ -82,22 +86,32 @@
 	let email = $state('');
 	let mobileLoginBusy = $state(false);
 	let desktopLoginBusy = $state(false);
+	/** @type {any} */
 	let mobileLoginTurnstile = $state(null);
+	/** @type {any} */
 	let desktopLoginTurnstile = $state(null);
 	const loading = $derived(mobileLoginBusy || desktopLoginBusy);
 	let error = $state('');
 	let success = $state('');
 	let honeypot = $state('');
+	/** @type {any} */
 	let loginBtnEl = $state(null);
+	/** @type {any} */
 	let userMenuBtnEl = $state(null);
+	/** @type {any} */
 	let userMenuEl = $state(null);
+	/** @type {any} */
 	let mobileMenuBtnEl = $state(null);
+	/** @type {any} */
 	let mobileMenuEl = $state(null);
 	let showMobileMenu = $state(false);
+	/** @type {any} */
 	let loginContainerEl = $state(null);
 	let theme = $state(defaultTheme);
 	let colorMode = $state(defaultColorMode);
+	/** @type {any} */
 	let supabaseClient = null;
+	/** @type {any} */
 	let authSubscription = null;
 	let emailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(email));
 	const isAdmin = $derived(data.isAdmin || userProfile?.admin === true);
@@ -682,6 +696,11 @@
 			hasError: page.error !== null && page.error !== undefined
 		})
 	);
+	const assistantContext = setAssistantContext();
+
+	$effect(() => {
+		assistantContext.setPathname(page.url.pathname);
+	});
 </script>
 
 <svelte:head>

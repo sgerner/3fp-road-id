@@ -10,6 +10,7 @@ test(
 	'proximity RPC migrations apply cleanly and enforce 250-mile, 50-state, and overseas guards in PostgreSQL',
 	{ skip: !databaseUrl },
 	() => {
+		if (!databaseUrl) return;
 		const url = new URL(databaseUrl);
 		assert.ok(
 			['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname),

@@ -191,12 +191,20 @@ export function buildLearnImageMarkdownSnippet({
 	return `![${sanitized}](${cleanUrl})`;
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.target]
+ * @param {Record<string, any> | null} [options.context]
+ * @param {string} [options.styleLabel]
+ * @param {string} [options.heading]
+ */
 export function buildContextualCoverAlt({
 	target = 'learn',
 	context = {},
 	styleLabel = '',
 	heading = ''
 } = {}) {
+	/** @type {Record<string, any>} */
 	const ctx = context && typeof context === 'object' ? context : {};
 	const subject = safeString(ctx.title || ctx.name || '').trim();
 	const detail = safeString(

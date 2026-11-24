@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const report = JSON.parse(
-	fs.readFileSync(new URL('../content/safetyReport.json', import.meta.url))
+	fs.readFileSync(new URL('../content/safetyReport.json', import.meta.url), 'utf8')
 );
 const templates = JSON.parse(
-	fs.readFileSync(new URL('../content/safetyReportTemplates.json', import.meta.url))
+	fs.readFileSync(new URL('../content/safetyReportTemplates.json', import.meta.url), 'utf8')
 );
 const staticRoot = new URL('../../../static/', import.meta.url);
 
