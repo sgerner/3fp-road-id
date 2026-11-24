@@ -5,10 +5,10 @@
 		buildAbsoluteUrl,
 		cleanSeoText,
 		getRelativePathname,
-		limitSeoText,
 		normalizePathname,
 		toJsonLd
 	} from '#lib/seo';
+	import { resolveMicrositeSeoDescription } from '#lib/groups/presenceStudio';
 	import IconMenu from '@lucide/svelte/icons/menu';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconMoonStar from '@lucide/svelte/icons/moon-star';
@@ -121,42 +121,16 @@
 	);
 
 	/** @type {any} */
-	const seoDescription = $derived.by(() => {
-		if (customPage?.seo_description || customPage?.description) {
-			return limitSeoText(customPage.seo_description || customPage.description, 165);
-		}
-		/** @type {any} */
-		const sectionDescriptions = {
-			updates: limitSeoText(
-				`${seoTitle} updates, announcements, route changes, volunteer asks, and public notes.`,
-				165
-			),
-			gallery: limitSeoText(
-				`Photo gallery from rides, events, and community days with ${seoTitle}.`,
-				165
-			),
-			join: limitSeoText(
-				`Join ${seoTitle} to follow membership options, support the group, and stay connected.`,
-				165
-			),
-			assets: limitSeoText(`Official links and downloadable resources shared by ${seoTitle}.`, 165)
-		};
-		if (!isHomePage && sectionDescriptions[seoSection]) {
-			return sectionDescriptions[seoSection];
-		}
-		const city = cleanSeoText(group?.city);
-		const state = cleanSeoText(group?.state_region);
-		const locality = [city, state].filter(Boolean).join(', ');
-		const primary = cleanSeoText(site?.siteConfig?.site_tagline || site?.siteConfig?.home_intro);
-		const fallback = cleanSeoText(
-			group?.description ||
-				group?.service_area_description ||
-				group?.membership_info ||
-				'Community bike rides, local events, and advocacy.'
-		);
-		const tail = locality ? ` Join rides in ${locality}.` : ' Join local rides and events.';
-		return limitSeoText(`${primary || fallback}${tail}`, 165);
-	});
+	const seoDescription = $derived(
+		resolveMicrositeSeoDescription({
+			site,
+			group,
+			customPage,
+			isHomePage,
+			seoTitle,
+			seoSection
+		})
+	);
 
 	/** @type {any} */
 	const seoKeywords = $derived.by(() => {
@@ -357,7 +331,9 @@
 	<meta name="keywords" content={seoKeywords} />
 	<meta
 		name="robots"
-		content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+		content={site?.siteConfig?.published === false
+			? 'noindex,nofollow'
+			: 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'}
 	/>
 	<link rel="canonical" href={seoCanonical} />
 

@@ -467,8 +467,11 @@ function serializePrimaryCta(primaryCta) {
 	};
 }
 
-function pickGroupSiteClient() {
-	return createServiceSupabaseClient() ?? supabase;
+/**
+ * @param {any} [fallbackClient]
+ */
+function pickGroupSiteClient(fallbackClient = null) {
+	return createServiceSupabaseClient() ?? fallbackClient ?? supabase;
 }
 
 function toAbsoluteHref(href) {
@@ -681,11 +684,11 @@ export async function deriveGroupSitePalette(group, siteConfig = null) {
 
 /**
  * @param {string | null | undefined} groupId
- * @param {{ group?: Record<string, any> | null }} [options]
+ * @param {{ group?: Record<string, any> | null, supabaseClient?: any }} [options]
  */
-export async function getGroupSiteConfig(groupId, { group = null } = {}) {
+export async function getGroupSiteConfig(groupId, { group = null, supabaseClient = null } = {}) {
 	if (!groupId) return normalizeGroupSiteConfig({}, { group });
-	const db = pickGroupSiteClient();
+	const db = pickGroupSiteClient(supabaseClient);
 	const { data } = await db
 		.from('group_site_configs')
 		.select('*')
@@ -694,8 +697,13 @@ export async function getGroupSiteConfig(groupId, { group = null } = {}) {
 	return normalizeGroupSiteConfig(data || {}, { group });
 }
 
-export async function upsertGroupSiteConfig(groupId, config) {
-	const db = pickGroupSiteClient();
+/**
+ * @param {string} groupId
+ * @param {any} config
+ * @param {{ supabaseClient?: any }} [options]
+ */
+export async function upsertGroupSiteConfig(groupId, config, { supabaseClient = null } = {}) {
+	const db = pickGroupSiteClient(supabaseClient);
 	const payload = serializeGroupSiteConfig(config);
 	const { data, error } = await db
 		.from('group_site_configs')
@@ -722,7 +730,7 @@ function micrositePageCacheKey({ siteSlug, url, publicPathname }) {
 	return `${origin}|${normalizedSlug}|${pathname}`;
 }
 
-function invalidateMicrositePageCache(groupId) {
+export function invalidateMicrositePageCache(groupId) {
 	for (const [key, entry] of MICROSITE_PAGE_CACHE) {
 		if (entry.groupId === groupId) MICROSITE_PAGE_CACHE.delete(key);
 	}
