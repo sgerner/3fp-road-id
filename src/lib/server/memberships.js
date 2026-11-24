@@ -1086,7 +1086,7 @@ async function upsertBillingForMembership({ serviceSupabase, membershipId, updat
  */
 async function restoreBillingSnapshot({ serviceSupabase, membershipId, existingBilling }) {
 	if (!membershipId || !existingBilling) return;
-	await serviceSupabase
+	const { error } = await serviceSupabase
 		.from('group_membership_billing')
 		.update({
 			stripe_customer_id: existingBilling.stripe_customer_id ?? null,
@@ -1098,40 +1098,98 @@ async function restoreBillingSnapshot({ serviceSupabase, membershipId, existingB
 			updated_at: toIsoNow()
 		})
 		.eq('membership_id', membershipId);
+	if (error) {
+		console.error(
+			'Failed to restore membership billing snapshot after Stripe cancellation failure',
+			{
+				membershipId,
+				stripeSubscriptionId: existingBilling.stripe_subscription_id ?? null,
+				error: error.message || error
+			}
+		);
+		throw new Error(
+			`Failed to restore membership billing snapshot: ${error.message || 'Unknown database error'}`
+		);
+	}
 }
 
+/** @type {Map<string, Promise<{ canceled: boolean, alreadyCanceled: boolean, resourceMissing: boolean }>>} */
+const inFlightSubscriptionCancels = new Map();
+
 /**
- * @param {{ stripe: any, subscriptionId: string | null, stripeAccountId: string | null }} options
+ * @param {{
+ *   stripe: any,
+ *   subscriptionId: string | null,
+ *   stripeAccountId: string | null,
+ *   idempotencyKey?: string | null
+ * }} options
  */
-async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAccountId }) {
-	if (!subscriptionId) return { canceled: false, alreadyCanceled: false };
+async function cancelStripeSubscriptionSafely({
+	stripe,
+	subscriptionId,
+	stripeAccountId,
+	idempotencyKey = null
+}) {
+	if (!subscriptionId) {
+		return { canceled: false, alreadyCanceled: false, resourceMissing: false };
+	}
 	if (!stripeAccountId) {
 		throw new Error('Stripe account is required to cancel an existing subscription.');
 	}
-	const stripeOptions = { stripeAccount: stripeAccountId };
-	try {
-		await stripe.subscriptions.cancel(subscriptionId, {}, stripeOptions);
-		return { canceled: true, alreadyCanceled: false };
-	} catch (cancelError) {
-		const err = /** @type {any} */ (cancelError);
-		if (err?.code === 'resource_missing' || err?.statusCode === 404) {
-			return { canceled: false, alreadyCanceled: true };
-		}
-		if (typeof stripe?.subscriptions?.retrieve === 'function') {
-			try {
-				const existingSub = await stripe.subscriptions.retrieve(subscriptionId, {}, stripeOptions);
-				if (['canceled', 'incomplete_expired'].includes(existingSub?.status)) {
-					return { canceled: false, alreadyCanceled: true };
-				}
-			} catch (retrieveError) {
-				const retErr = /** @type {any} */ (retrieveError);
-				if (retErr?.code === 'resource_missing' || retErr?.statusCode === 404) {
-					return { canceled: false, alreadyCanceled: true };
+	const inFlightKey = idempotencyKey ? `${stripeAccountId}:${idempotencyKey}` : null;
+	if (inFlightKey) {
+		const existingPromise = inFlightSubscriptionCancels.get(inFlightKey);
+		if (existingPromise) return existingPromise;
+	}
+
+	const runCancel = async () => {
+		const cancelOptions = idempotencyKey
+			? { stripeAccount: stripeAccountId, idempotencyKey }
+			: { stripeAccount: stripeAccountId };
+		const retrieveOptions = { stripeAccount: stripeAccountId };
+		try {
+			const canceledSub = await stripe.subscriptions.cancel(subscriptionId, {}, cancelOptions);
+			const status = cleanText(canceledSub?.status || '', 40);
+			if (status && status !== 'canceled') {
+				throw new Error(
+					`Unexpected Stripe subscription status "${status}" when canceling subscription.`
+				);
+			}
+			return { canceled: true, alreadyCanceled: false, resourceMissing: false };
+		} catch (cancelError) {
+			const err = /** @type {any} */ (cancelError);
+			const errCode = err?.code || err?.raw?.code;
+			if (errCode === 'resource_missing' || err?.statusCode === 404) {
+				return { canceled: false, alreadyCanceled: true, resourceMissing: true };
+			}
+			if (typeof stripe?.subscriptions?.retrieve === 'function') {
+				try {
+					const existingSub = await stripe.subscriptions.retrieve(
+						subscriptionId,
+						{},
+						retrieveOptions
+					);
+					if (['canceled', 'incomplete_expired'].includes(existingSub?.status)) {
+						return { canceled: false, alreadyCanceled: true, resourceMissing: false };
+					}
+				} catch (retrieveError) {
+					const retErr = /** @type {any} */ (retrieveError);
+					const retCode = retErr?.code || retErr?.raw?.code;
+					if (retCode === 'resource_missing' || retErr?.statusCode === 404) {
+						return { canceled: false, alreadyCanceled: true, resourceMissing: true };
+					}
 				}
 			}
+			throw cancelError;
 		}
-		throw cancelError;
-	}
+	};
+
+	if (!inFlightKey) return runCancel();
+	const cancelPromise = runCancel().finally(() => {
+		inFlightSubscriptionCancels.delete(inFlightKey);
+	});
+	inFlightSubscriptionCancels.set(inFlightKey, cancelPromise);
+	return cancelPromise;
 }
 
 /**
@@ -1243,30 +1301,17 @@ export async function applyZeroPaymentMembership({
 			};
 		}
 
-		await upsertBillingForMembership({
-			serviceSupabase,
-			membershipId: existing.id,
-			updates: {
-				stripe_customer_id: existingBilling?.stripe_customer_id ?? null,
-				stripe_subscription_id: null,
-				stripe_price_id: null,
-				last_payment_status: 'canceled',
-				next_billing_at: null
-			}
-		});
-
+		// Cancel in Stripe first so a crash or timeout never orphans a live subscription
+		// without its pointer in group_membership_billing.
+		let cancelResult;
 		try {
-			await cancelStripeSubscriptionSafely({
+			cancelResult = await cancelStripeSubscriptionSafely({
 				stripe: getStripeClient(),
 				subscriptionId: previousSubscriptionId,
-				stripeAccountId: donationAccount.stripe_account_id
+				stripeAccountId: donationAccount.stripe_account_id,
+				idempotencyKey: `downgrade-cancel:${existing.id}:${previousSubscriptionId}`
 			});
 		} catch (cancelError) {
-			await restoreBillingSnapshot({
-				serviceSupabase,
-				membershipId: existing.id,
-				existingBilling
-			});
 			console.error(
 				'Unable to cancel existing membership Stripe subscription when switching to free tier',
 				previousSubscriptionId,
@@ -1277,6 +1322,20 @@ export async function applyZeroPaymentMembership({
 				status: 502,
 				error: 'Unable to cancel your existing Stripe subscription. Please try again.'
 			};
+		}
+
+		if (cancelResult.canceled || cancelResult.alreadyCanceled || cancelResult.resourceMissing) {
+			await upsertBillingForMembership({
+				serviceSupabase,
+				membershipId: existing.id,
+				updates: {
+					stripe_customer_id: existingBilling?.stripe_customer_id ?? null,
+					stripe_subscription_id: null,
+					stripe_price_id: null,
+					last_payment_status: 'canceled',
+					next_billing_at: null
+				}
+			});
 		}
 	} else if (existingBilling) {
 		await upsertBillingForMembership({
@@ -3131,6 +3190,8 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	}
 	if (!tier) return { ok: false, status: 400, error: 'Select a membership tier.' };
 
+	// Intentional: existing active, past_due, or paused members in private_request
+	// programs bypass the application gate because they were already admitted.
 	let existingMembership = null;
 	if (program.access_mode === 'private_request') {
 		const { data: existingRows, error: existingMembershipError } = await serviceSupabase
@@ -3287,6 +3348,8 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	}
 	if (!tier) return { ok: false, status: 400, error: 'Select a membership tier.' };
 
+	// Intentional: existing active, past_due, or paused members in private_request
+	// programs bypass the application gate because they were already admitted.
 	let existingMembership = null;
 	if (program.access_mode === 'private_request') {
 		const { data: existingRows, error: existingMembershipError } = await serviceSupabase
@@ -5633,7 +5696,8 @@ async function activateMembershipFromMetadata({
 			await cancelStripeSubscriptionSafely({
 				stripe: getStripeClient(),
 				subscriptionId: supersededSubscriptionId,
-				stripeAccountId
+				stripeAccountId,
+				idempotencyKey: `supersede-cancel:${membership.id}:${supersededSubscriptionId}`
 			});
 		} catch (cancelError) {
 			await restoreBillingSnapshot({
@@ -6012,39 +6076,59 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		}
 
 		const subStatus = cleanText(dataObject?.status, 40);
+		const isDeleted = eventType === 'customer.subscription.deleted';
 		let membershipStatus = membership.status;
 		if (['active', 'trialing'].includes(subStatus)) membershipStatus = 'active';
 		if (subStatus === 'past_due' || subStatus === 'unpaid') membershipStatus = 'past_due';
 		if (subStatus === 'paused') membershipStatus = 'paused';
-		if (subStatus === 'canceled' || eventType === 'customer.subscription.deleted') {
+		if (subStatus === 'canceled' || isDeleted) {
 			membershipStatus = 'cancelled';
 		}
 
-		const renewsAt = extractCurrentPeriodEndFromSubscription(dataObject) || membership.renews_at;
-		await serviceSupabase
-			.from('group_memberships')
-			.update({
-				status: membershipStatus,
-				renews_at: renewsAt,
-				ends_at:
-					membershipStatus === 'cancelled'
-						? normalizeTimestamp(dataObject?.ended_at, toIsoNow())
-						: membership.ends_at,
-				updated_at: toIsoNow()
-			})
-			.eq('id', membership.id);
+		const renewsAt = isDeleted
+			? null
+			: extractCurrentPeriodEndFromSubscription(dataObject) || membership.renews_at;
+		const billingPatch = isDeleted
+			? {
+					stripe_subscription_id: null,
+					stripe_price_id: null,
+					last_payment_status: subStatus || 'canceled',
+					next_billing_at: null,
+					updated_at: toIsoNow()
+				}
+			: {
+					last_payment_status: subStatus || billing.last_payment_status,
+					next_billing_at: renewsAt,
+					stripe_price_id:
+						cleanNullableText(dataObject?.items?.data?.[0]?.price?.id, 255) ||
+						billing.stripe_price_id,
+					updated_at: toIsoNow()
+				};
 
-		await serviceSupabase
+		const { data: updatedBillingRows, error: billingUpdateError } = await serviceSupabase
 			.from('group_membership_billing')
-			.update({
-				last_payment_status: subStatus || billing.last_payment_status,
-				next_billing_at: renewsAt,
-				stripe_price_id:
-					cleanNullableText(dataObject?.items?.data?.[0]?.price?.id, 255) ||
-					billing.stripe_price_id,
-				updated_at: toIsoNow()
-			})
-			.eq('membership_id', membership.id);
+			.update(billingPatch)
+			.eq('membership_id', membership.id)
+			.eq('stripe_subscription_id', subscriptionId)
+			.select('membership_id');
+		if (billingUpdateError) throw new Error(billingUpdateError.message);
+		if (!updatedBillingRows?.length) return { ok: true, matched: false };
+
+		if (!(isDeleted && membership.contribution_amount_cents === 0)) {
+			const { error: membershipUpdateError } = await serviceSupabase
+				.from('group_memberships')
+				.update({
+					status: membershipStatus,
+					renews_at: isDeleted ? membership.renews_at : renewsAt,
+					ends_at:
+						membershipStatus === 'cancelled'
+							? normalizeTimestamp(dataObject?.ended_at, toIsoNow())
+							: membership.ends_at,
+					updated_at: toIsoNow()
+				})
+				.eq('id', membership.id);
+			if (membershipUpdateError) throw new Error(membershipUpdateError.message);
+		}
 
 		return { ok: true, matched: true };
 	}

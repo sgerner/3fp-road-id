@@ -252,6 +252,8 @@ export const POST = async (requestEvent) => {
 			event.type === 'customer.subscription.deleted'
 		) {
 			try {
+				// For customer.subscription.deleted, handleMembershipStripeEvent idempotently
+				// clears group_membership_billing.stripe_subscription_id when it matches the stored id.
 				const membershipResult = await handleMembershipStripeEvent(event, fetch);
 				if (
 					membershipResult?.matched &&
@@ -270,6 +272,7 @@ export const POST = async (requestEvent) => {
 					account: event.account || null,
 					message: error?.message || 'Unknown error'
 				});
+				return json({ error: 'Webhook processing failed.' }, { status: 500 });
 			}
 		}
 

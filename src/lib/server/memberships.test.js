@@ -27,6 +27,18 @@ const MOCK_MODULES = {
 		export function getStripeClient() {
 			return globalThis.__membershipTestHarness.getStripeClient();
 		}
+		export function getStripePublishableKey() {
+			return 'pk_test_123';
+		}
+		export function getStripeConnectClientId() {
+			return 'ca_test_123';
+		}
+		export function createSignedConnectState() {
+			return 'state.sig';
+		}
+		export function verifySignedConnectState() {
+			return null;
+		}
 		export function resolvePublicBaseUrl(url) {
 			if (url?.origin) return String(url.origin).replace(/\\/+$/, '');
 			return 'https://3fp.org';
@@ -46,6 +58,14 @@ const MOCK_MODULES = {
 			globalThis.__membershipTestHarness.sentEmails.push(payload);
 			return { ok: true };
 		}
+		export async function autoProvisionEmailSenderForRegisteredDomain() {
+			return null;
+		}
+	`,
+	'test-mock:env-private': `
+		export const STRIPE_WEBHOOK_SECRET = 'whsec_test_membership_webhook';
+		export const STRIPE_CONNECT_WEBHOOK_SECRET = '';
+		export const TURNSTILE_ENABLED = '';
 	`
 };
 
@@ -53,6 +73,9 @@ registerHooks({
 	resolve(specifier, context, nextResolve) {
 		if (specifier === '$app/env/public') {
 			return { url: 'test-mock:env-public', shortCircuit: true };
+		}
+		if (specifier === '$app/env/private') {
+			return { url: 'test-mock:env-private', shortCircuit: true };
 		}
 		if (specifier === '#lib/server/session') {
 			return { url: 'test-mock:session', shortCircuit: true };
@@ -91,6 +114,7 @@ registerHooks({
 });
 
 const {
+	applyZeroPaymentMembership,
 	createMembershipCheckout,
 	createMembershipPaymentIntent,
 	finalizeMembershipPaymentIntent,
@@ -100,12 +124,15 @@ const {
 const { POST: postMembershipRoute } = /** @type {any} */ (
 	await import('../../routes/api/groups/[slug]/membership/+server.js')
 );
+const { POST: postStripeWebhookRoute } = /** @type {any} */ (
+	await import('../../routes/api/stripe/webhook/+server.js')
+);
 const { load: loadMembershipPage } = /** @type {any} */ (
 	await import('../../routes/groups/[slug]/membership/+page.server.js')
 );
 
 function createInMemorySupabase(tables, options = {}) {
-	const { role = 'service', operations = [] } = options;
+	const { role = 'service', operations = [], shouldFailOperation = null } = options;
 	let idCounter = 100;
 
 	return {
@@ -132,6 +159,15 @@ function createInMemorySupabase(tables, options = {}) {
 
 			const execute = async () => {
 				operations.push({ role, table, mode });
+				if (typeof shouldFailOperation === 'function') {
+					const injectedError = shouldFailOperation({ role, table, mode, payload, filters });
+					if (injectedError) {
+						return {
+							data: null,
+							error: typeof injectedError === 'string' ? { message: injectedError } : injectedError
+						};
+					}
+				}
 				const store = tables[table];
 
 				if (mode === 'insert') {
@@ -294,7 +330,8 @@ function setupHarness({
 	billing = [],
 	tierChangeRequests = [],
 	applications = [],
-	stripeMock = {}
+	stripeMock = {},
+	shouldFailOperation = null
 } = {}) {
 	const operations = [];
 	const tables = {
@@ -453,8 +490,16 @@ function setupHarness({
 		group_membership_audit_log: []
 	};
 
-	const serviceSupabase = createInMemorySupabase(tables, { role: 'service', operations });
-	const requestSupabase = createInMemorySupabase(tables, { role: 'request', operations });
+	const serviceSupabase = createInMemorySupabase(tables, {
+		role: 'service',
+		operations,
+		shouldFailOperation
+	});
+	const requestSupabase = createInMemorySupabase(tables, {
+		role: 'request',
+		operations,
+		shouldFailOperation
+	});
 
 	globalThis.__membershipTestHarness = {
 		tables,
@@ -475,7 +520,7 @@ function setupHarness({
 		}
 	};
 
-	return { tables, operations };
+	return { tables, operations, serviceSupabase };
 }
 
 test('in-place recurring upgrade reuses active membership row and cancels pending tier change requests', async () => {
@@ -1245,8 +1290,8 @@ test('redirect finalization handles succeeded, processing, and failed states in 
 	}
 });
 
-test('POST /api/groups/[slug]/membership cancels active Stripe subscription when downgrading to a free tier and rolls back on Stripe error', async () => {
-	// 1. Successful downgrade to Neighbor free tier cancels subscription on connected account after clearing billing row
+test('POST /api/groups/[slug]/membership cancels active Stripe subscription first when downgrading to a free tier and leaves billing untouched when Stripe cancel throws', async () => {
+	// 1. Successful downgrade cancels in Stripe first (with idempotency key) before clearing stripe_subscription_id
 	{
 		const cancelSnapshots = [];
 		const { tables } = setupHarness({
@@ -1296,6 +1341,7 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 						cancelSnapshots.push({
 							id,
 							stripeAccount: opts?.stripeAccount,
+							idempotencyKey: opts?.idempotencyKey,
 							billingSubscriptionAtCancelTime:
 								tables.group_membership_billing[0]?.stripe_subscription_id
 						});
@@ -1322,7 +1368,8 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 		assert.deepEqual(cancelSnapshots[0], {
 			id: 'sub_paid_active_1',
 			stripeAccount: 'acct_tbag',
-			billingSubscriptionAtCancelTime: null
+			idempotencyKey: 'downgrade-cancel:mem_paid_active:sub_paid_active_1',
+			billingSubscriptionAtCancelTime: 'sub_paid_active_1'
 		});
 		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
 		assert.equal(tables.group_memberships[0].contribution_amount_cents, 0);
@@ -1342,9 +1389,19 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
 	}
 
-	// 2. Stripe cancellation error restores billing row and leaves membership on paid tier with HTTP 502
+	// 2. Boundary (a): Stripe cancel throws -> billing row is completely unchanged and still has stripe_subscription_id
 	{
-		const { tables } = setupHarness({
+		const initialBillingRow = {
+			id: 'bill_paid_fail',
+			membership_id: 'mem_paid_fail',
+			stripe_customer_id: 'cus_paid_fail',
+			stripe_subscription_id: 'sub_paid_fail_1',
+			stripe_price_id: 'price_supporter_month',
+			last_payment_status: 'paid',
+			next_billing_at: '2026-02-01T00:00:00.000Z',
+			updated_at: '2026-01-01T00:00:00.000Z'
+		};
+		const { tables, operations } = setupHarness({
 			contributionMode: 'donation',
 			memberships: [
 				{
@@ -1361,17 +1418,7 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 					created_at: '2026-01-01T00:00:00.000Z'
 				}
 			],
-			billing: [
-				{
-					id: 'bill_paid_fail',
-					membership_id: 'mem_paid_fail',
-					stripe_customer_id: 'cus_paid_fail',
-					stripe_subscription_id: 'sub_paid_fail_1',
-					stripe_price_id: 'price_supporter_month',
-					last_payment_status: 'paid',
-					next_billing_at: '2026-02-01T00:00:00.000Z'
-				}
-			],
+			billing: [initialBillingRow],
 			tierChangeRequests: [
 				{
 					id: 'req_keep_pending',
@@ -1408,12 +1455,15 @@ test('POST /api/groups/[slug]/membership cancels active Stripe subscription when
 			(/** @type {any} */ err) => err?.status === 502
 		);
 
-		assert.equal(
-			tables.group_membership_billing[0].stripe_subscription_id,
-			'sub_paid_fail_1',
-			'stripe_subscription_id must be restored when Stripe cancel fails'
+		const billingWrites = operations.filter(
+			(op) => op.table === 'group_membership_billing' && op.mode !== 'select'
 		);
-		assert.equal(tables.group_membership_billing[0].stripe_price_id, 'price_supporter_month');
+		assert.equal(billingWrites.length, 0, 'billing row must not be mutated before Stripe confirms');
+		assert.deepEqual(
+			tables.group_membership_billing[0],
+			initialBillingRow,
+			'billing row must be unchanged and still hold stripe_subscription_id when Stripe cancel throws'
+		);
 		assert.equal(tables.group_memberships[0].tier_id, 'tier_supporter');
 		assert.equal(tables.group_memberships[0].contribution_amount_cents, 500);
 		assert.equal(tables.group_membership_tier_change_requests[0].status, 'pending');
@@ -1720,4 +1770,439 @@ test('membership page resets custom contribution inputs upon activation and uses
 		syncCallMatches.length >= 6,
 		`expected syncActivatedMembershipState definition + 5 activation call sites, found ${syncCallMatches.length}`
 	);
+});
+
+test('downgrade boundary (b): Stripe cancel succeeds then DB update fails -> error surfaces, and retry is a no-op cancel (alreadyCanceled) that clears pointer', async () => {
+	let stripeStatus = 'active';
+	let failBillingUpsert = true;
+	const cancelCalls = [];
+	const retrieveCalls = [];
+
+	const { tables } = setupHarness({
+		contributionMode: 'donation',
+		memberships: [
+			{
+				id: 'mem_db_fail',
+				group_id: 'group_1',
+				user_id: 'user_1',
+				tier_id: 'tier_supporter',
+				status: 'active',
+				source: 'online',
+				started_at: '2026-01-01T00:00:00.000Z',
+				renews_at: '2026-02-01T00:00:00.000Z',
+				interval_unit: 'month',
+				contribution_amount_cents: 500,
+				created_at: '2026-01-01T00:00:00.000Z'
+			}
+		],
+		billing: [
+			{
+				id: 'bill_db_fail',
+				membership_id: 'mem_db_fail',
+				stripe_customer_id: 'cus_db_fail',
+				stripe_subscription_id: 'sub_db_fail_1',
+				stripe_price_id: 'price_supporter_month',
+				last_payment_status: 'paid',
+				next_billing_at: '2026-02-01T00:00:00.000Z'
+			}
+		],
+		shouldFailOperation({ table, mode }) {
+			if (failBillingUpsert && table === 'group_membership_billing' && mode === 'upsert') {
+				return 'database write timeout';
+			}
+			return null;
+		},
+		stripeMock: {
+			subscriptions: {
+				async cancel(id, _params, opts) {
+					cancelCalls.push({ id, opts });
+					if (stripeStatus === 'canceled') {
+						throw new Error("A canceled subscription can't be canceled again.");
+					}
+					stripeStatus = 'canceled';
+					return { id, status: 'canceled' };
+				},
+				async retrieve(id, _params, opts) {
+					retrieveCalls.push({ id, opts });
+					return { id, status: stripeStatus };
+				}
+			}
+		}
+	});
+
+	// 1. First attempt: Stripe cancel succeeds, then DB upsert fails -> error is surfaced and pointer remains stored
+	await assert.rejects(
+		() =>
+			postMembershipRoute({
+				params: { slug: 'tempe-bicycle-action-group' },
+				cookies: {},
+				request: new Request('https://3fp.org/api/groups/tempe-bicycle-action-group/membership', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ tier_id: 'tier_free' })
+				})
+			}),
+		/database write timeout/
+	);
+
+	assert.equal(stripeStatus, 'canceled');
+	assert.equal(cancelCalls.length, 1);
+	assert.equal(cancelCalls[0].opts?.idempotencyKey, 'downgrade-cancel:mem_db_fail:sub_db_fail_1');
+	assert.equal(
+		tables.group_membership_billing[0].stripe_subscription_id,
+		'sub_db_fail_1',
+		'pointer must still be present when post-cancel DB update fails'
+	);
+	assert.equal(tables.group_memberships[0].tier_id, 'tier_supporter');
+
+	// 2. Retry after DB recovers: Stripe reports alreadyCanceled (via retrieve), then clears pointer and completes downgrade
+	failBillingUpsert = false;
+	const retryRes = await postMembershipRoute({
+		params: { slug: 'tempe-bicycle-action-group' },
+		cookies: {},
+		request: new Request('https://3fp.org/api/groups/tempe-bicycle-action-group/membership', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ tier_id: 'tier_free' })
+		})
+	});
+
+	assert.equal(retryRes.status, 200);
+	assert.deepEqual(await retryRes.json(), { success: true, action: 'changed_immediately' });
+	assert.equal(cancelCalls.length, 2);
+	assert.equal(retrieveCalls.length, 1, 'retry confirms alreadyCanceled via retrieve');
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+	assert.equal(tables.group_membership_billing[0].last_payment_status, 'canceled');
+	assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
+	assert.equal(tables.group_memberships[0].contribution_amount_cents, 0);
+});
+
+test('downgrade boundary (c): webhook customer.subscription.deleted clears stored subscription pointer and ignores non-matching ids', async () => {
+	const { tables } = setupHarness({
+		contributionMode: 'donation',
+		memberships: [
+			{
+				id: 'mem_webhook_reconcile',
+				group_id: 'group_1',
+				user_id: 'user_1',
+				tier_id: 'tier_supporter',
+				status: 'active',
+				source: 'online',
+				started_at: '2026-01-01T00:00:00.000Z',
+				renews_at: '2026-02-01T00:00:00.000Z',
+				interval_unit: 'month',
+				contribution_amount_cents: 500,
+				created_at: '2026-01-01T00:00:00.000Z'
+			}
+		],
+		billing: [
+			{
+				id: 'bill_webhook_reconcile',
+				membership_id: 'mem_webhook_reconcile',
+				stripe_customer_id: 'cus_webhook_1',
+				stripe_subscription_id: 'sub_stored_live',
+				stripe_price_id: 'price_supporter_month',
+				last_payment_status: 'paid',
+				next_billing_at: '2026-02-01T00:00:00.000Z'
+			}
+		],
+		stripeMock: {
+			webhooks: {
+				constructEvent(rawBody, signature, secret) {
+					if (signature !== 'sig_valid' || secret !== 'whsec_test_membership_webhook') {
+						throw new Error('Invalid signature');
+					}
+					return JSON.parse(rawBody);
+				}
+			}
+		}
+	});
+
+	// 1. Non-matching subscription ID does nothing
+	const nonMatchingEvent = {
+		id: 'evt_sub_del_other',
+		type: 'customer.subscription.deleted',
+		account: 'acct_tbag',
+		data: {
+			object: {
+				id: 'sub_non_matching',
+				status: 'canceled'
+			}
+		}
+	};
+	const nonMatchingDirect = await handleMembershipStripeEvent(nonMatchingEvent);
+	assert.equal(nonMatchingDirect.ok, true);
+	assert.equal(nonMatchingDirect.matched, false);
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, 'sub_stored_live');
+	assert.equal(tables.group_membership_billing[0].last_payment_status, 'paid');
+	assert.equal(tables.group_memberships[0].status, 'active');
+
+	// 2. Matching stored subscription ID via /api/stripe/webhook clears stripe_subscription_id idempotently
+	const matchingPayload = JSON.stringify({
+		id: 'evt_sub_del_stored',
+		type: 'customer.subscription.deleted',
+		account: 'acct_tbag',
+		data: {
+			object: {
+				id: 'sub_stored_live',
+				status: 'canceled',
+				ended_at: 1767225600
+			}
+		}
+	});
+	const webhookRes = await postStripeWebhookRoute({
+		request: new Request('https://3fp.org/api/stripe/webhook', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'stripe-signature': 'sig_valid'
+			},
+			body: matchingPayload
+		}),
+		fetch: globalThis.fetch,
+		getClientAddress: () => '127.0.0.1'
+	});
+	assert.equal(webhookRes.status, 200);
+	assert.deepEqual(await webhookRes.json(), { received: true });
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+	assert.equal(tables.group_membership_billing[0].stripe_price_id, null);
+	assert.equal(tables.group_membership_billing[0].next_billing_at, null);
+	assert.equal(tables.group_membership_billing[0].last_payment_status, 'canceled');
+	assert.equal(tables.group_memberships[0].status, 'cancelled');
+
+	// 3. Replaying customer.subscription.deleted for the cleared ID is an idempotent no-op
+	const replayResult = await handleMembershipStripeEvent(JSON.parse(matchingPayload));
+	assert.equal(replayResult.ok, true);
+	assert.equal(replayResult.matched, false);
+	assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+});
+
+test('downgrade boundary (d): double-submitting free-tier downgrade cancels only once and passes idempotency key', async () => {
+	// 1. Concurrent in-process double-submit + subsequent sequential submit
+	{
+		const cancelInvocations = [];
+		const { tables } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_double_submit',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					source: 'online',
+					started_at: '2026-01-01T00:00:00.000Z',
+					renews_at: '2026-02-01T00:00:00.000Z',
+					interval_unit: 'month',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_double_submit',
+					membership_id: 'mem_double_submit',
+					stripe_customer_id: 'cus_double_1',
+					stripe_subscription_id: 'sub_double_1',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid',
+					next_billing_at: '2026-02-01T00:00:00.000Z'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel(id, params, opts) {
+						cancelInvocations.push({ id, params, opts });
+						await new Promise((resolve) => setTimeout(resolve, 15));
+						return { id, status: 'canceled' };
+					}
+				}
+			}
+		});
+
+		const makeDowngradeRequest = () =>
+			postMembershipRoute({
+				params: { slug: 'tempe-bicycle-action-group' },
+				cookies: {},
+				request: new Request('https://3fp.org/api/groups/tempe-bicycle-action-group/membership', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ tier_id: 'tier_free' })
+				})
+			});
+
+		const [res1, res2] = await Promise.all([makeDowngradeRequest(), makeDowngradeRequest()]);
+		assert.equal(res1.status, 200);
+		assert.equal(res2.status, 200);
+		assert.equal(cancelInvocations.length, 1, 'concurrent double-submit cancels only once');
+		assert.deepEqual(cancelInvocations[0].opts, {
+			stripeAccount: 'acct_tbag',
+			idempotencyKey: 'downgrade-cancel:mem_double_submit:sub_double_1'
+		});
+		assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+		assert.equal(tables.group_memberships[0].tier_id, 'tier_free');
+
+		const res3 = await makeDowngradeRequest();
+		assert.equal(res3.status, 200);
+		assert.deepEqual(await res3.json(), { success: true, action: 'no_change' });
+		assert.equal(cancelInvocations.length, 1, 'subsequent submit does not cancel again');
+	}
+
+	// 2. Sequential or cross-worker applyZeroPaymentMembership calls pass identical Stripe idempotencyKey
+	{
+		/** @type {Map<string, any>} */
+		const stripeIdempotencyCache = new Map();
+		let actualStripeCancelExecutions = 0;
+		const { tables, serviceSupabase } = setupHarness({
+			contributionMode: 'donation',
+			memberships: [
+				{
+					id: 'mem_idem_key',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					interval_unit: 'month',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_idem_key',
+					membership_id: 'mem_idem_key',
+					stripe_customer_id: 'cus_idem',
+					stripe_subscription_id: 'sub_idem_1',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid'
+				}
+			],
+			stripeMock: {
+				subscriptions: {
+					async cancel(id, _params, opts) {
+						assert.equal(
+							opts?.idempotencyKey,
+							'downgrade-cancel:mem_idem_key:sub_idem_1',
+							'idempotency key must follow downgrade-cancel:<membershipId>:<subscriptionId>'
+						);
+						const cacheKey = `${opts?.stripeAccount}:${opts?.idempotencyKey}`;
+						if (stripeIdempotencyCache.has(cacheKey)) {
+							return stripeIdempotencyCache.get(cacheKey);
+						}
+						actualStripeCancelExecutions += 1;
+						const response = { id, status: 'canceled' };
+						stripeIdempotencyCache.set(cacheKey, response);
+						return response;
+					}
+				}
+			}
+		});
+
+		const freeTier = tables.group_membership_tiers.find((t) => t.id === 'tier_free');
+		const first = await applyZeroPaymentMembership({
+			serviceSupabase,
+			groupId: 'group_1',
+			userId: 'user_1',
+			tier: freeTier
+		});
+		const second = await applyZeroPaymentMembership({
+			serviceSupabase,
+			groupId: 'group_1',
+			userId: 'user_1',
+			tier: freeTier
+		});
+		assert.equal(first.ok, true);
+		assert.equal(second.ok, true);
+		assert.equal(actualStripeCancelExecutions, 1);
+		assert.equal(tables.group_membership_billing[0].stripe_subscription_id, null);
+	}
+});
+
+test('restoreBillingSnapshot checks update error and throws loudly instead of failing silently', async () => {
+	const loggedErrors = [];
+	const originalConsoleError = console.error;
+	console.error = (...args) => {
+		loggedErrors.push(args);
+	};
+
+	try {
+		setupHarness({
+			memberships: [
+				{
+					id: 'mem_restore_err',
+					group_id: 'group_1',
+					user_id: 'user_1',
+					tier_id: 'tier_supporter',
+					status: 'active',
+					interval_unit: 'month',
+					contribution_amount_cents: 500,
+					created_at: '2026-01-01T00:00:00.000Z'
+				}
+			],
+			billing: [
+				{
+					id: 'bill_restore_err',
+					membership_id: 'mem_restore_err',
+					stripe_customer_id: 'cus_restore_err',
+					stripe_subscription_id: 'sub_old_restore_err',
+					stripe_price_id: 'price_supporter_month',
+					last_payment_status: 'paid'
+				}
+			],
+			shouldFailOperation({ table, mode }) {
+				if (table === 'group_membership_billing' && mode === 'update') {
+					return 'billing snapshot restore failed';
+				}
+				return null;
+			},
+			stripeMock: {
+				paymentIntents: {
+					async retrieve(id) {
+						return {
+							id,
+							status: 'succeeded',
+							customer: 'cus_restore_err',
+							metadata: {
+								membership_flow: 'group_membership',
+								membership_group_id: 'group_1',
+								membership_user_id: 'user_1',
+								membership_tier_id: 'tier_lifetime',
+								membership_billing_type: 'one_time',
+								membership_interval_unit: '',
+								membership_amount_cents: '10000'
+							}
+						};
+					}
+				},
+				subscriptions: {
+					async cancel() {
+						throw new Error('Stripe cancel failed');
+					},
+					async retrieve(id) {
+						return { id, status: 'active' };
+					}
+				}
+			}
+		});
+
+		await assert.rejects(
+			() =>
+				finalizeMembershipPaymentIntent({
+					cookies: {},
+					groupSlug: 'tempe-bicycle-action-group',
+					payload: { payment_intent_id: 'pi_restore_err' },
+					fetchImpl: null
+				}),
+			/Failed to restore membership billing snapshot: billing snapshot restore failed/
+		);
+
+		assert.ok(
+			loggedErrors.some((entry) =>
+				String(entry[0] || '').includes('Failed to restore membership billing snapshot')
+			),
+			'restoreBillingSnapshot must log loudly when update returns an error'
+		);
+	} finally {
+		console.error = originalConsoleError;
+	}
 });
