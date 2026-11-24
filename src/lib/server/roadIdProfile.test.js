@@ -443,3 +443,53 @@ test('claimBraceletForUser attaches unclaimed code and preserves existing rider 
 
 	assert.equal(formatMedicationList('asprin,  Albuterol , '), 'Aspirin, Albuterol');
 });
+
+test('Road ID RLS migration scopes policies to authenticated and grants DML + sequence privileges', async () => {
+	const fs = await import('node:fs');
+	const migrationSql = fs.readFileSync(
+		new URL(
+			'../../../supabase/migrations/20261124033000_grant_authenticated_road_id_writes.sql',
+			import.meta.url
+		),
+		'utf8'
+	);
+
+	for (const policyName of [
+		'road_id_profiles_select',
+		'road_id_profiles_insert',
+		'road_id_profiles_update',
+		'road_id_profiles_delete',
+		'emergency_contacts_select',
+		'emergency_contacts_insert',
+		'emergency_contacts_update',
+		'emergency_contacts_delete',
+		'qr_codes_select'
+	]) {
+		assert.match(
+			migrationSql,
+			new RegExp(`create policy ${policyName}[\\s\\S]*?to authenticated`, 'i'),
+			`Expected ${policyName} to be scoped to authenticated`
+		);
+	}
+	assert.doesNotMatch(migrationSql, /(?<!select\s)auth\.uid\(\)/);
+	assert.match(
+		migrationSql,
+		/grant select, insert, update, delete on table public\.road_id_profiles to authenticated;/i
+	);
+	assert.match(
+		migrationSql,
+		/grant select, insert, update, delete on table public\.emergency_contacts to authenticated;/i
+	);
+	assert.match(migrationSql, /grant select on table public\.qr_codes to authenticated;/i);
+	assert.match(migrationSql, /grant usage, select on sequence %I\.%I to authenticated/i);
+
+	const contactIdRoute = fs.readFileSync(
+		new URL('../../routes/api/v1/emergency-contacts/[id]/+server.js', import.meta.url),
+		'utf8'
+	);
+	assert.match(contactIdRoute, /import\s*\{\s*normalizeContactPhoneInput\s*\}\s*from/);
+	assert.match(
+		contactIdRoute,
+		/safeFields\.contact_phone\s*=\s*normalizeContactPhoneInput\(safeFields\.contact_phone\)/
+	);
+});

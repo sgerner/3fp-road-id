@@ -3,6 +3,7 @@ import { resolveVerifiedSession } from '#lib/server/session';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { readJsonBody } from '#lib/server/security';
 import { pickEmergencyContactFields } from '#lib/server/emergencyContacts';
+import { normalizeContactPhoneInput } from '#lib/server/roadIdProfile';
 
 export async function PUT({ request, cookies, params }) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
@@ -16,9 +17,15 @@ export async function PUT({ request, cookies, params }) {
 		return json({ error: parsedBody.error }, { status: parsedBody.status });
 	}
 	const payload = parsedBody.value;
+	if (payload?.profile_id && payload.profile_id !== user.id) {
+		return json({ error: 'You can only update contacts for your own profile.' }, { status: 403 });
+	}
 	const safeFields = pickEmergencyContactFields(payload);
 	if (!safeFields) {
 		return json({ error: 'No valid contact fields were provided.' }, { status: 400 });
+	}
+	if (typeof safeFields.contact_phone === 'string') {
+		safeFields.contact_phone = normalizeContactPhoneInput(safeFields.contact_phone);
 	}
 	const requestSupabase = createRequestSupabaseClient(accessToken);
 
