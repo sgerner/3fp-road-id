@@ -4,6 +4,7 @@
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import IconUpload from '@lucide/svelte/icons/upload';
+	import { LEARN_ALT_TEXT_MAX_LENGTH, sanitizeAltText } from '#lib/learn/altText';
 
 	let {
 		label = 'Cover photo',
@@ -13,6 +14,8 @@
 		multiple = false,
 		aspectRatio = '16:9',
 		imageUrl = '',
+		imageAlt = $bindable(''),
+		showAltField = false,
 		uploading = false,
 		error = '',
 		disabled = false,
@@ -32,11 +35,13 @@
 		buildContext = () => ({}),
 		onSelectFiles = null,
 		onRemove = null,
+		onAltChange = null,
 		onApplyArtwork = () => {},
 		onStudioOpenChange = null
 	} = $props();
 
 	const inputId = $props.id();
+	const altInputId = `${inputId}-alt`;
 
 	let fileInputEl = $state(null);
 	let studioTriggerEl = $state(null);
@@ -55,6 +60,23 @@
 	});
 
 	const displayError = $derived(error || studioLoadError);
+	const effectivePreviewAlt = $derived(imageAlt?.trim() || `${label} preview`);
+
+	function handleAltBlur() {
+		const sanitized = sanitizeAltText(imageAlt || '', { imageUrl });
+		if (sanitized !== (imageAlt || '')) {
+			imageAlt = sanitized;
+		}
+		onAltChange?.(sanitized);
+	}
+
+	async function handleStudioApply(result) {
+		const nextAlt = result?.alt_text || result?.altText || '';
+		if (nextAlt) {
+			imageAlt = nextAlt;
+		}
+		await onApplyArtwork?.(result);
+	}
 
 	async function handleFiles(fileList) {
 		const files = Array.from(fileList ?? []).filter(Boolean);
@@ -195,7 +217,7 @@
 		>
 			<img
 				src={imageUrl}
-				alt={`${label} preview`}
+				alt={effectivePreviewAlt}
 				class={`${previewAspectClass} w-full object-cover`}
 			/>
 			{#if onRemove}
@@ -212,6 +234,26 @@
 				</div>
 			{/if}
 		</div>
+		{#if showAltField}
+			<div class="space-y-1">
+				<div class="flex items-center justify-between gap-2">
+					<label class="label m-0 text-xs" for={altInputId}>Cover image alt text</label>
+					<span class="text-xs opacity-60">
+						{(imageAlt || '').length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+					</span>
+				</div>
+				<input
+					id={altInputId}
+					type="text"
+					class="input text-sm"
+					maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+					placeholder="Describe the key visual subject for screen-reader users"
+					bind:value={imageAlt}
+					disabled={disabled || uploading}
+					onblur={handleAltBlur}
+				/>
+			</div>
+		{/if}
 	{:else}
 		<div
 			class={`cover-media-dropzone ${previewAspectClass}`}
@@ -253,11 +295,12 @@
 		{aspectRatio}
 		{articleId}
 		currentImageUrl={imageUrl}
+		currentImageAlt={imageAlt}
 		{defaultStyleId}
 		returnFocusEl={studioTriggerEl}
 		{stacked}
 		{buildContext}
-		onApply={onApplyArtwork}
+		onApply={handleStudioApply}
 		onClose={handleStudioClose}
 	/>
 {/if}
