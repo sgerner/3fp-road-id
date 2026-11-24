@@ -457,9 +457,8 @@
 	}
 
 	async function askReport(question) {
-		await navigateTo('assistant');
 		await tick();
-		assistant?.ask(question);
+		await assistant?.ask(question, document.activeElement);
 	}
 
 	onMount(() => {
@@ -587,7 +586,14 @@
 						Evidence reviewed through 28 October 2026 <span>•</span> Public edition 4.4
 						<span>•</span> Updated 1 November 2026
 					</span>
-					<a href="#assistant" class="text-link">Ask the report ↓</a>
+					<a
+						href="#assistant"
+						class="text-link"
+						onclick={(event) => {
+							event.preventDefault();
+							assistant?.openReportAssistant?.(event.currentTarget);
+						}}>Ask the report ↗</a
+					>
 				</div>
 			</div>
 
@@ -990,6 +996,7 @@
 			activeView={activeModeLabel}
 			currentTopic={assistantTopic}
 			onNavigate={navigateTo}
+			onCitationSelect={navigateTo}
 			bind:this={assistant}
 		/>
 		<div class="report-return-bar">

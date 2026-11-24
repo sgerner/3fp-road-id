@@ -188,3 +188,31 @@
 		{/key}
 	</div>
 </div>
+
+<style>
+	@layer base {
+		:where(.manage-page-content) {
+			min-width: 0;
+			max-width: 100%;
+		}
+
+		:global(:where(.manage-page-content :is(.grid, .inline-grid, [class*=':grid']))) {
+			grid-auto-columns: minmax(0, 1fr);
+			min-width: 0;
+		}
+
+		:global(:where(.manage-page-content :is(.grid, .inline-grid) > *)),
+		:global(:where(.manage-page-content :is(.grid, .inline-grid) > .contents > *)) {
+			min-width: 0;
+		}
+
+		:global(
+			:where(
+				.manage-page-content :is(input:not([type='checkbox']):not([type='radio']), select, textarea)
+			)
+		) {
+			min-width: 0;
+			max-width: 100%;
+		}
+	}
+</style>

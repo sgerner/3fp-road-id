@@ -248,6 +248,21 @@ body::after {
 	letter-spacing: 0.04em;
 }
 
+@layer components {
+	@media (pointer: coarse) {
+		.app-shell :is(button, a, label):is(.btn, .btn-sm, .btn-icon, .chip, .chip-icon) {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+		}
+
+		.app-shell summary {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+			align-content: center;
+		}
+	}
+}
+
 .app-shell main .btn:hover,
 .app-shell main a:hover {
 	text-decoration: none;

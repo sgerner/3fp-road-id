@@ -11,6 +11,8 @@
 		toCivilDateKey,
 		toEventDateKey
 	} from '#lib/calendar/monthGrid';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -25,7 +27,6 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import 'leaflet/dist/leaflet.css';
 	import {
 		extractRideCity,
 		extractRideState,
@@ -73,11 +74,6 @@
 	let dayDialog = $state(null);
 	let dayModalTrigger = null;
 	let dayModalCloseButton = $state(null);
-
-	let mapEl = $state(null);
-	let map;
-	let markerLayer;
-	let L;
 
 	const PAGE_SIZE = 8;
 	const config = $derived(data?.config ?? {});
@@ -320,129 +316,27 @@
 		return getRideDifficultyLabel(ride);
 	}
 
-	function validCoords(ride) {
-		return (
-			Number.isFinite(Number(ride?.startLatitude)) && Number.isFinite(Number(ride?.startLongitude))
-		);
-	}
-
-	function markerOptions(ride) {
-		const color = config.difficultyColors ? difficultyColor(primaryDifficulty(ride)) : '#0ea5e9';
-		return {
-			radius: 8,
-			color,
-			weight: 2,
-			opacity: 1,
-			fillColor: color,
-			fillOpacity: 0.65
-		};
-	}
-
-	async function initMap() {
-		if (!mapEl || map) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (error) {
-			console.error('Failed to load map for widget', error);
-			return;
-		}
-
-		if (!mapEl || map) return;
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		markerLayer = L.layerGroup().addTo(map);
-		updateMarkers();
-	}
-
-	function buildWidgetPopupContent(ride) {
-		const wrapper = document.createElement('div');
-		wrapper.style.minWidth = '180px';
-		wrapper.style.maxWidth = '240px';
-		wrapper.style.overflowWrap = 'anywhere';
-
-		const titleEl = document.createElement('strong');
-		titleEl.textContent = rideTitle(ride);
-		wrapper.appendChild(titleEl);
-		wrapper.appendChild(document.createElement('br'));
-
-		const scheduleWrap = document.createElement('small');
-		scheduleWrap.style.display = 'inline-flex';
-		scheduleWrap.style.flexWrap = 'wrap';
-		scheduleWrap.style.alignItems = 'center';
-		scheduleWrap.style.gap = '4px';
-		const timeEl = document.createElement('span');
-		timeEl.textContent = formatNext(ride);
-		scheduleWrap.appendChild(timeEl);
-
-		const tzBadge = rideTimezoneBadge(ride);
-		if (tzBadge) {
-			const badgeEl = document.createElement('span');
-			badgeEl.textContent = tzBadge;
-			badgeEl.style.padding = '1px 5px';
-			badgeEl.style.borderRadius = '999px';
-			badgeEl.style.fontSize = '10px';
-			badgeEl.style.fontWeight = '700';
-			badgeEl.style.letterSpacing = '0.06em';
-			badgeEl.style.textTransform = 'uppercase';
-			badgeEl.style.background = 'rgba(14, 116, 144, 0.14)';
-			badgeEl.style.color = '#0e7490';
-			scheduleWrap.appendChild(badgeEl);
-		}
-		wrapper.appendChild(scheduleWrap);
-		wrapper.appendChild(document.createElement('br'));
-
-		const linkEl = document.createElement('a');
-		linkEl.href = `/ride/${encodeURIComponent(ride.slug)}`;
-		linkEl.target = '_blank';
-		linkEl.rel = 'noopener noreferrer';
-		linkEl.textContent = 'View ride →';
-		wrapper.appendChild(linkEl);
-		return wrapper;
-	}
-
-	function updateMarkers() {
-		if (!map || !markerLayer || !L) return;
-		markerLayer.clearLayers();
-		const points = [];
-
-		for (const ride of filteredRides || []) {
-			if (!validCoords(ride)) continue;
-			const lat = Number(ride.startLatitude);
-			const lng = Number(ride.startLongitude);
-			const marker = L.circleMarker([lat, lng], markerOptions(ride));
-			marker.bindPopup(buildWidgetPopupContent(ride));
-			markerLayer.addLayer(marker);
-			points.push([lat, lng]);
-		}
-
-		if (points.length) {
-			map.fitBounds(L.latLngBounds(points).pad(0.12));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		}
-	});
-
-	$effect(() => {
-		void filteredRides;
-		void viewerTimezone;
-		updateMarkers();
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 120);
-		}
-	});
+	const widgetMapItems = $derived(
+		filteredRides
+			.filter((ride) => isValidLatLng(ride?.startLatitude, ride?.startLongitude))
+			.map((ride) => {
+				const diff = primaryDifficulty(ride);
+				const tzBadge = rideTimezoneBadge(ride);
+				return {
+					id: ride.id ?? ride.slug,
+					lat: Number(ride.startLatitude),
+					lng: Number(ride.startLongitude),
+					title: rideTitle(ride),
+					subtitle: [formatNext(ride), tzBadge].filter(Boolean).join(' '),
+					meta: [ride.startLocationName, ride.group?.name].filter(Boolean).join(' · '),
+					badge: config.difficultyColors ? diff : '',
+					href: `/ride/${ride.slug}`,
+					ctaLabel: 'View ride',
+					external: true,
+					accentColor: config.difficultyColors ? difficultyColor(diff) : '#0ea5e9'
+				};
+			})
+	);
 
 	onMount(() => {
 		now = new Date();
@@ -452,13 +346,6 @@
 		}, 60_000);
 		return () => {
 			window.clearInterval(minuteTimer);
-			try {
-				map?.remove();
-				map = null;
-				markerLayer = null;
-			} catch {
-				// ignore
-			}
 		};
 	});
 </script>
@@ -810,11 +697,16 @@
 			</div>
 		{:else}
 			<div class="map-wrap">
-				<div bind:this={mapEl} class="map-canvas"></div>
-				<div class="map-hint">
-					<IconMapPin class="h-3.5 w-3.5" />
-					{filteredRides.length} listing{filteredRides.length === 1 ? '' : 's'} on map
-				</div>
+				<DirectoryMapExplorer
+					variant="widget"
+					cluster={false}
+					regionLabel="Ride directory map"
+					items={widgetMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					canvasClass="map-canvas"
+					footerHint={`${filteredRides.length} listing${filteredRides.length === 1 ? '' : 's'} matching current filters`}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -1630,22 +1522,13 @@
 	════════════════════════════════════════════ */
 	.map-wrap {
 		background: var(--widget-surface);
-		border: 1px solid var(--widget-line);
-		border-radius: var(--widget-radius);
+		border: 2px solid var(--widget-line);
+		border-radius: 0;
 		overflow: hidden;
-		box-shadow: var(--widget-shadow);
 	}
-	.map-canvas {
+	.map-wrap :global(.map-canvas) {
 		height: clamp(320px, 55vh, 560px);
-	}
-	.map-hint {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		font-size: 0.76rem;
-		padding: 0.5rem 0.75rem;
-		color: var(--widget-text-muted);
-		border-top: 1px solid var(--widget-line);
+		width: 100%;
 	}
 
 	/* ════════════════════════════════════════════
