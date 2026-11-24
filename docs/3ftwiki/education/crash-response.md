@@ -10,7 +10,7 @@ dateCreated: 2025-03-11T02:33:11.037Z
 
 # Crash Response Tips
 
-[ ![crash_response.png](/education/crash_response.png =300x)
+[ ![Five-step bike crash checklist: stay safe, call police, gather info, seek medical care, and protect your rights](/education/crash_response.png)
 Click here for an easy to edit Canva Template](https://www.canva.com/design/DAGgvp150IU/hw47tRQZ_PuLgxHKqUDaHg/view?utm_content=DAGgvp150IU&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 # 1. Stay Safe Assess Injury

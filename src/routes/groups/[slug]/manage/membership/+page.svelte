@@ -14,6 +14,8 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
 	import { slide } from 'svelte/transition';
+	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 
 	/** @type {Record<string, any>} */
 	let { data } = $props();
@@ -715,25 +717,27 @@
 	<!-- Member Roster -->
 	<section class="card">
 		<div class="card-accent" aria-hidden="true"></div>
-		<div class="card-header">
-			<div class="card-header-left">
-				<div class="card-icon primary">
-					<IconUsers class="h-5 w-5" />
-				</div>
-				<div class="card-title-group">
-					<h2 class="card-title">Member Roster</h2>
-					{#if pendingApplications.length > 0}
-						<span class="badge warning">{pendingApplications.length} pending</span>
-					{/if}
-				</div>
-			</div>
-			<div class="card-header-right">
+		<ManageCardHeader
+			title="Member Roster"
+			titleClass="text-[0.9375rem] font-semibold tracking-tight"
+			icon={IconUsers}
+			tone="primary"
+			iconVariant="tile"
+			padded
+			divider
+		>
+			{#snippet badges()}
+				{#if pendingApplications.length > 0}
+					<span class="badge warning">{pendingApplications.length} pending</span>
+				{/if}
+			{/snippet}
+			{#snippet actions()}
 				<button class="btn preset-tonal-surface" onclick={copyJoinLink}>
 					<IconLink class="h-4 w-4" />
 					<span>Copy Join Link</span>
 				</button>
-			</div>
-		</div>
+			{/snippet}
+		</ManageCardHeader>
 
 		<div class="card-body">
 			<div class="filters-row">
@@ -835,7 +839,7 @@
 
 									<div class="status-actions">
 										<span class="action-label">Change status:</span>
-										<div class="action-buttons">
+										<ManageActionRow>
 											{#each STATUS_OPTIONS as status}
 												{@const isActive = member.status === status}
 												{@const statusPreset =
@@ -862,7 +866,7 @@
 													{status}
 												</button>
 											{/each}
-										</div>
+										</ManageActionRow>
 									</div>
 								</div>
 							{/if}
@@ -877,17 +881,19 @@
 	{#if applications.length > 0}
 		<section class="card">
 			<div class="card-accent warning" aria-hidden="true"></div>
-			<div class="card-header">
-				<div class="card-header-left">
-					<div class="card-icon warning">
-						<IconUsers class="h-5 w-5" />
-					</div>
-					<div class="card-title-group">
-						<h2 class="card-title">Applications</h2>
-						<span class="badge warning">{pendingApplications.length} pending</span>
-					</div>
-				</div>
-			</div>
+			<ManageCardHeader
+				title="Applications"
+				titleClass="text-[0.9375rem] font-semibold tracking-tight"
+				icon={IconUsers}
+				tone="warning"
+				iconVariant="tile"
+				padded
+				divider
+			>
+				{#snippet badges()}
+					<span class="badge warning">{pendingApplications.length} pending</span>
+				{/snippet}
+			</ManageCardHeader>
 
 			<div class="card-body">
 				<div class="application-list">
@@ -916,7 +922,7 @@
 								</span>
 							</div>
 							{#if ['submitted', 'under_review', 'payment_pending'].includes(app.status)}
-								<div class="application-actions">
+								<ManageActionRow>
 									<button
 										class="btn preset-tonal-success"
 										disabled={busy}
@@ -933,7 +939,7 @@
 										<IconTrash class="h-4 w-4" />
 										Reject
 									</button>
-								</div>
+								</ManageActionRow>
 							{/if}
 						</div>
 					{/each}
@@ -945,16 +951,15 @@
 	<!-- Add Member (Manual) -->
 	<section class="card">
 		<div class="card-accent success" aria-hidden="true"></div>
-		<div class="card-header">
-			<div class="card-header-left">
-				<div class="card-icon success">
-					<IconPlus class="h-5 w-5" />
-				</div>
-				<div class="card-title-group">
-					<h2 class="card-title">Add Member</h2>
-				</div>
-			</div>
-		</div>
+		<ManageCardHeader
+			title="Add Member"
+			titleClass="text-[0.9375rem] font-semibold tracking-tight"
+			icon={IconPlus}
+			tone="success"
+			iconVariant="tile"
+			padded
+			divider
+		/>
 
 		<div class="card-body">
 			<p class="card-description">
@@ -1038,13 +1043,14 @@
 			onclick={() => (settingsOpen = !settingsOpen)}
 			aria-expanded={settingsOpen}
 		>
-			<div class="card-header-left">
-				<div class="card-icon muted">
+			<div class="flex min-w-0 items-center gap-3">
+				<span
+					class="bg-surface-500/15 text-surface-400 flex h-9 w-9 shrink-0 items-center justify-center"
+					aria-hidden="true"
+				>
 					<IconSettings class="h-5 w-5" />
-				</div>
-				<div class="card-title-group">
-					<h2 class="card-title">Settings</h2>
-				</div>
+				</span>
+				<h2 class="m-0 min-w-0 text-[0.9375rem] font-semibold tracking-tight">Settings</h2>
 			</div>
 			<IconChevronDown class="chevron h-5 w-5 {settingsOpen ? 'rotate' : ''}" />
 		</button>
@@ -1207,17 +1213,19 @@
 													</div>
 												</div>
 											</div>
-											<div class="tier-actions">
-												<label class="checkbox-label">
-													<input
-														type="checkbox"
-														checked={tier.is_default}
-														onchange={() => {
-															tiers = tiers.map((t) => ({ ...t, is_default: t.id === tier.id }));
-														}}
-													/>
-													<span>Default</span>
-												</label>
+											<ManageActionRow>
+												{#snippet lead()}
+													<label class="checkbox-label">
+														<input
+															type="checkbox"
+															checked={tier.is_default}
+															onchange={() => {
+																tiers = tiers.map((t) => ({ ...t, is_default: t.id === tier.id }));
+															}}
+														/>
+														<span>Default</span>
+													</label>
+												{/snippet}
 												<button
 													class="btn btn-sm preset-tonal-secondary"
 													disabled={busy}
@@ -1233,7 +1241,7 @@
 												>
 													<IconTrash class="h-4 w-4" />
 												</button>
-											</div>
+											</ManageActionRow>
 										</div>
 									{/each}
 								</div>
@@ -1241,16 +1249,22 @@
 
 							<!-- New Tier Form -->
 							<div class="new-tier-form">
-								<div class="flex items-center justify-between gap-2">
-									<h4 class="form-subtitle">Create New Tier</h4>
-									<button
-										class="btn btn-sm preset-tonal-tertiary"
-										disabled={busy}
-										onclick={installDefaultTiers}
-									>
-										Import Starter Tiers
-									</button>
-								</div>
+								<ManageCardHeader
+									as="h4"
+									title="Create New Tier"
+									titleClass="text-[0.8125rem] font-semibold opacity-80"
+									class="mb-3"
+								>
+									{#snippet actions()}
+										<button
+											class="btn btn-sm preset-tonal-tertiary"
+											disabled={busy}
+											onclick={installDefaultTiers}
+										>
+											Import Starter Tiers
+										</button>
+									{/snippet}
+								</ManageCardHeader>
 								<div class="tier-fields">
 									<input
 										class="tier-input"
@@ -1287,13 +1301,13 @@
 										</div>
 									</div>
 								</div>
-								<div class="tier-actions">
-									<div class="tier-actions-left">
+								<ManageActionRow>
+									{#snippet lead()}
 										<label class="checkbox-label">
 											<input type="checkbox" bind:checked={newTier.is_default} />
 											<span>Set as default</span>
 										</label>
-									</div>
+									{/snippet}
 									<button
 										class="btn preset-filled-primary-500"
 										disabled={busy || !newTier.name}
@@ -1302,7 +1316,7 @@
 										<IconPlus class="h-4 w-4" />
 										Create Tier
 									</button>
-								</div>
+								</ManageActionRow>
 							</div>
 						</div>
 					{/if}
@@ -1378,11 +1392,13 @@
 										bind:value={newField.options_text}
 										rows="3"></textarea>
 								{/if}
-								<div class="field-actions-row">
-									<label class="checkbox-label">
-										<input type="checkbox" bind:checked={newField.required} />
-										<span>Required</span>
-									</label>
+								<ManageActionRow>
+									{#snippet lead()}
+										<label class="checkbox-label">
+											<input type="checkbox" bind:checked={newField.required} />
+											<span>Required</span>
+										</label>
+									{/snippet}
 									<button
 										class="btn preset-filled-primary-500"
 										disabled={busy || !newField.label}
@@ -1391,7 +1407,7 @@
 										<IconPlus class="h-4 w-4" />
 										Add Field
 									</button>
-								</div>
+								</ManageActionRow>
 							</div>
 						</div>
 					{/if}
@@ -1584,13 +1600,13 @@
 	/* Stats Grid */
 	.stats-grid {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.75rem;
 	}
 
 	@media (min-width: 640px) {
 		.stats-grid {
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(4, minmax(0, 1fr));
 			gap: 1rem;
 		}
 	}
@@ -1631,12 +1647,8 @@
 		position: relative;
 		background: var(--card-bg);
 		border: 1px solid var(--card-border);
-		border-radius: 1.25rem;
 		overflow: hidden;
 		animation: card-in 360ms ease both;
-		box-shadow:
-			0 1px 3px color-mix(in oklab, black 8%, transparent),
-			0 4px 12px color-mix(in oklab, black 4%, transparent);
 	}
 
 	.card-accent {
@@ -1645,83 +1657,16 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: linear-gradient(90deg, var(--color-primary-500), var(--color-secondary-500));
-		opacity: 0.8;
+		background: var(--color-primary-500);
 		pointer-events: none;
 	}
 
 	.card-accent.warning {
-		background: linear-gradient(90deg, var(--color-warning-500), var(--color-tertiary-500));
+		background: var(--color-warning-500);
 	}
 
 	.card-accent.success {
-		background: linear-gradient(90deg, var(--color-success-500), var(--color-secondary-500));
-	}
-
-	.card-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 1rem 1.25rem;
-		border-bottom: 1px solid var(--card-border);
-	}
-
-	@media (max-width: 480px) {
-		.card-header {
-			padding: 0.875rem 1rem;
-		}
-	}
-
-	.card-header-left {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.card-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2.25rem;
-		height: 2.25rem;
-		border-radius: 0.625rem;
-		background: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
-		color: var(--color-primary-400);
-	}
-
-	.card-icon.warning {
-		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
-		color: var(--color-warning-400);
-	}
-
-	.card-icon.success {
-		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
-		color: var(--color-success-400);
-	}
-
-	.card-icon.muted {
-		background: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
-		color: var(--color-surface-400);
-	}
-
-	.card-title-group {
-		display: flex;
-		align-items: center;
-		gap: 0.625rem;
-		flex-wrap: wrap;
-	}
-
-	.card-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		letter-spacing: -0.01em;
-	}
-
-	.card-header-right {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		background: var(--color-success-500);
 	}
 
 	.card-body {
@@ -1869,7 +1814,7 @@
 
 	.search-input {
 		flex: 1;
-		min-width: 200px;
+		min-width: min(100%, 200px);
 		position: relative;
 	}
 
@@ -1904,7 +1849,7 @@
 		border: 1px solid var(--input-border);
 		color: inherit;
 		cursor: pointer;
-		min-width: 140px;
+		min-width: min(100%, 140px);
 	}
 
 	.select:focus {
@@ -2076,7 +2021,7 @@
 
 	.details-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 		gap: 0.75rem;
 		padding: 1rem 0;
 	}
@@ -2108,11 +2053,6 @@
 	.action-label {
 		font-size: 0.75rem;
 		opacity: 0.6;
-	}
-
-	.action-buttons {
-		display: flex;
-		gap: 0.5rem;
 	}
 
 	.status-btn {
@@ -2209,11 +2149,6 @@
 		flex-shrink: 0;
 	}
 
-	.application-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
 	/* Manual Form */
 	.manual-form {
 		display: flex;
@@ -2223,18 +2158,18 @@
 
 	.form-row {
 		display: grid;
-		grid-template-columns: 2fr 1.5fr;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
 		gap: 0.75rem;
 	}
 
 	.form-row.three-col {
-		grid-template-columns: 2fr 1fr 1fr;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
 	}
 
 	@media (max-width: 768px) {
 		.form-row,
 		.form-row.three-col {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 
@@ -2347,7 +2282,7 @@
 
 	.settings-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 		gap: 1rem;
 		padding: 1rem 0;
 	}
@@ -2564,13 +2499,6 @@
 		overflow-wrap: anywhere;
 	}
 
-	.tier-actions {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-
 	.new-tier-form {
 		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
 		border-radius: 0.75rem;
@@ -2659,22 +2587,15 @@
 
 	.field-row-inputs {
 		display: grid;
-		grid-template-columns: 2fr 1fr;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 		gap: 0.5rem;
 		margin-bottom: 0.75rem;
 	}
 
 	@media (max-width: 480px) {
 		.field-row-inputs {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
-	}
-
-	.field-actions-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
 	}
 
 	.empty-text {

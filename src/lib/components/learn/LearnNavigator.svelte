@@ -82,7 +82,7 @@
 			{#each ['I’m new to cycling', 'Help me organize a community ride'] as example}
 				<button
 					type="button"
-					class="border-surface-800 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+					class="border-surface-800 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition pointer-coarse:min-h-11"
 					disabled={busy}
 					onclick={() => ask(example)}
 				>

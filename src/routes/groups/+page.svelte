@@ -1,7 +1,8 @@
 <script>
 	let { data } = $props();
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -9,7 +10,6 @@
 	import IconSlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconMaximize2 from '@lucide/svelte/icons/maximize-2';
-	import IconMinimize2 from '@lucide/svelte/icons/minimize-2';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconLoader2 from '@lucide/svelte/icons/loader-circle';
@@ -94,7 +94,7 @@
 			for (const id of riding_discipline_ids) p.append('riding_discipline_ids', String(id));
 			const qs = p.toString();
 			const target = url.pathname + (qs ? `?${qs}` : '');
-			goto(target, { replaceState: true, reset: false });
+			goto(target, { replaceState: true, keepFocus: true, noScroll: true });
 		} catch {}
 	}
 
@@ -168,7 +168,7 @@
 
 	function filterChipClass(active) {
 		const base =
-			'px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition cursor-pointer';
+			'inline-flex items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition cursor-pointer pointer-coarse:min-h-11 pointer-coarse:min-w-11';
 		return active
 			? `${base} bg-primary-500 text-surface-950`
 			: `${base} bg-surface-950 text-surface-50 hover:bg-tertiary-500 hover:text-surface-950`;
@@ -234,153 +234,22 @@
 	};
 	const hasStateList = $derived(!!statesByCountry[country]?.length);
 
-	// Leaflet map + clustering
-	/** @type {HTMLElement | undefined} */
-	let mapEl = $state();
-	/** @type {HTMLElement | undefined} */
-	let mapLightboxEl = $state();
-	/** @type {any} */
-	let map = $state(null);
-	/** @type {any} */
-	let mapLightbox = $state(null);
-	/** @type {any} */
-	let clusterLayer = $state(null);
-	/** @type {any} */
-	let clusterLayerLightbox = $state(null);
-	/** @type {any} */
-	let L = $state(null);
-
-	function validCoords(g) {
-		return Number.isFinite(g?.latitude) && Number.isFinite(g?.longitude);
-	}
-
-	let mapLoadPromise;
-	async function ensureMapLibrary() {
-		if (L) return L;
-		if (!mapLoadPromise) {
-			mapLoadPromise = Promise.all([
-				import('#lib/map/leaflet.css'),
-				import('leaflet'),
-				import('leaflet.markercluster')
-			]).then(([, mod]) => {
-				L = mod.default || mod;
-				return L;
-			});
-		}
-		return mapLoadPromise;
-	}
-
-	onMount(() => {
-		return () => {
-			try {
-				map?.remove();
-				mapLightbox?.remove();
-			} catch {}
-		};
-	});
-
-	$effect(() => {
-		if (showMap && !L) {
-			ensureMapLibrary().catch((error) => console.error('Failed to load map', error));
-		}
-	});
-
-	function createMap(targetEl) {
-		if (!L || !targetEl) return null;
-		const createdMap = L.map(targetEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(createdMap);
-		const createdClusterLayer = L.markerClusterGroup({
-			chunkedLoading: true,
-			chunkInterval: 50,
-			chunkDelay: 16,
-			removeOutsideVisibleBounds: true,
-			showCoverageOnHover: false
-		});
-		createdMap.addLayer(createdClusterLayer);
-		return { map: createdMap, clusterLayer: createdClusterLayer };
-	}
-
-	function updateMarkers(targetMap, targetClusterLayer) {
-		if (!targetMap || !targetClusterLayer || !L) return;
-		targetClusterLayer.clearLayers();
-		const pts = [];
-		for (const g of data.mapPoints || []) {
-			if (!validCoords(g)) continue;
-			const lat = Number(g.latitude);
-			const lng = Number(g.longitude);
-			const m = L.marker([lat, lng]);
-			m.bindPopup(
-				`<div style="min-width:180px"><strong>${g.name}</strong><br/><small>${g.city ? g.city + ', ' : ''}${g.state_region} · ${g.country}</small><br/><a href="/groups/${g.slug}">View group</a></div>`
-			);
-			targetClusterLayer.addLayer(m);
-			pts.push([lat, lng]);
-		}
-		if (pts.length) {
-			const b = L.latLngBounds(pts);
-			targetMap.fitBounds(b.pad(0.1));
-		} else {
-			targetMap.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		if (!L || !showMap || !mapEl || map) return;
-		const created = createMap(mapEl);
-		if (!created) return;
-		map = created.map;
-		clusterLayer = created.clusterLayer;
-		updateMarkers(map, clusterLayer);
-		setTimeout(() => map?.invalidateSize(), 120);
-	});
-
-	$effect(() => {
-		if (showMap) return;
-		try {
-			map?.remove();
-		} catch {}
-		map = undefined;
-		clusterLayer = undefined;
-	});
-
-	$effect(() => {
-		if (!L || !showMapLightbox || !mapLightboxEl || mapLightbox) return;
-		const created = createMap(mapLightboxEl);
-		if (!created) return;
-		mapLightbox = created.map;
-		clusterLayerLightbox = created.clusterLayer;
-		updateMarkers(mapLightbox, clusterLayerLightbox);
-		setTimeout(() => mapLightbox?.invalidateSize(), 80);
-	});
-
-	$effect(() => {
-		if (showMapLightbox) return;
-		try {
-			mapLightbox?.remove();
-		} catch {}
-		mapLightbox = undefined;
-		clusterLayerLightbox = undefined;
-	});
-
-	$effect(() => {
-		void data.mapPoints;
-		updateMarkers(map, clusterLayer);
-		updateMarkers(mapLightbox, clusterLayerLightbox);
-	});
-
-	$effect(() => {
-		if (showMap && map) {
-			setTimeout(() => map?.invalidateSize(), 180);
-		}
-	});
-
-	$effect(() => {
-		if (showMapLightbox && mapLightbox) {
-			setTimeout(() => mapLightbox?.invalidateSize(), 80);
-		}
-	});
+	const groupMapItems = $derived(
+		(data.mapPoints || [])
+			.filter((g) => isValidLatLng(g?.latitude, g?.longitude))
+			.map((g) => ({
+				id: g.id ?? g.slug,
+				lat: Number(g.latitude),
+				lng: Number(g.longitude),
+				title: g.name || 'Cycling group',
+				subtitle: [g.city ? `${g.city}, ${g.state_region || ''}`.trim() : g.state_region, g.country]
+					.filter(Boolean)
+					.join(' · '),
+				badge: (data.group_types_map?.[g.id] || [])[0] || '',
+				href: `/groups/${g.slug}`,
+				ctaLabel: 'View group'
+			}))
+	);
 
 	$effect(() => {
 		if (!showMap && showMapLightbox) {
@@ -390,29 +259,9 @@
 
 	$effect(() => {
 		if (!scrollToCardsAfterSearch) return;
-		if (navigating.to) return;
+		if (navigating) return;
 		scrollToCardsAfterSearch = false;
 		setTimeout(() => scrollToGroupCards(), 10);
-	});
-
-	$effect(() => {
-		if (typeof document === 'undefined') return;
-		if (!showMapLightbox) return;
-		const previousOverflow = document.documentElement.style.overflow;
-		document.documentElement.style.overflow = 'hidden';
-		return () => {
-			document.documentElement.style.overflow = previousOverflow;
-		};
-	});
-
-	onMount(() => {
-		const onKeyDown = (event) => {
-			if (event.key === 'Escape' && showMapLightbox) {
-				showMapLightbox = false;
-			}
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
 	});
 
 	function groupPlace(group) {
@@ -435,7 +284,7 @@
 			</div>
 			<button
 				type="button"
-				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition"
+				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 				onclick={() => window.dispatchEvent(new Event('open-login'))}
 			>
 				Sign in
@@ -474,14 +323,14 @@
 					<div class="flex flex-wrap gap-3">
 						<a
 							href="#group-list"
-							class="group bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							class="group bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							Explore groups
 							<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 						</a>
 						<a
 							href="/groups/new"
-							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							<IconPlus class="h-4 w-4" /> Start a group
 						</a>
@@ -557,7 +406,7 @@
 			<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto]">
 				<div class="border-surface-600 focus-within:border-primary-500 flex border-2">
 					<input
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-2.5 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-2.5 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Search groups"
 						bind:value={q}
 						placeholder="Search by group name, city, or description…"
@@ -565,7 +414,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-primary-400 flex shrink-0 cursor-pointer items-center justify-center px-4 transition"
+						class="bg-primary-500 text-surface-950 hover:bg-primary-400 flex shrink-0 cursor-pointer items-center justify-center px-4 transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						onclick={handleSearchButtonClick}
 						aria-label="Search groups"
 						title="Search"
@@ -576,7 +425,7 @@
 
 				<div class="grid grid-cols-2 gap-3">
 					<select
-						class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+						class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Country"
 						bind:value={country}
 						onchange={scheduleApply}
@@ -593,7 +442,7 @@
 
 					{#if hasStateList}
 						<select
-							class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 							aria-label="State or region"
 							bind:value={state_region}
 							onchange={scheduleApply}
@@ -605,7 +454,7 @@
 						</select>
 					{:else}
 						<input
-							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 							aria-label="State or region"
 							bind:value={state_region}
 							oninput={scheduleApply}
@@ -617,7 +466,7 @@
 				{#if activeFilterCount > 0}
 					<button
 						type="button"
-						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 						onclick={clearAll}
 						in:fade={{ duration: 120 }}
 					>
@@ -637,7 +486,7 @@
 					<button
 						type="button"
 						aria-pressed={group_type_ids.length === 0}
-						class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.length ===
+						class="inline-flex cursor-pointer items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 {group_type_ids.length ===
 						0
 							? 'bg-primary-500 text-surface-950'
 							: 'border-surface-700 bg-surface-950 text-surface-200 hover:border-primary-500 border'}"
@@ -652,7 +501,7 @@
 						<button
 							type="button"
 							aria-pressed={group_type_ids.includes(t.id)}
-							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.includes(
+							class="inline-flex cursor-pointer items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 {group_type_ids.includes(
 								t.id
 							)
 								? 'bg-primary-500 text-surface-950'
@@ -666,7 +515,7 @@
 
 				<button
 					type="button"
-					class="text-surface-300 hover:text-primary-500 inline-flex cursor-pointer items-center gap-2 py-1 text-xs font-black tracking-[0.18em] uppercase transition"
+					class="text-surface-300 hover:text-primary-500 inline-flex cursor-pointer items-center gap-2 py-1 text-xs font-black tracking-[0.18em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					onclick={() => (showAdvanced = !showAdvanced)}
 					aria-expanded={showAdvanced}
 				>
@@ -803,7 +652,8 @@
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition {showMap
+					aria-pressed={showMap}
+					class="inline-flex min-h-9 cursor-pointer items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 {showMap
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-700 text-surface-200 hover:border-primary-500 hover:text-primary-500 border-2'}"
 					onclick={() => (showMap = !showMap)}
@@ -814,7 +664,8 @@
 				{#if showMap}
 					<button
 						type="button"
-						class="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex cursor-pointer items-center gap-2 border-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition"
+						aria-haspopup="dialog"
+						class="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-9 cursor-pointer items-center gap-2 border-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11"
 						onclick={() => (showMapLightbox = true)}
 					>
 						<IconMaximize2 class="h-4 w-4" />
@@ -826,29 +677,19 @@
 
 		<!-- Map -->
 		{#if showMap}
-			<div class="border-surface-700 mb-8 border-2">
-				<div bind:this={mapEl} class="map-canvas"></div>
-			</div>
-		{/if}
-		{#if showMap && showMapLightbox}
-			<button
-				type="button"
-				class="map-lightbox-backdrop"
-				aria-label="Close expanded map"
-				onclick={() => (showMapLightbox = false)}
-			></button>
-			<div class="map-shell-lightbox border-primary-500 border-[3px]">
-				<div class="map-lightbox-toolbar">
-					<button
-						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 inline-flex cursor-pointer items-center gap-2 px-4 py-2.5 text-xs font-black tracking-[0.16em] uppercase"
-						onclick={() => (showMapLightbox = false)}
-					>
-						<IconMinimize2 class="h-4 w-4" />
-						Close Expanded Map
-					</button>
-				</div>
-				<div bind:this={mapLightboxEl} class="map-canvas map-canvas-lightbox"></div>
+			<div class="mb-8">
+				<DirectoryMapExplorer
+					regionLabel="Cycling group locations map"
+					items={groupMapItems}
+					itemNounSingular="group"
+					itemNounPlural="groups"
+					cluster
+					expandable
+					bind:expanded={showMapLightbox}
+					expandedTitle="Expanded cycling group locations map"
+					shellClass="border-surface-700 border-2"
+					canvasClass="h-[380px] w-full"
+				/>
 			</div>
 		{/if}
 
@@ -1027,7 +868,7 @@
 				<button
 					type="button"
 					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 cursor-pointer border-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page <= 1 || Boolean(navigating.to)}
+					disabled={page <= 1 || navigating}
 					onclick={() => setPage(page - 1)}
 				>
 					Previous
@@ -1035,7 +876,7 @@
 				<span
 					class="flex items-center justify-center gap-2 px-4 text-sm font-black tracking-[0.2em] uppercase tabular-nums"
 				>
-					{#if navigating.to}
+					{#if navigating}
 						<IconLoader2 class="text-primary-500 h-4 w-4 animate-spin" />
 					{/if}
 					Page {page} of {totalPages}
@@ -1043,7 +884,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page >= totalPages || Boolean(navigating.to)}
+					disabled={page >= totalPages || navigating}
 					onclick={() => setPage(page + 1)}
 				>
 					Next
@@ -1052,39 +893,3 @@
 		{/if}
 	</section>
 </div>
-
-<style>
-	.map-canvas {
-		height: 380px;
-		width: 100%;
-	}
-
-	.map-lightbox-backdrop {
-		position: fixed;
-		inset: 0;
-		z-index: 1200;
-		border: none;
-		padding: 0;
-		margin: 0;
-		background: rgba(10, 10, 14, 0.88);
-	}
-
-	.map-shell-lightbox {
-		position: fixed;
-		inset: 3vh 2vw;
-		z-index: 1250;
-		background: var(--color-surface-950);
-	}
-
-	.map-lightbox-toolbar {
-		position: absolute;
-		top: 0.75rem;
-		right: 0.75rem;
-		z-index: 10;
-	}
-
-	.map-canvas-lightbox {
-		height: 100%;
-		min-height: 78vh;
-	}
-</style>

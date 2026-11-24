@@ -1,5 +1,6 @@
 <script>
 	import CalendarDayOverflow from '#lib/components/calendar/CalendarDayOverflow.svelte';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
 	import {
 		buildMonthGrid,
 		formatEventTime,
@@ -14,9 +15,9 @@
 	import { browser } from '$app/env';
 	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { applyVolunteerUrlState, parseVolunteerUrlState } from '#lib/url/directoryUrlState';
-	import { onMount, tick, untrack } from 'svelte';
-	import 'leaflet/dist/leaflet.css';
+	import { onMount, untrack } from 'svelte';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
@@ -25,7 +26,6 @@
 	import IconHeartHandshake from '@lucide/svelte/icons/heart-handshake';
 	import { slide, fade } from 'svelte/transition';
 
-	/** @type {Record<string, any>} */
 	let {
 		eventsData = [],
 		hostGroupsData = [],
@@ -39,32 +39,24 @@
 		createButtonHref = '/volunteer/new'
 	} = $props();
 
-	/** @type {any} */
 	const events = $derived((eventsData ?? []).filter(Boolean));
-	/** @type {any} */
 	const hostGroups = $derived((hostGroupsData ?? []).filter(Boolean));
-	/** @type {any} */
 	const eventTypes = $derived((eventTypesData ?? []).filter(Boolean));
-	/** @type {any} */
 	const hostOrgs = $derived((hostOrgsData ?? []).filter(Boolean));
-	/** @type {any} */
 	const opportunities = $derived((opportunitiesData ?? []).filter(Boolean));
 
-	/** @type {any} */
 	const hostGroupMap = $derived.by(() => {
 		const map = new Map();
 		for (const g of hostGroups) if (g?.id != null) map.set(String(g.id), g);
 		return map;
 	});
 
-	/** @type {any} */
 	const eventTypeMap = $derived.by(() => {
 		const map = new Map();
 		for (const t of eventTypes) if (t?.slug) map.set(t.slug, t);
 		return map;
 	});
 
-	/** @type {any} */
 	const hostOrgMap = $derived.by(() => {
 		const map = new Map();
 		for (const o of hostOrgs) {
@@ -73,16 +65,10 @@
 		}
 		return map;
 	});
-	/**
-	 * @param {any} id
-	 */
 	function getHostOrgNameById(id) {
 		const org = hostOrgMap.get(String(id));
 		return org?.name ?? org?.title ?? org?.org_name ?? '';
 	}
-	/**
-	 * @param {any} e
-	 */
 	function getHostOrgNameForEvent(e) {
 		const id = e?.host_org_id ?? e?.host_organization_id ?? e?.organization_id ?? e?.org_id ?? null;
 		if (id != null) {
@@ -106,7 +92,6 @@
 		Boolean(initialUrlState.location || initialUrlState.hostGroupId || initialUrlState.eventType)
 	);
 	let viewerTimezone = $state('UTC');
-	/** @type {HTMLElement | null} */
 	let directoryTopEl = $state(null);
 	let routerReady = false;
 	let searchDebounceTimer;
@@ -161,30 +146,18 @@
 		syncUrlToState();
 	}
 
-	/**
-	 * @param {string} nextView
-	 */
 	function selectView(nextView) {
 		view = nextView;
 		syncUrlToState();
 	}
 
-	/**
-	 * @param {any} event
-	 */
 	function eventHostGroup(event) {
 		const id = event?.host_group_id;
 		return id != null ? hostGroupMap.get(String(id)) : undefined;
 	}
-	/**
-	 * @param {any} value
-	 */
 	function parseEventDate(value) {
 		return parseCalendarDate(value);
 	}
-	/**
-	 * @param {any} group
-	 */
 	function hostGroupLocation(group) {
 		if (!group) return '';
 		return [group.city, group.state_region, group.country]
@@ -192,31 +165,19 @@
 			.filter(Boolean)
 			.join(', ');
 	}
-	/**
-	 * @param {any} event
-	 */
 	function eventLocation(event) {
 		if (event?.location_name) return event.location_name;
 		const g = eventHostGroup(event);
 		if (g?.city || g?.state_region || g?.country) return hostGroupLocation(g);
 		return event?.location_address || '';
 	}
-	/**
-	 * @param {any} event
-	 */
 	function eventTypeLabel(event) {
 		return eventTypeMap.get(event?.event_type_slug)?.event_type || '';
 	}
-	/**
-	 * @param {any} event
-	 */
 	function hostGroupLabel(event) {
 		return eventHostGroup(event)?.name || '';
 	}
 
-	/**
-	 * @param {any} event
-	 */
 	function eventTimeRange(event) {
 		return (
 			formatVolunteerSchedule(event?.event_start, event?.event_end, event?.timezone) ||
@@ -232,24 +193,17 @@
 		return getTimezoneBadge(event?.event_start, event?.timezone, viewerTimezone);
 	}
 
-	/**
-	 * @param {any} e
-	 */
 	function coordsFor(e) {
-		if (e?.latitude != null && e?.longitude != null)
-			return [Number(e.latitude), Number(e.longitude)];
+		if (isValidLatLng(e?.latitude, e?.longitude)) return [Number(e.latitude), Number(e.longitude)];
 		const g = eventHostGroup(e);
-		if (g?.latitude != null && g?.longitude != null)
-			return [Number(g.latitude), Number(g.longitude)];
+		if (isValidLatLng(g?.latitude, g?.longitude)) return [Number(g.latitude), Number(g.longitude)];
 		return null;
 	}
 
-	/** @type {any} */
 	const indexedEvents = $derived(
 		events.map((e) => {
 			const g = eventHostGroup(e);
 			const hostOrgName = getHostOrgNameForEvent(e);
-			/** @type {any} */
 			const searchBlob = [
 				e.title,
 				e.summary,
@@ -280,34 +234,26 @@
 		})
 	);
 
-	/** @type {any} */
 	const normalizedSearch = $derived(appliedSearch.trim().toLowerCase());
-	/** @type {any} */
 	const normalizedLocation = $derived(locationQ.trim().toLowerCase());
-	/** @type {any} */
 	const selectedHostId = $derived(hostGroupId?.trim() ? hostGroupId.trim() : '');
-	/** @type {any} */
 	const selectedEventType = $derived(eventType?.trim() ? eventType.trim() : '');
 
 	const currentTime = new Date();
 
-	/** @type {any} */
 	const sortedEvents = $derived(
 		[...indexedEvents].sort((a, b) => {
-			/** @type {any} */
 			const aS = parseEventDate(a?.event_start) ?? new Date(0);
-			/** @type {any} */
 			const bS = parseEventDate(b?.event_start) ?? new Date(0);
 			return aS - bS;
 		})
 	);
 
-	/** @type {any} */
 	const filteredEvents = $derived(
 		sortedEvents.filter((e) => {
 			const start = parseEventDate(e?.event_start);
 			const end = parseEventDate(e?.event_end) ?? start;
-			if (!start || /** @type {any} */ (end) < currentTime) return false;
+			if (!start || end < currentTime) return false;
 
 			if (normalizedSearch && !e._search.includes(normalizedSearch)) return false;
 			if (normalizedLocation && !e._loc.includes(normalizedLocation)) return false;
@@ -320,10 +266,8 @@
 			return true;
 		})
 	);
-	/** @type {any} */
 	const totalUpcoming = $derived(filteredEvents.length);
 
-	/** @type {any} */
 	const eventsByDate = $derived(
 		filteredEvents.reduce((acc, e) => {
 			const key = toEventDateKey(e.event_start, e.timezone);
@@ -333,9 +277,6 @@
 		}, /** @type {Record<string, any[]>} */ ({}))
 	);
 
-	/**
-	 * @param {any} date
-	 */
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
@@ -408,9 +349,6 @@
 		syncUrlToState();
 	}
 
-	/**
-	 * @param {number} offset
-	 */
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
@@ -455,18 +393,15 @@
 		};
 	});
 
-	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, eventsByDate, toCivilDateKey));
 
 	const calendarDayFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'full' });
-	/** @type {any} */
 	const calendarHeaderText = $derived.by(() => {
 		const monthLabel = new Intl.DateTimeFormat('en-US', {
 			month: 'long',
 			year: 'numeric'
 		}).format(calendarReference);
 
-		/** @type {any} */
 		let earliestEvent = null;
 		for (const week of calendarMatrix) {
 			for (const day of week) {
@@ -487,131 +422,32 @@
 		return monthLabel;
 	});
 
-	/** @type {any} */
 	const mobileMonthDays = $derived(
 		calendarMatrix.flat().filter((day) => day.inMonth && day.items.length > 0)
 	);
 
-	/** @type {any} */
-	let mapContainer = $state(null);
-	/** @type {any} */
-	let leafletModule = $state(null);
-	/** @type {any} */
-	let mapInstance = $state(null);
-	/** @type {any} */
-	let markerLayer = $state(null);
+	const volunteerMapItems = $derived(
+		filteredEvents
+			.filter((e) => Array.isArray(e._coords) && isValidLatLng(e._coords[0], e._coords[1]))
+			.map((e) => {
+				const hostName = hostGroupLabel(e) || e._hostOrgName;
+				const tzBadge = eventTimezoneBadge(e);
+				return {
+					id: e.id ?? e.slug,
+					lat: e._coords[0],
+					lng: e._coords[1],
+					title: e.title || 'Volunteer event',
+					subtitle: [eventTimeRange(e), tzBadge].filter(Boolean).join(' '),
+					meta: [eventLocation(e), hostName ? `Hosted by ${hostName}` : '']
+						.filter(Boolean)
+						.join(' · '),
+					badge: eventTypeLabel(e),
+					href: `/volunteer/${e.slug}`,
+					ctaLabel: 'View details'
+				};
+			})
+	);
 
-	async function ensureMap() {
-		if (!browser) return;
-		if (!leafletModule) {
-			leafletModule = await import('leaflet');
-		}
-		if (!mapInstance && mapContainer && leafletModule) {
-			mapInstance = leafletModule.map(mapContainer, {
-				center: [39.5, -98.35],
-				zoom: 4,
-				scrollWheelZoom: false
-			});
-			leafletModule
-				.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-					attribution: '&copy; OpenStreetMap contributors'
-				})
-				.addTo(mapInstance);
-			markerLayer = leafletModule.layerGroup().addTo(mapInstance);
-		}
-	}
-
-	let markerQueued = false;
-	function queueMarkerUpdate() {
-		if (markerQueued) return;
-		markerQueued = true;
-		requestAnimationFrame(() => {
-			markerQueued = false;
-			updateMarkers();
-		});
-	}
-	function updateMarkers() {
-		if (!browser || !leafletModule || !mapInstance || !markerLayer) return;
-		markerLayer.clearLayers();
-		/** @type {any} */
-		const pts = [];
-		for (const e of filteredEvents) {
-			const coords = e._coords;
-			if (!coords) continue;
-			const m = leafletModule.marker(coords).addTo(markerLayer);
-			const popup = document.createElement('div');
-			popup.className = 'space-y-1 text-sm';
-			popup.style.maxWidth = '240px';
-			popup.style.overflowWrap = 'anywhere';
-			const link = document.createElement('a');
-			link.href = `/volunteer/${e.slug}`;
-			link.className = 'text-secondary-600-400 font-semibold hover:underline';
-			link.textContent = e.title || 'Volunteer event';
-			popup.appendChild(link);
-			const t = document.createElement('div');
-			t.className = 'flex flex-wrap items-center gap-1.5';
-			const timeSpan = document.createElement('span');
-			timeSpan.textContent = eventTimeRange(e);
-			t.appendChild(timeSpan);
-			const tzBadge = eventTimezoneBadge(e);
-			if (tzBadge) {
-				const badgeEl = document.createElement('span');
-				badgeEl.textContent = tzBadge;
-				badgeEl.style.padding = '1px 5px';
-				badgeEl.style.fontSize = '10px';
-				badgeEl.style.fontWeight = '800';
-				badgeEl.style.letterSpacing = '0.08em';
-				badgeEl.style.textTransform = 'uppercase';
-				badgeEl.style.background = '#09090b';
-				badgeEl.style.color = '#eab308';
-				t.appendChild(badgeEl);
-			}
-			popup.appendChild(t);
-			const loc = eventLocation(e);
-			if (loc) {
-				const el = document.createElement('div');
-				el.textContent = loc;
-				popup.appendChild(el);
-			}
-			const hostName = hostGroupLabel(e) || e._hostOrgName;
-			if (hostName) {
-				const el = document.createElement('div');
-				el.textContent = `Hosted by ${hostName}`;
-				popup.appendChild(el);
-			}
-			m.bindPopup(popup);
-			pts.push(m.getLatLng());
-		}
-		if (pts.length) {
-			const bounds = leafletModule.latLngBounds(pts);
-			mapInstance.fitBounds(bounds, { padding: [32, 32], maxZoom: 13 });
-		} else {
-			mapInstance.setView([39.5, -98.35], 3);
-		}
-	}
-	async function activateMap() {
-		if (!browser) return;
-		await ensureMap();
-		queueMarkerUpdate();
-	}
-
-	$effect(() => {
-		if (browser && view === 'map') tick().then(() => activateMap());
-	});
-	$effect(() => {
-		void filteredEvents;
-		void viewerTimezone;
-		if (browser && view === 'map' && mapInstance) queueMarkerUpdate();
-	});
-	$effect(() => () => {
-		if (mapInstance) {
-			mapInstance.remove();
-			mapInstance = null;
-			markerLayer = null;
-		}
-	});
-
-	/** @type {any} */
 	const heroStats = $derived([
 		{ value: totalUpcoming, label: 'Upcoming events', tone: 'text-primary-500' },
 		{ value: hostGroups.length, label: 'Host groups', tone: 'text-tertiary-500' },
@@ -654,7 +490,7 @@
 			<div class="border-surface-800 flex flex-wrap items-center gap-3 border-t pt-5">
 				<a
 					href="#volunteer-directory"
-					class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+					class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 				>
 					Find an opportunity
 					<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
@@ -662,7 +498,7 @@
 				{#if showCreateButton}
 					<a
 						href={createButtonHref}
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						<IconPlus class="h-4 w-4" /> Create an event
 					</a>
@@ -709,7 +545,7 @@
 				<div class="border-surface-700 bg-surface-950 flex border-2">
 					<input
 						type="search"
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-3.5 py-2.5 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Search volunteer opportunities"
 						bind:value={searchInput}
 						oninput={handleSearchInput}
@@ -723,7 +559,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						onclick={applySearchAndScroll}
 						aria-label="Search volunteer events"
 						title="Search"
@@ -735,7 +571,7 @@
 
 				<button
 					type="button"
-					class="border-surface-700 bg-surface-950 text-surface-50 flex items-center justify-between border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase sm:hidden"
+					class="border-surface-700 bg-surface-950 text-surface-50 flex items-center justify-between border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase sm:hidden pointer-coarse:min-h-11"
 					aria-expanded={mobileFiltersOpen}
 					aria-controls="volunteer-extra-filters"
 					onclick={() => (mobileFiltersOpen = !mobileFiltersOpen)}
@@ -752,7 +588,7 @@
 						<IconMapPin class="text-primary-500 pointer-events-none ml-3 h-4 w-4 shrink-0" />
 						<input
 							type="search"
-							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 w-full border-0 py-2.5 pr-3 pl-2 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 							aria-label="Filter by city and state"
 							bind:value={locationInput}
 							oninput={handleLocationInput}
@@ -767,7 +603,7 @@
 					</div>
 
 					<select
-						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Filter by host group"
 						bind:value={hostGroupId}
 						onchange={handleSelectFilterChange}
@@ -779,7 +615,7 @@
 					</select>
 
 					<select
-						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none"
+						class="border-surface-700 bg-surface-950 text-surface-50 border-2 px-3.5 py-2.5 text-xs font-black tracking-wide uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Filter by event type"
 						bind:value={eventType}
 						onchange={handleSelectFilterChange}
@@ -832,7 +668,7 @@
 					{#each ['list', 'calendar', 'map'] as mode (mode)}
 						<button
 							type="button"
-							class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition ${
+							class={`px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${
 								view === mode
 									? 'bg-primary-500 text-surface-950'
 									: 'bg-surface-950 text-surface-50 hover:bg-surface-800'
@@ -920,7 +756,7 @@
 											{/if}
 											{#if eventOpportunityCount}
 												<a
-													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
+													class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline pointer-coarse:min-h-11"
 													href={`/volunteer/${event.slug}#opportunities`}
 												>
 													<IconHeartHandshake class="h-3.5 w-3.5" />
@@ -930,7 +766,7 @@
 										</div>
 
 										<a
-											class="text-surface-50 hover:text-primary-500 block text-2xl leading-tight font-black uppercase italic hover:no-underline sm:text-3xl"
+											class="text-surface-50 hover:text-primary-500 block text-2xl leading-tight font-black uppercase italic hover:no-underline sm:text-3xl pointer-coarse:min-h-11"
 											href={`/volunteer/${event.slug}`}
 										>
 											{event.title}
@@ -963,7 +799,7 @@
 												<span class="font-bold">Hosted by</span>
 												{#if hostGroup && hostGroup.slug}
 													<a
-														class="text-surface-50 decoration-primary-500 hover:text-primary-500 font-bold underline decoration-2 underline-offset-4"
+														class="text-surface-50 decoration-primary-500 hover:text-primary-500 inline-flex min-h-6 items-center font-bold underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 														href={`/volunteer/groups/${hostGroup.slug}`}
 													>
 														{hostGroup.name}
@@ -1012,21 +848,21 @@
 					<div class="flex gap-2">
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(-1)}
 						>
 							Prev
 						</button>
 						<button
 							type="button"
-							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="bg-primary-500 text-surface-950 hover:bg-surface-50 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={resetCalendarToToday}
 						>
 							Today
 						</button>
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition"
+							class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 hover:border-primary-500 border-2 px-4 py-2 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 							onclick={() => changeMonth(1)}
 						>
 							Next
@@ -1060,7 +896,7 @@
 									{#each day.items as event (event.id)}
 										{@const mobileTzBadge = eventTimezoneBadge(event)}
 										<a
-											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline"
+											class="bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex flex-wrap items-center gap-1.5 px-3 py-2 text-xs font-bold transition hover:no-underline pointer-coarse:min-h-11"
 											href={`/volunteer/${event.slug}`}
 										>
 											<span class="text-primary-500 shrink-0 font-mono text-xs tabular-nums">
@@ -1162,12 +998,20 @@
 				</table>
 			</div>
 		{:else if view === 'map'}
-			<div transition:slide class="border-surface-50 bg-surface-950 border-[3px]">
-				<div bind:this={mapContainer} class="h-[480px] w-full"></div>
-				<div class="text-surface-300 border-surface-800 border-t-2 px-6 py-4 text-sm">
-					Zoom and click markers to preview event details. Some opportunities without mapped
-					coordinates are hidden from the map view.
-				</div>
+			<div transition:slide>
+				<DirectoryMapExplorer
+					regionLabel="Volunteer event locations map"
+					items={volunteerMapItems}
+					itemNounSingular="volunteer event"
+					itemNounPlural="volunteer events"
+					cluster
+					scrollWheelZoom={false}
+					defaultCenter={[39.5, -98.35]}
+					defaultZoom={4}
+					shellClass="border-surface-50 bg-surface-950 border-[3px]"
+					canvasClass="h-[480px] w-full"
+					footerHint="Activate an event pin or cluster to inspect details here. Opportunities without mapped coordinates are hidden from the map view."
+				/>
 			</div>
 		{/if}
 	</section>

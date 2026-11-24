@@ -12,6 +12,9 @@ import {
 } from '#lib/ai/imageGenerationModels';
 import { getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
 import { getUsStateName, normalizeUsStateCode } from '#lib/geo/usStates';
+import { buildContextualCoverAlt } from '#lib/learn/altText';
+import { extractMarkdownHeadings } from '#lib/learn/markdown';
+import { generateLearnImageAltText } from '#lib/server/learnAi';
 import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
@@ -362,7 +365,9 @@ async function persistLearnAsset({
 	sizeBytes,
 	mimeType,
 	styleId,
-	modelId
+	modelId,
+	altText = '',
+	altGenerated = false
 }) {
 	const { data: assetRow, error: assetError } = await supabase
 		.from('learn_assets')
@@ -375,14 +380,16 @@ async function persistLearnAsset({
 			mime_type: mimeType || 'image/png',
 			size_bytes: sizeBytes,
 			source_type: 'upload',
+			alt_text: altText || null,
 			metadata: {
 				generated: true,
 				styleId,
-				modelId
+				modelId,
+				alt_generated: Boolean(altGenerated)
 			}
 		})
 		.select(
-			'id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at, source_type, source_path'
+			'id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at, source_type, source_path, alt_text, metadata'
 		)
 		.single();
 
@@ -394,7 +401,7 @@ async function persistLearnAsset({
 				article_id: articleId,
 				asset_id: assetRow.id,
 				created_by_user_id: userId,
-				usage_kind: 'embedded'
+				usage_kind: 'cover'
 			},
 			{ onConflict: 'article_id,asset_id' }
 		);
@@ -585,6 +592,45 @@ export async function POST(event) {
 			return json({ error: 'Unable to resolve public image URL.' }, { status: 500 });
 		}
 
+		let altText = '';
+		let altGenerated = false;
+		try {
+			const headings =
+				target === 'learn'
+					? extractMarkdownHeadings(context?.bodyMarkdown || '').map((item) => item.text)
+					: [];
+			const altResult = await generateLearnImageAltText({
+				imageBuffer: optimized.buffer,
+				mimeType: optimized.contentType,
+				fileName: storage.fileName || '',
+				imageUrl: url,
+				title: safeTrim(context?.title || context?.name),
+				summary: safeTrim(context?.summary || context?.tagline || context?.description),
+				headings,
+				target,
+				context: {
+					...context,
+					textOverlay: allowTextInImage ? textOverlay : ''
+				},
+				timeoutMs: 12_000
+			});
+			altText = altResult.altText || '';
+			altGenerated = Boolean(altResult.altGenerated && altText);
+		} catch (altError) {
+			if (altError?.code !== 'AI_UNAVAILABLE') {
+				console.warn('Generated cover alt synthesis fell back to context:', altError?.message);
+			}
+		}
+
+		if (!altText) {
+			altText = buildContextualCoverAlt({
+				target,
+				context,
+				styleLabel: stylePreset.label
+			});
+			altGenerated = false;
+		}
+
 		if (target === 'learn') {
 			asset = await persistLearnAsset({
 				supabase,
@@ -596,12 +642,17 @@ export async function POST(event) {
 				sizeBytes: optimized.optimizedBytes,
 				mimeType: optimized.contentType,
 				styleId: stylePreset.id,
-				modelId: model.id
+				modelId: model.id,
+				altText,
+				altGenerated
 			});
 		}
 
 		return json({
 			url,
+			alt_text: altText,
+			altText,
+			alt_generated: altGenerated,
 			target,
 			aspectRatio,
 			styleId: stylePreset.id,

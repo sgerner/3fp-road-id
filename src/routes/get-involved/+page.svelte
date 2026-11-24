@@ -213,7 +213,7 @@
 			<div class="border-surface-800 flex flex-col border-t-2">
 				<a
 					href="mailto:hi@3fp.org"
-					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline pointer-coarse:min-h-11"
 				>
 					<span class="group-hover:text-primary-500 flex items-center gap-3">
 						<IconMail class="text-primary-500 h-4 w-4 shrink-0" />
@@ -225,7 +225,7 @@
 					href="https://www.facebook.com/3FeetPlease/"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline pointer-coarse:min-h-11"
 				>
 					<span class="group-hover:text-primary-500 flex items-center gap-3">
 						<IconShare2 class="text-secondary-400 h-4 w-4 shrink-0" />
@@ -237,7 +237,7 @@
 					href="https://www.instagram.com/3feetplease"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline"
+					class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-3 text-sm font-bold transition hover:px-2 hover:no-underline pointer-coarse:min-h-11"
 				>
 					<span class="group-hover:text-primary-500 flex items-center gap-3">
 						<IconMegaphone class="text-tertiary-500 h-4 w-4 shrink-0" />
@@ -287,7 +287,7 @@
 			</div>
 			<a
 				href="#interest-form"
-				class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline"
+				class="group border-primary-500 text-surface-50 hover:text-primary-500 inline-flex items-center gap-2 border-b-[3px] pb-1 font-black uppercase hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-2"
 			>
 				Apply now <IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 			</a>
@@ -349,7 +349,7 @@
 						<div class="pt-2">
 							<label
 								for={`opportunity-${opportunity.id}`}
-								class={`inline-flex cursor-pointer items-center gap-3 border-2 px-4 py-2.5 text-sm font-black uppercase transition ${
+								class={`inline-flex cursor-pointer items-center gap-3 border-2 px-4 py-2.5 text-sm font-black uppercase transition pointer-coarse:min-h-11 ${
 									isChecked
 										? 'border-primary-500 bg-primary-500 text-surface-950'
 										: 'border-surface-700 bg-surface-900 text-surface-50 hover:border-primary-500'

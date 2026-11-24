@@ -86,6 +86,7 @@
 	let hiddenLogoUrl = $state(initialValues.logo_url || '');
 	/** @type {any} */
 	let hiddenCoverUrl = $state(initialValues.cover_photo_url || '');
+	let hiddenCoverAlt = $state(initialValues.cover_photo_alt || '');
 	let coverUploading = $state(false);
 	let coverUploadError = $state('');
 	/** @type {any} */
@@ -464,6 +465,9 @@
 	function applyGeneratedGroupImage(result) {
 		coverUploadError = '';
 		hiddenCoverUrl = result?.url || hiddenCoverUrl;
+		if (result?.alt_text || result?.altText) {
+			hiddenCoverAlt = result.alt_text || result.altText;
+		}
 	}
 
 	async function uploadNewGroupCoverFiles(files) {
@@ -497,6 +501,7 @@
 	function removeNewGroupCover() {
 		coverUploadError = '';
 		hiddenCoverUrl = '';
+		hiddenCoverAlt = '';
 	}
 </script>
 
@@ -699,6 +704,7 @@
 		/>
 		<input type="hidden" id="logo_url" name="logo_url" value={hiddenLogoUrl} />
 		<input type="hidden" id="cover_photo_url" name="cover_photo_url" value={hiddenCoverUrl} />
+		<input type="hidden" id="cover_photo_alt" name="cover_photo_alt" value={hiddenCoverAlt} />
 		<input type="hidden" id="social_links" name="social_links" value={hiddenSocialLinks} />
 		<input
 			type="hidden"
@@ -901,6 +907,8 @@
 					helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9 recommended"
 					accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
 					imageUrl={hiddenCoverUrl}
+					bind:imageAlt={hiddenCoverAlt}
+					showAltField={true}
 					uploading={coverUploading}
 					error={coverUploadError}
 					target="group"

@@ -1,9 +1,8 @@
 <script>
-	import { Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
-	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
-	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
-	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
-	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
+	import { onMount } from 'svelte';
+	import IconClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import VolunteerEventForm from '#lib/components/volunteer/VolunteerEventForm.svelte';
+	import { toaster } from '../../../toaster-svelte';
 
 	import {
 		mapEventRecordToFormDetails,
@@ -47,21 +46,18 @@
 		getVolunteerEventEmail
 	} from '#lib/services/volunteers';
 
-	/** @type {Record<string, any>} */
 	let { data } = $props();
 
-	const toaster = createToaster({ placement: 'top-end' });
-
-	/** @type {any} */
 	const notifySuccess = (message) => toaster.success({ title: message });
-	/** @type {any} */
 	const notifyError = (message) => toaster.error({ title: message });
-	/** @type {any} */
-	const notifyWarning = (message) => toaster.warning({ title: message });
 
-	/**
-	 * @param {any} text
-	 */
+	let activeSaveCount = $state(0);
+	let saveIntent = $state('publish');
+
+	function trackSaving(delta) {
+		activeSaveCount = Math.max(0, activeSaveCount + delta);
+	}
+
 	function slugify(text) {
 		return (text || '')
 			.toString()
@@ -72,13 +68,8 @@
 			.replace(/-+/g, '-');
 	}
 
-	/**
-	 * @param {any} param0
-	 */
 	function createAutosave({ delay = 600, onSave, successMessage, errorMessage, setSaving }) {
-		/** @type {any} */
 		let timer = null;
-		/** @type {any} */
 		let pending = {};
 		let saving = false;
 
@@ -91,6 +82,7 @@
 				timer = null;
 			}
 			saving = true;
+			trackSaving(1);
 			setSaving?.(true);
 			try {
 				await onSave(payload);
@@ -103,13 +95,11 @@
 				throw err;
 			} finally {
 				saving = false;
+				trackSaving(-1);
 				setSaving?.(false);
 			}
 		}
 
-		/**
-		 * @param {any} patch
-		 */
 		function queue(patch) {
 			pending = { ...pending, ...patch };
 			if (timer) clearTimeout(timer);
@@ -138,9 +128,7 @@
 
 	const eventRecordInitial = pageData.event ?? {};
 	const eventId = eventRecordInitial.id ?? '';
-	/** @type {any} */
 	let eventRecord = $state({ ...eventRecordInitial });
-	/** @type {any} */
 	let eventDetails = $state(mapEventRecordToFormDetails({ ...eventRecordInitial }));
 
 	const hostGroups = pageData.hostGroups ?? [];
@@ -149,35 +137,40 @@
 		.sort((a, b) => String(a.label).localeCompare(String(b.label)));
 	const initialHostGroupId =
 		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
-	/** @type {any} */
 	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
-	/** @type {any} */
 	let filteredHostGroupOptions = $state(hostGroupOptions);
-	/** @type {any} */
-	let showAdvancedSettings = $state(false);
-	/** @type {any} */
-	let showAdvancedCommunications = $state(false);
-	/** @type {any} */
 	let eventSaving = $state(false);
+	let baseTimezones = $state(FALLBACK_TIMEZONES);
+	const timezoneOptions = $derived(
+		eventDetails.timezone && !baseTimezones.includes(eventDetails.timezone)
+			? [eventDetails.timezone, ...baseTimezones]
+			: baseTimezones
+	);
+
+	onMount(() => {
+		try {
+			if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+				baseTimezones = Intl.supportedValuesOf('timeZone');
+			}
+		} catch {
+			// keep fallback timezones
+		}
+	});
 
 	function currentEventTypeDescription() {
 		const match = eventTypeOptions.find((option) => option.value === eventDetails.eventTypeSlug);
 		return match?.description ?? '';
 	}
 
-	/**
-	 * @param {any} value
-	 */
 	function handleHostGroupValueChange(value) {
 		const next = value ?? [];
+		const nextId = next?.[0] ?? '';
 		hostGroupSelection = next;
+		if (String(nextId) === String(eventDetails.hostGroupId ?? '')) return;
 		updateEventDetails({
-			hostGroupId: next?.[0] ?? ''
+			hostGroupId: nextId
 		});
 	}
-	/**
-	 * @param {any} inputValue
-	 */
 	function handleHostGroupSearch(inputValue) {
 		const query = inputValue?.trim().toLowerCase() ?? '';
 		if (!query) {
@@ -211,42 +204,12 @@
 		setSaving: (value) => (eventSaving = value)
 	});
 
-	/**
-	 * @param {any} patch
-	 */
 	function updateEventDetails(patch) {
 		eventDetails = { ...eventDetails, ...patch };
 		eventAutosave.queue(patch);
 	}
 
-	/**
-	 * @param {any} value
-	 */
-	function handleSlugInput(value) {
-		const sanitized = slugify(value);
-		updateEventDetails({ slug: sanitized });
-	}
-
-	const timezoneOptions = FALLBACK_TIMEZONES;
-
-	/**
-	 * @param {...any} args
-	 */
-	function overviewDetailsChange(...args) {
-		const patch = args?.[0] ?? {};
-		updateEventDetails(patch);
-	}
-
-	/**
-	 * @param {...any} args
-	 */
-	function scheduleDetailsChange(...args) {
-		const patch = args?.[0] ?? {};
-		updateEventDetails(patch);
-	}
-
 	const loadedOpportunities = ensureArray(pageData.opportunities ?? []);
-	/** @type {any} */
 	let opportunities = $state(
 		loadedOpportunities.map((op) =>
 			mapOpportunityRecordToFormDetails(op, ensureArray(op?.shifts ?? []))
@@ -255,9 +218,6 @@
 	const opportunityAutosaves = new Map();
 	const shiftAutosaves = new Map();
 
-	/**
-	 * @param {any} id
-	 */
 	function getOpportunityAutosave(id) {
 		if (!opportunityAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -281,18 +241,14 @@
 					);
 					opportunities = opportunities.map((op) => (op.id === id ? normalized : op));
 				},
-				successMessage: 'Activity saved',
-				errorMessage: 'Unable to save activity.'
+				successMessage: 'Role saved',
+				errorMessage: 'Unable to save role.'
 			});
 			opportunityAutosaves.set(id, autosave);
 		}
 		return opportunityAutosaves.get(id);
 	}
 
-	/**
-	 * @param {any} id
-	 * @param {any} opportunityId
-	 */
 	function getShiftAutosave(id, opportunityId) {
 		if (!shiftAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -323,7 +279,7 @@
 		try {
 			const payload = buildOpportunityPayload(
 				{
-					title: 'New activity',
+					title: 'New role',
 					opportunityType: opportunityTypeOptions[0]?.value ?? 'coordination',
 					requiresApproval: false,
 					autoConfirmAttendance: true,
@@ -335,7 +291,7 @@
 			);
 			const response = await createVolunteerOpportunity(payload);
 			const created = response?.data ?? response;
-			if (!created || typeof created !== 'object') throw new Error('Unable to create activity.');
+			if (!created || typeof created !== 'object') throw new Error('Unable to create role.');
 			const freshShifts = await listVolunteerShifts({
 				query: {
 					opportunity_id: `eq.${created.id}`,
@@ -347,19 +303,21 @@
 				ensureArray(freshShifts?.data ?? freshShifts)
 			);
 			opportunities = [...opportunities, normalized];
-			notifySuccess('Activity added');
+			notifySuccess('Role added');
 		} catch (err) {
-			notifyError(err?.message || 'Unable to add activity.');
+			notifyError(err?.message || 'Unable to add role.');
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 */
 	async function removeOpportunity(id) {
 		try {
 			await deleteVolunteerOpportunity(id);
 			opportunities = opportunities.filter((op) => op.id !== id);
+			customQuestions = customQuestions.map((question) =>
+				String(question.opportunityId) === String(id)
+					? { ...question, opportunityId: null }
+					: question
+			);
 			opportunityAutosaves.delete(id);
 			for (const [shiftId] of shiftAutosaves.entries()) {
 				const belongsToRemoved = opportunities.every((op) =>
@@ -367,24 +325,17 @@
 				);
 				if (belongsToRemoved) shiftAutosaves.delete(shiftId);
 			}
-			notifySuccess('Activity removed');
+			notifySuccess('Role removed');
 		} catch (err) {
-			notifyError(err?.message || 'Unable to remove activity.');
+			notifyError(err?.message || 'Unable to remove role.');
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 * @param {any} patch
-	 */
 	function updateOpportunity(id, patch) {
 		opportunities = opportunities.map((op) => (op.id === id ? { ...op, ...patch } : op));
 		getOpportunityAutosave(id).queue(patch);
 	}
 
-	/**
-	 * @param {any} opportunityId
-	 */
 	async function addShift(opportunityId) {
 		try {
 			const opportunity = opportunities.find((op) => op.id === opportunityId);
@@ -420,10 +371,6 @@
 		}
 	}
 
-	/**
-	 * @param {any} opportunityId
-	 * @param {any} shiftId
-	 */
 	async function removeShift(opportunityId, shiftId) {
 		try {
 			await deleteVolunteerShift(shiftId);
@@ -439,13 +386,7 @@
 		}
 	}
 
-	/**
-	 * @param {any} opportunityId
-	 * @param {any} shiftId
-	 * @param {any} patch
-	 */
 	function updateShift(opportunityId, shiftId, patch) {
-		/** @type {any} */
 		let nextShiftRecord = null;
 		opportunities = opportunities.map((op) => {
 			if (op.id !== opportunityId) return op;
@@ -474,15 +415,11 @@
 	}
 
 	const loadedQuestions = ensureArray(pageData.customQuestions ?? []);
-	/** @type {any} */
 	let customQuestions = $state(
 		loadedQuestions.map((question) => mapQuestionRecordToFormDetails(question))
 	);
 	const questionAutosaves = new Map();
 
-	/**
-	 * @param {any} id
-	 */
 	function getQuestionAutosave(id) {
 		if (!questionAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -507,10 +444,6 @@
 		return questionAutosaves.get(id);
 	}
 
-	/**
-	 * @param {any} label
-	 * @param {any} index
-	 */
 	function generateQuestionKey(label, index) {
 		const base = slugify(label || `question-${index + 1}`);
 		return base || `question-${crypto.randomUUID().slice(0, 8)}`;
@@ -542,9 +475,6 @@
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 */
 	async function removeQuestion(id) {
 		try {
 			await deleteVolunteerCustomQuestion(id);
@@ -556,10 +486,6 @@
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 * @param {any} patch
-	 */
 	function updateQuestion(id, patch) {
 		customQuestions = customQuestions.map((question) =>
 			question.id === id ? { ...question, ...patch } : question
@@ -568,13 +494,9 @@
 	}
 
 	const loadedEmails = ensureArray(pageData.eventEmails ?? []);
-	/** @type {any} */
 	let eventEmails = $state(loadedEmails.map((email) => mapEmailRecordToFormDetails(email)));
 	const emailAutosaves = new Map();
 
-	/**
-	 * @param {any} id
-	 */
 	function getEmailAutosave(id) {
 		if (!emailAutosaves.has(id)) {
 			const autosave = createAutosave({
@@ -621,9 +543,6 @@
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 */
 	async function removeEmail(id) {
 		try {
 			await deleteVolunteerEventEmail(id);
@@ -635,73 +554,87 @@
 		}
 	}
 
-	/**
-	 * @param {any} id
-	 * @param {any} patch
-	 */
 	function updateEmail(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
-		if (patch && 'aiComposerOpen' in patch) {
-			// Prevent AI composer usage in the edit view.
-			if (patch.aiComposerOpen) {
-				notifyWarning('The AI composer is unavailable on the edit page.');
-				eventEmails = eventEmails.map((email) =>
-					email.id === id ? { ...email, aiComposerOpen: false } : email
-				);
-				return;
-			}
-		}
 		getEmailAutosave(id).queue(patch);
 	}
 
-	/**
-	 * @param {any} _id
-	 */
-	function handleComposeEmail(_id) {
-		notifyWarning('Email composer is disabled in this editor.');
+	async function flushAllAutosaves() {
+		const tasks = [
+			eventAutosave.flush(),
+			...Array.from(opportunityAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(shiftAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(questionAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(emailAutosaves.values(), (entry) => entry.flush())
+		];
+		await Promise.all(tasks);
 	}
 
-	/** @type {any} */
+	async function handleSaveDraft() {
+		saveIntent = 'draft';
+		try {
+			const statusChanged = eventDetails.status !== 'draft';
+			if (statusChanged) {
+				updateEventDetails({ status: 'draft' });
+			}
+			await flushAllAutosaves();
+			if (!statusChanged) {
+				notifySuccess('Draft saved');
+			}
+		} catch {
+			// individual autosave handlers report errors via toast
+		}
+	}
+
+	async function handlePublish() {
+		saveIntent = 'publish';
+		if (!eventDetails.title?.trim()) {
+			notifyError('Event title is required.');
+			return;
+		}
+		if (!eventDetails.eventStart) {
+			notifyError('Event start is required.');
+			return;
+		}
+		try {
+			const statusChanged = eventDetails.status !== 'published';
+			if (statusChanged) {
+				updateEventDetails({ status: 'published' });
+			}
+			await flushAllAutosaves();
+			if (!statusChanged) {
+				notifySuccess('Event changes saved');
+			}
+		} catch {
+			// individual autosave handlers report errors via toast
+		}
+	}
+
 	const rolesAddOpportunityWrapper = () => {
 		addOpportunity();
 	};
-	/**
-	 * @param {...any} args
-	 */
 	function rolesRemoveOpportunityWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeOpportunity(id);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function rolesUpdateOpportunityWrapper(...args) {
 		const [id, patch] = args;
 
 		if (id === undefined || !patch) return;
 		updateOpportunity(id, patch);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function rolesAddShiftWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		addShift(id);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function rolesRemoveShiftWrapper(...args) {
 		const [opportunityId, shiftId] = args;
 
 		if (opportunityId === undefined || shiftId === undefined) return;
 		removeShift(opportunityId, shiftId);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function rolesUpdateShiftWrapper(...args) {
 		const [opportunityId, shiftId, patch] = args;
 
@@ -709,52 +642,32 @@
 		updateShift(opportunityId, shiftId, patch);
 	}
 
-	/** @type {any} */
 	const commAddQuestionWrapper = () => {
 		addQuestion();
 	};
-	/**
-	 * @param {...any} args
-	 */
 	function commRemoveQuestionWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeQuestion(id);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function commUpdateQuestionWrapper(...args) {
 		const [id, patch] = args;
 
 		if (id === undefined || !patch) return;
 		updateQuestion(id, patch);
 	}
-	/** @type {any} */
 	const commAddEmailWrapper = () => {
 		addEmail();
 	};
-	/**
-	 * @param {...any} args
-	 */
 	function commRemoveEmailWrapper(...args) {
 		const id = args?.[0];
 		if (id === undefined) return;
 		removeEmail(id);
 	}
-	/**
-	 * @param {...any} args
-	 */
 	function commUpdateEmailWrapper(...args) {
 		const [id, patch] = args;
 		if (id === undefined || !patch) return;
 		updateEmail(id, patch);
-	}
-	/**
-	 * @param {...any} args
-	 */
-	function commComposeEmailWrapper(...args) {
-		handleComposeEmail(args?.[0]);
 	}
 </script>
 
@@ -763,101 +676,66 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto w-full max-w-5xl space-y-8 pb-16">
-	<header class="space-y-1">
-		<h1 class="text-3xl font-bold">Edit volunteer event</h1>
-		<p class="text-surface-600-400 text-sm">
-			Updates save automatically. You can leave this page when you see a success toast.
-		</p>
+<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
+	<header class="card border-surface-300-700 bg-surface-50-950/80 p-6 shadow-sm">
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div class="space-y-1">
+				<h1 class="!text-left text-2xl font-bold tracking-tight sm:text-3xl">
+					Edit volunteer event
+				</h1>
+				<p class="text-surface-600-400 text-sm">
+					Updates save automatically. Use Manage Event for live volunteer broadcasts and host
+					alerts.
+				</p>
+			</div>
+			{#if eventDetails.slug}
+				<a
+					href={`/volunteer/${encodeURIComponent(eventDetails.slug)}/manage`}
+					class="btn preset-tonal-tertiary flex min-h-11 shrink-0 items-center gap-2"
+				>
+					<IconClipboardList class="h-4 w-4" />
+					<span>Manage event</span>
+				</a>
+			{/if}
+		</div>
 	</header>
 
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Event basics</h2>
-		<div class="grid gap-4 md:grid-cols-2">
-			<div class="flex flex-col gap-2">
-				<label class="label" for="event-status">Status</label>
-				<select
-					id="event-status"
-					class="select bg-surface-100-900/60"
-					value={eventDetails.status}
-					onchange={(event) => updateEventDetails({ status: event.currentTarget.value })}
-				>
-					{#each statusOptions as status}
-						<option value={status}>{status}</option>
-					{/each}
-				</select>
-			</div>
-		</div>
-
-		<EventOverviewStep
-			{statusOptions}
-			{eventDetails}
-			{eventTypeOptions}
-			{hostGroupSelection}
-			{filteredHostGroupOptions}
-			{showAdvancedSettings}
-			currentEventTypeDescription={currentEventTypeDescription()}
-			hasHostGroups={hostGroupOptions.length > 0}
-			onEventDetailsChange={overviewDetailsChange}
-			onHostGroupValueChange={handleHostGroupValueChange}
-			onHostGroupSearch={handleHostGroupSearch}
-			onClearHostGroup={handleClearHostGroup}
-			onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
-		/>
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Schedule &amp; contact</h2>
-		<ScheduleStep {eventDetails} {timezoneOptions} onEventDetailsChange={scheduleDetailsChange} />
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<div class="flex items-center justify-between">
-			<h2 class="text-xl font-semibold">Roles &amp; shifts</h2>
-			<button type="button" class="btn preset-filled-primary-500" onclick={addOpportunity}>
-				Add activity
-			</button>
-		</div>
-		<RolesStep
-			{opportunities}
-			{opportunityTypeOptions}
-			onAddOpportunity={rolesAddOpportunityWrapper}
-			onRemoveOpportunity={rolesRemoveOpportunityWrapper}
-			onUpdateOpportunity={rolesUpdateOpportunityWrapper}
-			onAddShift={rolesAddShiftWrapper}
-			onRemoveShift={rolesRemoveShiftWrapper}
-			onUpdateShift={rolesUpdateShiftWrapper}
-		/>
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Signup questions &amp; messaging</h2>
-		<CommunicationsStep
-			{customQuestions}
-			{eventEmails}
-			{eventDetails}
-			{opportunities}
-			{fieldTypeOptions}
-			{emailTypeOptions}
-			{showAdvancedCommunications}
-			onToggleAdvanced={() => (showAdvancedCommunications = !showAdvancedCommunications)}
-			onAddQuestion={commAddQuestionWrapper}
-			onRemoveQuestion={commRemoveQuestionWrapper}
-			onUpdateQuestion={commUpdateQuestionWrapper}
-			onAddEmail={commAddEmailWrapper}
-			onRemoveEmail={commRemoveEmailWrapper}
-			onUpdateEmail={commUpdateEmailWrapper}
-			onComposeEmail={commComposeEmailWrapper}
-		/>
-	</section>
-
-	<Toast.Group {toaster} />
+	<VolunteerEventForm
+		mode="edit"
+		id="manual-builder"
+		{eventDetails}
+		{eventTypeOptions}
+		{statusOptions}
+		{timezoneOptions}
+		{opportunityTypeOptions}
+		{fieldTypeOptions}
+		{emailTypeOptions}
+		{hostGroupSelection}
+		{filteredHostGroupOptions}
+		currentEventTypeDescription={currentEventTypeDescription()}
+		hasHostGroups={hostGroupOptions.length > 0}
+		{opportunities}
+		{customQuestions}
+		{eventEmails}
+		saving={eventSaving || activeSaveCount > 0}
+		{saveIntent}
+		onEventDetailsChange={updateEventDetails}
+		onHostGroupValueChange={handleHostGroupValueChange}
+		onHostGroupSearch={handleHostGroupSearch}
+		onClearHostGroup={handleClearHostGroup}
+		onAddOpportunity={rolesAddOpportunityWrapper}
+		onRemoveOpportunity={rolesRemoveOpportunityWrapper}
+		onUpdateOpportunity={rolesUpdateOpportunityWrapper}
+		onAddShift={rolesAddShiftWrapper}
+		onRemoveShift={rolesRemoveShiftWrapper}
+		onUpdateShift={rolesUpdateShiftWrapper}
+		onAddQuestion={commAddQuestionWrapper}
+		onRemoveQuestion={commRemoveQuestionWrapper}
+		onUpdateQuestion={commUpdateQuestionWrapper}
+		onAddEmail={commAddEmailWrapper}
+		onRemoveEmail={commRemoveEmailWrapper}
+		onUpdateEmail={commUpdateEmailWrapper}
+		onSubmit={handlePublish}
+		onSaveDraft={handleSaveDraft}
+	/>
 </div>

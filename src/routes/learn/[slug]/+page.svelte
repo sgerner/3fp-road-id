@@ -10,6 +10,7 @@
 	import IconMessageSquareText from '@lucide/svelte/icons/message-square-text';
 	import IconListTree from '@lucide/svelte/icons/list-tree';
 	import IconSparkle from '@lucide/svelte/icons/sparkle';
+	import { filterLearnAttachmentAssets } from '#lib/learn/altText';
 	import { page } from '$app/state';
 	import {
 		buildAbsoluteUrl,
@@ -20,15 +21,12 @@
 	} from '#lib/seo';
 
 	const { data, form } = $props();
-	/** @type {any} */
 	let showVersionHistory = $state(false);
-	/** @type {any} */
 	const authRequired = $derived(
 		!data.currentUser?.id && page.url.searchParams.get('auth') === 'required'
 	);
 
 	// ── Reading progress bar ─────────────────────────────────────────────
-	/** @type {any} */
 	let scrollProgress = $state(0);
 	/** @type {HTMLElement | null} */
 	let articleEl = $state(null);
@@ -45,7 +43,6 @@
 	}
 
 	// ── TOC Scroll-spy ───────────────────────────────────────────────────
-	/** @type {any} */
 	let activeHeadingId = $state('');
 
 	/** @type {IntersectionObserver | null} */
@@ -70,7 +67,7 @@
 			},
 			{ rootMargin: '-10% 0px -75% 0px', threshold: 0 }
 		);
-		headingEls.forEach((el) => /** @type {any} */ (observer).observe(el));
+		headingEls.forEach((el) => observer.observe(el));
 	}
 
 	$effect(() => {
@@ -306,13 +303,10 @@
 	});
 
 	// Keep the TOC focused on the main sections across screen sizes.
-	/** @type {any} */
 	const tocHeadingsDesktop = $derived((data.article.headings ?? []).filter((h) => h.depth <= 2));
-	/** @type {any} */
 	const tocHeadingsMobile = $derived(tocHeadingsDesktop);
-	/** @type {any} */
+	const attachedMediaAssets = $derived(filterLearnAttachmentAssets(data.article.assets));
 	const seoTitle = $derived.by(() => cleanSeoText(data.article.title || 'Learn'));
-	/** @type {any} */
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
 			data.article.summary ||
@@ -320,9 +314,7 @@
 			165
 		)
 	);
-	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url, ['revision']));
-	/** @type {any} */
 	const seoImage = $derived.by(() => {
 		const image = data.article.cover_image_url || '';
 		if (!image) return '';
@@ -332,17 +324,14 @@
 			return image;
 		}
 	});
-	/** @type {any} */
 	const optimizedArticleImage = $derived(
 		optimizedImageUrl(data.article.cover_image_url, { width: 1200, height: 600, quality: 68 })
 	);
-	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
 		const categoryUrl = buildAbsoluteUrl(
 			page.url.origin,
 			`/learn/category/${data.article.category_slug}`
 		);
-		/** @type {any} */
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -367,7 +356,6 @@
 				}
 			]
 		};
-		/** @type {any} */
 		const article = {
 			'@context': 'https://schema.org',
 			'@type': 'Article',
@@ -395,10 +383,6 @@
 		return toJsonLd([breadcrumbs, article]);
 	});
 
-	/**
-	 * @param {any} value
-	 * @param {any} [withTime]
-	 */
 	function formatDate(value, withTime = false) {
 		if (!value) return 'Recently';
 		return new Date(value).toLocaleString(undefined, {
@@ -551,7 +535,7 @@
 				<img
 					class="absolute inset-0 h-full w-full object-cover"
 					src={optimizedArticleImage}
-					alt={data.article.title}
+					alt={data.article.coverImageAlt || data.article.title}
 					width="1200"
 					height="600"
 					decoding="async"
@@ -669,19 +653,20 @@
 				</div>
 
 				<!-- ── ATTACHED MEDIA ──────────────────────────────────────────── -->
-				{#if data.article.assets.some((asset) => asset.usage_kind !== 'embedded')}
+				{#if attachedMediaAssets.length}
 					<details class="border-surface-800 bg-surface-950 border-2">
 						<summary
 							class="hover:bg-primary-500 hover:text-surface-950 flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-black uppercase transition [&::-webkit-details-marker]:hidden"
 						>
 							<span>Attached media</span>
 							<span class="flex items-center gap-2 text-xs font-bold tracking-[0.18em]">
-								{data.article.assets.filter((asset) => asset.usage_kind !== 'embedded').length} files
+								{attachedMediaAssets.length}
+								{attachedMediaAssets.length === 1 ? 'file' : 'files'}
 								<IconChevronDown class="h-4 w-4" />
 							</span>
 						</summary>
 						<div class="border-surface-800 flex flex-col border-t-2">
-							{#each data.article.assets.filter((asset) => asset.usage_kind !== 'embedded') as asset}
+							{#each attachedMediaAssets as asset}
 								<a
 									class="border-surface-800 hover:bg-primary-500 hover:text-surface-950 flex items-center justify-between gap-4 border-b p-4 text-sm transition last:border-b-0 hover:no-underline"
 									href={asset.public_url}

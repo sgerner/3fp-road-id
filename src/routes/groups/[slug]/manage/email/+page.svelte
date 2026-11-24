@@ -20,6 +20,8 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
 	import GroupEmailCanvas from '#lib/components/groups/GroupEmailCanvas.svelte';
+	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		EMAIL_BRAND_PRESETS,
 		EMAIL_PURPOSES,
@@ -596,42 +598,40 @@
 <svelte:head><title>Newsletter Studio | {group.name}</title></svelte:head>
 
 <div class="mx-auto grid max-w-[1600px] gap-4 pb-10">
-	<header
-		class="card preset-tonal-surface grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-	>
-		<div class="flex min-w-0 items-start gap-3">
-			<span class="card preset-tonal-primary shrink-0 p-2.5"><IconMail class="h-6 w-6" /></span>
-			<div class="min-w-0">
-				<p class="text-xs font-semibold tracking-[0.16em] uppercase opacity-55">
-					Communications · Email
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="h2">Newsletter Studio</h1>
-					{#if dirty}<span class="badge preset-tonal-warning">Unsaved</span>{:else}<span
-							class="badge preset-tonal-success"><IconCheck class="h-3 w-3" /> Saved</span
-						>{/if}
-				</div>
-				<p class="mt-1 max-w-2xl text-sm opacity-70">
-					Write, design, review, and send without leaving one calm workspace.
-				</p>
-			</div>
-		</div>
-		<div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-			<button
-				class="btn preset-tonal-surface"
-				type="button"
-				onclick={() => startNewDraft()}
-				disabled={busy}>New email</button
-			>
-			<button class="btn preset-tonal-primary" type="button" onclick={saveDraft} disabled={busy}
-				><IconSave class="h-4 w-4" /> Save draft</button
-			>
-			<button
-				class="btn preset-filled-primary-500"
-				type="button"
-				onclick={() => selectView('review')}><IconBadgeCheck class="h-4 w-4" /> Review</button
-			>
-		</div>
+	<header class="card preset-tonal-surface p-4 sm:p-5">
+		<ManageCardHeader
+			as="h1"
+			title="Newsletter Studio"
+			titleClass="h2"
+			eyebrow="Communications · Email"
+			subtitle="Write, design, review, and send without leaving one calm workspace."
+			align="start"
+		>
+			{#snippet iconSlot()}
+				<span class="card preset-tonal-primary shrink-0 p-2.5"><IconMail class="h-6 w-6" /></span>
+			{/snippet}
+			{#snippet badges()}
+				{#if dirty}<span class="badge preset-tonal-warning">Unsaved</span>{:else}<span
+						class="badge preset-tonal-success"><IconCheck class="h-3 w-3" /> Saved</span
+					>{/if}
+			{/snippet}
+			{#snippet actions()}
+				<button
+					class="btn preset-tonal-surface"
+					type="button"
+					onclick={() => startNewDraft()}
+					disabled={busy}>New email</button
+				>
+				<button class="btn preset-tonal-primary" type="button" onclick={saveDraft} disabled={busy}
+					><IconSave class="h-4 w-4" /> Save draft</button
+				>
+				<button
+					class="btn preset-filled-primary-500"
+					type="button"
+					onclick={() => selectView('review')}><IconBadgeCheck class="h-4 w-4" /> Review</button
+				>
+			{/snippet}
+		</ManageCardHeader>
 	</header>
 
 	{#if notice}<div class="card preset-tonal-success flex items-center gap-2 p-3" role="status">
@@ -648,7 +648,7 @@
 			{#each views as view, index}
 				{@const ViewIcon = view.icon}
 				<button
-					class="btn btn-sm min-h-12 justify-center {activeView === view.id
+					class="btn btn-sm min-h-12 min-w-0 justify-center px-2 sm:px-3 {activeView === view.id
 						? 'preset-filled-primary-500'
 						: 'preset-tonal-surface'}"
 					type="button"
@@ -659,7 +659,8 @@
 					tabindex={activeView === view.id ? 0 : -1}
 					title={view.hint}
 					onkeydown={(event) => handleViewKeydown(event, index)}
-					onclick={() => selectView(view.id)}><ViewIcon class="h-4 w-4" /> {view.label}</button
+					onclick={() => selectView(view.id)}
+					><ViewIcon class="h-4 w-4 shrink-0" /> <span class="truncate">{view.label}</span></button
 				>
 			{/each}
 		</div>
@@ -673,21 +674,22 @@
 			aria-labelledby="email-view-compose"
 		>
 			{#if verifiedSenderCount === 0}
-				<div
-					class="card preset-tonal-warning grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-				>
-					<div>
-						<p class="font-semibold">One setup step before you can send</p>
-						<p class="text-sm opacity-70">
-							Design your email now, then verify a sender address when you are ready.
-						</p>
-					</div>
-					<button
-						class="btn preset-filled-warning-500"
-						type="button"
-						onclick={() => selectView('senders')}
-						><IconSettings class="h-4 w-4" /> Set up sender</button
+				<div class="card preset-tonal-warning p-4">
+					<ManageCardHeader
+						as="div"
+						title="One setup step before you can send"
+						titleClass="font-semibold"
+						subtitle="Design your email now, then verify a sender address when you are ready."
 					>
+						{#snippet actions()}
+							<button
+								class="btn preset-filled-warning-500"
+								type="button"
+								onclick={() => selectView('senders')}
+								><IconSettings class="h-4 w-4" /> Set up sender</button
+							>
+						{/snippet}
+					</ManageCardHeader>
 				</div>
 			{/if}
 
@@ -743,7 +745,7 @@
 					<div class="grid gap-3">
 						<div>
 							<p class="text-sm font-semibold">Send to</p>
-							<div class="mt-2 flex flex-wrap gap-2">
+							<ManageActionRow class="mt-2">
 								{#each audienceOptions as option}
 									<label
 										class="btn btn-sm cursor-pointer {draft.audienceStatuses.includes(option.id)
@@ -771,7 +773,7 @@
 									/>
 									Newsletter subscribers · {data.audienceSummary?.newsletter || 0}
 								</label>
-							</div>
+							</ManageActionRow>
 							<p class="mt-2 text-xs opacity-60">
 								{selectedAudienceCount.toLocaleString()} selected · maximum 2,000 per campaign · people
 								on more than one list receive one email
@@ -820,30 +822,30 @@
 						onchange={(blocks) => (draft.blocks = blocks)}
 					/>{/key}
 			</div>
-			<div
-				class="card preset-tonal-surface sticky bottom-3 z-20 flex flex-wrap items-center gap-2 p-3 shadow-xl"
-			>
-				<div class="mr-auto">
-					<p class="text-sm font-semibold">
-						{dirty ? 'Unsaved changes' : currentCampaignId ? 'Draft saved' : 'New email'}
-					</p>
-					<p class="text-xs opacity-60">
-						{draft.blocks.length} blocks · {selectedAudienceCount.toLocaleString()} recipients
-					</p>
-				</div>
-				<button class="btn preset-tonal-primary" type="button" onclick={saveDraft} disabled={busy}
-					><IconSave class="h-4 w-4" /> Save</button
-				>
-				<button
-					class="btn preset-filled-primary-500"
-					type="button"
-					onclick={() => selectView('review')}><IconBadgeCheck class="h-4 w-4" /> Review</button
-				>
+			<div class="card preset-tonal-surface sticky bottom-3 z-20 p-3 shadow-xl">
+				<ManageActionRow>
+					{#snippet lead()}
+						<p class="m-0 text-sm font-semibold">
+							{dirty ? 'Unsaved changes' : currentCampaignId ? 'Draft saved' : 'New email'}
+						</p>
+						<p class="m-0 text-xs opacity-60">
+							{draft.blocks.length} blocks · {selectedAudienceCount.toLocaleString()} recipients
+						</p>
+					{/snippet}
+					<button class="btn preset-tonal-primary" type="button" onclick={saveDraft} disabled={busy}
+						><IconSave class="h-4 w-4" /> Save</button
+					>
+					<button
+						class="btn preset-filled-primary-500"
+						type="button"
+						onclick={() => selectView('review')}><IconBadgeCheck class="h-4 w-4" /> Review</button
+					>
+				</ManageActionRow>
 			</div>
 		</div>
 	{:else if activeView === 'review'}
 		<div
-			class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]"
+			class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]"
 			id="email-panel-review"
 			role="tabpanel"
 			aria-labelledby="email-view-review"
@@ -863,17 +865,21 @@
 			</div>
 			<aside class="grid content-start gap-4">
 				<div class="card preset-tonal-surface p-4">
-					<div class="mb-4 flex items-center justify-between gap-2">
-						<div>
-							<p class="font-semibold">Send review</p>
-							<p class="text-xs opacity-60">Only real blockers stop a send.</p>
-						</div>
-						<span
-							class="badge {blockingIssues.length
-								? 'preset-tonal-warning'
-								: 'preset-tonal-success'}">{readyCount}/{readiness.length}</span
-						>
-					</div>
+					<ManageCardHeader
+						as="div"
+						title="Send review"
+						titleClass="font-semibold"
+						subtitle="Only real blockers stop a send."
+						class="mb-4"
+					>
+						{#snippet actions()}
+							<span
+								class="badge {blockingIssues.length
+									? 'preset-tonal-warning'
+									: 'preset-tonal-success'}">{readyCount}/{readiness.length}</span
+							>
+						{/snippet}
+					</ManageCardHeader>
 					<div class="grid gap-2">
 						{#each readiness as check}<div
 								class="{check.ready
@@ -926,22 +932,22 @@
 			role="tabpanel"
 			aria-labelledby="email-view-campaigns"
 		>
-			<div class="card preset-tonal-surface flex flex-wrap items-center justify-between gap-3 p-4">
-				<div>
-					<h2 class="h4">Campaign library</h2>
-					<p class="text-sm opacity-65">
-						Drafts can be reopened. Sent or scheduled emails are duplicated before editing.
-					</p>
-				</div>
-				<div class="flex gap-2">
-					<button class="btn preset-tonal-surface" type="button" onclick={refreshHistory}
-						><IconRefresh class="h-4 w-4" /> Refresh</button
-					><button
-						class="btn preset-filled-primary-500"
-						type="button"
-						onclick={() => startNewDraft()}><IconMail class="h-4 w-4" /> New email</button
-					>
-				</div>
+			<div class="card preset-tonal-surface p-4">
+				<ManageCardHeader
+					title="Campaign library"
+					titleClass="h4"
+					subtitle="Drafts can be reopened. Sent or scheduled emails are duplicated before editing."
+				>
+					{#snippet actions()}
+						<button class="btn preset-tonal-surface" type="button" onclick={refreshHistory}
+							><IconRefresh class="h-4 w-4" /> Refresh</button
+						><button
+							class="btn preset-filled-primary-500"
+							type="button"
+							onclick={() => startNewDraft()}><IconMail class="h-4 w-4" /> New email</button
+						>
+					{/snippet}
+				</ManageCardHeader>
 			</div>
 			{#if emailHistory.length === 0}<div
 					class="card preset-tonal-surface grid min-h-64 place-items-center p-8 text-center"
@@ -955,23 +961,25 @@
 					{#each emailHistory as campaign}<article
 							class="card preset-tonal-surface grid content-start gap-4 p-4"
 						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<p class="truncate font-semibold">
-										{campaign.campaign_name || campaign.subject_template}
-									</p>
-									<p class="mt-1 line-clamp-2 text-sm opacity-65">{campaign.subject_template}</p>
-								</div>
-								<span
-									class="badge {campaign.status === 'sent'
-										? 'preset-tonal-success'
-										: campaign.status === 'failed' || campaign.status === 'partially_failed'
-											? 'preset-tonal-error'
-											: campaign.status === 'scheduled'
-												? 'preset-tonal-warning'
-												: 'preset-tonal-surface'}">{campaign.status.replace('_', ' ')}</span
-								>
-							</div>
+							<ManageCardHeader
+								as="div"
+								title={campaign.campaign_name || campaign.subject_template}
+								titleClass="font-semibold"
+								align="start"
+							>
+								{#snippet badges()}
+									<span
+										class="badge {campaign.status === 'sent'
+											? 'preset-tonal-success'
+											: campaign.status === 'failed' || campaign.status === 'partially_failed'
+												? 'preset-tonal-error'
+												: campaign.status === 'scheduled'
+													? 'preset-tonal-warning'
+													: 'preset-tonal-surface'}">{campaign.status.replace('_', ' ')}</span
+									>
+								{/snippet}
+								<p class="m-0 mt-1 line-clamp-2 text-sm opacity-65">{campaign.subject_template}</p>
+							</ManageCardHeader>
 							<div class="grid grid-cols-2 gap-2 text-xs opacity-65">
 								<span>Created {formatDate(campaign.created_at)}</span><span
 									>{campaign.sent_count || 0} sent</span
@@ -979,18 +987,18 @@
 										>Scheduled {formatDate(campaign.scheduled_at)}</span
 									>{/if}
 							</div>
-							<div class="flex gap-2">
+							<ManageActionRow>
 								{#if campaign.status === 'draft'}<button
-										class="btn btn-sm preset-filled-primary-500 flex-1"
+										class="btn btn-sm preset-filled-primary-500 grow basis-auto"
 										type="button"
 										onclick={() => loadCampaign(campaign)}>Continue editing</button
 									>{/if}<button
-									class="btn btn-sm preset-tonal-surface flex-1"
+									class="btn btn-sm preset-tonal-surface grow basis-auto"
 									type="button"
 									onclick={() => duplicateCampaign(campaign)}
 									><IconCopy class="h-4 w-4" /> Duplicate</button
 								>
-							</div>
+							</ManageActionRow>
 						</article>{/each}
 				</div>{/if}
 		</div>
@@ -1002,18 +1010,18 @@
 			aria-labelledby="email-view-subscribers"
 		>
 			<div class="card preset-tonal-surface grid gap-3 p-4 sm:p-5">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div>
-						<h2 class="h4">Subscriber welcome delivery</h2>
-						<p class="text-sm opacity-65">
-							Failed welcomes stay here without blocking signup. Retrying only sends to subscribers
-							who are still opted in, and a successful retry is marked sent.
-						</p>
-					</div>
-					<button class="btn preset-tonal-surface" type="button" onclick={refreshWelcomeFailures}>
-						<IconRefresh class="h-4 w-4" /> Refresh
-					</button>
-				</div>
+				<ManageCardHeader
+					title="Subscriber welcome delivery"
+					titleClass="h4"
+					subtitle="Failed welcomes stay here without blocking signup. Retrying only sends to subscribers who are still opted in, and a successful retry is marked sent."
+					align="start"
+				>
+					{#snippet actions()}
+						<button class="btn preset-tonal-surface" type="button" onclick={refreshWelcomeFailures}>
+							<IconRefresh class="h-4 w-4" /> Refresh
+						</button>
+					{/snippet}
+				</ManageCardHeader>
 				{#if welcomeNotice}<div class="preset-tonal-success p-3 text-sm" role="status">
 						{welcomeNotice}
 					</div>{/if}
@@ -1036,20 +1044,24 @@
 				<div class="grid gap-3 md:grid-cols-2">
 					{#each welcomeFailures as subscriber}
 						<article class="card preset-tonal-surface grid gap-3 p-4">
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<p class="truncate font-semibold">{subscriber.email}</p>
-									{#if subscriber.first_name}<p class="text-sm opacity-65">
-											{subscriber.first_name}
-										</p>{/if}
-								</div>
-								<span
-									class="badge {subscriber.welcome_email_status === 'sending'
-										? 'preset-tonal-warning'
-										: 'preset-tonal-error'}"
-									>{subscriber.welcome_email_status === 'sending' ? 'sending' : 'failed'}</span
-								>
-							</div>
+							<ManageCardHeader
+								as="div"
+								title={subscriber.email}
+								titleClass="font-semibold"
+								align="start"
+							>
+								{#snippet badges()}
+									<span
+										class="badge {subscriber.welcome_email_status === 'sending'
+											? 'preset-tonal-warning'
+											: 'preset-tonal-error'}"
+										>{subscriber.welcome_email_status === 'sending' ? 'sending' : 'failed'}</span
+									>
+								{/snippet}
+								{#if subscriber.first_name}<p class="m-0 mt-0.5 text-sm opacity-65">
+										{subscriber.first_name}
+									</p>{/if}
+							</ManageCardHeader>
 							<div class="grid gap-1 text-xs opacity-65">
 								<span>Attempts: {subscriber.welcome_email_attempts || 0}</span>
 								<span>Last attempt: {formatDate(subscriber.welcome_email_last_attempt_at)}</span>
@@ -1057,15 +1069,17 @@
 							{#if subscriber.welcome_email_error}
 								<p class="text-error-600-300 text-sm">{subscriber.welcome_email_error}</p>
 							{/if}
-							<button
-								class="btn preset-filled-primary-500"
-								type="button"
-								onclick={() => retryWelcome(subscriber)}
-								disabled={retryingWelcomeId === subscriber.id}
-							>
-								<IconRefresh class="h-4 w-4" />
-								{retryingWelcomeId === subscriber.id ? 'Retrying…' : 'Retry welcome'}
-							</button>
+							<ManageActionRow>
+								<button
+									class="btn preset-filled-primary-500 w-full sm:w-auto"
+									type="button"
+									onclick={() => retryWelcome(subscriber)}
+									disabled={retryingWelcomeId === subscriber.id}
+								>
+									<IconRefresh class="h-4 w-4" />
+									{retryingWelcomeId === subscriber.id ? 'Retrying…' : 'Retry welcome'}
+								</button>
+							</ManageActionRow>
 						</article>
 					{/each}
 				</div>
@@ -1073,7 +1087,7 @@
 		</div>
 	{:else}
 		<div
-			class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.7fr)]"
+			class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]"
 			id="email-panel-senders"
 			role="tabpanel"
 			aria-labelledby="email-view-senders"
@@ -1091,19 +1105,22 @@
 							{senderNotice}
 						</div>{/if}{#if senderError}<div class="preset-tonal-error p-3 text-sm" role="alert">
 							{senderError}
-						</div>{/if}{#if registeredSiteDomains.length}<div class="flex gap-2">
-							<select class="select min-w-0 flex-1" bind:value={selectedSiteDomain}
-								><option value="">Use a website domain…</option
-								>{#each registeredSiteDomains as domain}<option value={domain.domain}
-										>{domain.label}</option
-									>{/each}</select
-							><button
+						</div>{/if}{#if registeredSiteDomains.length}<ManageActionRow>
+							{#snippet lead()}
+								<select class="select" bind:value={selectedSiteDomain}
+									><option value="">Use a website domain…</option
+									>{#each registeredSiteDomains as domain}<option value={domain.domain}
+											>{domain.label}</option
+										>{/each}</select
+								>
+							{/snippet}
+							<button
 								class="btn preset-tonal-primary"
 								type="button"
 								disabled={!selectedSiteDomain}
 								onclick={applySelectedSiteDomain}>Use</button
 							>
-						</div>{/if}
+						</ManageActionRow>{/if}
 					<div class="grid gap-3 sm:grid-cols-2">
 						<label class="label"
 							><span>From name</span><input
@@ -1120,49 +1137,56 @@
 							/></label
 						>
 					</div>
-					<div class="flex flex-wrap items-center justify-between gap-3">
-						<label class="flex cursor-pointer items-center gap-2 text-sm"
-							><input class="checkbox" type="checkbox" bind:checked={senderForm.is_default} /> Make default
-							sender</label
-						><button
+					<ManageActionRow>
+						{#snippet lead()}
+							<label class="flex cursor-pointer items-center gap-2 text-sm"
+								><input class="checkbox" type="checkbox" bind:checked={senderForm.is_default} /> Make
+								default sender</label
+							>
+						{/snippet}
+						<button
 							class="btn preset-filled-primary-500"
 							type="button"
 							onclick={saveSender}
 							disabled={senderBusy}><IconGlobe class="h-4 w-4" /> Add sender</button
 						>
-					</div>
+					</ManageActionRow>
 				</div>
 				<div class="grid gap-3">
 					{#each senderDomains as sender}<article class="card preset-tonal-surface grid gap-3 p-4">
-							<div class="flex flex-wrap items-start justify-between gap-3">
-								<div>
-									<div class="flex flex-wrap items-center gap-2">
-										<p class="font-semibold">{sender.from_email_address || sender.domain}</p>
-										{#if sender.is_default}<span class="badge preset-tonal-surface">Default</span
-											>{/if}<span
-											class="badge {sender.ses_verified_for_sending
-												? 'preset-tonal-success'
-												: 'preset-tonal-warning'}"
-											>{sender.ses_verified_for_sending
-												? 'Ready to send'
-												: 'Needs verification'}</span
-										>
-									</div>
-									<p class="mt-1 text-xs opacity-60">
-										DKIM: {sender.ses_dkim_status || 'pending'} · MAIL FROM: {sender.ses_mail_from_status ||
-											'pending'}
-									</p>
-								</div>
-								<button
-									class="btn btn-sm preset-tonal-surface"
-									type="button"
-									onclick={() => verifySender(sender.id)}
-									disabled={verifyingSenderId === sender.id}
-									><IconRefresh
-										class="h-4 w-4 {verifyingSenderId === sender.id ? 'animate-spin' : ''}"
-									/> Verify</button
-								>
-							</div>
+							<ManageCardHeader
+								as="div"
+								title={sender.from_email_address || sender.domain}
+								titleClass="font-semibold"
+								align="start"
+							>
+								{#snippet badges()}
+									{#if sender.is_default}<span class="badge preset-tonal-surface">Default</span
+										>{/if}<span
+										class="badge {sender.ses_verified_for_sending
+											? 'preset-tonal-success'
+											: 'preset-tonal-warning'}"
+										>{sender.ses_verified_for_sending
+											? 'Ready to send'
+											: 'Needs verification'}</span
+									>
+								{/snippet}
+								<p class="m-0 mt-1 text-xs opacity-60">
+									DKIM: {sender.ses_dkim_status || 'pending'} · MAIL FROM: {sender.ses_mail_from_status ||
+										'pending'}
+								</p>
+								{#snippet actions()}
+									<button
+										class="btn btn-sm preset-tonal-surface"
+										type="button"
+										onclick={() => verifySender(sender.id)}
+										disabled={verifyingSenderId === sender.id}
+										><IconRefresh
+											class="h-4 w-4 {verifyingSenderId === sender.id ? 'animate-spin' : ''}"
+										/> Verify</button
+									>
+								{/snippet}
+							</ManageCardHeader>
 							{#if sender.dns_records?.length}<details class="card preset-tonal-warning">
 									<summary class="cursor-pointer p-3 text-sm font-semibold"
 										>DNS steps ({sender.dns_records.length})</summary
@@ -1176,14 +1200,16 @@
 													<p class="truncate font-mono">{record.name}</p>
 													<p class="font-mono break-all opacity-60">{record.value}</p>
 												</div>
-												<button
-													class="btn btn-sm preset-tonal-surface"
-													type="button"
-													onclick={() => copyDns(record.value, `${sender.id}-${record.id}`)}
-													>{#if copiedDns === `${sender.id}-${record.id}`}<IconCheck
-															class="h-4 w-4"
-														/> Copied{:else}<IconCopy class="h-4 w-4" /> Copy{/if}</button
-												>
+												<ManageActionRow>
+													<button
+														class="btn btn-sm preset-tonal-surface w-full sm:w-auto"
+														type="button"
+														onclick={() => copyDns(record.value, `${sender.id}-${record.id}`)}
+														>{#if copiedDns === `${sender.id}-${record.id}`}<IconCheck
+																class="h-4 w-4"
+															/> Copied{:else}<IconCopy class="h-4 w-4" /> Copy{/if}</button
+													>
+												</ManageActionRow>
 											</div>{/each}
 									</div>
 								</details>{/if}

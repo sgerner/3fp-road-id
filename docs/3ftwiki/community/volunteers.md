@@ -184,16 +184,16 @@ Calling all bike lovers! 🚲 TBAG is on the hunt for board members. Got a knack
 
 Click on an image to open the template in Canva so you can directly edit
 
-- [![broadmor_volunteers_needed.jpg](/social-media/broadmor_volunteers_needed.jpg =300x) ](https://www.canva.com/design/DAGcmQlD7co/Ax_inbjdAlKBQPJr9sHrIA/view?utm_content=DAGcmQlD7co&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
+- [![Open Broadmor Bike Bash volunteer callout Canva template: Feb 8 shifts and biketempe.org/volunteer signup](/social-media/broadmor_volunteers_needed.jpg) ](https://www.canva.com/design/DAGcmQlD7co/Ax_inbjdAlKBQPJr9sHrIA/view?utm_content=DAGcmQlD7co&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
   [_Edit in Canva_](https://www.canva.com/design/DAGcmQlD7co/Ax_inbjdAlKBQPJr9sHrIA/view?utm_content=DAGcmQlD7co&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-- [![rob_dollar_bike_rodeo_volunteer.jpg](/social-media/rob_dollar_bike_rodeo_volunteer.jpg =300x) ](https://www.canva.com/design/DAGULb83ii8/d9XkjdO5iq_gttSeZqKqtA/view?utm_content=DAGULb83ii8&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
+- [![Open Rob Dollar Bike Rodeo volunteer recruitment Canva template: Oct 27 South Mountain signup graphic](/social-media/rob_dollar_bike_rodeo_volunteer.jpg) ](https://www.canva.com/design/DAGULb83ii8/d9XkjdO5iq_gttSeZqKqtA/view?utm_content=DAGULb83ii8&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
   [_Edit in Canva_](https://www.canva.com/design/DAGULb83ii8/d9XkjdO5iq_gttSeZqKqtA/view?utm_content=DAGULb83ii8&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-- [![kid's_bikes_donation_drive.jpg](/social-media/kid's_bikes_donation_drive.jpg =300x)](https://www.canva.com/design/DAFytTUBuBQ/PtYRngIjeHTqB-Gv5mTltw/view?utm_content=DAFytTUBuBQ&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
+- [![Open Kids' Bikes Donation Drive Canva template: donate used children's bikes for TBAG youth education programs](/social-media/kid's_bikes_donation_drive.jpg)](https://www.canva.com/design/DAFytTUBuBQ/PtYRngIjeHTqB-Gv5mTltw/view?utm_content=DAFytTUBuBQ&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
   [_Edit in Canva_](https://www.canva.com/design/DAFytTUBuBQ/PtYRngIjeHTqB-Gv5mTltw/view?utm_content=DAFytTUBuBQ&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-- [![board_elections.jpg](/social-media/board_elections.jpg =300x)](https://www.canva.com/design/DAFxknRevZY/ZI_y0Em842vVl3iaCzJjQA/view?utm_content=DAFxknRevZY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
+- [![Open TBAG Board Elections Canva template: We Want You board member recruitment graphic at Boulders on Broadway](/social-media/board_elections.jpg)](https://www.canva.com/design/DAFxknRevZY/ZI_y0Em842vVl3iaCzJjQA/view?utm_content=DAFxknRevZY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
   [_Edit in Canva_](https://www.canva.com/design/DAFxknRevZY/ZI_y0Em842vVl3iaCzJjQA/view?utm_content=DAFxknRevZY&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 # Training Volunteers – Set Up for Success

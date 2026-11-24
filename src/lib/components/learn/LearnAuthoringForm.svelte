@@ -23,6 +23,8 @@
 	);
 	let formEl = $state();
 	let coverImageUrl = $state('');
+	let coverImageAlt = $state('');
+	let generatedCoverAssetId = $state('');
 	let coverUploading = $state(false);
 	let coverUploadError = $state('');
 	let extraUploadedAssets = $state([]);
@@ -44,6 +46,7 @@
 
 	$effect(() => {
 		coverImageUrl = values.coverImageUrl || '';
+		coverImageAlt = values.coverImageAlt || '';
 		summaryValue = values.summary || '';
 	});
 
@@ -64,8 +67,37 @@
 	function applyGeneratedImage(result) {
 		coverUploadError = '';
 		coverImageUrl = result?.url || coverImageUrl;
+		if (result?.alt_text || result?.altText) {
+			coverImageAlt = result.alt_text || result.altText;
+		}
+		if (result?.assetId || result?.asset?.id) {
+			generatedCoverAssetId = result.assetId || result.asset.id;
+		}
 		if (result?.asset) {
 			extraUploadedAssets = [result.asset, ...extraUploadedAssets];
+		}
+	}
+
+	async function syncCoverAssetAlt(nextAlt) {
+		const targetAssetId =
+			generatedCoverAssetId ||
+			mergedAssets.find(
+				(asset) =>
+					(asset.public_url || asset.url) && (asset.public_url || asset.url) === coverImageUrl
+			)?.id ||
+			'';
+		if (!targetAssetId) return;
+		try {
+			await fetch('/api/learn/assets', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					assetId: targetAssetId,
+					altText: nextAlt
+				})
+			});
+		} catch {
+			// Best-effort sync; form submission also persists coverImageAlt to learn_assets.
 		}
 	}
 
@@ -79,9 +111,13 @@
 		}
 		coverUploading = true;
 		try {
+			const context = buildContext();
 			const payload = new FormData();
 			payload.append('files', file);
+			payload.append('usageKind', 'cover');
 			if (article?.id) payload.append('articleId', article.id);
+			if (context?.title) payload.append('articleTitle', context.title);
+			if (context?.bodyMarkdown) payload.append('bodyMarkdown', context.bodyMarkdown);
 
 			const response = await fetch('/api/learn/assets', {
 				method: 'POST',
@@ -96,6 +132,8 @@
 				throw new Error('Unable to upload cover image.');
 			}
 			coverImageUrl = uploadedAsset.url;
+			coverImageAlt = uploadedAsset.altText || '';
+			generatedCoverAssetId = uploadedAsset.id || '';
 			extraUploadedAssets = [uploadedAsset, ...extraUploadedAssets];
 		} catch (uploadError) {
 			coverUploadError = uploadError?.message || 'Unable to upload cover image.';
@@ -107,6 +145,8 @@
 	function removeCoverImage() {
 		coverUploadError = '';
 		coverImageUrl = '';
+		coverImageAlt = '';
+		generatedCoverAssetId = '';
 	}
 </script>
 
@@ -245,11 +285,14 @@
 						</label>
 					</div>
 					<input type="hidden" name="coverImageUrl" value={coverImageUrl} />
+					<input type="hidden" name="coverImageAlt" value={coverImageAlt} />
 					<CoverMediaField
 						label="Article cover"
 						description="Upload a cover image directly, or open the studio to create editorial cover art."
 						helperNote="PNG, JPG, WebP, or GIF · Max 25 MB · 16:9 recommended"
 						imageUrl={coverImageUrl}
+						bind:imageAlt={coverImageAlt}
+						showAltField={true}
 						uploading={coverUploading}
 						error={coverUploadError}
 						target="learn"
@@ -261,6 +304,7 @@
 						{buildContext}
 						onSelectFiles={uploadCoverFiles}
 						onRemove={coverImageUrl ? removeCoverImage : null}
+						onAltChange={syncCoverAssetAlt}
 						onApplyArtwork={applyGeneratedImage}
 					/>
 				</div>
@@ -302,6 +346,7 @@
 					description={editing
 						? 'Browse assets attached to this article, reuse recent uploads, or add new files.'
 						: 'Add an upload and insert it into the draft, or reuse something from a recent upload.'}
+					getContext={buildContext}
 					onInsertSnippet={(snippet) => editorApi?.insertSnippet?.(snippet) ?? false}
 				/>
 			</div>

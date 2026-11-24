@@ -1,6 +1,11 @@
 <script>
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconUndo2 from '@lucide/svelte/icons/undo-2';
+	import {
+		LEARN_ALT_TEXT_MAX_LENGTH,
+		applyMarkdownAltReplacements,
+		sanitizeAltText
+	} from '#lib/learn/altText';
 
 	/** @type {Record<string, any>} */
 	let {
@@ -18,6 +23,8 @@
 	/** @type {any} */
 	let takeaways = $state([]);
 	let takeawaySummary = $state('');
+	let altAuditProposals = $state([]);
+	let altAuditMessage = $state('');
 	let pending = $state('');
 	let error = $state('');
 	/** @type {any} */
@@ -44,6 +51,10 @@
 			error = 'Add some article text before generating takeaways.';
 			return;
 		}
+		if (!content.trim() && action === 'audit_alt') {
+			error = 'Add markdown content with images before auditing image alt text.';
+			return;
+		}
 
 		pending = action;
 		error = '';
@@ -51,6 +62,8 @@
 		answer = '';
 		takeaways = [];
 		takeawaySummary = '';
+		altAuditProposals = [];
+		altAuditMessage = '';
 		try {
 			const response = await fetch('/api/learn/ai', {
 				method: 'POST',
@@ -74,6 +87,34 @@
 			} else if (action === 'ask') {
 				answer = String(result.answer ?? '').trim();
 				if (!answer) throw new Error('The assistant returned an empty answer.');
+			} else if (action === 'audit_alt') {
+				const totalImages = Number(result.totalImages ?? 0);
+				const proposals = Array.isArray(result.proposals) ? result.proposals : [];
+				altAuditProposals = proposals.map((item) => ({
+					index: item.index,
+					imageUrl: item.imageUrl || '',
+					currentAlt: item.currentAlt || '',
+					proposedAlt: item.proposedAlt || '',
+					isDecorative: Boolean(item.isDecorative),
+					isSoleLinkContent: Boolean(item.isSoleLinkContent),
+					isCanvaLink: Boolean(item.isCanvaLink),
+					enclosingLinkUrl: item.enclosingLinkUrl || '',
+					sectionHeading: item.sectionHeading || '',
+					status: item.status || 'ok',
+					selected: Boolean(item.proposedAlt || item.isDecorative)
+				}));
+				if (!totalImages) {
+					altAuditMessage = 'No markdown images were found in this draft.';
+				} else if (!altAuditProposals.length) {
+					altAuditMessage = `Checked ${totalImages} image(s). All markdown images already have descriptive alt text.`;
+				} else {
+					const draftedCount = altAuditProposals.filter(
+						(item) => item.proposedAlt || item.isDecorative
+					).length;
+					altAuditMessage = draftedCount
+						? `Flagged ${altAuditProposals.length} image(s) with filename or missing alt text. Review and edit the proposed descriptions below before applying.`
+						: `Flagged ${altAuditProposals.length} image(s) with filename or missing alt text. AI suggestions were unavailable—enter descriptions manually below and apply.`;
+				}
 			} else {
 				const items = Array.isArray(result.takeaways) ? result.takeaways : [];
 				takeaways = items.map((item) => String(item).trim()).filter(Boolean);
@@ -103,6 +144,54 @@
 		}
 	}
 
+	function applyAltAuditReplacements() {
+		const editor = getEditor?.();
+		if (!editor) return;
+		const currentMarkdown = editor.getMarkdown?.() ?? '';
+		const replacements = altAuditProposals
+			.filter((item) => item.selected)
+			.map((item) => ({
+				index: item.index,
+				altText: item.proposedAlt,
+				isDecorative: item.isDecorative && !item.isSoleLinkContent
+			}))
+			.filter(
+				(item) =>
+					item.isDecorative ||
+					Boolean(
+						sanitizeAltText(item.altText, {
+							maxLength: LEARN_ALT_TEXT_MAX_LENGTH
+						})
+					)
+			);
+
+		if (!replacements.length) {
+			error =
+				'Enter descriptive alt text (not a filename) for at least one selected image before applying.';
+			return;
+		}
+
+		const nextMarkdown = applyMarkdownAltReplacements(currentMarkdown, replacements);
+		if (nextMarkdown === currentMarkdown) {
+			error =
+				'No image tags were updated. Ensure the draft has not changed and descriptions are not filenames.';
+			return;
+		}
+
+		error = '';
+		appliedPrevious = currentMarkdown;
+		appliedText = nextMarkdown;
+		undoConflict = false;
+		if (editor.setMarkdown?.(nextMarkdown)) {
+			appliedText = editor.getMarkdown?.() ?? nextMarkdown;
+			altAuditProposals = [];
+			altAuditMessage = `Updated alt text on ${replacements.length} image(s). Use Undo below to revert.`;
+		} else {
+			appliedPrevious = null;
+			appliedText = null;
+		}
+	}
+
 	function undoSuggestion() {
 		if (appliedPrevious === null) return;
 		if ((getEditor?.()?.getMarkdown?.() ?? '') !== appliedText) {
@@ -117,11 +206,11 @@
 </script>
 
 <section
-	class="border-surface-500/15 bg-surface-900/35 space-y-4 rounded-2xl border p-4 sm:p-5"
+	class="border-surface-500/20 bg-surface-950 space-y-4 border p-4 sm:p-5"
 	aria-labelledby="writing-assistant-title"
 >
 	<div class="flex items-start gap-3">
-		<span class="bg-primary-500/15 text-primary-300 mt-0.5 rounded-xl p-2" aria-hidden="true"
+		<span class="bg-primary-500/15 text-primary-300 mt-0.5 p-2" aria-hidden="true"
 			><IconSparkles class="h-5 w-5" /></span
 		>
 		<div>
@@ -174,16 +263,115 @@
 		>
 			{pending === 'takeaways' ? 'Finding takeaways…' : 'Preview takeaways'}
 		</button>
+		<button
+			class="btn btn-sm preset-filled-secondary-500"
+			type="button"
+			disabled={!!pending}
+			onclick={() => run('audit_alt')}
+		>
+			{pending === 'audit_alt' ? 'Auditing image alt text…' : 'Audit image alt text'}
+		</button>
 	</div>
 
 	{#if error}
 		<p class="text-error-400 text-sm" role="alert">{error}</p>
 	{/if}
-	{#if suggestion}
+	{#if altAuditMessage || altAuditProposals.length}
 		<div
-			class="border-primary-400/25 bg-primary-500/5 space-y-3 rounded-xl border p-4"
+			class="border-surface-500/25 bg-surface-900 space-y-4 border p-4"
 			aria-live="polite"
+			role="status"
 		>
+			{#if altAuditMessage}
+				<p class="text-sm font-medium">{altAuditMessage}</p>
+			{/if}
+			{#if altAuditProposals.length}
+				<div class="space-y-3">
+					{#each altAuditProposals as item (item.index)}
+						<div class="border-surface-500/20 bg-surface-950 space-y-2 border p-3">
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<label class="flex items-center gap-2 text-xs font-semibold">
+									<input
+										type="checkbox"
+										class="checkbox accent-secondary-500"
+										bind:checked={item.selected}
+									/>
+									<span>
+										Current alt: <code>{item.currentAlt || '(empty)'}</code>
+									</span>
+								</label>
+								<div class="flex flex-wrap gap-1">
+									{#if item.isCanvaLink}
+										<span class="chip preset-tonal-tertiary text-[10px]">Canva template link</span>
+									{:else if item.isSoleLinkContent}
+										<span class="chip preset-tonal-secondary text-[10px]">Image-only link</span>
+									{/if}
+									{#if item.sectionHeading}
+										<span class="chip preset-tonal-surface text-[10px]">{item.sectionHeading}</span>
+									{/if}
+								</div>
+							</div>
+							<p class="truncate text-xs opacity-60">{item.imageUrl}</p>
+							<div class="space-y-1">
+								<div class="flex items-center justify-between gap-2">
+									<label
+										class="text-xs font-medium opacity-80"
+										for={`audit-alt-input-${item.index}`}
+									>
+										Replacement alt text
+									</label>
+									<span class="text-[11px] tabular-nums opacity-65">
+										{item.isDecorative ? 0 : item.proposedAlt.length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+									</span>
+								</div>
+								<input
+									id={`audit-alt-input-${item.index}`}
+									class="input text-sm"
+									type="text"
+									maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+									disabled={item.isDecorative}
+									bind:value={item.proposedAlt}
+									oninput={() => {
+										if (item.proposedAlt.trim()) item.selected = true;
+									}}
+									placeholder={item.isCanvaLink
+										? 'Describe the Canva template link purpose and poster subject…'
+										: 'Describe the image content in 150 characters or fewer…'}
+								/>
+							</div>
+							{#if !item.isSoleLinkContent}
+								<label class="flex items-center gap-2 text-xs opacity-80">
+									<input
+										type="checkbox"
+										class="checkbox accent-secondary-500"
+										bind:checked={item.isDecorative}
+										onchange={() => {
+											if (item.isDecorative) item.selected = true;
+										}}
+									/>
+									<span>Decorative image (use empty <code>alt=""</code>)</span>
+								</label>
+							{/if}
+						</div>
+					{/each}
+				</div>
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<button
+						type="button"
+						class="btn btn-sm preset-filled-primary-500"
+						onclick={applyAltAuditReplacements}
+					>
+						Apply alt text updates
+					</button>
+					<p class="text-xs opacity-65">
+						Replaces only checked <code>![...](...)</code> tags. You can undo right after applying.
+					</p>
+				</div>
+			{/if}
+		</div>
+	{/if}
+	{#if suggestion}
+		<div class="border-primary-400/25 bg-primary-500/5 space-y-3 border p-4" aria-live="polite">
 			<div class="flex flex-wrap items-center justify-between gap-2">
 				<p class="text-sm font-semibold">Draft suggestion</p>
 				<button class="btn btn-sm preset-filled-primary-500" type="button" onclick={applySuggestion}
@@ -197,13 +385,13 @@
 		</div>
 	{/if}
 	{#if answer}
-		<div class="bg-surface-800/60 rounded-xl p-4 text-sm leading-6" aria-live="polite">
+		<div class="bg-surface-800/60 p-4 text-sm leading-6" aria-live="polite">
 			<p class="mb-2 font-semibold">Assistant answer</p>
 			<div class="whitespace-pre-wrap">{answer}</div>
 		</div>
 	{/if}
 	{#if takeaways.length}
-		<div class="bg-surface-800/60 rounded-xl p-4" aria-live="polite">
+		<div class="bg-surface-800/60 p-4" aria-live="polite">
 			{#if takeawaySummary}
 				<div class="mb-4 space-y-2">
 					<div class="flex flex-wrap items-center justify-between gap-2">

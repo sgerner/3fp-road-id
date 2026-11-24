@@ -2010,13 +2010,17 @@
 				/>
 			</div>
 			<CommunicationsStep
-				showAdvancedCommunications={true}
 				showCustomQuestionsSection={false}
+				showScheduledEmailsSection={true}
+				showSectionHeaders={true}
+				showHostNotifications={true}
+				showSentHistory={true}
+				showImmediateEmailOption={true}
+				showAiComposer={true}
 				{customQuestions}
 				{eventEmails}
 				eventDetails={communicationsEventDetails}
 				opportunities={opportunityGroups}
-				showImmediateEmailOption={true}
 				{volunteerCounts}
 				{hostNotificationSettings}
 				onHostNotificationChange={handleHostNotificationSettingsChange}
@@ -2026,7 +2030,6 @@
 				onRemoveEmail={removeEmailTemplate}
 				onUpdateEmail={updateEmailTemplate}
 				onComposeEmail={composeEmailWithAi}
-				onToggleAdvanced={() => {}}
 				onSendImmediateEmail={sendImmediateVolunteerEmail}
 				emailTypeOptions={['reminder', 'thankyou', 'custom']}
 				fieldTypeOptions={['short_text', 'long_text', 'select', 'checkbox']}

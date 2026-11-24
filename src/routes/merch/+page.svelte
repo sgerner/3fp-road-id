@@ -252,7 +252,7 @@
 				<div class="flex flex-wrap gap-3">
 					<a
 						href="#merch-catalog"
-						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 					>
 						<span>Shop the Drop</span>
 						<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
@@ -260,7 +260,7 @@
 					{#if data.isAdmin}
 						<a
 							href="/merch/manage"
-							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							Manage Store
 						</a>
@@ -364,7 +364,7 @@
 						</div>
 						<a
 							href="#merch-catalog"
-							class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline"
+							class="group bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex shrink-0 items-center gap-1.5 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							<span>Shop Drop</span>
 							<IconArrowRight class="h-3.5 w-3.5 transition group-hover:translate-x-1" />
@@ -561,7 +561,7 @@
 													<button
 														type="button"
 														aria-pressed={isSelected}
-														class="cursor-pointer border-2 px-3 py-1.5 text-xs font-black tracking-wide uppercase transition {isSelected
+														class="inline-flex cursor-pointer items-center justify-center border-2 px-3 py-1.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 {isSelected
 															? 'border-primary-500 bg-primary-500 text-surface-950'
 															: 'border-surface-700 bg-surface-950 text-surface-50 hover:border-primary-500 hover:text-primary-500'}"
 														onclick={() => {
@@ -583,7 +583,7 @@
 										<div class="border-surface-50 bg-surface-950 flex items-center border-2">
 											<button
 												type="button"
-												class="text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-12 w-10 cursor-pointer items-center justify-center transition"
+												class="text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-12 w-10 cursor-pointer items-center justify-center transition pointer-coarse:w-11"
 												onclick={() => decrementQty(product.id)}
 												aria-label="Decrease quantity"
 											>
@@ -594,7 +594,7 @@
 											</span>
 											<button
 												type="button"
-												class="text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-12 w-10 cursor-pointer items-center justify-center transition"
+												class="text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-12 w-10 cursor-pointer items-center justify-center transition pointer-coarse:w-11"
 												onclick={() => incrementQty(product.id)}
 												aria-label="Increase quantity"
 											>
@@ -696,7 +696,7 @@
 												>
 													<button
 														type="button"
-														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 														disabled={qty <= 1}
 														onclick={() => setCartLineQuantity(line.variantId, qty - 1)}
 														aria-label={`Decrease quantity for ${line.productName}`}
@@ -708,7 +708,7 @@
 													</span>
 													<button
 														type="button"
-														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+														class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 														disabled={qty >= 20}
 														onclick={() => setCartLineQuantity(line.variantId, qty + 1)}
 														aria-label={`Increase quantity for ${line.productName}`}
@@ -720,7 +720,7 @@
 										</div>
 										<button
 											type="button"
-											class="border-surface-700 text-surface-300 hover:border-primary-500 hover:text-primary-500 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition"
+											class="border-surface-700 text-surface-300 hover:border-primary-500 hover:text-primary-500 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 											onclick={() => removeCartLine(line.variantId)}
 											aria-label={`Remove ${line.productName}`}
 										>
@@ -816,7 +816,7 @@
 	<div class="flex items-center justify-between gap-3 px-4 py-3">
 		<button
 			type="button"
-			class="text-surface-50 flex flex-1 cursor-pointer items-center gap-3 text-left"
+			class="text-surface-50 flex flex-1 cursor-pointer items-center gap-3 text-left pointer-coarse:min-h-11"
 			aria-haspopup="dialog"
 			aria-controls="mobile-cart-dialog"
 			aria-expanded={mobileCartOpen}
@@ -844,7 +844,7 @@
 			{#if data.canCheckout}
 				<a
 					href="/merch/checkout"
-					class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase hover:no-underline"
+					class="bg-primary-500 text-surface-950 inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-wide uppercase hover:no-underline pointer-coarse:min-h-11"
 				>
 					<span>Checkout</span>
 					<IconArrowRight class="h-3.5 w-3.5" />
@@ -880,7 +880,7 @@
 			</div>
 			<button
 				type="button"
-				class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 w-8 cursor-pointer items-center justify-center border-2"
+				class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 w-8 cursor-pointer items-center justify-center border-2 pointer-coarse:h-11 pointer-coarse:w-11"
 				onclick={() => (mobileCartOpen = false)}
 				aria-label="Close cart"
 			>
@@ -924,7 +924,7 @@
 								<div class="border-surface-50 bg-surface-950 inline-flex items-center border-2">
 									<button
 										type="button"
-										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 										disabled={qty <= 1}
 										onclick={() => setCartLineQuantity(line.variantId, qty - 1)}
 										aria-label={`Decrease quantity for ${line.productName}`}
@@ -938,7 +938,7 @@
 									</span>
 									<button
 										type="button"
-										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+										class="text-surface-50 enabled:hover:bg-primary-500 enabled:hover:text-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 items-center justify-center transition enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 										disabled={qty >= 20}
 										onclick={() => setCartLineQuantity(line.variantId, qty + 1)}
 										aria-label={`Increase quantity for ${line.productName}`}
@@ -950,7 +950,7 @@
 						</div>
 						<button
 							type="button"
-							class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition"
+							class="border-surface-50 text-surface-50 hover:bg-surface-950 flex h-8 min-h-8 w-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border-2 transition pointer-coarse:h-11 pointer-coarse:min-h-11 pointer-coarse:w-11 pointer-coarse:min-w-11"
 							onclick={() => removeCartLine(line.variantId)}
 							aria-label={`Remove ${line.productName}`}
 						>
@@ -1007,7 +1007,7 @@
 				</div>
 				<button
 					type="button"
-					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-10 w-10 cursor-pointer items-center justify-center border-2 transition"
+					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:text-surface-950 flex h-10 w-10 cursor-pointer items-center justify-center border-2 transition pointer-coarse:h-11 pointer-coarse:w-11"
 					onclick={closeLightbox}
 					aria-label="Close gallery"
 				>

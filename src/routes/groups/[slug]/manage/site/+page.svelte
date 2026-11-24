@@ -31,6 +31,7 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import {
 		buildGroupSiteEditorState,
 		createGroupSiteEditorSnapshot,
@@ -941,45 +942,43 @@
 </form>
 
 <div class="mx-auto grid max-w-[1800px] gap-4 pb-28 sm:pb-10">
-	<header
-		class="card preset-tonal-surface grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"
-	>
-		<div class="flex min-w-0 items-start gap-3">
-			<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
-			<div class="min-w-0">
-				<p class="text-xs font-semibold tracking-[0.16em] uppercase opacity-55">
-					Public presence · Website
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<h1 class="h2">Website Studio</h1>
-					{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
-							class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
-						>{/if}
-				</div>
-				<p class="mt-1 max-w-2xl text-sm opacity-70">
-					Build the page with simple sections, choose a look, and publish when it feels right.
-				</p>
-				<a
-					class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
-					href={data.liveUrl}
-					target="_blank"
-					rel="noreferrer">{data.liveUrl}</a
-				>
-			</div>
-		</div>
-		<div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-			{#if activeView !== 'builder' && activeView !== 'address'}<button
-					class="btn preset-tonal-surface"
-					type="button"
-					onclick={() => (showPreview = !showPreview)}
-					><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
-				>{/if}<a
-				class="btn preset-tonal-surface col-span-2 sm:col-span-1"
+	<header class="card preset-tonal-surface p-4 sm:p-5">
+		<ManageCardHeader
+			as="h1"
+			title="Website Studio"
+			titleClass="h2"
+			eyebrow="Public presence · Website"
+			subtitle="Build the page with simple sections, choose a look, and publish when it feels right."
+			align="start"
+		>
+			{#snippet iconSlot()}
+				<span class="card preset-tonal-primary shrink-0 p-2.5"><IconGlobe class="h-6 w-6" /></span>
+			{/snippet}
+			{#snippet badges()}
+				{#if dirty}<span class="badge preset-tonal-warning">Unpublished changes</span>{:else}<span
+						class="badge preset-tonal-success"><IconBadgeCheck class="h-3 w-3" /> Up to date</span
+					>{/if}
+			{/snippet}
+			<a
+				class="mt-1 block truncate text-sm font-medium opacity-70 hover:underline"
 				href={data.liveUrl}
 				target="_blank"
-				rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				rel="noreferrer">{data.liveUrl}</a
 			>
-		</div>
+			{#snippet actions()}
+				{#if activeView !== 'builder' && activeView !== 'address'}<button
+						class="btn preset-tonal-surface"
+						type="button"
+						onclick={() => (showPreview = !showPreview)}
+						><IconEye class="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}</button
+					>{/if}<a
+					class="btn preset-tonal-surface"
+					href={data.liveUrl}
+					target="_blank"
+					rel="noreferrer"><IconExternalLink class="h-4 w-4" /> View published site</a
+				>
+			{/snippet}
+		</ManageCardHeader>
 	</header>
 
 	{#if data.saved}<div class="card preset-tonal-success flex items-center gap-2 p-3" role="status">
@@ -1019,7 +1018,7 @@
 	>
 		<div class="grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-7" role="tablist">
 			{#each views as view, index}{@const ViewIcon = view.icon}<button
-					class="btn btn-sm min-h-12 justify-center {activeView === view.id
+					class="btn btn-sm min-h-12 min-w-0 justify-center px-2 sm:px-3 {activeView === view.id
 						? 'preset-filled-primary-500'
 						: 'preset-tonal-surface'}"
 					type="button"
@@ -1030,7 +1029,8 @@
 					tabindex={activeView === view.id ? 0 : -1}
 					title={view.hint}
 					onkeydown={(event) => handleViewKeydown(event, index)}
-					onclick={() => selectView(view.id)}><ViewIcon class="h-4 w-4" /> {view.label}</button
+					onclick={() => selectView(view.id)}
+					><ViewIcon class="h-4 w-4 shrink-0" /> <span class="truncate">{view.label}</span></button
 				>{/each}
 		</div>
 	</nav>
@@ -1553,7 +1553,7 @@
 									>{/each}</select
 							></label
 						>
-						<div class="grid grid-cols-4 gap-2 sm:col-span-2">
+						<div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
 							{#each ['primary', 'secondary', 'accent', 'surface'] as color}<label class="label"
 									><span class="capitalize">{color}</span><input
 										class="input h-12"

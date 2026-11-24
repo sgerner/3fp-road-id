@@ -11,6 +11,8 @@
 		toCivilDateKey,
 		toEventDateKey
 	} from '#lib/calendar/monthGrid';
+	import DirectoryMapExplorer from '#lib/components/map/DirectoryMapExplorer.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
 	import { browser } from '$app/env';
 	import IconBike from '@lucide/svelte/icons/bike';
@@ -25,7 +27,6 @@
 	import IconX from '@lucide/svelte/icons/x';
 	import { onMount, tick } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
-	import 'leaflet/dist/leaflet.css';
 	import {
 		extractRideCity,
 		extractRideState,
@@ -34,7 +35,6 @@
 
 	const { data } = $props();
 
-	/** @type {any} */
 	const DIFFICULTY_COLORS = {
 		beginner: '#34d399',
 		easy: '#22c55e',
@@ -47,7 +47,6 @@
 		expert: '#a855f7',
 		uncategorized: '#64748b'
 	};
-	/** @type {any} */
 	const DIFFICULTY_FALLBACK_PALETTE = [
 		'#06b6d4',
 		'#84cc16',
@@ -59,61 +58,33 @@
 		'#f43f5e'
 	];
 
-	/** @type {any} */
 	let view = $state('list');
-	/** @type {any} */
 	let hasInitializedView = $state(false);
-	/** @type {any} */
 	let search = $state('');
-	/** @type {any} */
 	let selectedDifficulty = $state('all');
-	/** @type {any} */
 	let locationFilter = $state('');
-	/** @type {any} */
 	let datePreset = $state('anytime');
-	/** @type {any} */
 	let customStartDate = $state('');
-	/** @type {any} */
 	let customEndDate = $state('');
-	/** @type {any} */
 	let pageNumber = $state(1);
-	/** @type {any} */
 	let calendarReference = $state(startOfMonth(new Date()));
 	let now = $state(new Date());
 	let viewerTimezone = $state('UTC');
-	/** @type {any} */
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
-	/** @type {any} */
 	let dayDialog = $state(null);
-	/** @type {any} */
 	let dayModalTrigger = null;
-	/** @type {any} */
 	let dayModalCloseButton = $state(null);
 
-	/** @type {any} */
-	let mapEl = $state(null);
-	/** @type {any} */
-	let map;
-	/** @type {any} */
-	let markerLayer;
-	/** @type {any} */
-	let L;
-
 	const PAGE_SIZE = 8;
-	/** @type {any} */
 	const config = $derived(data?.config ?? {});
-	/** @type {any} */
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
-	/** @type {any} */
 	const showFilters = $derived(Boolean(config.showUserFilters));
-	/** @type {any} */
 	const resolvedTheme = $derived.by(() => {
 		if (config.theme === 'light' || config.theme === 'dark') return config.theme;
 		if (browser && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
 		return 'light';
 	});
 
-	/** @type {any} */
 	const baseFilteredRides = $derived(
 		rides.filter((ride) => {
 			if (!showFilters) return true;
@@ -139,7 +110,6 @@
 				.replace(/[^a-z0-9]+/g, ' ')
 				.split(/\s+/)
 				.filter(Boolean);
-			/** @type {any} */
 			const locationHaystack = [
 				ride.startLocationName,
 				ride.startLocationAddress,
@@ -163,7 +133,6 @@
 		})
 	);
 
-	/** @type {any} */
 	const filteredRides = $derived(
 		baseFilteredRides.filter((ride) => {
 			if (!showFilters || selectedDifficulty === 'all') return true;
@@ -171,14 +140,11 @@
 		})
 	);
 
-	/** @type {any} */
 	const totalPages = $derived(Math.max(1, Math.ceil(filteredRides.length / PAGE_SIZE)));
-	/** @type {any} */
 	const pagedRides = $derived(
 		filteredRides.slice((pageNumber - 1) * PAGE_SIZE, pageNumber * PAGE_SIZE)
 	);
 
-	/** @type {any} */
 	const datedRides = $derived(
 		filteredRides
 			.map((ride) => {
@@ -191,7 +157,6 @@
 			.filter(Boolean)
 	);
 
-	/** @type {any} */
 	const ridesByDate = $derived(
 		datedRides.reduce((acc, ride) => {
 			const key = ride._calendarDateKey;
@@ -201,13 +166,11 @@
 		}, {})
 	);
 
-	/** @type {any} */
 	const calendarMatrix = $derived(buildMonthGrid(calendarReference, ridesByDate, toCivilDateKey));
 	const calendarHeader = $derived.by(() =>
 		new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(calendarReference)
 	);
 
-	/** @type {any} */
 	const legendEntries = $derived.by(() => {
 		const names = new Set();
 		for (const ride of baseFilteredRides) {
@@ -235,28 +198,16 @@
 		if (pageNumber < 1) pageNumber = 1;
 	});
 
-	/**
-	 * @param {any} value
-	 */
 	function parseRideDate(value) {
 		return parseCalendarDate(value);
 	}
 
-	/**
-	 * @param {any} date
-	 */
 	function startOfMonth(date) {
 		return new Date(date.getFullYear(), date.getMonth(), 1);
 	}
 
 	const todayKey = $derived(toCivilDateKey(now));
 
-	/**
-	 * @param {any} rideDateKey
-	 * @param {any} preset
-	 * @param {any} startDateRaw
-	 * @param {any} endDateRaw
-	 */
 	function matchesDateRange(rideDateKey, preset, startDateRaw, endDateRaw) {
 		return matchesCivilDateRange(rideDateKey, preset, {
 			todayKey,
@@ -265,9 +216,6 @@
 		});
 	}
 
-	/**
-	 * @param {any} ride
-	 */
 	function formatNext(ride) {
 		if (!ride?.nextOccurrenceStart) return 'Schedule coming soon';
 		return (
@@ -278,9 +226,6 @@
 		);
 	}
 
-	/**
-	 * @param {any} ride
-	 */
 	function formatDayCellDate(ride) {
 		return formatRideDayBlock(ride?.nextOccurrenceStart, ride?.timezone);
 	}
@@ -293,26 +238,16 @@
 		return getTimezoneBadge(ride?.nextOccurrenceStart, ride?.timezone, viewerTimezone);
 	}
 
-	/**
-	 * @param {any} ride
-	 */
 	function rideTitle(ride) {
 		return formatRideWidgetTitle(ride, config);
 	}
 
-	/**
-	 * @param {any} offset
-	 */
 	function changeMonth(offset) {
 		const next = new Date(calendarReference);
 		next.setMonth(next.getMonth() + offset);
 		calendarReference = startOfMonth(next);
 	}
 
-	/**
-	 * @param {any} day
-	 * @param {any} trigger
-	 */
 	async function openDayModal(day, trigger) {
 		if (!day?.items?.length) return;
 		dayModalTrigger = trigger;
@@ -345,33 +280,21 @@
 		void tick().then(() => trigger?.focus());
 	}
 
-	/**
-	 * @param {any} event
-	 */
 	function handleBackdropClick(event) {
 		if (event.target === event.currentTarget) {
 			closeDayModal();
 		}
 	}
 
-	/**
-	 * @param {any} name
-	 */
 	function normalizeDifficultyName(name) {
 		return (name || '').trim().toLowerCase();
 	}
 
-	/**
-	 * @param {any} ride
-	 */
 	function getRideDifficultyLabel(ride) {
 		const first = (ride?.difficultyLevels ?? []).find((level) => level?.name)?.name;
 		return first?.trim() || 'Uncategorized';
 	}
 
-	/**
-	 * @param {any} value
-	 */
 	function hashString(value) {
 		let hash = 0;
 		for (let index = 0; index < value.length; index += 1) {
@@ -381,9 +304,6 @@
 		return Math.abs(hash);
 	}
 
-	/**
-	 * @param {any} name
-	 */
 	function difficultyColor(name) {
 		const key = normalizeDifficultyName(name);
 		if (!key) return DIFFICULTY_COLORS.uncategorized;
@@ -392,143 +312,31 @@
 		return DIFFICULTY_FALLBACK_PALETTE[fallbackIndex];
 	}
 
-	/**
-	 * @param {any} ride
-	 */
 	function primaryDifficulty(ride) {
 		return getRideDifficultyLabel(ride);
 	}
 
-	/**
-	 * @param {any} ride
-	 */
-	function validCoords(ride) {
-		return (
-			Number.isFinite(Number(ride?.startLatitude)) && Number.isFinite(Number(ride?.startLongitude))
-		);
-	}
-
-	/**
-	 * @param {any} ride
-	 */
-	function markerOptions(ride) {
-		const color = config.difficultyColors ? difficultyColor(primaryDifficulty(ride)) : '#0ea5e9';
-		return {
-			radius: 8,
-			color,
-			weight: 2,
-			opacity: 1,
-			fillColor: color,
-			fillOpacity: 0.65
-		};
-	}
-
-	async function initMap() {
-		if (!mapEl || map) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-		} catch (error) {
-			console.error('Failed to load map for widget', error);
-			return;
-		}
-
-		if (!mapEl || map) return;
-		map = L.map(mapEl);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		markerLayer = L.layerGroup().addTo(map);
-		updateMarkers();
-	}
-
-	function buildWidgetPopupContent(ride) {
-		const wrapper = document.createElement('div');
-		wrapper.style.minWidth = '180px';
-		wrapper.style.maxWidth = '240px';
-		wrapper.style.overflowWrap = 'anywhere';
-
-		const titleEl = document.createElement('strong');
-		titleEl.textContent = rideTitle(ride);
-		wrapper.appendChild(titleEl);
-		wrapper.appendChild(document.createElement('br'));
-
-		const scheduleWrap = document.createElement('small');
-		scheduleWrap.style.display = 'inline-flex';
-		scheduleWrap.style.flexWrap = 'wrap';
-		scheduleWrap.style.alignItems = 'center';
-		scheduleWrap.style.gap = '4px';
-		const timeEl = document.createElement('span');
-		timeEl.textContent = formatNext(ride);
-		scheduleWrap.appendChild(timeEl);
-
-		const tzBadge = rideTimezoneBadge(ride);
-		if (tzBadge) {
-			const badgeEl = document.createElement('span');
-			badgeEl.textContent = tzBadge;
-			badgeEl.style.padding = '1px 5px';
-			badgeEl.style.borderRadius = '999px';
-			badgeEl.style.fontSize = '10px';
-			badgeEl.style.fontWeight = '700';
-			badgeEl.style.letterSpacing = '0.06em';
-			badgeEl.style.textTransform = 'uppercase';
-			badgeEl.style.background = 'rgba(14, 116, 144, 0.14)';
-			badgeEl.style.color = '#0e7490';
-			scheduleWrap.appendChild(badgeEl);
-		}
-		wrapper.appendChild(scheduleWrap);
-		wrapper.appendChild(document.createElement('br'));
-
-		const linkEl = document.createElement('a');
-		linkEl.href = `/ride/${encodeURIComponent(ride.slug)}`;
-		linkEl.target = '_blank';
-		linkEl.rel = 'noopener noreferrer';
-		linkEl.textContent = 'View ride →';
-		wrapper.appendChild(linkEl);
-		return wrapper;
-	}
-
-	function updateMarkers() {
-		if (!map || !markerLayer || !L) return;
-		markerLayer.clearLayers();
-		/** @type {any} */
-		const points = [];
-
-		for (const ride of filteredRides || []) {
-			if (!validCoords(ride)) continue;
-			const lat = Number(ride.startLatitude);
-			const lng = Number(ride.startLongitude);
-			const marker = L.circleMarker([lat, lng], markerOptions(ride));
-			marker.bindPopup(buildWidgetPopupContent(ride));
-			markerLayer.addLayer(marker);
-			points.push([lat, lng]);
-		}
-
-		if (points.length) {
-			map.fitBounds(L.latLngBounds(points).pad(0.12));
-		} else {
-			map.setView([37.8, -96], 4);
-		}
-	}
-
-	$effect(() => {
-		if (view === 'map' && mapEl && !map) {
-			initMap();
-		}
-	});
-
-	$effect(() => {
-		void filteredRides;
-		void viewerTimezone;
-		updateMarkers();
-	});
-
-	$effect(() => {
-		if (view === 'map' && map) {
-			setTimeout(() => map?.invalidateSize(), 120);
-		}
-	});
+	const widgetMapItems = $derived(
+		filteredRides
+			.filter((ride) => isValidLatLng(ride?.startLatitude, ride?.startLongitude))
+			.map((ride) => {
+				const diff = primaryDifficulty(ride);
+				const tzBadge = rideTimezoneBadge(ride);
+				return {
+					id: ride.id ?? ride.slug,
+					lat: Number(ride.startLatitude),
+					lng: Number(ride.startLongitude),
+					title: rideTitle(ride),
+					subtitle: [formatNext(ride), tzBadge].filter(Boolean).join(' '),
+					meta: [ride.startLocationName, ride.group?.name].filter(Boolean).join(' · '),
+					badge: config.difficultyColors ? diff : '',
+					href: `/ride/${ride.slug}`,
+					ctaLabel: 'View ride',
+					external: true,
+					accentColor: config.difficultyColors ? difficultyColor(diff) : '#0ea5e9'
+				};
+			})
+	);
 
 	onMount(() => {
 		now = new Date();
@@ -538,13 +346,6 @@
 		}, 60_000);
 		return () => {
 			window.clearInterval(minuteTimer);
-			try {
-				map?.remove();
-				map = null;
-				markerLayer = null;
-			} catch {
-				// ignore
-			}
 		};
 	});
 </script>
@@ -896,11 +697,16 @@
 			</div>
 		{:else}
 			<div class="map-wrap">
-				<div bind:this={mapEl} class="map-canvas"></div>
-				<div class="map-hint">
-					<IconMapPin class="h-3.5 w-3.5" />
-					{filteredRides.length} listing{filteredRides.length === 1 ? '' : 's'} on map
-				</div>
+				<DirectoryMapExplorer
+					variant="widget"
+					cluster={false}
+					regionLabel="Ride directory map"
+					items={widgetMapItems}
+					itemNounSingular="ride"
+					itemNounPlural="rides"
+					canvasClass="map-canvas"
+					footerHint={`${filteredRides.length} listing${filteredRides.length === 1 ? '' : 's'} matching current filters`}
+				/>
 			</div>
 		{/if}
 	</section>
@@ -1716,22 +1522,13 @@
 	════════════════════════════════════════════ */
 	.map-wrap {
 		background: var(--widget-surface);
-		border: 1px solid var(--widget-line);
-		border-radius: var(--widget-radius);
+		border: 2px solid var(--widget-line);
+		border-radius: 0;
 		overflow: hidden;
-		box-shadow: var(--widget-shadow);
 	}
-	.map-canvas {
+	.map-wrap :global(.map-canvas) {
 		height: clamp(320px, 55vh, 560px);
-	}
-	.map-hint {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		font-size: 0.76rem;
-		padding: 0.5rem 0.75rem;
-		color: var(--widget-text-muted);
-		border-top: 1px solid var(--widget-line);
+		width: 100%;
 	}
 
 	/* ════════════════════════════════════════════

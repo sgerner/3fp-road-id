@@ -723,7 +723,7 @@
 			<div class="flex items-center justify-between gap-2 p-4 sm:gap-4">
 				<div class="flex min-w-0 items-center gap-2">
 					<button
-						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 rounded-lg border p-2 md:hidden"
+						class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 inline-flex items-center justify-center rounded-lg border p-2 md:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						bind:this={mobileMenuBtnEl}
 						onclick={() => (showMobileMenu = !showMobileMenu)}
 						aria-label="Menu"
@@ -734,7 +734,7 @@
 					<a
 						href="/"
 						aria-label="3 Feet Please"
-						class="text-surface-950-50 flex min-w-0 items-center gap-2 sm:gap-3"
+						class="text-surface-950-50 flex min-w-0 items-center justify-center gap-2 sm:justify-start sm:gap-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						<img
 							src="/3fp-64.webp"
@@ -757,7 +757,7 @@
 					{#if !user}
 						<button
 							type="button"
-							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border"
+							class="border-surface-950-50/10 text-surface-950-50 hover:bg-surface-950-50/10 grid size-9 place-items-center rounded-lg border pointer-coarse:size-11"
 							aria-label={`Switch to ${colorMode === 'dark' ? 'light' : 'dark'} mode`}
 							onclick={toggleColorMode}
 						>
@@ -773,7 +773,7 @@
 							<div class="relative flex items-center gap-2">
 								<button
 									type="button"
-									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center gap-2 rounded-full border px-2 py-1 transition"
+									class="profile-trigger hover:border-primary-500/45 border-surface-500/30 bg-surface-100-900/65 flex items-center justify-center gap-2 rounded-full border px-2 py-1 transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 									bind:this={userMenuBtnEl}
 									onclick={() => {
 										if (!showUserMenu) userMenuFocusIndex = 0;
@@ -968,7 +968,7 @@
 											<h3 class="text-base font-semibold">Log in / Register</h3>
 											<button
 												type="button"
-												class="btn preset-tonal-warning btn-sm px-2 !py-1 text-sm"
+												class="btn preset-tonal-warning btn-sm px-3 text-sm"
 												onclick={() => (showLogin = false)}>Close</button
 											>
 										</div>
@@ -984,7 +984,7 @@
 											autocomplete="email"
 											bind:value={email}
 											placeholder="you@example.com"
-											class="input bg-primary-50-950/30 text-surface-950-50 w-full"
+											class="input bg-primary-50-950/30 text-surface-950-50 w-full pointer-coarse:min-h-11"
 											required
 										/>
 										<TurnstileVerification
@@ -1140,7 +1140,7 @@
 						<div
 							class="rail-legal flex w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[0.62rem] font-semibold"
 						>
-							<div class="flex items-center gap-1">
+							<div class="flex flex-wrap items-center justify-center gap-1">
 								<a href="/privacy" class="rail-footer-link transition">Privacy</a>
 								<span aria-hidden="true">|</span>
 								<a href="/terms" class="rail-footer-link transition">Terms</a>
@@ -1333,6 +1333,12 @@
 		outline-offset: 2px;
 	}
 
+	@media (pointer: coarse) {
+		.profile-menu-item {
+			min-height: 2.75rem;
+		}
+	}
+
 	/* ── Rail: Get Involved link ── */
 	:global(.rail-brand-link) {
 		text-decoration: none;
@@ -1434,7 +1440,22 @@
 
 	.rail-footer-link,
 	.mobile-menu-legal-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5rem;
+		min-height: 1.5rem;
+		padding-inline: 0.25rem;
 		color: color-mix(in oklab, var(--rail-ink) 78%, transparent);
+	}
+
+	@media (pointer: coarse) {
+		.rail-footer-link,
+		.mobile-menu-legal-link {
+			min-width: 2.75rem;
+			min-height: 2.75rem;
+			padding-inline: 0.5rem;
+		}
 	}
 
 	.rail-footer-link:hover,
@@ -1464,7 +1485,14 @@
 	}
 
 	:global(.mob-social-btn) {
-		height: 2.5rem;
+		min-height: 2.75rem;
+	}
+
+	@media (pointer: coarse) {
+		:global(.rail-social-btn),
+		:global(.rail-donate-btn) {
+			min-height: 2.75rem;
+		}
 	}
 
 	:global(.rail-social-btn:hover),
@@ -1481,6 +1509,10 @@
 		background: color-mix(in oklab, var(--rail-ground) 82%, var(--color-primary-500));
 		text-decoration: none;
 		transition: background 150ms ease;
+	}
+
+	:global(.mob-donate-btn) {
+		min-height: 2.75rem;
 	}
 
 	:global(.rail-donate-btn:hover),
@@ -1508,7 +1540,7 @@
 	}
 
 	.mobile-menu-actions {
-		grid-template-columns: repeat(3, minmax(0, 2.5rem)) minmax(0, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 2.75rem)) minmax(0, 1fr);
 		border-top: 1px solid var(--rail-divider);
 	}
 

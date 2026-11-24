@@ -2,7 +2,6 @@
 	import ShareButton from '#lib/components/ui/ShareButton.svelte';
 	let { data } = $props();
 	import { onMount } from 'svelte';
-	import 'leaflet/dist/leaflet.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { supabase } from '#lib/supabaseClient';
@@ -20,7 +19,8 @@
 	import { notifyVolunteerHosts } from '#lib/services/volunteerHostNotifications';
 	import { buildVolunteerStatusUpdateEmail } from '#lib/volunteer/email-templates.js';
 	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
-	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import IconCalendar from '@lucide/svelte/icons/calendar';
 	import IconCircle from '@lucide/svelte/icons/circle';
 	import IconCircleCheckBig from '@lucide/svelte/icons/circle-check-big';
@@ -459,7 +459,6 @@
 		subject: defaultQuestionSubject,
 		message: ''
 	});
-	/** @type {Record<string, string>} */
 	let questionErrors = $state({});
 	let questionStatus = $state({ loading: false, success: '', error: '' });
 
@@ -508,7 +507,6 @@
 		const subject = (questionForm.subject || '').trim();
 		const message = questionForm.message;
 
-		/** @type {Record<string, string>} */
 		const nextErrors = {};
 		if (!replyTo || !questionEmailPattern.test(replyTo)) {
 			nextErrors.replyTo = 'Enter a valid email address so the organizer can respond.';
@@ -582,33 +580,7 @@
 		}
 	}
 
-	/** @type {HTMLDivElement | null} */
-	let mapEl = $state(null);
-	/** @type {any} */
-	let map;
-	/** @type {any} */
-	let marker;
-	/** @type {any} */
-	let L;
-	const hasCoords = Number.isFinite(event.latitude) && Number.isFinite(event.longitude);
-
-	onMount(async () => {
-		if (!hasCoords) return;
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-			await ensureLeafletDefaultIcon(L);
-			if (!mapEl) return;
-			map = L.map(mapEl).setView([Number(event.latitude), Number(event.longitude)], 13);
-			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				attribution: '&copy; OpenStreetMap contributors'
-			}).addTo(map);
-			marker = L.marker([Number(event.latitude), Number(event.longitude)]).addTo(map);
-		} catch (err) {
-			console.warn('Failed to load Leaflet map', err);
-		}
-	});
+	const hasCoords = $derived(isValidLatLng(event?.latitude, event?.longitude));
 
 	const statusStyles = {
 		draft: {
@@ -651,7 +623,6 @@
 		if (!value) return 'TBD';
 		try {
 			const date = new Date(value);
-			/** @type {Intl.DateTimeFormatOptions} */
 			const config = {};
 			const tz = timezone || event.timezone;
 			if (tz) config.timeZone = tz;
@@ -674,7 +645,6 @@
 	function isSameDay(startIso, endIso, timezone) {
 		try {
 			const tz = timezone || event.timezone || 'UTC';
-			/** @type {Intl.DateTimeFormatOptions} */
 			const opts = { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric' };
 			const fmt = new Intl.DateTimeFormat(undefined, opts);
 			return fmt.format(new Date(startIso)) === fmt.format(new Date(endIso));
@@ -1040,8 +1010,7 @@
 	async function maybeUpdateProfile(details) {
 		if (!user) return;
 		const current = profile || {};
-		/** @type {Record<string, any>} */
-		const mutablePayload = {};
+		const payload = { user_id: user.id };
 		let changed = false;
 
 		const assign = (key, raw) => {
@@ -1049,7 +1018,7 @@
 			const normalized = value ? value : null;
 			const currentValue = current[key] ?? null;
 			if (normalized !== currentValue) {
-				mutablePayload[key] = normalized;
+				payload[key] = normalized;
 				changed = true;
 			}
 		};
@@ -1065,6 +1034,8 @@
 		// Keep the conflict key out of the UPDATE statement. The profiles grants
 		// intentionally protect user_id from client updates, while PostgREST
 		// includes every upsert payload column in its ON CONFLICT update clause.
+		const mutablePayload = { ...payload };
+		delete mutablePayload.user_id;
 
 		let profileResult = await supabase
 			.from('profiles')
@@ -1268,7 +1239,6 @@
 			const toAdd = selectedShiftIds.filter((shiftId) => !existingShiftIds.includes(shiftId));
 			const toRemove = existingShiftIds.filter((shiftId) => !selectedShiftIds.includes(shiftId));
 
-			/** @type {string} */
 			const status = opportunity.requires_approval ? 'pending' : 'approved';
 			const newlyAddedShifts = [];
 			const createdAssignmentIds = [];
@@ -1790,9 +1760,16 @@
 
 			<!-- Map — flush inside hero -->
 			{#if hasCoords}
-				<div class="border-surface-950 h-64 w-full overflow-hidden border-t-[3px] md:h-80">
-					<div bind:this={mapEl} class="h-full w-full"></div>
-				</div>
+				<AccessibleMapShell
+					regionLabel={`Location map for ${event.title || 'volunteer event'}`}
+					lazy
+					lazyRootMargin="250px"
+					center={[Number(event.latitude), Number(event.longitude)]}
+					zoom={13}
+					staticMarker={{ lat: Number(event.latitude), lng: Number(event.longitude) }}
+					shellClass="border-surface-950 w-full overflow-hidden border-t-[3px]"
+					canvasClass="h-64 w-full md:h-80"
+				/>
 			{/if}
 		</header>
 
