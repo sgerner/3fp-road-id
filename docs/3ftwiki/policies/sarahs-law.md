@@ -82,20 +82,20 @@ Best,
 
 Click below for Canva Templates you can customize:
 
-[ ![2025_asks_postcard_1.jpg](/social-media/2025_asks_postcard_1.jpg =300x)
+[ ![Safer Streets, Stronger Families postcard urging Congress to co-sponsor Sarah's Law and protect bike safety grants](/social-media/2025_asks_postcard_1.jpg)
 Edit in Canva](https://www.canva.com/design/DAGho3Ejlmo/xt2ZAD4rByc4w-G6uns5YQ/view?utm_content=DAGho3Ejlmo&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-[ ![2025_asks_postcard_2.jpg](/social-media/2025_asks_postcard_2.jpg =300x)
+[ ![Local Solutions for Safer Streets postcard urging legislators to co-sponsor Sarah's Law and fund local safety grants](/social-media/2025_asks_postcard_2.jpg)
 Edit in Canva](https://www.canva.com/design/DAGhqoxLc7I/qKrXcVZ81hNFsh44O1kKmA/view?utm_content=DAGhqoxLc7I&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-[ ![2025_asks_postcard_3.jpg](/social-media/2025_asks_postcard_3.jpg =300x)
+[ ![Freedom to Move, Safe for All postcard urging Congress to co-sponsor Sarah's Law and fund walking and biking projects](/social-media/2025_asks_postcard_3.jpg)
 Edit in Canva](https://www.canva.com/design/DAGhqg3erJs/M_UmtaTigfXBcp9WKo7hkw/view?utm_content=DAGhqg3erJs&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-[ ![2025_asks_postcard_4.jpg](/social-media/2025_asks_postcard_4.jpg =300x)
+[ ![Safe Streets, Stronger Economy postcard urging Congress to co-sponsor Sarah's Law and keep 2% active travel funding](/social-media/2025_asks_postcard_4.jpg)
 Edit in Canva](https://www.canva.com/design/DAGhq8N8NA4/S69Kcb7KIS7pwgxBWQX40w/view?utm_content=DAGhq8N8NA4&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 Example Back of Postcard (Included in all designs above)
-![2025_asks_postcard_3.png](/social-media/2025_asks_postcard_3.png =400x)
+![Postcard back template with a personal biking story prompt and mailing address lines for a legislator](/social-media/2025_asks_postcard_3.png)
 
 # Organize Local District Meetings
 

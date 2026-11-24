@@ -18,6 +18,11 @@
 		styleRequiresStateSelection,
 		validateArtworkStyleSelection
 	} from '#lib/ai/artworkStudio';
+	import {
+		buildContextualCoverAlt,
+		LEARN_ALT_TEXT_MAX_LENGTH,
+		sanitizeAltText
+	} from '#lib/learn/altText';
 
 	let {
 		open = $bindable(false),
@@ -29,6 +34,7 @@
 		aspectRatio = '16:9',
 		articleId = null,
 		currentImageUrl = '',
+		currentImageAlt = '',
 		defaultStyleId = 'comic_house',
 		candidates = $bindable([]),
 		returnFocusEl = null,
@@ -54,6 +60,7 @@
 	let applying = $state(false);
 	let error = $state('');
 	let selectedCandidateId = $state('');
+	let statusAnnouncement = $state('');
 
 	const selectedStyle = $derived(
 		IMAGE_STYLE_PRESETS.find((preset) => preset.id === styleId) ?? IMAGE_STYLE_PRESETS[0] ?? null
@@ -216,9 +223,20 @@
 				throw new Error('Image generation returned no image URL.');
 			}
 
+			const draftedAlt =
+				sanitizeAltText(result.alt_text || result.altText || '', { imageUrl: result.url }) ||
+				buildContextualCoverAlt({
+					target,
+					context,
+					styleLabel: selectedStyle?.label || ''
+				});
+			const altGenerated = Boolean(result.alt_generated && (result.alt_text || result.altText));
+
 			const candidateEntry = {
 				id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 				url: result.url,
+				altText: draftedAlt,
+				altGenerated,
 				styleId,
 				styleLabel: selectedStyle?.label || 'Artwork',
 				moodId: moodId || '',
@@ -233,6 +251,9 @@
 				...candidates.filter((existing) => existing.url !== candidateEntry.url)
 			];
 			selectedCandidateId = candidateEntry.id;
+			statusAnnouncement = altGenerated
+				? 'Generated candidate ready with AI-drafted alt text.'
+				: 'Generated candidate ready with contextual alt text.';
 		} catch (generationError) {
 			error = generationError?.message || 'Unable to generate artwork.';
 		} finally {
@@ -240,12 +261,31 @@
 		}
 	}
 
+	function updateSelectedCandidateAlt(nextValue) {
+		if (!selectedCandidate) return;
+		const capped = String(nextValue ?? '').slice(0, LEARN_ALT_TEXT_MAX_LENGTH);
+		candidates = candidates.map((entry) =>
+			entry.id === selectedCandidate.id ? { ...entry, altText: capped, altGenerated: false } : entry
+		);
+	}
+
 	async function confirmSelectedCandidate() {
 		if (!selectedCandidate?.result || applying || generating) return;
 		error = '';
 		applying = true;
 		try {
-			await onApply?.(selectedCandidate.result);
+			const resolvedAlt =
+				sanitizeAltText(selectedCandidate.altText || '', { imageUrl: selectedCandidate.url }) ||
+				sanitizeAltText(
+					selectedCandidate.result?.alt_text || selectedCandidate.result?.altText || '',
+					{ imageUrl: selectedCandidate.url }
+				);
+			await onApply?.({
+				...selectedCandidate.result,
+				alt_text: resolvedAlt,
+				altText: resolvedAlt,
+				assetId: selectedCandidate.result?.assetId || selectedCandidate.result?.asset?.id || null
+			});
 			dismissModal();
 		} catch (applyError) {
 			error = applyError?.message || 'Unable to apply selected artwork.';
@@ -490,8 +530,34 @@
 					<div class="border-surface-600/40 bg-surface-950 overflow-hidden rounded-xl border">
 						<img
 							src={selectedCandidate.url}
-							alt={`Generated ${selectedCandidate.styleLabel} candidate`}
+							alt={selectedCandidate.altText ||
+								`Generated ${selectedCandidate.styleLabel} candidate`}
 							class={`${stageAspectClass} w-full object-cover`}
+						/>
+					</div>
+					<div class="space-y-1.5">
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<label class="label m-0 text-xs" for={`${uid}-candidate-alt`}>
+								Candidate alt text
+							</label>
+							<div class="flex items-center gap-2 text-xs">
+								<span class="chip preset-tonal-surface text-[11px]">
+									{selectedCandidate.altGenerated ? 'AI-drafted' : 'Contextual'}
+								</span>
+								<span class="opacity-60">
+									{(selectedCandidate.altText || '').length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+								</span>
+							</div>
+						</div>
+						<input
+							id={`${uid}-candidate-alt`}
+							type="text"
+							class="input text-sm"
+							maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+							value={selectedCandidate.altText || ''}
+							disabled={applying}
+							placeholder="Concise description of the generated illustration"
+							oninput={(event) => updateSelectedCandidateAlt(event.currentTarget.value)}
 						/>
 					</div>
 				{:else if currentImageUrl}
@@ -500,7 +566,7 @@
 					>
 						<img
 							src={currentImageUrl}
-							alt="Current cover preview"
+							alt={currentImageAlt || 'Current cover preview'}
 							class={`${stageAspectClass} w-full object-cover opacity-80`}
 						/>
 						<div class="bg-surface-950/80 absolute bottom-2 left-2 rounded px-2.5 py-1 text-xs">
@@ -548,6 +614,8 @@
 				{/if}
 			</div>
 		</div>
+
+		<p class="sr-only" role="status" aria-live="polite">{statusAnnouncement}</p>
 
 		<footer class="artwork-studio-footer">
 			<p class="text-xs opacity-65">

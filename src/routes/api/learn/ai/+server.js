@@ -1,17 +1,26 @@
 import { json } from '@sveltejs/kit';
 import {
 	answerLearnArticleQuestion,
+	auditLearnMarkdownAltText,
 	generateLearnAiTakeaways,
+	generateLearnImageAltText,
 	generateLearnWritingDraft,
 	navigateLearnArticles
 } from '#lib/server/learnAi';
 import { getLearnClient } from '#lib/server/learn';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import {
+	enforceRateLimit,
+	fetchPublicHttp,
+	readJsonBody,
+	readResponseBuffer
+} from '#lib/server/security';
 import {
 	buildLearnQuestionContext,
 	canAccessLearnAiArticle,
+	canManageLearnAsset,
 	canUseLearnAiAction,
 	cleanLearnAiString,
+	isLearnAdminUser,
 	LEARN_AI_SOURCE_LIMIT
 } from '#lib/server/learnAiCore';
 
@@ -40,7 +49,11 @@ export async function POST(event) {
 	if (!parsed.ok) return fail(parsed.error, parsed.status);
 	const body = parsed.value && typeof parsed.value === 'object' ? parsed.value : {};
 	const action = cleanText(body.action, 30).toLowerCase();
-	const writingAction = action === 'write' || action === 'takeaways';
+	const writingAction =
+		action === 'write' ||
+		action === 'takeaways' ||
+		action === 'audit_alt' ||
+		action === 'draft_asset_alt';
 	const { user, supabase } = await getLearnClient(cookies);
 	if (!canUseLearnAiAction(action, user)) return fail('Authentication required.', 401);
 	const limited = enforceRateLimit(event, {
@@ -92,6 +105,105 @@ export async function POST(event) {
 				content: cleanText(body.content, MAX_CONTENT_CHARS)
 			});
 			return json({ draft }, { headers: { 'cache-control': 'no-store' } });
+		}
+		if (action === 'audit_alt') {
+			if (typeof body.content !== 'string') return fail('Add article content first.');
+			if (body.content.length > MAX_CONTENT_CHARS) {
+				return fail(
+					'Article draft must be 18,000 characters or fewer so the assistant can preserve it completely.',
+					413
+				);
+			}
+			const content = body.content.trim();
+			if (!content) return fail('Add article content first.');
+			const audit = await auditLearnMarkdownAltText({
+				supabase,
+				title: cleanText(body.title, 300),
+				summary: cleanText(body.summary, 500),
+				content: body.content,
+				articleId: cleanText(body.articleId, 80)
+			});
+			return json(
+				{
+					totalImages: audit.totalImages,
+					flaggedCount: audit.flaggedCount,
+					issues: audit.issues,
+					proposals: audit.proposals,
+					draft: audit.draft
+				},
+				{ headers: { 'cache-control': 'no-store' } }
+			);
+		}
+		if (action === 'draft_asset_alt') {
+			const imageUrl = cleanText(body.imageUrl, 2000);
+			if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+				return fail('Provide a valid public image URL.');
+			}
+			const imageResponse = await fetchPublicHttp(
+				imageUrl,
+				{ headers: { accept: 'image/*' } },
+				{ timeoutMs: 8_000, maxRedirects: 2 }
+			).catch(() => null);
+			if (!imageResponse?.ok) {
+				return fail('Unable to inspect that image URL.', 400);
+			}
+			const mimeType =
+				cleanText(imageResponse.headers.get('content-type') || '', 120)
+					.split(';')[0]
+					.trim() || 'image/jpeg';
+			const imageBuffer = await readResponseBuffer(imageResponse, 8 * 1024 * 1024);
+			if (!imageBuffer?.byteLength) {
+				return fail('Uploaded image could not be read.', 400);
+			}
+			const generated = await generateLearnImageAltText({
+				imageBuffer,
+				mimeType,
+				fileName: cleanText(body.fileName, 200),
+				imageUrl,
+				title: cleanText(body.title, 300),
+				surroundingContext: cleanText(body.content, 400),
+				enclosingLinkUrl: cleanText(body.enclosingLinkUrl, 500),
+				isSoleLinkContent: Boolean(body.enclosingLinkUrl)
+			});
+			const assetId = cleanText(body.assetId, 80);
+			if (assetId && supabase && user?.id) {
+				try {
+					const { data: existingAsset } = await supabase
+						.from('learn_assets')
+						.select('id, uploaded_by_user_id, metadata')
+						.eq('id', assetId)
+						.maybeSingle();
+					if (existingAsset) {
+						const isOwner = existingAsset.uploaded_by_user_id === user.id;
+						const isAdmin = isOwner ? false : await isLearnAdminUser(supabase, user.id);
+						if (canManageLearnAsset(existingAsset, user, { isAdmin })) {
+							await supabase
+								.from('learn_assets')
+								.update({
+									alt_text: generated.altText,
+									metadata: {
+										...(existingAsset.metadata && typeof existingAsset.metadata === 'object'
+											? existingAsset.metadata
+											: {}),
+										alt_generated: true,
+										is_decorative: Boolean(generated.isDecorative)
+									}
+								})
+								.eq('id', existingAsset.id);
+						}
+					}
+				} catch {
+					// Non-fatal persistence on user-owned or admin-managed assets.
+				}
+			}
+			return json(
+				{
+					altText: generated.altText,
+					isDecorative: generated.isDecorative,
+					altGenerated: true
+				},
+				{ headers: { 'cache-control': 'no-store' } }
+			);
 		}
 		if (action === 'ask') {
 			const question = cleanText(body.question, 700);

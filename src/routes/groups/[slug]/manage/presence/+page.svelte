@@ -316,6 +316,7 @@
 					''
 		)
 	);
+	let coverAlt = $state('');
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let logoUploadKey = $state(0);
@@ -795,6 +796,7 @@
 		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		logoPreview = data.group?.logo_url || '';
 		coverPreview = data.group?.cover_photo_url || '';
+		coverAlt = '';
 		logoTooLarge = false;
 		coverTooLarge = false;
 		logoUploadKey += 1;
@@ -1269,6 +1271,7 @@
 		} else if (which === 'cover') {
 			if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = '';
+			coverAlt = '';
 			coverRawFile = null;
 			coverTooLarge = false;
 			profileDraft.coverCropped = '';
@@ -1313,6 +1316,9 @@
 		if (!url) return;
 		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		if (result?.alt_text || result?.altText) {
+			coverAlt = result.alt_text || result.altText;
+		}
 		coverRawFile = null;
 		coverTooLarge = false;
 		profileDraft.coverCropped = '';
@@ -2498,7 +2504,11 @@
 								<div
 									class="border-surface-700 relative mt-1 aspect-square w-24 overflow-hidden border"
 								>
-									<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+									<img
+										src={logoPreview}
+										alt={liveGroupDraft.name ? `${liveGroupDraft.name} logo` : 'Group logo'}
+										class="h-full w-full object-cover"
+									/>
 									<button
 										type="button"
 										class="bg-surface-950/80 hover:bg-error-500 absolute top-1 right-1 p-0.5 text-white"
@@ -2519,6 +2529,8 @@
 								helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
 								accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 								imageUrl={profileDraft.clearCover ? '' : coverPreview}
+								bind:imageAlt={coverAlt}
+								showAltField={true}
 								uploading={submitting}
 								error={coverTooLarge ? 'Cover file exceeds 10MB limit.' : ''}
 								target="group"
