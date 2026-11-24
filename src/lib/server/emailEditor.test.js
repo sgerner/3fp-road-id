@@ -51,6 +51,7 @@ test('readiness separates blockers from editorial recommendations', () => {
 		{ id: 'sender', is_default: true, ses_verified_for_sending: true }
 	]);
 	draft.blocks.push({ id: 'bad', type: 'button', text: 'Bad', url: 'javascript:bad' });
+	/** @type {any[]} */
 	const checks = getCampaignReadiness({
 		draft,
 		senderDomains: [{ id: 'sender', ses_verified_for_sending: true }],
@@ -92,6 +93,7 @@ test('readiness blocks images without an accessible description', () => {
 		{ id: 'sender', is_default: true, ses_verified_for_sending: true }
 	]);
 	draft.blocks = [{ id: 'image', type: 'image', url: 'https://example.com/ride.jpg', alt: '' }];
+	/** @type {any[]} */
 	const checks = getCampaignReadiness({
 		draft,
 		senderDomains: [{ id: 'sender', ses_verified_for_sending: true }],

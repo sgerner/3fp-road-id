@@ -89,6 +89,7 @@
 	let busy = $state(false);
 	let guestMagicLinkBusy = $state(false);
 	let guestHoneypot = $state('');
+	/** @type {any} */
 	let guestTurnstile = $state(null);
 	let magicLinkSentEmail = $state('');
 	let statusError = $state('');
@@ -107,9 +108,13 @@
 	let paymentSubscriptionId = $state('');
 	let paymentReturnUrl = $state('');
 	let preparedPaymentSignature = $state('');
+	/** @type {any} */
 	let stripe = null;
+	/** @type {any} */
 	let elements = null;
+	/** @type {any} */
 	let paymentElement = null;
+	/** @type {HTMLDivElement | null} */
 	let paymentElementHost = $state(null);
 	let lastAppliedHandoffSearch = $state(page?.url?.search || '');
 
@@ -188,6 +193,7 @@
 		)
 	);
 	const selectedTierBlockedByStripe = $derived(Boolean(requiresPayment && !stripeReady));
+	const latestApplication = $derived(myApplications[0] || null);
 	const canCompletePrivatePayment = $derived(
 		Boolean(
 			latestApplication &&
@@ -206,7 +212,6 @@
 	const shouldShowInlinePayment = $derived(
 		Boolean(currentUserId && requiresPayment && (!isPrivate || canCompletePrivatePayment))
 	);
-	const latestApplication = $derived(myApplications[0] || null);
 
 	const currentPrice = $derived(
 		selectedTierAllowsCustom

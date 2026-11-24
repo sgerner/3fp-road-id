@@ -26,6 +26,9 @@ export function normalizeGroupSiteEditorView(value, fallback = 'builder') {
 	return GROUP_SITE_EDITOR_VIEWS.includes(normalized) ? normalized : fallback;
 }
 
+/**
+ * @param {{ slug?: any, files?: any[], maxLogoBytes?: number }} [options]
+ */
 export function validateGroupSiteDraftSubmission({
 	slug,
 	files = [],
@@ -94,6 +97,12 @@ function stripEditorEnvelopeKeys(value) {
 	return clone;
 }
 
+/**
+ * @param {Record<string, any>} [defaultConfig]
+ * @param {Record<string, any>} [savedConfig]
+ * @param {Record<string, any> | null} [draftConfig]
+ * @returns {Record<string, any>}
+ */
 export function mergeGroupSiteEditorConfig(
 	defaultConfig = {},
 	savedConfig = {},
@@ -131,6 +140,10 @@ export function mergeGroupSiteEditorConfig(
 	};
 }
 
+/**
+ * @param {FormData} formData
+ * @param {{ group?: Record<string, any> | null }} [options]
+ */
 export function extractGroupSiteEditorFormValues(formData, { group = null } = {}) {
 	const config = parseGroupSiteFormData(formData, { group });
 	const pendingSponsorLogoFiles = [];
@@ -155,7 +168,7 @@ export function extractGroupSiteEditorFormValues(formData, { group = null } = {}
 				const normalizedByIndex = parsedSponsors.slice(0, 12).map((item, index) => {
 					const file = formData.get(`sponsor_logo_file_${index}`);
 					const hasPendingFile =
-						Boolean(file) && typeof file === 'object' && 'size' in file && Number(file.size) > 0;
+						file !== null && typeof file === 'object' && 'size' in file && Number(file.size) > 0;
 					const name = String(item?.name || '')
 						.trim()
 						.slice(0, 120);
@@ -175,7 +188,10 @@ export function extractGroupSiteEditorFormValues(formData, { group = null } = {}
 							if (!item.name && !item.text && !item.logo && !item.url) return item;
 							return configQueue.shift() || item;
 						})
-						.filter(Boolean);
+						.filter(
+							/** @returns {entry is { name: string, text: string, logo: string, url: string }} */
+							(entry) => Boolean(entry)
+						);
 				}
 			}
 		} catch {
@@ -202,6 +218,16 @@ export function extractGroupSiteEditorFormValues(formData, { group = null } = {}
 	};
 }
 
+/**
+ * @param {{
+ *   defaultSiteConfig?: Record<string, any>,
+ *   siteConfig?: Record<string, any>,
+ *   micrositeSlug?: string,
+ *   group?: Record<string, any> | null,
+ *   values?: Record<string, any> | null,
+ *   startSponsorIndex?: number
+ * }} [options]
+ */
 export function buildGroupSiteEditorState({
 	defaultSiteConfig = {},
 	siteConfig = {},
@@ -286,6 +312,9 @@ export function buildGroupSiteEditorState({
 	};
 }
 
+/**
+ * @param {Record<string, any>} [state]
+ */
 export function createGroupSiteEditorSnapshot(state = {}) {
 	return JSON.stringify({
 		siteConfig: state.siteConfig,

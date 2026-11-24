@@ -37,6 +37,7 @@ test('parseBtwPhxCalendarData keeps accepting the legacy response envelope', () 
 });
 
 test('importBtwPhxCalendar requests the current Eventscalendar endpoint with GET', async () => {
+	/** @type {any} */
 	let request;
 	const fetchHttp = async (url, options) => {
 		request = { url, options };
@@ -46,6 +47,7 @@ test('importBtwPhxCalendar requests the current Eventscalendar endpoint with GET
 		});
 	};
 
+	/** @type {any} */
 	const result = await importBtwPhxCalendar(
 		{},
 		{

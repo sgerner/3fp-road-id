@@ -35,6 +35,15 @@ import {
 	updateExistingMembershipContactWithFallback
 } from './membershipProgramAndContacts.js';
 
+/**
+ * @param {{
+ *   programs?: Array<Record<string, any>>;
+ *   tiers?: Array<Record<string, any>>;
+ *   memberships?: Array<Record<string, any>>;
+ *   billings?: Array<Record<string, any>>;
+ *   profiles?: Array<Record<string, any>>;
+ * }} [seed]
+ */
 function createMembershipSupabaseMock({
 	programs = [],
 	tiers = [],
@@ -42,6 +51,7 @@ function createMembershipSupabaseMock({
 	billings = [],
 	profiles = []
 } = {}) {
+	/** @type {Record<string, Array<Record<string, any>>>} */
 	const tables = {
 		group_membership_programs: programs.map((row) => ({ ...row })),
 		group_membership_tiers: tiers.map((row) => ({ ...row })),
@@ -49,8 +59,13 @@ function createMembershipSupabaseMock({
 		group_membership_billing: billings.map((row) => ({ ...row })),
 		profiles: profiles.map((row) => ({ ...row }))
 	};
+	/** @type {Array<Record<string, any>>} */
 	const profileUpserts = [];
 
+	/**
+	 * @param {Record<string, any>} row
+	 * @param {Array<Record<string, any>>} filters
+	 */
 	function matchesFilters(row, filters) {
 		return filters.every((filter) => {
 			if (filter.type === 'eq') return row[filter.key] === filter.value;
@@ -63,10 +78,15 @@ function createMembershipSupabaseMock({
 	return {
 		tables,
 		profileUpserts,
+		/**
+		 * @param {string} tableName
+		 */
 		from(tableName) {
 			const rows = tables[tableName];
 			assert.ok(rows, `Unexpected table ${tableName}`);
+			/** @type {Array<Record<string, any>>} */
 			const filters = [];
+			/** @type {Record<string, any> | null} */
 			let pendingUpdate = null;
 
 			const execute = () => {
@@ -427,6 +447,7 @@ test('submitting a club join form with alternate display name or phone leaves an
 	assert.equal(store.profileUpserts.length, 0);
 
 	const untouchedGlobal = store.tables.profiles.find((row) => row.user_id === 'user-existing');
+	assert.ok(untouchedGlobal);
 	assert.equal(untouchedGlobal.full_name, 'Casey Global');
 	assert.equal(untouchedGlobal.email, 'casey@global.example');
 	assert.equal(untouchedGlobal.phone, '555-100-2000');
@@ -435,6 +456,7 @@ test('submitting a club join form with alternate display name or phone leaves an
 		{ user_id: 'user-existing', ...scopedColumns },
 		untouchedGlobal
 	);
+	assert.ok(mergedForClubRoster);
 	assert.equal(mergedForClubRoster.full_name, 'Casey Track Alias');
 	assert.equal(mergedForClubRoster.email, 'alias@club.example');
 	assert.equal(mergedForClubRoster.phone, '555-999-8888');

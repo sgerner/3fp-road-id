@@ -5,6 +5,7 @@
 
 // Error Correction Level M (15% recovery) table for versions 1..10:
 // [ecCodewordsPerBlock, group1Blocks, group1DataCw, group2Blocks, group2DataCw, alignmentCenters]
+/** @type {([number, number, number, number, number, number[]] | null)[]} */
 const VERSION_SPECS_M = [
 	null,
 	[10, 1, 16, 0, 0, []],
@@ -69,6 +70,7 @@ function computeReedSolomonRemainder(data, ecCount) {
 
 function totalDataCodewords(version) {
 	const spec = VERSION_SPECS_M[version];
+	if (!spec) throw new Error('Unsupported QR version.');
 	return spec[1] * spec[2] + spec[3] * spec[4];
 }
 
@@ -122,7 +124,9 @@ function encodeDataCodewords(bytes, version) {
 }
 
 function interleaveCodewords(dataCodewords, version) {
-	const [ecCw, g1Blocks, g1DataCw, g2Blocks, g2DataCw] = VERSION_SPECS_M[version];
+	const spec = VERSION_SPECS_M[version];
+	if (!spec) throw new Error('Unsupported QR version.');
+	const [ecCw, g1Blocks, g1DataCw, g2Blocks, g2DataCw] = spec;
 	const dataBlocks = [];
 	const ecBlocks = [];
 	let offset = 0;
@@ -389,7 +393,8 @@ export function encodeQrMatrix(text) {
 	placeFinderPattern(baseModules, reserved, 0, size - 7);
 	placeFinderPattern(baseModules, reserved, size - 7, 0);
 
-	const centers = VERSION_SPECS_M[version][5];
+	const spec = VERSION_SPECS_M[version];
+	const centers = spec ? spec[5] : [];
 	for (const r of centers) {
 		for (const c of centers) {
 			if ((r === 6 && c === 6) || (r === 6 && c === size - 7) || (r === size - 7 && c === 6)) {
@@ -438,6 +443,7 @@ export function encodeQrMatrix(text) {
 		upward = !upward;
 	}
 
+	/** @type {Uint8Array[] | null} */
 	let bestMatrix = null;
 	let bestScore = Infinity;
 	for (let mask = 0; mask < 8; mask += 1) {
@@ -460,7 +466,7 @@ export function encodeQrMatrix(text) {
 	return {
 		version,
 		size,
-		modules: bestMatrix.map((row) => Array.from(row))
+		modules: (bestMatrix ?? baseModules).map((row) => Array.from(row))
 	};
 }
 
@@ -515,6 +521,14 @@ export function renderQrSvg(
 	].join('');
 }
 
+/**
+ * @param {{
+ *   codes?: readonly (string | { code?: string | null })[],
+ *   origin?: string,
+ *   riderName?: string,
+ *   copiesPerCode?: number
+ * }} [options]
+ */
 export function renderPrintableQrSheetSvg({
 	codes = [],
 	origin = 'https://3fp.org',

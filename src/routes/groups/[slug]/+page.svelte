@@ -42,6 +42,7 @@
 
 	// UI state
 	let showSticky = $state(false);
+	/** @type {HTMLElement | null} */
 	let heroSentinel = $state(null);
 	let failedImageUrls = $state({});
 
@@ -50,7 +51,7 @@
 		failedImageUrls = { ...failedImageUrls, [url]: true };
 	}
 
-	let instagramFeed = $state(null);
+	let instagramFeed = $state(/** @type {Record<string, any> | null} */ (null));
 
 	const group = $derived(data.group ?? null);
 	const groupName = $derived(cleanSeoText(group?.name) || 'Cycling Group');
@@ -128,6 +129,7 @@
 	let claimSuccess = $state('');
 	let claimHoneypot = $state('');
 	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
+	/** @type {any} */
 	let claimTurnstile = $state(null);
 
 	async function claimGroup() {
@@ -257,15 +259,6 @@
 						? 'Request Membership'
 						: 'Join Membership')
 	);
-	const headerMembershipCta = $derived(
-		membershipEnabled && data.group?.slug
-			? {
-					href: `/groups/${encodeURIComponent(data.group.slug)}/membership`,
-					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
-					onClick: handleMembershipCtaClick
-				}
-			: null
-	);
 	function resolveSingleFreeFollowTier() {
 		if (!membershipEnabled) return null;
 		if (membershipProgram?.access_mode === 'private_request') return null;
@@ -289,6 +282,16 @@
 	let followLoading = $state(false);
 	let followError = $state('');
 	let donationStartAmount = $state(25);
+
+	const headerMembershipCta = $derived(
+		membershipEnabled && data.group?.slug
+			? {
+					href: `/groups/${encodeURIComponent(data.group.slug)}/membership`,
+					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
+					onClick: handleMembershipCtaClick
+				}
+			: null
+	);
 
 	async function joinSingleFreeTierNow() {
 		const groupSlug = data.group?.slug;
@@ -1535,7 +1538,10 @@
 			{@const snapshot = latestAccountingReport.snapshot ?? {}}
 			{@const financialReport = snapshot.report ?? {}}
 			{@const snapshotCurrency =
-				snapshot.currency ?? financialReport.currency ?? data.accounting_currency ?? 'usd'}
+				snapshot.currency ??
+				financialReport.currency ??
+				/** @type {any} */ (data).accounting_currency ??
+				'usd'}
 			{@const retainedActivityCents =
 				Number(financialReport.totals?.equity_cents || 0) -
 				(financialReport.equity ?? []).reduce(
@@ -1931,7 +1937,7 @@
 											title="Instagram post"
 											loading="lazy"
 											referrerpolicy="strict-origin-when-cross-origin"
-											allowtransparency="true"
+											allowtransparency={true}
 											class="h-full w-full border-0"
 										></iframe>
 									{/if}

@@ -54,7 +54,12 @@ export const TABLES = [
 	{ name: 'group_accounting_receipts', keyColumns: ['id'] }
 ];
 
+/**
+ * @param {{ envPath?: string, env?: Record<string, string | undefined> }} [options]
+ * @returns {Record<string, string | undefined>}
+ */
 export function loadLocalEnv({ envPath = '.env', env = process.env } = {}) {
+	/** @type {Record<string, string | undefined>} */
 	const values = { ...env };
 	if (values.PUBLIC_SUPABASE_URL && values.SUPABASE_SERVICE_ROLE_KEY) return values;
 	try {
@@ -69,6 +74,9 @@ export function loadLocalEnv({ envPath = '.env', env = process.env } = {}) {
 	return values;
 }
 
+/**
+ * @param {{ envPath?: string, env?: Record<string, string | undefined> }} [options]
+ */
 export function createStorageScriptClient({ envPath = '.env', env } = {}) {
 	const resolvedEnv = loadLocalEnv({ envPath, env });
 	const supabaseUrl = resolvedEnv.PUBLIC_SUPABASE_URL;
@@ -204,7 +212,22 @@ export function findStorageReferences(value) {
 	return { references, unrecognized };
 }
 
+/**
+ * @typedef {{
+ *   references: Set<string>,
+ *   unrecognizedLocations: Set<string>,
+ *   unrecognizedReferences: Map<string, Set<string>>,
+ *   protectedReferences?: Set<string>,
+ *   registryReferences?: Set<string>
+ * }} StorageReferenceState
+ */
+
+/**
+ * @param {{ includeProtected?: boolean, includeRegistry?: boolean }} [options]
+ * @returns {StorageReferenceState}
+ */
 function createReferenceState({ includeProtected = false, includeRegistry = false } = {}) {
+	/** @type {StorageReferenceState} */
 	const state = {
 		references: new Set(),
 		unrecognizedLocations: new Set(),
@@ -215,12 +238,19 @@ function createReferenceState({ includeProtected = false, includeRegistry = fals
 	return state;
 }
 
+/**
+ * @param {StorageReferenceState} state
+ * @param {string} source
+ * @param {string} value
+ */
 function recordUnrecognizedReference(state, source, value) {
 	state.unrecognizedLocations.add(source);
-	if (!state.unrecognizedReferences.has(source)) {
-		state.unrecognizedReferences.set(source, new Set());
+	let entries = state.unrecognizedReferences.get(source);
+	if (!entries) {
+		entries = new Set();
+		state.unrecognizedReferences.set(source, entries);
 	}
-	state.unrecognizedReferences.get(source).add(value.slice(0, 160));
+	entries.add(value.slice(0, 160));
 }
 
 function collectStorageState(value, state, source) {
@@ -250,6 +280,23 @@ function collectStorageState(value, state, source) {
 	}
 }
 
+/**
+ * @overload
+ * @param {Map<string, any[]>} rowsByTable
+ * @param {{ includeProtected: true, includeRegistry: true, includeRowRegistry?: boolean }} options
+ * @returns {StorageReferenceState & { protectedReferences: Set<string>, registryReferences: Set<string> }}
+ */
+/**
+ * @overload
+ * @param {Map<string, any[]>} rowsByTable
+ * @param {{ includeProtected?: boolean, includeRegistry?: boolean, includeRowRegistry?: boolean }} [options]
+ * @returns {StorageReferenceState}
+ */
+/**
+ * @param {Map<string, any[]>} rowsByTable
+ * @param {{ includeProtected?: boolean, includeRegistry?: boolean, includeRowRegistry?: boolean }} [options]
+ * @returns {StorageReferenceState}
+ */
 export function collectReferenceState(
 	rowsByTable,
 	{ includeProtected = false, includeRegistry = false, includeRowRegistry = false } = {}
@@ -328,6 +375,12 @@ const IMAGE_MIME_TYPES = {
 	'.avif': 'image/avif'
 };
 
+/**
+ * @param {string} name
+ * @param {Record<string, any> | null} [metadata={}]
+ * @param {{ includePdf?: boolean, fallback?: string }} [options]
+ * @returns {string}
+ */
 export function mimeTypeFor(name, metadata = {}, { includePdf = false, fallback = '' } = {}) {
 	const metadataType = metadata?.mimetype || metadata?.contentType || '';
 	if (metadataType) return metadataType.toLowerCase();
@@ -381,7 +434,10 @@ export async function fetchRows(supabase, table) {
 
 export async function fetchAllRows(supabase) {
 	const entries = await Promise.all(
-		TABLES.map(async (table) => [table.name, await fetchRows(supabase, table)])
+		TABLES.map(
+			async (table) =>
+				/** @type {[string, any[]]} */ ([table.name, await fetchRows(supabase, table)])
+		)
 	);
 	return new Map(entries);
 }
@@ -399,7 +455,13 @@ export function rowsFingerprint(rows) {
 
 export function snapshotRows(rowsByTable) {
 	return new Map(
-		TABLES.map((table) => [table.name, rowsFingerprint(rowsByTable.get(table.name) || [])])
+		TABLES.map(
+			(table) =>
+				/** @type {[string, string]} */ ([
+					table.name,
+					rowsFingerprint(rowsByTable.get(table.name) || [])
+				])
+		)
 	);
 }
 
@@ -432,6 +494,13 @@ export function sha256(buffer) {
 	return createHash('sha256').update(buffer).digest('hex');
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} bucket
+ * @param {string} name
+ * @param {{ throwOnError?: boolean }} [options]
+ * @returns {Promise<any>}
+ */
 export async function downloadObject(supabase, bucket, name, { throwOnError = false } = {}) {
 	const { data, error } = await supabase.storage.from(bucket).download(name);
 	if (error || !data) {

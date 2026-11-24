@@ -36,16 +36,31 @@ export function normalizeDirectoryView(value, fallback = 'list') {
 	return VALID_DIRECTORY_VIEWS.has(normalized) ? normalized : fallback;
 }
 
+/**
+ * @typedef {{ get(name: string): string | null } | URLSearchParams | URL | string | null | undefined} SearchParamsInput
+ */
+
+/**
+ * @param {SearchParamsInput} input
+ * @returns {{ get(name: string): string | null }}
+ */
 function asSearchParams(input) {
 	if (input instanceof URLSearchParams) return input;
 	if (input instanceof URL) return input.searchParams;
+	if (input && typeof input === 'object' && typeof input.get === 'function') return input;
 	return new URLSearchParams(typeof input === 'string' ? input : '');
 }
 
+/**
+ * @param {URL | string} urlInput
+ */
 function cloneUrl(urlInput) {
 	return urlInput instanceof URL ? new URL(urlInput.toString()) : new URL(String(urlInput));
 }
 
+/**
+ * @param {SearchParamsInput} searchParamsInput
+ */
 export function hasServerRideFilterParams(searchParamsInput) {
 	const sp = asSearchParams(searchParamsInput);
 	const q = safeTrim(sp.get('q') ?? sp.get('search'));
@@ -57,6 +72,9 @@ export function hasServerRideFilterParams(searchParamsInput) {
 	);
 }
 
+/**
+ * @param {SearchParamsInput} searchParamsInput
+ */
 export function buildRideApiSearchParams(searchParamsInput) {
 	const sp = asSearchParams(searchParamsInput);
 	const out = new URLSearchParams();
@@ -72,6 +90,10 @@ export function buildRideApiSearchParams(searchParamsInput) {
 	return out;
 }
 
+/**
+ * @param {SearchParamsInput} searchParamsInput
+ * @param {{ difficultyOptions?: string[] }} [options]
+ */
 export function parseRideUrlState(searchParamsInput, { difficultyOptions = [] } = {}) {
 	const sp = asSearchParams(searchParamsInput);
 	const q = sp.get('q') ?? sp.get('search') ?? '';
@@ -100,6 +122,19 @@ export function parseRideUrlState(searchParamsInput, { difficultyOptions = [] } 
 	};
 }
 
+/**
+ * @param {URL | string} urlInput
+ * @param {{
+ *   q?: string;
+ *   difficulty?: string;
+ *   needsHost?: boolean;
+ *   view?: string;
+ *   page?: number;
+ *   monthDate?: Date | null;
+ *   defaultMonthDate?: Date | null;
+ *   monthTouched?: boolean;
+ * }} [options]
+ */
 export function applyRideUrlState(
 	urlInput,
 	{
@@ -152,6 +187,9 @@ export function applyRideUrlState(
 	return url;
 }
 
+/**
+ * @param {SearchParamsInput} searchParamsInput
+ */
 export function parseVolunteerUrlState(searchParamsInput) {
 	const sp = asSearchParams(searchParamsInput);
 	const search = sp.get('search') ?? sp.get('q') ?? '';
@@ -172,6 +210,19 @@ export function parseVolunteerUrlState(searchParamsInput) {
 	};
 }
 
+/**
+ * @param {URL | string} urlInput
+ * @param {{
+ *   search?: string;
+ *   location?: string;
+ *   hostGroupId?: string;
+ *   eventType?: string;
+ *   view?: string;
+ *   monthDate?: Date | null;
+ *   defaultMonthDate?: Date | null;
+ *   monthTouched?: boolean;
+ * }} [options]
+ */
 export function applyVolunteerUrlState(
 	urlInput,
 	{
@@ -221,6 +272,14 @@ export function applyVolunteerUrlState(
 	return url;
 }
 
+/**
+ * @param {SearchParamsInput} searchParamsInput
+ * @param {{
+ *   pageSize?: number;
+ *   categoryPairs?: Array<[string, string]>;
+ *   categories?: string[];
+ * }} [options]
+ */
 export function parseLearnUrlState(
 	searchParamsInput,
 	{ pageSize = 12, categoryPairs = [], categories = [] } = {}
@@ -252,6 +311,15 @@ export function parseLearnUrlState(
 	};
 }
 
+/**
+ * @param {URL | string} urlInput
+ * @param {{
+ *   search?: string;
+ *   category?: string;
+ *   visibleCount?: number;
+ *   pageSize?: number;
+ * }} [options]
+ */
 export function applyLearnUrlState(
 	urlInput,
 	{ search = '', category = 'all', visibleCount = 12, pageSize = 12 } = {}

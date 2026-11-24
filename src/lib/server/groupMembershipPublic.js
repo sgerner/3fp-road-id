@@ -176,6 +176,38 @@ async function loadPublicProgramBundle(serviceSupabase, programId) {
 	return { tiers, fields };
 }
 
+/**
+ * @typedef {| { ok: false, status: number, error: string }
+ *   | {
+ *       ok: true,
+ *       data: {
+ *         group: any,
+ *         program: any,
+ *         tiers: any[],
+ *         form_fields: any[],
+ *         stripe_connection: {
+ *           connected: boolean,
+ *           charges_enabled: boolean,
+ *           stripe_account_id: string | null,
+ *           stripe_account_email?: string | null,
+ *           active_tier_count?: number,
+ *           active_paid_tier_count?: number,
+ *           active_subscription_count?: number,
+ *           past_due_count?: number,
+ *           can_disconnect?: boolean,
+ *           disconnect_blocked_reason?: string | null,
+ *           manage_url?: string
+ *         },
+ *         can_manage: boolean
+ *       }
+ *     }} MembershipProgramViewerResult
+ */
+
+/**
+ * @param {any} serviceSupabase
+ * @param {any} groupSlug
+ * @returns {Promise<MembershipProgramViewerResult>}
+ */
 export async function getPublicMembershipProgram(serviceSupabase, groupSlug) {
 	if (!serviceSupabase) {
 		throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured.');
@@ -221,6 +253,23 @@ export async function getPublicMembershipProgram(serviceSupabase, groupSlug) {
 	};
 }
 
+/**
+ * @param {{
+ *   viewer: any,
+ *   serviceSupabase: any,
+ *   groupSlug: any,
+ *   includeInactive?: boolean,
+ *   loadGroupBySlugFn?: any,
+ *   isGroupManagerFn?: any,
+ *   loadDonationAccountFn?: any,
+ *   buildStripeConnectionFn?: any,
+ *   ensureProgramFn?: any,
+ *   loadProgramFn?: any,
+ *   ensureDefaultApplicationFieldsFn?: any,
+ *   loadProgramBundleFn?: any
+ * }} options
+ * @returns {Promise<MembershipProgramViewerResult>}
+ */
 export async function resolveMembershipProgramForViewer({
 	viewer,
 	serviceSupabase,

@@ -6,6 +6,7 @@
 	import Check from '@lucide/svelte/icons/check';
 	import { siFacebook, siX, siWhatsapp, siBluesky } from 'simple-icons';
 
+	/** @type {Record<string, any>} */
 	let { title, text = '', url, kind = 'page' } = $props();
 	const id = $props.id();
 	let dialog = $state();

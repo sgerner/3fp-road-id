@@ -5,6 +5,7 @@
 	import IconSmartphone from '@lucide/svelte/icons/smartphone';
 	import IconTablet from '@lucide/svelte/icons/tablet';
 
+	/** @type {Record<string, any>} */
 	let { src = '/', liveUrl = '/', title = 'Website preview' } = $props();
 	let device = $state('desktop');
 	let zoom = $state(0.8);

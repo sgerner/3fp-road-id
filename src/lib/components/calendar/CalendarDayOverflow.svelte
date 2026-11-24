@@ -1,4 +1,5 @@
 <script>
+	/** @type {Record<string, any>} */
 	let { dateLabel, itemLabel, items, hiddenCount } = $props();
 	const headingId = $props.id();
 	let dialog = $state();

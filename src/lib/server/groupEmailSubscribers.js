@@ -116,6 +116,10 @@ function normalizeHttpUrl(value) {
 	}
 }
 
+/**
+ * @param {{ group?: Record<string, any>, siteConfig?: Record<string, any> }} [options]
+ * @returns {'threeFeetPlease' | 'tbag' | 'group'}
+ */
 function resolveTenantKey({ group = {}, siteConfig = {} } = {}) {
 	const groupSlug = normalizeKey(group.slug);
 	const micrositeSlug = normalizeKey(group.microsite_slug);
@@ -148,7 +152,11 @@ function groupNameForEmail(group, tenant, siteConfig = {}) {
 	return clean(siteConfig?.site_title, 160) || clean(group?.name, 160) || 'your group';
 }
 
+/**
+ * @param {{ group?: Record<string, any>, siteConfig?: Record<string, any> }} [options]
+ */
 function buildGenericBrand({ group = {}, siteConfig = {} } = {}) {
+	/** @type {Record<string, any>} */
 	const colors =
 		siteConfig.theme_colors && typeof siteConfig.theme_colors === 'object'
 			? siteConfig.theme_colors
@@ -168,17 +176,19 @@ function buildGenericBrand({ group = {}, siteConfig = {} } = {}) {
 	});
 }
 
+/**
+ * @param {{ group?: Record<string, any>, siteConfig?: Record<string, any> }} [options]
+ */
 export function resolveGroupEmailWelcomeTenant({ group = {}, siteConfig = {} } = {}) {
 	const key = resolveTenantKey({ group, siteConfig });
-	const preset = WELCOME_TENANTS[key];
-	const name = groupNameForEmail(group, preset, siteConfig);
-
 	if (key === 'group') {
-		const genericName = name;
+		const preset = WELCOME_TENANTS.group;
+		const genericName = groupNameForEmail(group, preset, siteConfig);
 		return {
-			...preset,
+			key: preset.key,
 			name: genericName,
 			subject: `${preset.subjectPrefix} ${genericName}`,
+			heading: preset.heading,
 			paragraphs: [
 				`Thanks for joining ${genericName}’s email list.`,
 				`We’ll share updates, opportunities, and useful news from ${genericName}.`
@@ -188,6 +198,9 @@ export function resolveGroupEmailWelcomeTenant({ group = {}, siteConfig = {} } =
 		};
 	}
 
+	const preset = WELCOME_TENANTS[key];
+	const name = groupNameForEmail(group, preset, siteConfig);
+	/** @type {Record<string, any>} */
 	const brandInput = { ...preset.brand };
 	const logoUrl = clean(group.logo_url, 2000);
 	if (logoUrl) brandInput.logoUrl = logoUrl;
@@ -199,6 +212,9 @@ export function resolveGroupEmailWelcomeTenant({ group = {}, siteConfig = {} } =
 	};
 }
 
+/**
+ * @param {{ group?: Record<string, any>, origin?: string | null, siteUrl?: string | null }} [options]
+ */
 export function buildGroupMicrositeUrl({ group = {}, origin, siteUrl } = {}) {
 	const baseOrigin = normalizeOrigin(origin);
 	const explicitUrl = normalizeHttpUrl(siteUrl);
@@ -250,6 +266,17 @@ export function shouldSendGroupSubscriberWelcome(existingSubscriber, now = Date.
 	return isGroupSubscriberWelcomeClaimable(existingSubscriber, now);
 }
 
+/**
+ * @param {{
+ *   group?: Record<string, any>,
+ *   siteConfig?: Record<string, any>,
+ *   subscriber?: Record<string, any>,
+ *   firstName?: string,
+ *   origin?: string | null,
+ *   siteUrl?: string | null,
+ *   unsubscribeToken?: string | null
+ * }} [options]
+ */
 export function buildGroupSubscriberWelcomeEmail({
 	group = {},
 	siteConfig = {},
@@ -313,6 +340,10 @@ export function buildGroupSubscriberWelcomeEmail({
 	};
 }
 
+/**
+ * @param {Record<string, any>} [payload]
+ * @returns {{ ok: true, honeypot: true } | { ok: true, honeypot: false, email: string, firstName: string } | { ok: false, error: string }}
+ */
 export function normalizeGroupEmailSignup(payload = {}) {
 	if (clean(payload.company, 200)) return { ok: true, honeypot: true };
 	if (payload.consent !== true) {

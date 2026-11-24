@@ -25,10 +25,16 @@ function shouldAttemptRefresh(expiresAtDate) {
 	return expiresAtDate.getTime() <= Date.now() + REFRESH_BUFFER_MS;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} account
+ * @returns {Promise<{ accessToken: string, tokenExpiresAt: string | null, refreshed: boolean }>}
+ */
 export async function resolveMetaAccountAccessToken(supabase, account) {
 	const encrypted = cleanText(account?.access_token_encrypted, 8000);
 	if (!encrypted) throw new Error('Connected account token is missing.');
 	const currentToken = decryptSocialToken(encrypted);
+	if (!currentToken) throw new Error('Connected account token is missing.');
 	const expiresAt = parseDate(account?.token_expires_at);
 	const platform = cleanText(account?.platform, 40).toLowerCase();
 

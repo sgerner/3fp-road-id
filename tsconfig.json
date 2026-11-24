@@ -1,16 +1,18 @@
 {
 	"extends": "$app/tsconfig",
-	"include": ["src", "test", "*"],
+	"include": ["src", "scripts/**/*.mjs", "*"],
 	"exclude": ["src/service-worker"],
 	"compilerOptions": {
 		"allowJs": true,
-		"checkJs": false,
+		"checkJs": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
+		"noImplicitAny": false,
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
+		"useUnknownInCatchVariables": false,
 		"moduleResolution": "bundler",
 		"paths": {
 			"#lib/*": ["./src/lib/*"]

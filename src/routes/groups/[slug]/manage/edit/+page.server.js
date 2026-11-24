@@ -17,6 +17,11 @@ import { fail, redirect } from '@sveltejs/kit';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
+/**
+ * @param {any} supabase
+ * @param {any} remoteUrl
+ * @param {any} destBasePath
+ */
 async function mirrorRemoteImageToStorage(supabase, remoteUrl, destBasePath) {
 	try {
 		return await mirrorPreparedRemoteImage(supabase, remoteUrl, destBasePath, {
@@ -30,6 +35,11 @@ async function mirrorRemoteImageToStorage(supabase, remoteUrl, destBasePath) {
 	}
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} file
+ * @param {any} destBasePath
+ */
 async function uploadLocalImageToStorage(supabase, file, destBasePath) {
 	try {
 		if (!file || typeof file.arrayBuffer !== 'function') return null;
@@ -54,6 +64,9 @@ async function uploadLocalImageToStorage(supabase, file, destBasePath) {
 	}
 }
 
+/**
+ * @param {any} param0
+ */
 async function resolveGroupEditorContext({ params, cookies }) {
 	const slug = params.slug;
 
@@ -124,6 +137,7 @@ export const load = async ({ params, cookies, url }) => {
 
 	// Admin or Ownership check
 	let isAdmin = false;
+	/** @type {any} */
 	let profileRow = null;
 	try {
 		const { data: prof } = await supabase
@@ -160,6 +174,7 @@ export const load = async ({ params, cookies, url }) => {
 
 	// Fetch emails for owners from profiles mapping
 	const ownerIds = (allOwners ?? []).map((r) => r.user_id);
+	/** @type {any} */
 	let ownerEmails = [];
 	if (ownerIds.length) {
 		const { data: emailsData } = await privateSupabase
@@ -183,6 +198,7 @@ export const load = async ({ params, cookies, url }) => {
 		supabase.from('group_x_skill_levels').select('skill_level_id').eq('group_id', group.id)
 	]);
 
+	/** @type {any} */
 	let donationAccount = null;
 	try {
 		const { data } = await privateSupabase
@@ -242,6 +258,7 @@ export const actions = {
 		if (!parsedForm.ok) return fail(parsedForm.status, { error: parsedForm.error });
 		const form = parsedForm.value;
 
+		/** @type {any} */
 		const payload = {
 			city: form.get('city')?.toString().trim() ?? '',
 			state_region: form.get('state_region')?.toString().trim() ?? '',
@@ -328,16 +345,20 @@ export const actions = {
 		const incomingCover = form.get('cover_photo_url')?.toString().trim() || '';
 		const clearLogo = (form.get('clear_logo')?.toString() || '') === '1';
 		const clearCover = (form.get('clear_cover')?.toString() || '') === '1';
+		/** @type {any} */
 		const logoFile = form.get('logo_file');
+		/** @type {any} */
 		const coverFile = form.get('cover_file');
+		/** @type {any} */
 		const logoCropped = form.get('logo_file_cropped')?.toString() || '';
+		/** @type {any} */
 		const coverCropped = form.get('cover_file_cropped')?.toString() || '';
 
 		// Hard limit server-side for safety
 		if (logoFile && logoFile.size && logoFile.size > MAX_BYTES) {
 			return fail(400, { error: 'Logo file exceeds 10MB limit.' });
 		}
-		if (coverFile && coverFile.size && coverFile.size > MAX_BYTES) {
+		if (coverFile && coverFile.size && /** @type {any} */ (coverFile).size > MAX_BYTES) {
 			return fail(400, { error: 'Cover image exceeds 10MB limit.' });
 		}
 		// Validate cropped data URLs size if provided
@@ -347,6 +368,7 @@ export const actions = {
 				return fail(400, { error: 'Cropped logo exceeds 10MB limit.' });
 		}
 		if (coverCropped) {
+			/** @type {any} */
 			const parsed = parseGroupEditorImageDataUrl(coverCropped);
 			if (!parsed || parsed.buffer.length > MAX_BYTES)
 				return fail(400, { error: 'Cropped cover exceeds 10MB limit.' });
@@ -354,57 +376,66 @@ export const actions = {
 		if (clearLogo) payload.logo_url = null;
 		if (clearCover) payload.cover_photo_url = null;
 		if (logoCropped) {
+			/** @type {any} */
 			const newLogo = await uploadGroupEditorImageDataUrl(
 				supabase,
 				logoCropped,
 				`groups/${group_id}/logo`
 			);
 			if (newLogo) payload.logo_url = newLogo;
-			else if (group.logo_url) payload.logo_url = group.logo_url;
-		} else if (logoFile && logoFile.size) {
+			else if (group?.logo_url) payload.logo_url = group.logo_url;
+		} else if (logoFile && /** @type {any} */ (logoFile).size) {
+			/** @type {any} */
 			const newLogo = await uploadLocalImageToStorage(
 				supabase,
 				logoFile,
 				`groups/${group_id}/logo`
 			);
 			if (newLogo) payload.logo_url = newLogo;
-			else if (group.logo_url) payload.logo_url = group.logo_url;
+			else if (group?.logo_url) payload.logo_url = group.logo_url;
 		} else if (incomingLogo && /^https?:\/\//i.test(incomingLogo)) {
+			/** @type {any} */
 			const newLogo = await mirrorRemoteImageToStorage(
 				supabase,
 				incomingLogo,
 				`groups/${group_id}/logo`
 			);
 			if (newLogo) payload.logo_url = newLogo;
-			else if (group.logo_url) payload.logo_url = group.logo_url; // keep previous if mirror fails
+			else if (group?.logo_url) payload.logo_url = group.logo_url; // keep previous if mirror fails
 		}
 		if (coverCropped) {
+			/** @type {any} */
 			const newCover = await uploadGroupEditorImageDataUrl(
 				supabase,
 				coverCropped,
 				`groups/${group_id}/cover`
 			);
 			if (newCover) payload.cover_photo_url = newCover;
-			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
-		} else if (coverFile && coverFile.size) {
+			else if (group?.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
+		} else if (coverFile && /** @type {any} */ (coverFile).size) {
+			/** @type {any} */
 			const newCover = await uploadLocalImageToStorage(
 				supabase,
 				coverFile,
 				`groups/${group_id}/cover`
 			);
 			if (newCover) payload.cover_photo_url = newCover;
-			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
+			else if (group?.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
 		} else if (incomingCover && /^https?:\/\//i.test(incomingCover)) {
+			/** @type {any} */
 			const newCover = await mirrorRemoteImageToStorage(
 				supabase,
 				incomingCover,
 				`groups/${group_id}/cover`
 			);
 			if (newCover) payload.cover_photo_url = newCover;
-			else if (group.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
+			else if (group?.cover_photo_url) payload.cover_photo_url = group.cover_photo_url;
 		}
 
-		const { error: upErr } = await supabase.from('groups').update(payload).eq('id', group_id);
+		const { error: upErr } = await /** @type {any} */ (supabase)
+			.from('groups')
+			.update(payload)
+			.eq('id', group_id);
 		if (upErr) return fail(500, { error: upErr.message });
 
 		// Update many-to-many mappings by replacing sets
@@ -421,32 +452,48 @@ export const actions = {
 			.map((v) => Number(v))
 			.filter(Boolean);
 
+		/** @type {any} */
 		const ops = [];
-		ops.push(supabase.from('group_x_group_types').delete().eq('group_id', group_id));
-		ops.push(supabase.from('group_x_audience_focuses').delete().eq('group_id', group_id));
-		ops.push(supabase.from('group_x_riding_disciplines').delete().eq('group_id', group_id));
-		ops.push(supabase.from('group_x_skill_levels').delete().eq('group_id', group_id));
+		ops.push(
+			/** @type {any} */ (supabase).from('group_x_group_types').delete().eq('group_id', group_id)
+		);
+		ops.push(
+			/** @type {any} */ (supabase)
+				.from('group_x_audience_focuses')
+				.delete()
+				.eq('group_id', group_id)
+		);
+		ops.push(
+			/** @type {any} */ (supabase)
+				.from('group_x_riding_disciplines')
+				.delete()
+				.eq('group_id', group_id)
+		);
+		ops.push(
+			/** @type {any} */ (supabase).from('group_x_skill_levels').delete().eq('group_id', group_id)
+		);
 
 		const delRes = await Promise.all(ops);
 		const delErr = delRes.find((r) => r.error)?.error;
 		if (delErr) return fail(500, { error: delErr.message });
 
+		/** @type {any} */
 		const inserts = [];
 		if (gt_ids.length)
 			inserts.push(
-				supabase
+				/** @type {any} */ (supabase)
 					.from('group_x_group_types')
 					.insert(gt_ids.map((group_type_id) => ({ group_id, group_type_id })))
 			);
 		if (af_ids.length)
 			inserts.push(
-				supabase
+				/** @type {any} */ (supabase)
 					.from('group_x_audience_focuses')
 					.insert(af_ids.map((audience_focus_id) => ({ group_id, audience_focus_id })))
 			);
 		if (rd_ids.length)
 			inserts.push(
-				supabase
+				/** @type {any} */ (supabase)
 					.from('group_x_riding_disciplines')
 					.insert(rd_ids.map((riding_discipline_id) => ({ group_id, riding_discipline_id })))
 			);
@@ -456,7 +503,7 @@ export const actions = {
 			.filter(Boolean);
 		if (sl_ids.length)
 			inserts.push(
-				supabase
+				/** @type {any} */ (supabase)
 					.from('group_x_skill_levels')
 					.insert(sl_ids.map((skill_level_id) => ({ group_id, skill_level_id })))
 			);
@@ -475,7 +522,7 @@ export const actions = {
 		if (!auth.ok) return auth.response;
 
 		const { group_id, supabase } = auth;
-		const { error: deleteError } = await supabase
+		const { error: deleteError } = await /** @type {any} */ (supabase)
 			.from('groups')
 			.update({
 				is_published: false,

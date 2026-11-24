@@ -328,6 +328,10 @@ function findExitFocusTarget(rootEl) {
 	return candidates[0] ?? null;
 }
 
+/**
+ * @param {any} rootEl
+ * @param {Record<string, any>} [initialOptions]
+ */
 export function attachLearnEditorAccessibility(rootEl, initialOptions = {}) {
 	if (!isElement(rootEl)) {
 		const noop = () => {};

@@ -6,11 +6,17 @@ function safeTrim(value) {
 	return value.trim();
 }
 
+/**
+ * @param {any} value
+ * @param {string | null | undefined} timezone
+ * @param {Intl.DateTimeFormatOptions} [options]
+ */
 function formatDateTime(value, timezone, options = {}) {
 	if (!value) return '';
 	try {
 		const date = new Date(value);
 		if (Number.isNaN(date.getTime())) return '';
+		/** @type {Intl.DateTimeFormatOptions} */
 		const config = { ...options };
 		const tz = timezone || options.timeZone;
 		if (tz) config.timeZone = tz;
@@ -337,6 +343,6 @@ ${htmlList(
 			{ Name: 'context', Value: 'volunteer-signup-confirmation' },
 			event?.id ? { Name: 'volunteer_event_id', Value: String(event.id) } : null,
 			opportunity?.id ? { Name: 'volunteer_opportunity_id', Value: String(opportunity.id) } : null
-		].filter(Boolean)
+		].filter((tag) => tag !== null)
 	};
 }

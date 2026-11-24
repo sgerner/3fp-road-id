@@ -31,6 +31,14 @@ export function normalizeMicrositePathname(pathname = '/') {
 	return collapsed || '/';
 }
 
+/**
+ * @typedef {{ key: string; href: string; label?: string; showText?: boolean }} MicrositeContactLink
+ */
+
+/**
+ * @param {Record<string, any> | null} [siteConfig]
+ * @param {string} [blockType]
+ */
 export function siteHasBlockType(siteConfig = {}, blockType = '') {
 	const type = cleanText(blockType).toLowerCase();
 	if (!type) return false;
@@ -41,8 +49,15 @@ export function siteHasBlockType(siteConfig = {}, blockType = '') {
 	return hasGroupSiteBlock(siteConfig?.page_blocks, type);
 }
 
+/**
+ * @param {Record<string, any> | null} [group]
+ * @param {{ isTbagSite?: boolean }} [options]
+ * @returns {MicrositeContactLink[]}
+ */
 function extractFallbackContactLinks(group = {}, { isTbagSite = false } = {}) {
+	/** @type {Record<string, any>} */
 	const g = group && typeof group === 'object' ? group : {};
+	/** @type {MicrositeContactLink[]} */
 	const links = [];
 
 	const websiteHref = safeHttpUrl(g.website_url);
@@ -85,12 +100,19 @@ function extractFallbackContactLinks(group = {}, { isTbagSite = false } = {}) {
 	return links;
 }
 
+/**
+ * @param {any} rawLinks
+ * @param {Record<string, any> | null} [group]
+ * @param {{ isTbagSite?: boolean }} [options]
+ * @returns {MicrositeContactLink[]}
+ */
 function normalizeContactLinksList(rawLinks, group, { isTbagSite = false } = {}) {
 	const source =
 		Array.isArray(rawLinks) && rawLinks.length
 			? rawLinks
 			: extractFallbackContactLinks(group, { isTbagSite });
 	const seen = new Set();
+	/** @type {MicrositeContactLink[]} */
 	const normalized = [];
 
 	for (const entry of source) {
@@ -101,6 +123,7 @@ function normalizeContactLinksList(rawLinks, group, { isTbagSite = false } = {})
 		const dedupeKey = `${key}|${href.toLowerCase()}`;
 		if (seen.has(dedupeKey)) continue;
 		seen.add(dedupeKey);
+		/** @type {MicrositeContactLink} */
 		const item = { key, href };
 		const label = cleanText(entry?.label);
 		if (label) item.label = label;
@@ -111,9 +134,15 @@ function normalizeContactLinksList(rawLinks, group, { isTbagSite = false } = {})
 	return normalized;
 }
 
+/**
+ * @param {Record<string, any> | null} [site]
+ */
 export function deriveMicrositeCapabilities(site = {}) {
+	/** @type {Record<string, any>} */
 	const s = site && typeof site === 'object' ? site : {};
+	/** @type {Record<string, any>} */
 	const group = s.group && typeof s.group === 'object' ? s.group : {};
+	/** @type {Record<string, any>} */
 	const siteConfig = s.siteConfig && typeof s.siteConfig === 'object' ? s.siteConfig : {};
 	const isTbagSite = cleanText(siteConfig.site_variant).toLowerCase() === 'tbag';
 
@@ -219,6 +248,15 @@ function getRelativeMicrositePath(pathname, basePath = '') {
 	return normalizedPath;
 }
 
+/**
+ * @param {{
+ *   site?: Record<string, any> | null;
+ *   capabilities?: ReturnType<typeof deriveMicrositeCapabilities> | null;
+ *   currentPage?: Record<string, any> | null;
+ *   currentPathname?: string;
+ *   basePath?: string;
+ * }} [options]
+ */
 export function resolveMicrositeContactHref({
 	site = {},
 	capabilities = null,
@@ -253,6 +291,10 @@ export function resolveMicrositeContactHref({
 	return caps.groupProfileHref || '/';
 }
 
+/**
+ * @param {any} href
+ * @param {{ currentPathname?: string; currentSearch?: string; origin?: string }} [options]
+ */
 export function isSamePageReloadHref(
 	href,
 	{ currentPathname = '/', currentSearch = '', origin = DEFAULT_ORIGIN } = {}
@@ -281,6 +323,10 @@ export function isSamePageReloadHref(
 	}
 }
 
+/**
+ * @param {any} href
+ * @param {{ currentPathname?: string; currentSearch?: string; origin?: string }} [options]
+ */
 function simplifySamePageHashHref(
 	href,
 	{ currentPathname = '/', currentSearch = '', origin = DEFAULT_ORIGIN } = {}
@@ -308,6 +354,18 @@ function simplifySamePageHashHref(
 	return raw;
 }
 
+/**
+ * @param {Record<string, any> | null} [block]
+ * @param {{
+ *   site?: Record<string, any> | null;
+ *   capabilities?: ReturnType<typeof deriveMicrositeCapabilities> | null;
+ *   currentPage?: Record<string, any> | null;
+ *   currentPathname?: string;
+ *   currentSearch?: string;
+ *   basePath?: string;
+ *   origin?: string;
+ * }} [options]
+ */
 export function resolveMicrositeActionHref(
 	block = {},
 	{
@@ -321,7 +379,9 @@ export function resolveMicrositeActionHref(
 	} = {}
 ) {
 	const caps = capabilities || site?.capabilities || deriveMicrositeCapabilities(site);
+	/** @type {Record<string, any>} */
 	const siteConfig = site?.siteConfig && typeof site.siteConfig === 'object' ? site.siteConfig : {};
+	/** @type {Record<string, any>} */
 	const group = site?.group && typeof site.group === 'object' ? site.group : {};
 	const isTbagSite = cleanText(siteConfig.site_variant).toLowerCase() === 'tbag';
 	const resolvedBase = cleanText(basePath || site?.basePath);

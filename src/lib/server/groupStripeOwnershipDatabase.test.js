@@ -3,7 +3,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const databaseUrl = process.env.ACCOUNTING_TEST_DATABASE_URL;
+/** @type {string} */
+const databaseUrl = /** @type {any} */ (process.env.ACCOUNTING_TEST_DATABASE_URL);
 test(
 	'Stripe sharing is restricted to the organization and its own 3 Feet Please tenant',
 	{ skip: !databaseUrl },

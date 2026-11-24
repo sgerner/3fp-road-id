@@ -8,6 +8,7 @@
 	import IconUsers from '@lucide/svelte/icons/users';
 	import SecondarySectionNav from '#lib/components/ui/SecondarySectionNav.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, children } = $props();
 
 	const pathname = $derived(page.url.pathname);
@@ -24,6 +25,7 @@
 	);
 
 	const navSections = $derived.by(() => {
+		/** @type {Array<{ label: string, items: Array<{ label: string, href: string, icon?: any, tone?: string, match?: string }> }>} */
 		const sections = [
 			{
 				label: '',

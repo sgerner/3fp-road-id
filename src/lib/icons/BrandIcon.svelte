@@ -2,11 +2,13 @@
 	export let path = '';
 	export let title = '';
 	export let className = '';
+	let klass = '';
+	export { klass as class };
 	export let ariaLabel = title || undefined;
 </script>
 
 <svg
-	class={className}
+	class={[className, klass].filter(Boolean).join(' ')}
 	role="img"
 	aria-label={ariaLabel}
 	viewBox="0 0 24 24"

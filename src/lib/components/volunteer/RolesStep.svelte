@@ -4,17 +4,29 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 
+	/** @type {any} */
 	export let opportunities = [];
+	/** @type {any} */
 	export let opportunityTypeOptions = [];
+	/** @type {any} */
 	export let onAddOpportunity = () => {};
+	/** @type {any} */
 	export let onRemoveOpportunity = () => {};
+	/** @type {any} */
 	export let onUpdateOpportunity = () => {};
+	/** @type {any} */
 	export let onAddShift = () => {};
+	/** @type {any} */
 	export let onRemoveShift = () => {};
+	/** @type {any} */
 	export let onUpdateShift = () => {};
 
 	// Keep track of which roles have their advanced settings expanded
+	/** @type {any} */
 	let expandedSettings = {};
+	/**
+	 * @param {any} id
+	 */
 	function toggleAdvanced(id) {
 		expandedSettings[id] = !expandedSettings[id];
 	}
