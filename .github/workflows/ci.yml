@@ -69,7 +69,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Start local Supabase stack
-        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,mailpit,realtime,supavisor,postgres-meta
+        run: node scripts/test-db.mjs --start-only
       - run: npm run test:db -- --skip-reset
       - run: node scripts/with-webhook-test-server.mjs npm test
 

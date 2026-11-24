@@ -1,4 +1,4 @@
--- Pre-2025 baseline schema for local Supabase CLI resets and CI verification.
+-- Local Supabase CLI test/CI baseline schema. Never run in production.
 -- Captures foundational extensions, schemas, roles/enums, tables, and triggers
 -- that predated recorded migration history in supabase/migrations/.
 
@@ -70,7 +70,7 @@ begin
 		select 1
 		from pg_proc p
 		join pg_namespace n on n.oid = p.pronamespace
-		where n.nspname = 'public'
+		where n.nspname in ('public', 'private')
 			and p.proname = 'create_profile_on_new_user'
 			and p.pronargs = 0
 	) then
@@ -100,9 +100,15 @@ begin
 			and t.tgname = 'new_user_profile_trigger'
 			and not t.tgisinternal
 	) then
-		create trigger new_user_profile_trigger
-			after insert on auth.users
-			for each row execute function public.create_profile_on_new_user();
+		if to_regprocedure('private.create_profile_on_new_user()') is not null then
+			create trigger new_user_profile_trigger
+				after insert on auth.users
+				for each row execute function private.create_profile_on_new_user();
+		else
+			create trigger new_user_profile_trigger
+				after insert on auth.users
+				for each row execute function public.create_profile_on_new_user();
+		end if;
 	end if;
 end $$;
 
