@@ -13,7 +13,8 @@
 	import IconRoute from '@lucide/svelte/icons/route';
 	import IconShieldQuestion from '@lucide/svelte/icons/shield-question-mark';
 	import SmsPreferencesSheet from '#lib/components/sms/SmsPreferencesSheet.svelte';
-	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { escapeHtml } from '#lib/markdown';
 	import { buildGoogleCalendarUrl, eventLocation } from '#lib/calendar/links';
 	import { formatRideSchedule, getTimezoneBadge, getViewerTimezone } from '#lib/calendar/monthGrid';
@@ -50,10 +51,6 @@
 	let heroRsvpEl = $state(null);
 	let showStickyRsvpBar = $state(false);
 	let viewerTimezone = $state('UTC');
-	let mapEl = $state(null);
-	let map;
-	let marker;
-	let mapLoadPromise;
 
 	const canManage = $derived(Boolean(data?.canManage));
 	const currentUser = $derived(data?.currentUser ?? null);
@@ -445,53 +442,19 @@
 		}
 	}
 
-	onMount(() => {
-		const latitude =
-			selectedOccurrence?.start_latitude ??
+	const mapLatitude = $derived(
+		selectedOccurrence?.start_latitude ??
 			activity?.start_latitude ??
 			activity?.startLatitude ??
-			null;
-		const longitude =
-			selectedOccurrence?.start_longitude ??
+			null
+	);
+	const mapLongitude = $derived(
+		selectedOccurrence?.start_longitude ??
 			activity?.start_longitude ??
 			activity?.startLongitude ??
-			null;
-		if (!mapEl || latitude == null || longitude == null) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (!entries[0]?.isIntersecting) return;
-				observer.disconnect();
-				void (async () => {
-					try {
-						if (!mapLoadPromise) {
-							mapLoadPromise = Promise.all([
-								import('#lib/map/leaflet.css'),
-								import('leaflet')
-							]).then(([, mod]) => mod.default || mod);
-						}
-						const L = await mapLoadPromise;
-						await ensureLeafletDefaultIcon(L);
-						map = L.map(mapEl).setView([Number(latitude), Number(longitude)], 13);
-						L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-							attribution: '&copy; OpenStreetMap contributors'
-						}).addTo(map);
-						marker = L.marker([Number(latitude), Number(longitude)]).addTo(map);
-					} catch (error) {
-						console.warn('Unable to render ride map', error);
-					}
-				})();
-			},
-			{ rootMargin: '200px' }
-		);
-		observer.observe(mapEl);
-
-		return () => {
-			observer.disconnect();
-			map?.remove?.();
-			map = null;
-			marker = null;
-		};
-	});
+			null
+	);
+	const hasMapCoords = $derived(isValidLatLng(mapLatitude, mapLongitude));
 </script>
 
 <svelte:head>
@@ -1005,7 +968,7 @@
 							{#if activity?.host_group_id}
 								{#if activity?.group?.slug && activity?.group?.name}
 									<a
-										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center underline decoration-2 underline-offset-4"
+										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 										href={`/groups/${encodeURIComponent(activity.group.slug)}`}
 									>
 										{activity.group.name}
@@ -1023,7 +986,7 @@
 							{:else if externalOrganizerName}
 								{#if externalEventUrl}
 									<a
-										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center gap-1.5 underline decoration-2 underline-offset-4"
+										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center gap-1.5 underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 										href={externalEventUrl}
 										target="_blank"
 										rel="noopener noreferrer"
@@ -1156,12 +1119,17 @@
 							Map
 						</h2>
 					</div>
-					{#if activity?.start_latitude != null && activity?.start_longitude != null}
-						<div
-							class="border-surface-950 relative isolate z-0 h-72 scroll-mb-32 overflow-hidden border-[3px]"
-						>
-							<div bind:this={mapEl} class="h-full w-full"></div>
-						</div>
+					{#if hasMapCoords}
+						<AccessibleMapShell
+							regionLabel={`Start location map for ${activity?.title || 'this ride'}`}
+							lazy
+							lazyRootMargin="200px"
+							center={[Number(mapLatitude), Number(mapLongitude)]}
+							zoom={13}
+							staticMarker={{ lat: mapLatitude, lng: mapLongitude }}
+							shellClass="border-surface-950 isolate z-0 scroll-mb-32 overflow-hidden border-[3px]"
+							canvasClass="h-72 w-full"
+						/>
 					{:else}
 						<p class="m-0 text-sm opacity-85">
 							Map pin will appear when the start location has coordinates.

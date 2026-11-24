@@ -1,6 +1,6 @@
 <script>
 	import { onMount, tick } from 'svelte';
-	import { slide, fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { Avatar, Progress } from '@skeletonlabs/skeleton-svelte';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
@@ -11,7 +11,6 @@
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
-	import IconSave from '@lucide/svelte/icons/save';
 	import { renderMarkdown } from '#lib/markdown';
 	import {
 		createVolunteerEvent,
@@ -25,11 +24,7 @@
 		listVolunteerCustomQuestions,
 		listVolunteerEventEmails
 	} from '#lib/services/volunteers';
-	import { notifyVolunteerHosts } from '#lib/services/volunteerHostNotifications';
-	import {
-		buildVolunteerCommunicationsContextSnapshot,
-		createVolunteerEmailComposer
-	} from '#lib/volunteer/communications-ai';
+	import { buildVolunteerCommunicationsContextSnapshot } from '#lib/volunteer/communications-ai';
 	import { VOLUNTEER_MERGE_TAGS } from '#lib/volunteer/merge-tags';
 	import {
 		ensureArray,
@@ -46,11 +41,7 @@
 		emailTypeOptions,
 		fieldTypeOptions
 	} from '#lib/components/volunteer/form-options';
-	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
-	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
-	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
-	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
-	import ReviewStep from '#lib/components/volunteer/ReviewStep.svelte';
+	import VolunteerEventForm from '#lib/components/volunteer/VolunteerEventForm.svelte';
 
 	const { data } = $props();
 
@@ -126,34 +117,6 @@
 		return payload;
 	}
 
-	const steps = [
-		{
-			key: 'overview',
-			title: 'Your Event',
-			description: 'Name, type, and public summary.'
-		},
-		{
-			key: 'schedule',
-			title: 'When & Where',
-			description: 'Date, time, timezone, and location.'
-		},
-		{
-			key: 'roles',
-			title: "Who's Needed",
-			description: 'Roles, shifts, and capacity.'
-		},
-		{
-			key: 'communications',
-			title: 'Comms',
-			description: 'Signup questions and reminder emails.'
-		},
-		{
-			key: 'review',
-			title: 'Publish',
-			description: 'Review and go live.'
-		}
-	];
-
 	function getPageData() {
 		return data ?? {};
 	}
@@ -208,7 +171,6 @@
 	}
 
 	let timezoneOptions = $state(FALLBACK_TIMEZONES);
-	let activeStep = $state(0);
 	let eventDetails = $state({
 		title: '',
 		slug: '',
@@ -312,8 +274,9 @@
 	function handleHostGroupValueChange(value) {
 		hostGroupSelection = value;
 		const newId = value?.[0] ?? '';
-		updateEventDetails({ hostGroupId: newId });
 		filteredHostGroupOptions = hostGroupOptions;
+		if (String(newId) === String(eventDetails.hostGroupId ?? '')) return;
+		updateEventDetails({ hostGroupId: newId });
 	}
 
 	function handleHostGroupSearch(inputValue) {
@@ -325,19 +288,6 @@
 		filteredHostGroupOptions = hostGroupOptions.filter((option) =>
 			option.label.toLowerCase().includes(query)
 		);
-	}
-
-	function handleHostNotificationChange(patch) {
-		if (!patch || typeof patch !== 'object') return;
-		const updates = {};
-		if ('register' in patch) {
-			updates.registerNotifications = !!patch.register;
-		}
-		if ('cancel' in patch) {
-			updates.cancelNotifications = !!patch.cancel;
-		}
-		if (Object.keys(updates).length === 0) return;
-		mergeEventDetails(updates);
 	}
 
 	function currentEventType() {
@@ -752,7 +702,12 @@
 
 		isDirty = true;
 		draftAppliedAt = new Date().toISOString();
-		activeStep = 0;
+		capacityOpen = Boolean(
+			detailPatch.maxVolunteers || detailPatch.requireSignupApproval || !detailPatch.waitlistEnabled
+		);
+		rolesOpen = clonedOpportunities.length > 0;
+		questionsOpen = customQuestions.length > 0;
+		remindersOpen = mappedEmails.length > 0;
 	}
 
 	async function loadClone(identifier) {
@@ -834,8 +789,10 @@
 	let aiError = $state('');
 	let followUpQuestions = $state([]);
 	let draftAppliedAt = $state(null);
-	let showAdvancedSettings = $state(false);
-	let showAdvancedCommunications = $state(false);
+	let capacityOpen = $state(false);
+	let rolesOpen = $state(false);
+	let questionsOpen = $state(false);
+	let remindersOpen = $state(false);
 	let isMuseOpen = $state(false);
 	let isDirty = $state(false);
 
@@ -1120,15 +1077,6 @@
 		}
 	}
 
-	const composeEmailWithAi = createVolunteerEmailComposer({
-		getEmails: () => eventEmails,
-		updateEmailTemplate,
-		buildContextSnapshot,
-		eventTypeOptions,
-		opportunityTypeOptions,
-		mergeTags: VOLUNTEER_MERGE_TAGS
-	});
-
 	function handleChatSubmit(event) {
 		event?.preventDefault();
 		sendPrompt();
@@ -1202,9 +1150,17 @@
 					fallback: meta.title ?? eventPatch.title
 				}
 			});
+			if (
+				metaMaxVolunteers != null ||
+				metaSignupApproval != null ||
+				metaWaitlistEnabled === false
+			) {
+				capacityOpen = true;
+			}
 		}
 
 		if (Array.isArray(draft.opportunities) && draft.opportunities.length) {
+			rolesOpen = true;
 			opportunities = draft.opportunities.map((opp) => {
 				const opportunityTypeValue = sanitizeOpportunityType(
 					readValue(opp, ['opportunity_type', 'opportunityType']) ?? 'other'
@@ -1258,6 +1214,9 @@
 		}
 
 		if (Array.isArray(draft.custom_questions)) {
+			if (draft.custom_questions.length) {
+				questionsOpen = true;
+			}
 			customQuestions = draft.custom_questions.map((q, idx) =>
 				createQuestion({
 					fieldKey: q.field_key || slugify(q.label || q.question || `question-${idx + 1}`),
@@ -1276,6 +1235,9 @@
 		}
 
 		if (Array.isArray(draft.emails)) {
+			if (draft.emails.length) {
+				remindersOpen = true;
+			}
 			eventEmails = draft.emails.map((email) =>
 				createEmailTemplate({
 					emailType: readValue(email, ['email_type', 'emailType']) ?? 'reminder',
@@ -1368,6 +1330,9 @@
 	function removeOpportunity(id) {
 		if (opportunities.length === 1) return;
 		opportunities = opportunities.filter((op) => op.id !== id);
+		customQuestions = customQuestions.map((q) =>
+			String(q.opportunityId) === String(id) ? { ...q, opportunityId: '' } : q
+		);
 		isDirty = true;
 	}
 
@@ -1404,18 +1369,6 @@
 	}
 
 	function removeEmailTemplate(id) {
-		if (eventEmails.length === 1) {
-			eventEmails = eventEmails.map((email) => ({
-				...email,
-				subject: '',
-				body: '',
-				aiPrompt: '',
-				aiError: '',
-				aiComposerOpen: false,
-				aiLoading: false
-			}));
-			return;
-		}
 		eventEmails = eventEmails.filter((email) => email.id !== id);
 		isDirty = true;
 	}
@@ -1423,23 +1376,6 @@
 	function updateEmailTemplate(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
 		isDirty = true;
-	}
-
-	function goToStep(step) {
-		if (step < 0 || step >= steps.length) return;
-		activeStep = step;
-	}
-
-	function nextStep() {
-		goToStep(Math.min(activeStep + 1, steps.length - 1));
-	}
-
-	function prevStep() {
-		goToStep(Math.max(activeStep - 1, 0));
-	}
-
-	function progressValue() {
-		return Math.round(((activeStep + 1) / steps.length) * 100);
 	}
 
 	function ensureFieldKey(label, fallback) {
@@ -1544,15 +1480,22 @@
 				}
 			}
 
+			const createdOpportunityIds = new Map(
+				opportunityResults.map(({ local, remote }) => [String(local.id), remote.id])
+			);
+
 			for (const [index, question] of customQuestions.entries()) {
 				if (!question.label) continue;
 				const optionsArray = (question.optionsRaw || '')
 					.split(/\n|,/)
 					.map((item) => item.trim())
 					.filter(Boolean);
+				const resolvedOpportunityId = question.opportunityId
+					? (createdOpportunityIds.get(String(question.opportunityId)) ?? null)
+					: null;
 				const payload = {
 					event_id: eventId,
-					opportunity_id: question.opportunityId || null,
+					opportunity_id: resolvedOpportunityId,
 					field_key: ensureFieldKey(question.fieldKey, `question-${index + 1}`),
 					label: question.label,
 					help_text: question.helpText || null,
@@ -1588,7 +1531,6 @@
 				return;
 			}
 			isDirty = false;
-			activeStep = steps.length - 1;
 		} catch (error) {
 			if (previousStatus !== normalizedStatus) {
 				updateEventDetails({ status: previousStatus });
@@ -1607,21 +1549,6 @@
 		saveIntent = 'draft';
 		return handleSubmit('draft');
 	};
-
-	function isStepComplete(idx) {
-		switch (idx) {
-			case 0: // Overview
-				return !!eventDetails.title && !!eventDetails.eventTypeSlug;
-			case 1: // Schedule
-				return !!eventDetails.eventStart && !!eventDetails.timezone;
-			case 2: // Roles
-				return opportunities.length > 0 && opportunities.every((o) => !!o.title);
-			case 3: // Communications
-				return true; // Mostly optional
-			default:
-				return false;
-		}
-	}
 
 	function handleKeydown(e) {
 		if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -1664,7 +1591,7 @@
 						<p transition:slide class="text-error-400 text-xs">{cloneApplyError}</p>
 					{/if}
 					<button
-						class="btn btn-sm preset-outlined-secondary-500 gap-2"
+						class="btn btn-sm preset-outlined-secondary-500 min-h-11 gap-2"
 						type="button"
 						onclick={() => (cloneSearchOpen = !cloneSearchOpen)}
 					>
@@ -1775,7 +1702,7 @@
 				</div>
 				<button
 					type="button"
-					class="btn-icon btn-icon-sm variant-soft-secondary shrink-0"
+					class="btn-icon preset-tonal-secondary flex size-11 shrink-0 items-center justify-center"
 					aria-label="Volunteer Muse"
 					aria-expanded={isMuseOpen}
 					onclick={() => (isMuseOpen = !isMuseOpen)}
@@ -1955,169 +1882,52 @@
 			{/if}
 		</section>
 
-		<!-- ── Manual Builder ── -->
-		<section
+		<!-- ── Progressive Event Form ── -->
+		<VolunteerEventForm
+			mode="create"
 			id="manual-builder"
-			class="card preset-tonal-surface min-w-0 p-4 sm:p-6"
-			onfocusin={handleManualInteraction}
-		>
-			<!-- Step navigation tabs -->
-			<nav class="mb-6 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-				{#each steps as step, idx}
-					<button
-						type="button"
-						onclick={() => goToStep(idx)}
-						class={`step-btn min-w-0 rounded-xl border px-2 py-2.5 text-left wrap-anywhere ${
-							idx === activeStep
-								? 'preset-tonal-primary'
-								: isStepComplete(idx)
-									? 'preset-tonal-success'
-									: 'preset-outlined-surface-500'
-						}`}
-					>
-						<div class="mb-1 flex items-center gap-1.5">
-							<span
-								class={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-bold ${
-									idx === activeStep
-										? 'bg-surface-200 text-surface-950'
-										: isStepComplete(idx)
-											? 'bg-success-500/20 text-success-300'
-											: 'bg-surface-500/15 text-surface-400'
-								}`}
-							>
-								{#if isStepComplete(idx) && idx !== activeStep}
-									<IconCheck class="h-4 w-4" />
-								{:else}
-									{idx + 1}
-								{/if}
-							</span>
-							<span
-								class={` leading-tight font-semibold ${idx === activeStep ? 'text-surface-50' : 'text-surface-300'}`}
-							>
-								{step.title}
-							</span>
-						</div>
-					</button>
-				{/each}
-			</nav>
-
-			<!-- Step content -->
-			<div class="grid min-h-[280px]">
-				{#key activeStep}
-					<div
-						class="col-start-1 row-start-1"
-						in:fade={{ duration: 150, delay: 150 }}
-						out:fade={{ duration: 150 }}
-					>
-						{#if activeStep === 0}
-							<EventOverviewStep
-								{eventDetails}
-								{eventTypeOptions}
-								{statusOptions}
-								{hostGroupSelection}
-								{filteredHostGroupOptions}
-								{showAdvancedSettings}
-								currentEventTypeDescription={currentEventType()?.description ?? ''}
-								hasHostGroups={hostGroupOptions.length > 0}
-								onEventDetailsChange={updateEventDetails}
-								onHostGroupValueChange={handleHostGroupValueChange}
-								onHostGroupSearch={handleHostGroupSearch}
-								onClearHostGroup={() => handleHostGroupValueChange([])}
-								onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
-							/>
-						{:else if activeStep === 1}
-							<ScheduleStep
-								{eventDetails}
-								{timezoneOptions}
-								onEventDetailsChange={updateEventDetails}
-							/>
-						{:else if activeStep === 2}
-							<RolesStep
-								{opportunities}
-								{opportunityTypeOptions}
-								onAddOpportunity={addOpportunity}
-								onRemoveOpportunity={removeOpportunity}
-								onUpdateOpportunity={updateOpportunity}
-								onAddShift={addShift}
-								onRemoveShift={removeShift}
-								onUpdateShift={updateShift}
-							/>
-						{:else if activeStep === 3}
-							<CommunicationsStep
-								{showAdvancedCommunications}
-								{customQuestions}
-								{eventEmails}
-								{eventDetails}
-								{opportunities}
-								{fieldTypeOptions}
-								{emailTypeOptions}
-								onToggleAdvanced={() => (showAdvancedCommunications = !showAdvancedCommunications)}
-								onAddQuestion={addQuestion}
-								onRemoveQuestion={removeQuestion}
-								onUpdateQuestion={updateQuestion}
-								onAddEmail={addEmailTemplate}
-								onRemoveEmail={removeEmailTemplate}
-								onUpdateEmail={updateEmailTemplate}
-								onComposeEmail={composeEmailWithAi}
-								hostNotificationSettings={{
-									register: !!eventDetails.registerNotifications,
-									cancel: !!eventDetails.cancelNotifications
-								}}
-								onHostNotificationChange={handleHostNotificationChange}
-							/>
-						{:else if activeStep === 4}
-							<ReviewStep
-								{eventDetails}
-								{opportunities}
-								{customQuestions}
-								{eventEmails}
-								{saveError}
-								{saveSuccess}
-								{saving}
-								{saveIntent}
-								onSubmit={handlePublish}
-								onSaveDraft={handleSaveDraft}
-							/>
-						{/if}
-					</div>
-				{/key}
-			</div>
-
-			<!-- Nav footer -->
-			<div
-				class="border-surface-500/15 mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
-			>
-				<button
-					type="button"
-					class="btn preset-tonal-surface gap-2"
-					onclick={prevStep}
-					disabled={activeStep === 0}
-				>
-					<IconArrowLeft class="h-4 w-4" />
-					<span>Back</span>
-				</button>
-
-				<button
-					type="button"
-					class="btn btn-sm preset-tonal-secondary gap-2"
-					onclick={handleSaveDraft}
-					disabled={saving}
-				>
-					<IconSave class="h-3.5 w-3.5" />
-					<span>Save Draft</span>
-				</button>
-
-				<button
-					type="button"
-					class="btn preset-filled-primary-500 gap-2"
-					onclick={nextStep}
-					disabled={activeStep === steps.length - 1}
-				>
-					<span>Next</span>
-					<IconArrowRight class="h-4 w-4" />
-				</button>
-			</div>
-		</section>
+			{eventDetails}
+			{eventTypeOptions}
+			{statusOptions}
+			{timezoneOptions}
+			{opportunityTypeOptions}
+			{fieldTypeOptions}
+			{emailTypeOptions}
+			{hostGroupSelection}
+			{filteredHostGroupOptions}
+			currentEventTypeDescription={currentEventType()?.description ?? ''}
+			hasHostGroups={hostGroupOptions.length > 0}
+			{opportunities}
+			{customQuestions}
+			{eventEmails}
+			{saving}
+			{saveIntent}
+			{saveError}
+			{saveSuccess}
+			bind:capacityOpen
+			bind:rolesOpen
+			bind:questionsOpen
+			bind:remindersOpen
+			onFocusIn={handleManualInteraction}
+			onEventDetailsChange={updateEventDetails}
+			onHostGroupValueChange={handleHostGroupValueChange}
+			onHostGroupSearch={handleHostGroupSearch}
+			onClearHostGroup={() => handleHostGroupValueChange([])}
+			onAddOpportunity={addOpportunity}
+			onRemoveOpportunity={removeOpportunity}
+			onUpdateOpportunity={updateOpportunity}
+			onAddShift={addShift}
+			onRemoveShift={removeShift}
+			onUpdateShift={updateShift}
+			onAddQuestion={addQuestion}
+			onRemoveQuestion={removeQuestion}
+			onUpdateQuestion={updateQuestion}
+			onAddEmail={addEmailTemplate}
+			onRemoveEmail={removeEmailTemplate}
+			onUpdateEmail={updateEmailTemplate}
+			onSubmit={handlePublish}
+			onSaveDraft={handleSaveDraft}
+		/>
 	</div>
 {:else}
 	<div class="mx-auto w-full max-w-4xl px-4 py-12 lg:py-20">
@@ -2163,36 +1973,5 @@
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
-	}
-
-	/* ── Hero section (logged-out) ── */
-	.hero-section {
-		background: color-mix(in oklab, var(--color-secondary-500) 10%, var(--color-surface-950) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-secondary-500) 22%, transparent);
-	}
-
-	.hero-accent {
-		background: linear-gradient(
-			120deg,
-			var(--color-secondary-300),
-			var(--color-primary-300),
-			var(--color-tertiary-300)
-		);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	/* ── Hero orbs ── */
-	/* ── Step button ── */
-	.step-btn {
-		transition:
-			border-color 180ms ease,
-			background-color 180ms ease,
-			box-shadow 180ms ease;
-	}
-
-	.step-btn:hover {
-		box-shadow: 0 2px 12px -4px color-mix(in oklab, var(--color-primary-500) 20%, transparent);
 	}
 </style>
