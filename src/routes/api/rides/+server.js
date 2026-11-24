@@ -4,6 +4,7 @@ import {
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
+	insertRideDetailsCompat,
 	isValidExternalEventUrlInput,
 	loadRideBySlug,
 	normalizeRidePayload,
@@ -126,7 +127,7 @@ export async function POST({ request, cookies }) {
 		return invalid(activityError.message, 400);
 	}
 
-	const { error: rideError } = await writeSupabase.from('ride_details').insert({
+	const { error: rideError } = await insertRideDetailsCompat(writeSupabase, {
 		activity_event_id: activity.id,
 		updated_at: nowIso,
 		...payload.ride

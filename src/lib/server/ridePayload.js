@@ -40,6 +40,247 @@ export function isValidExternalEventUrlInput(value) {
 	return normalizeExternalEventUrl(raw) !== null;
 }
 
+const EXTERNAL_RIDE_DETAIL_COLUMNS = ['external_event_url', 'external_organizer_name'];
+
+/**
+ * Detects PostgreSQL (42703) and PostgREST schema-cache (PGRST204) errors caused by
+ * deploying runtime code before `external_event_url` / `external_organizer_name` exist.
+ *
+ * @param {any} error
+ * @returns {boolean}
+ */
+export function isMissingExternalRideColumnsError(error) {
+	if (!error || typeof error !== 'object') return false;
+	const code = safeTrim(error.code).toUpperCase();
+	const combined = [error.message, error.details, error.hint]
+		.map((part) => safeTrim(part))
+		.filter(Boolean)
+		.join(' ');
+	const mentionsExternalColumn = /\b(external_event_url|external_organizer_name)\b/i.test(combined);
+	if (!mentionsExternalColumn) return false;
+	if (code === 'PGRST204' || code === '42703') return true;
+	return /(does not exist|schema cache|could not find|unknown column)/i.test(combined);
+}
+
+/**
+ * Returns a shallow copy of a `ride_details` write payload without structured external columns.
+ *
+ * @param {Record<string, any> | null | undefined} rideRecord
+ * @returns {Record<string, any>}
+ */
+export function omitExternalRideDetailColumns(rideRecord) {
+	const clone = { ...(rideRecord ?? {}) };
+	for (const column of EXTERNAL_RIDE_DETAIL_COLUMNS) {
+		delete clone[column];
+	}
+	return clone;
+}
+
+/**
+ * Inserts a `ride_details` row, retrying without structured external columns when the
+ * database migration has not yet been applied.
+ *
+ * @param {any} supabase
+ * @param {Record<string, any>} rideInsert
+ * @returns {Promise<{ data: any; error: any; fellBackWithoutExternalColumns: boolean }>}
+ */
+export async function insertRideDetailsCompat(supabase, rideInsert) {
+	const primary = await supabase.from('ride_details').insert(rideInsert);
+	if (!primary?.error || !isMissingExternalRideColumnsError(primary.error)) {
+		return {
+			data: primary?.data ?? null,
+			error: primary?.error ?? null,
+			fellBackWithoutExternalColumns: false
+		};
+	}
+	const fallback = await supabase
+		.from('ride_details')
+		.insert(omitExternalRideDetailColumns(rideInsert));
+	return {
+		data: fallback?.data ?? null,
+		error: fallback?.error ?? null,
+		fellBackWithoutExternalColumns: !fallback?.error
+	};
+}
+
+/**
+ * Updates a `ride_details` row by `activity_event_id`, retrying without structured external
+ * columns when the database migration has not yet been applied.
+ *
+ * @param {any} supabase
+ * @param {string} activityEventId
+ * @param {Record<string, any>} ridePatch
+ * @returns {Promise<{ data: any; error: any; fellBackWithoutExternalColumns: boolean }>}
+ */
+export async function updateRideDetailsCompat(supabase, activityEventId, ridePatch) {
+	const primary = await supabase
+		.from('ride_details')
+		.update(ridePatch)
+		.eq('activity_event_id', activityEventId);
+	if (!primary?.error || !isMissingExternalRideColumnsError(primary.error)) {
+		return {
+			data: primary?.data ?? null,
+			error: primary?.error ?? null,
+			fellBackWithoutExternalColumns: false
+		};
+	}
+	const fallback = await supabase
+		.from('ride_details')
+		.update(omitExternalRideDetailColumns(ridePatch))
+		.eq('activity_event_id', activityEventId);
+	return {
+		data: fallback?.data ?? null,
+		error: fallback?.error ?? null,
+		fellBackWithoutExternalColumns: !fallback?.error
+	};
+}
+
+function sanitizeExtractedUrl(rawUrl) {
+	return normalizeExternalEventUrl(safeTrim(rawUrl).replace(/[.,;:]+$/, ''));
+}
+
+function humanizeMeetupSlug(slug) {
+	return safeTrim(slug)
+		.split('-')
+		.filter(Boolean)
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+		.join(' ');
+}
+
+/**
+ * Extracts fallback `external_event_url` and `external_organizer_name` from legacy imported
+ * `activity_events` rows when `ride_details` has not yet been migrated.
+ *
+ * @param {Record<string, any> | null | undefined} activity
+ * @returns {{ external_event_url: string | null; external_organizer_name: string | null }}
+ */
+export function extractLegacyExternalRideMetadata(activity) {
+	if (!activity || typeof activity !== 'object') {
+		return { external_event_url: null, external_organizer_name: null };
+	}
+
+	const sourceEventId = safeTrim(activity.source_event_id ?? activity.sourceEventId);
+	const slug = safeTrim(activity.slug);
+	const description = String(activity.description ?? '');
+	const startLocationName = safeTrim(activity.start_location_name ?? activity.startLocationName);
+	const startLocationAddress = safeTrim(
+		activity.start_location_address ?? activity.startLocationAddress
+	);
+	const title = safeTrim(activity.title);
+	const isUnclaimed =
+		!(activity.host_user_id ?? activity.hostUserId) &&
+		!(activity.host_group_id ?? activity.hostGroupId);
+
+	let rawUrl = null;
+	let organizerName = null;
+
+	const isMeetup =
+		/(^meetup:|meetup\.com\/)/i.test(sourceEventId) ||
+		slug.startsWith('meetup-') ||
+		/(?:^|\n)\s*Meetup (?:event|group):/i.test(description);
+	const isWeeklyRides =
+		/weeklyrides\.com/i.test(sourceEventId) ||
+		slug.startsWith('weeklyrides-') ||
+		/(?:^|\n)\s*WeeklyRides listing:\s*https?:\/\//i.test(description);
+
+	if (isMeetup) {
+		const eventMatch = /(?:^|\n)\s*Meetup event:\s*(https?:\/\/\S+)/i.exec(description);
+		rawUrl = eventMatch?.[1] || (/^https?:\/\/\S+$/i.test(sourceEventId) ? sourceEventId : null);
+		const groupMatch = /(?:^|\n)\s*Meetup group:\s*([^\r\n]+)/i.exec(description);
+		organizerName = safeTrim(groupMatch?.[1]) || null;
+	} else if (isWeeklyRides) {
+		const eventLinkMatch = /(?:^|\n)\s*Event link:\s*(https?:\/\/\S+)/i.exec(description);
+		const listingMatch = /(?:^|\n)\s*WeeklyRides listing:\s*(https?:\/\/\S+)/i.exec(description);
+		const eventLinkUrl = sanitizeExtractedUrl(eventLinkMatch?.[1]);
+		rawUrl =
+			eventLinkUrl ||
+			listingMatch?.[1] ||
+			(/^https?:\/\/\S+$/i.test(sourceEventId) ? sourceEventId : null);
+		if (eventLinkUrl) {
+			const meetupGroupMatch = /^https?:\/\/(?:www\.)?meetup\.com\/([^/?#]+)/i.exec(eventLinkUrl);
+			if (meetupGroupMatch?.[1]) {
+				organizerName = humanizeMeetupSlug(meetupGroupMatch[1]) || 'WeeklyRides';
+			} else {
+				try {
+					const host = new URL(eventLinkUrl).hostname.replace(/^www\./i, '').toLowerCase();
+					const genericHosts = [
+						'weeklyrides.com',
+						'facebook.com',
+						'fb.me',
+						'instagram.com',
+						'eventbrite.com'
+					];
+					organizerName = genericHosts.some(
+						(domain) => host === domain || host.endsWith(`.${domain}`)
+					)
+						? 'WeeklyRides'
+						: host;
+				} catch {
+					organizerName = 'WeeklyRides';
+				}
+			}
+		} else {
+			organizerName = 'WeeklyRides';
+		}
+	} else if (/(?:^|\n)\s*More information:\s*\r?\n/i.test(description)) {
+		const labeledMatch =
+			/(?:^|\n)\s*More information:\s*(?:\r?\n)+\s*([^:\r\n]+):\s*(https?:\/\/\S+)/i.exec(
+				description
+			);
+		const unlabeledMatch = /(?:^|\n)\s*More information:\s*(?:\r?\n)+\s*(https?:\/\/\S+)/i.exec(
+			description
+		);
+		rawUrl = labeledMatch?.[2] || unlabeledMatch?.[1] || null;
+		organizerName = safeTrim(labeledMatch?.[1]) || null;
+	} else if (sourceEventId) {
+		if (isUnclaimed) {
+			const trailingUrlMatch = /(https?:\/\/\S+)\s*$/i.exec(description);
+			if (trailingUrlMatch?.[1]) {
+				rawUrl = trailingUrlMatch[1];
+			}
+		}
+		if (!rawUrl && /^https?:\/\/\S+$/i.test(sourceEventId)) {
+			rawUrl = sourceEventId;
+		}
+		if (
+			isUnclaimed &&
+			startLocationName &&
+			startLocationName.toLowerCase() !== 'meetup event' &&
+			startLocationName.toLowerCase() !== title.toLowerCase() &&
+			!startLocationAddress.toLowerCase().includes(startLocationName.toLowerCase())
+		) {
+			organizerName = startLocationName;
+		}
+	}
+
+	return {
+		external_event_url: sanitizeExtractedUrl(rawUrl),
+		external_organizer_name: safeTrim(organizerName) || null
+	};
+}
+
+/**
+ * Resolves `external_event_url` and `external_organizer_name` from `rideDetails` when those
+ * columns exist on the schema, or falls back to legacy imported activity metadata pre-migration.
+ *
+ * @param {Record<string, any> | null | undefined} activity
+ * @param {Record<string, any> | null | undefined} rideDetails
+ * @returns {{ external_event_url: string | null; external_organizer_name: string | null }}
+ */
+export function resolveExternalRideMetadata(activity, rideDetails) {
+	if (
+		rideDetails &&
+		typeof rideDetails === 'object' &&
+		('external_event_url' in rideDetails || 'external_organizer_name' in rideDetails)
+	) {
+		return {
+			external_event_url: normalizeExternalEventUrl(rideDetails.external_event_url),
+			external_organizer_name: safeTrim(rideDetails.external_organizer_name) || null
+		};
+	}
+	return extractLegacyExternalRideMetadata(activity);
+}
+
 function toIso(value) {
 	if (!value) return null;
 	const date = value instanceof Date ? value : new Date(value);

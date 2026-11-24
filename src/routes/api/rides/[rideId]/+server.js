@@ -10,6 +10,7 @@ import {
 	normalizeRidePayload,
 	refreshActivityNextOccurrence,
 	syncActivityOccurrences,
+	updateRideDetailsCompat,
 	upsertActivityRelations
 } from '#lib/server/activities';
 
@@ -123,13 +124,10 @@ export async function PUT({ params, request, cookies }) {
 		return invalid(activityError.message, 400);
 	}
 
-	const { error: rideError } = await supabase
-		.from('ride_details')
-		.update({
-			...payload.ride,
-			updated_at: nowIso
-		})
-		.eq('activity_event_id', rideId);
+	const { error: rideError } = await updateRideDetailsCompat(supabase, rideId, {
+		...payload.ride,
+		updated_at: nowIso
+	});
 	if (rideError) {
 		console.error('Unable to update ride details', rideError);
 		return invalid(rideError.message, 400);

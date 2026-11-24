@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { uploadCanonicalMediaAsset } from './mediaAssets.js';
+import { insertRideDetailsCompat } from './ridePayload.js';
 import { fetchPublicHttp, readResponseBuffer } from './security.js';
 import { sniffRasterImageMimeType } from './storageImages.js';
 
@@ -815,6 +816,15 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeoco
 	};
 }
 
+function buildLegacyFallbackDescription(baseDescription, externalEventUrl, externalOrganizerName) {
+	if (!externalEventUrl) return baseDescription;
+	const linkLine = externalOrganizerName
+		? `${externalOrganizerName}: ${externalEventUrl}`
+		: externalEventUrl;
+	const footer = `More information:\n\n${linkLine}`;
+	return baseDescription ? `${baseDescription}\n\n${footer}` : footer;
+}
+
 async function insertRide(supabase, mapped, createdByUserId) {
 	const nowIso = new Date().toISOString();
 	const slug = await ensureUniqueSlug(supabase, mapped.activity.slug);
@@ -847,12 +857,30 @@ async function insertRide(supabase, mapped, createdByUserId) {
 		.select('*')
 		.single();
 	if (activityError) throw activityError;
-	const { error: rideError } = await supabase.from('ride_details').insert({
-		activity_event_id: activity.id,
-		updated_at: nowIso,
-		...mapped.ride
-	});
+	const { error: rideError, fellBackWithoutExternalColumns } = await insertRideDetailsCompat(
+		supabase,
+		{
+			activity_event_id: activity.id,
+			updated_at: nowIso,
+			...mapped.ride
+		}
+	);
 	if (rideError) throw rideError;
+	if (fellBackWithoutExternalColumns && mapped.ride.external_event_url) {
+		const fallbackDescription = buildLegacyFallbackDescription(
+			mapped.activity.description,
+			mapped.ride.external_event_url,
+			mapped.ride.external_organizer_name
+		);
+		const { error: fallbackUpdateError } = await supabase
+			.from('activity_events')
+			.update({
+				description: fallbackDescription,
+				updated_at: nowIso
+			})
+			.eq('id', activity.id);
+		if (fallbackUpdateError) throw fallbackUpdateError;
+	}
 	if (mapped.recurrenceRule) {
 		const { error: recurrenceError } = await supabase.from('activity_recurrence_rules').insert({
 			activity_event_id: activity.id,

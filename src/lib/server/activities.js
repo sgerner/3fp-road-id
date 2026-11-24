@@ -4,17 +4,29 @@ import {
 } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 import {
+	extractLegacyExternalRideMetadata,
+	insertRideDetailsCompat,
+	isMissingExternalRideColumnsError,
 	isValidExternalEventUrlInput,
 	normalizeEmailTemplate,
 	normalizeExternalEventUrl,
-	normalizeRidePayload
+	normalizeRidePayload,
+	omitExternalRideDetailColumns,
+	resolveExternalRideMetadata,
+	updateRideDetailsCompat
 } from '#lib/server/ridePayload';
 
 export {
+	extractLegacyExternalRideMetadata,
+	insertRideDetailsCompat,
+	isMissingExternalRideColumnsError,
 	isValidExternalEventUrlInput,
 	normalizeEmailTemplate,
 	normalizeExternalEventUrl,
-	normalizeRidePayload
+	normalizeRidePayload,
+	omitExternalRideDetailColumns,
+	resolveExternalRideMetadata,
+	updateRideDetailsCompat
 };
 
 const MAX_OCCURRENCE_MONTHS = 18;
@@ -714,13 +726,22 @@ async function loadRideRecord(
 		rsvpsByOccurrenceId.get(key)?.push(buildRsvpSummary(rsvp));
 	}
 
+	const resolvedExternal = resolveExternalRideMetadata(activity, rideDetails);
+	const normalizedRideDetails = rideDetails
+		? {
+				...rideDetails,
+				external_event_url: resolvedExternal.external_event_url,
+				external_organizer_name: resolvedExternal.external_organizer_name
+			}
+		: null;
+
 	return {
 		activity,
 		source_event_id: activity.source_event_id ?? null,
-		external_event_url: rideDetails?.external_event_url ?? null,
-		external_organizer_name: rideDetails?.external_organizer_name ?? null,
+		external_event_url: resolvedExternal.external_event_url,
+		external_organizer_name: resolvedExternal.external_organizer_name,
 		canManageRsvps,
-		rideDetails: rideDetails ?? null,
+		rideDetails: normalizedRideDetails,
 		occurrences: occurrenceRows.map((occurrence) => ({
 			...occurrence,
 			title: formatOccurrenceTitle(activity, occurrence),

@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import test from 'node:test';
 import sharp from 'sharp';
 import {
@@ -10,7 +12,14 @@ import { parseBtwPhxCalendarData } from './btwphx-imports.js';
 import { mapGroupEventToSeedEvent } from './meetup-topic-imports.js';
 import { fetchExistingRideEventsBySourceId, importRideSeedData } from './ride-imports.js';
 import { normalizeRideListRow, queryPublishedUpcomingRides } from './rideDirectory.js';
-import { isValidExternalEventUrlInput, normalizeRidePayload } from './ridePayload.js';
+import {
+	insertRideDetailsCompat,
+	isMissingExternalRideColumnsError,
+	isValidExternalEventUrlInput,
+	normalizeRidePayload,
+	resolveExternalRideMetadata,
+	updateRideDetailsCompat
+} from './ridePayload.js';
 import { parseWeeklyRidesRssFeed } from './weeklyrides-imports.js';
 
 function createSourceLookupSupabase(rows) {
@@ -779,3 +788,526 @@ test('rideDirectory exposes structured external fields and searches external_org
 	assert.equal(result.data.length, 1);
 	assert.equal(result.data[0].externalOrganizerName, 'South Florida Freewheelers');
 });
+
+test('rideDirectory search and row normalization degrade gracefully before external columns migration is applied', async () => {
+	/** @type {Array<{ ors: string[]; ilikes: Array<[string, string]> }>} */
+	const rideDetailsCalls = [];
+	let activityOrExpr = '';
+
+	const preMigrationSupabase = {
+		/** @param {string} table */
+		from(table) {
+			/** @type {{ ors: string[]; ilikes: Array<[string, string]>; countExact?: boolean }} */
+			const state = { ors: [], ilikes: [] };
+			const builder = {
+				/**
+				 * @param {string} _cols
+				 * @param {{ count?: string }} [opts]
+				 */
+				select(_cols, opts) {
+					state.countExact = opts?.count === 'exact';
+					return this;
+				},
+				eq() {
+					return this;
+				},
+				is() {
+					return this;
+				},
+				in() {
+					return this;
+				},
+				/**
+				 * @param {string} col
+				 * @param {string} pattern
+				 */
+				ilike(col, pattern) {
+					state.ilikes.push([col, pattern]);
+					return this;
+				},
+				/** @param {string} expr */
+				or(expr) {
+					state.ors.push(expr);
+					if (table === 'activity_events') activityOrExpr = expr;
+					return this;
+				},
+				gte() {
+					return this;
+				},
+				order() {
+					return this;
+				},
+				limit() {
+					return this;
+				},
+				range() {
+					return this;
+				},
+				/**
+				 * @param {(value: any) => any} resolve
+				 * @param {(reason?: any) => any} [reject]
+				 */
+				then(resolve, reject) {
+					if (table === 'ride_details') {
+						rideDetailsCalls.push({ ors: [...state.ors], ilikes: [...state.ilikes] });
+						if (state.ors.some((expr) => expr.includes('external_organizer_name'))) {
+							return Promise.resolve({
+								data: null,
+								error: {
+									code: '42703',
+									message: 'column ride_details.external_organizer_name does not exist'
+								}
+							}).then(resolve, reject);
+						}
+						return Promise.resolve({
+							data: [{ activity_event_id: 'ride-legacy-1' }],
+							error: null
+						}).then(resolve, reject);
+					}
+					if (table === 'activity_events') {
+						return Promise.resolve({
+							data: [
+								{
+									id: 'ride-legacy-1',
+									source_event_id: 'meetup:one-love:99',
+									title: 'Morning Tempo Ride',
+									slug: 'meetup-morning-tempo-ride',
+									summary: 'Tempo pace ride',
+									description:
+										'Tempo pace ride\n\nMeetup group: One Love Cycling\nMeetup event: https://www.meetup.com/one-love-cycling/events/99/',
+									timezone: 'America/New_York',
+									host_user_id: null,
+									host_group_id: null,
+									start_location_name: 'Meetup event',
+									start_location_address: 'Westgate Square, Sunrise, FL, US',
+									start_latitude: 26.13,
+									start_longitude: -80.36,
+									next_occurrence_start: '2026-12-01T13:00:00.000Z',
+									next_occurrence_end: '2026-12-01T15:00:00.000Z',
+									ride_details: [{ pace_notes: '18-20 mph tempo', image_urls: [] }],
+									group: null,
+									difficulty_links: [],
+									discipline_links: []
+								}
+							],
+							count: state.countExact ? 1 : null,
+							error: null
+						}).then(resolve, reject);
+					}
+					return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+				}
+			};
+			return builder;
+		}
+	};
+
+	const result = await queryPublishedUpcomingRides(
+		preMigrationSupabase,
+		new URLSearchParams('q=tempo'),
+		{ nowIso: '2026-11-22T00:00:00.000Z' }
+	);
+
+	assert.equal(rideDetailsCalls.length, 2);
+	assert.deepEqual(rideDetailsCalls[1].ilikes, [['pace_notes', '%tempo%']]);
+	assert.match(activityOrExpr, /id\.in\.\(ride-legacy-1\)/);
+	assert.equal(result.data.length, 1);
+	assert.equal(
+		result.data[0].externalEventUrl,
+		'https://www.meetup.com/one-love-cycling/events/99/'
+	);
+	assert.equal(result.data[0].externalOrganizerName, 'One Love Cycling');
+
+	// Once migrated, explicit nulls on ride_details must NOT resurrect legacy source_event_id links.
+	const clearedMigrated = resolveExternalRideMetadata(
+		{
+			source_event_id: 'https://www.meetup.com/one-love-cycling/events/99/',
+			slug: 'meetup-morning-tempo-ride',
+			description: 'Tempo pace ride'
+		},
+		{
+			external_event_url: null,
+			external_organizer_name: null
+		}
+	);
+	assert.deepEqual(clearedMigrated, {
+		external_event_url: null,
+		external_organizer_name: null
+	});
+});
+
+test('insertRideDetailsCompat, updateRideDetailsCompat, and importRideSeedData retry cleanly when external columns do not exist yet', async () => {
+	assert.equal(
+		isMissingExternalRideColumnsError({
+			code: 'PGRST204',
+			message:
+				"Could not find the 'external_event_url' column of 'ride_details' in the schema cache"
+		}),
+		true
+	);
+	assert.equal(
+		isMissingExternalRideColumnsError({
+			code: '23514',
+			message: 'new row violates check constraint "ride_details_external_event_url_check"'
+		}),
+		false
+	);
+
+	/** @type {Array<Record<string, any>>} */
+	const insertPayloads = [];
+	/** @type {Array<{ id: string; patch: Record<string, any> }>} */
+	const updatePayloads = [];
+
+	const unmigratedWriteClient = {
+		/** @param {string} table */
+		from(table) {
+			assert.equal(table, 'ride_details');
+			return {
+				/** @param {Record<string, any>} payload */
+				async insert(payload) {
+					insertPayloads.push(payload);
+					if ('external_event_url' in payload || 'external_organizer_name' in payload) {
+						return {
+							data: null,
+							error: {
+								code: 'PGRST204',
+								message:
+									"Could not find the 'external_event_url' column of 'ride_details' in the schema cache"
+							}
+						};
+					}
+					return { data: payload, error: null };
+				},
+				/** @param {Record<string, any>} patch */
+				update(patch) {
+					return {
+						/**
+						 * @param {string} col
+						 * @param {string} id
+						 */
+						async eq(col, id) {
+							assert.equal(col, 'activity_event_id');
+							updatePayloads.push({ id, patch });
+							if ('external_event_url' in patch || 'external_organizer_name' in patch) {
+								return {
+									data: null,
+									error: {
+										code: '42703',
+										message:
+											'column "external_organizer_name" of relation "ride_details" does not exist'
+									}
+								};
+							}
+							return { data: patch, error: null };
+						}
+					};
+				}
+			};
+		}
+	};
+
+	const normalized = normalizeRidePayload({
+		title: 'Evening Loop',
+		externalEventUrl: 'https://www.bikereg.com/evening-loop',
+		externalOrganizerName: 'Desert Velo'
+	});
+
+	const insertRes = await insertRideDetailsCompat(unmigratedWriteClient, {
+		activity_event_id: 'ride-1',
+		...normalized.ride
+	});
+	assert.equal(insertRes.error, null);
+	assert.equal(insertRes.fellBackWithoutExternalColumns, true);
+	assert.equal(insertPayloads.length, 2);
+	assert.equal('external_event_url' in insertPayloads[1], false);
+	assert.equal('external_organizer_name' in insertPayloads[1], false);
+
+	const updateRes = await updateRideDetailsCompat(unmigratedWriteClient, 'ride-1', {
+		...normalized.ride,
+		updated_at: '2026-11-24T00:00:00.000Z'
+	});
+	assert.equal(updateRes.error, null);
+	assert.equal(updateRes.fellBackWithoutExternalColumns, true);
+	assert.equal(updatePayloads.length, 2);
+	assert.equal('external_event_url' in updatePayloads[1].patch, false);
+	assert.equal('external_organizer_name' in updatePayloads[1].patch, false);
+
+	// Verify importer fallback against an unmigrated DB preserves More information footer on activity_events.
+	/** @type {Array<Record<string, any>>} */
+	const activityUpdates = [];
+	/** @type {Array<Record<string, any>>} */
+	const importedDetailsInserts = [];
+	const unmigratedImportClient = {
+		/** @param {string} table */
+		from(table) {
+			if (table === 'activity_events') {
+				return {
+					/**
+					 * @param {string} _cols
+					 * @param {{ head?: boolean }} [opts]
+					 */
+					select(_cols, opts) {
+						if (opts?.head) {
+							return {
+								async eq() {
+									return { count: 0, error: null };
+								}
+							};
+						}
+						const chain = {
+							eq() {
+								return chain;
+							},
+							limit() {
+								return chain;
+							},
+							async maybeSingle() {
+								return { data: null, error: null };
+							},
+							/**
+							 * @param {(value: any) => any} resolve
+							 * @param {(reason?: any) => any} [reject]
+							 */
+							then(resolve, reject) {
+								return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+							}
+						};
+						return chain;
+					},
+					/** @param {Record<string, any>} row */
+					insert(row) {
+						return {
+							select() {
+								return {
+									async single() {
+										return { data: { id: 'imported-act-1', ...row }, error: null };
+									}
+								};
+							}
+						};
+					},
+					/** @param {Record<string, any>} patch */
+					update(patch) {
+						activityUpdates.push(patch);
+						return {
+							async eq() {
+								return { error: null };
+							}
+						};
+					}
+				};
+			}
+			if (table === 'ride_details') {
+				return {
+					/** @param {Record<string, any>} payload */
+					async insert(payload) {
+						importedDetailsInserts.push(payload);
+						if ('external_event_url' in payload || 'external_organizer_name' in payload) {
+							return {
+								error: {
+									code: 'PGRST204',
+									message:
+										"Could not find the 'external_event_url' column of 'ride_details' in the schema cache"
+								}
+							};
+						}
+						return { error: null };
+					}
+				};
+			}
+			if (
+				table === 'activity_x_ride_difficulty_levels' ||
+				table === 'activity_x_riding_disciplines' ||
+				table === 'activity_occurrences' ||
+				table === 'activity_recurrence_rules'
+			) {
+				return {
+					async insert() {
+						return { error: null };
+					}
+				};
+			}
+			throw new Error(`Unexpected table ${table}`);
+		}
+	};
+
+	const importRes = await importRideSeedData(
+		unmigratedImportClient,
+		{
+			events: [
+				sourceEvent({
+					id: 'btw-pre-mig-1',
+					title: 'Pre-Migration Ride',
+					description: 'Meet at coffee shop.',
+					startLatitude: 33.45,
+					startLongitude: -112.07,
+					externalEventUrl: 'https://www.eventbrite.com/e/pre-migration-ride-123',
+					externalOrganizerName: 'PHX Social Spin'
+				})
+			]
+		},
+		{
+			requireGeocoding: false,
+			skipGeocoding: true,
+			skipImageUpload: true
+		}
+	);
+
+	assert.ok(Array.isArray(importRes.inserted));
+	assert.equal(importRes.inserted.length, 1);
+	assert.equal(importedDetailsInserts.length, 2);
+	assert.equal('external_event_url' in importedDetailsInserts[1], false);
+	const descriptionPatch = activityUpdates.find((patch) => 'description' in patch);
+	assert.ok(descriptionPatch);
+	assert.match(
+		descriptionPatch.description,
+		/More information:\n\nPHX Social Spin: https:\/\/www\.eventbrite\.com\/e\/pre-migration-ride-123/
+	);
+});
+
+const databaseUrl = process.env.ACCOUNTING_TEST_DATABASE_URL;
+test(
+	'structured external ride fields migration validates URL constraint, backfills imported rides, and leaves clean local rides untouched',
+	{ skip: !databaseUrl },
+	() => {
+		if (!databaseUrl) return;
+		const url = new URL(databaseUrl);
+		assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname));
+		const dbName = `ride_external_fields_test_${process.pid}`;
+		/**
+		 * @param {string} connection
+		 * @param {string} sql
+		 */
+		const run = (connection, sql) =>
+			execFileSync('psql', [connection, '-X', '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-q'], {
+				input: sql,
+				encoding: 'utf8',
+				stdio: ['pipe', 'pipe', 'pipe']
+			}).trim();
+
+		run(databaseUrl, fs.readFileSync('supabase/tests/bootstrap_roles.sql', 'utf8'));
+		run(databaseUrl, `create database ${dbName}`);
+		url.pathname = `/${dbName}`;
+		const testDbUrl = url.toString();
+
+		try {
+			run(
+				testDbUrl,
+				`
+				create table public.activity_events (
+					id uuid primary key,
+					activity_type text not null default 'ride',
+					source_event_id text null,
+					host_user_id uuid null,
+					host_group_id uuid null,
+					slug text not null unique,
+					title text not null,
+					summary text null,
+					description text null,
+					start_location_name text null,
+					start_location_address text null,
+					updated_at timestamptz not null default '2026-01-01T00:00:00Z'
+				);
+
+				create table public.ride_details (
+					activity_event_id uuid primary key references public.activity_events(id) on delete cascade,
+					pace_notes text null,
+					updated_at timestamptz not null default '2026-01-01T00:00:00Z'
+				);
+
+				insert into public.activity_events (
+					id, activity_type, source_event_id, host_user_id, host_group_id, slug, title, summary, description, start_location_name, start_location_address, updated_at
+				) values
+					(
+						'00000000-0000-0000-0000-000000000001',
+						'ride',
+						'meetup:one-love:1',
+						null,
+						null,
+						'meetup-sunrise-club-ride',
+						'Sunrise Club Ride',
+						'Meetup group: One Love Cycling',
+						E'Roll out at 7am sharp.\n\nMeetup group: One Love Cycling\nMeetup event: https://www.meetup.com/one-love-cycling/events/123/',
+						'Meetup event',
+						'Westgate Square, 15810 W State Road 84, Sunrise, FL, US',
+						'2026-01-01T00:00:00Z'
+					),
+					(
+						'00000000-0000-0000-0000-000000000002',
+						'ride',
+						null,
+						'00000000-0000-0000-0000-0000000000aa',
+						null,
+						'tempe-tuesday-spin',
+						'Tempe Tuesday Spin',
+						'Casual neighborhood roll.',
+						'Casual neighborhood roll through Tempe.',
+						'Tempe Beach Park',
+						'80 W Rio Salado Pkwy, Tempe, AZ',
+						'2026-01-01T00:00:00Z'
+					);
+
+				insert into public.ride_details (activity_event_id, pace_notes, updated_at) values
+					('00000000-0000-0000-0000-000000000001', 'Meetup group: One Love Cycling', '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000002', '12-14 mph social no-drop', '2026-01-01T00:00:00Z');
+
+				${fs.readFileSync('supabase/migrations/20261124040000_add_structured_external_ride_fields.sql', 'utf8')}
+				`
+			);
+
+			const constraintValidated = run(
+				testDbUrl,
+				`select convalidated::text from pg_constraint where conname = 'ride_details_external_event_url_check';`
+			);
+			assert.equal(constraintValidated, 'true');
+
+			const importedRow = run(
+				testDbUrl,
+				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.summary, '') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_organizer_name, '')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000001';`
+			);
+			assert.equal(
+				importedRow,
+				'Westgate Square|Roll out at 7am sharp.|Roll out at 7am sharp.|<null>|https://www.meetup.com/one-love-cycling/events/123/|One Love Cycling'
+			);
+
+			// Clean local ride should not have been touched by the backfill at all.
+			const localRideRow = run(
+				testDbUrl,
+				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(rd.pace_notes, '')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000002';`
+			);
+			assert.equal(localRideRow, 'true|true|12-14 mph social no-drop');
+
+			// Re-running the migration must be idempotent.
+			const beforeRerunStamp = run(
+				testDbUrl,
+				`select rd.updated_at::text from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
+			);
+			run(
+				testDbUrl,
+				fs.readFileSync(
+					'supabase/migrations/20261124040000_add_structured_external_ride_fields.sql',
+					'utf8'
+				)
+			);
+			const afterRerunStamp = run(
+				testDbUrl,
+				`select rd.updated_at::text from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
+			);
+			assert.equal(afterRerunStamp, beforeRerunStamp);
+
+			assert.throws(() =>
+				run(
+					testDbUrl,
+					`update public.ride_details set external_event_url = 'javascript:alert(1)' where activity_event_id = '00000000-0000-0000-0000-000000000002';`
+				)
+			);
+		} finally {
+			run(databaseUrl, `drop database ${dbName} with (force)`);
+		}
+	}
+);

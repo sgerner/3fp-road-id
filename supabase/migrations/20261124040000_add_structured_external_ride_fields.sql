@@ -6,26 +6,39 @@ alter table public.ride_details
 	add column if not exists external_event_url text null,
 	add column if not exists external_organizer_name text null;
 
-alter table public.ride_details
-	drop constraint if exists ride_details_external_event_url_check;
+do $$
+begin
+	if not exists (
+		select 1
+		from pg_constraint
+		where conname = 'ride_details_external_event_url_check'
+			and conrelid = 'public.ride_details'::regclass
+	) then
+		alter table public.ride_details
+			add constraint ride_details_external_event_url_check
+			check (
+				external_event_url is null
+				or (
+					external_event_url = btrim(external_event_url)
+					and external_event_url ~* '^https?://[^[:space:]/#?]+([/?#][^[:space:]]*)?$'
+				)
+			) not valid;
+	end if;
+end
+$$;
 
 alter table public.ride_details
-	add constraint ride_details_external_event_url_check
-	check (
-		external_event_url is null
-		or (
-			external_event_url = btrim(external_event_url)
-			and external_event_url ~* '^https?://[^[:space:]/#?]+([/?#][^[:space:]]*)?$'
-		)
-	);
+	validate constraint ride_details_external_event_url_check;
 
--- 1. Clear pace_notes values that duplicate summary/description or contain legacy link footers.
+-- 1. Clear pace_notes values that duplicate summary/description or contain legacy link footers
+--    on ride rows only.
 update public.ride_details rd
 set
 	pace_notes = null,
 	updated_at = timezone('utc', now())
 from public.activity_events ae
 where rd.activity_event_id = ae.id
+	and ae.activity_type = 'ride'
 	and rd.pace_notes is not null
 	and (
 		btrim(rd.pace_notes) = ''
@@ -34,7 +47,8 @@ where rd.activity_event_id = ae.id
 		or rd.pace_notes ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
 	);
 
--- 2. Backfill external_event_url and external_organizer_name from imported ride metadata.
+-- 2. Backfill external_event_url and external_organizer_name strictly on imported / footer-bearing ride rows
+--    that are still missing at least one structured external column.
 with extracted as (
 	select
 		rd.activity_event_id,
@@ -119,6 +133,14 @@ with extracted as (
 		end as organizer_name
 	from public.ride_details rd
 	join public.activity_events ae on ae.id = rd.activity_event_id
+	where ae.activity_type = 'ride'
+		and (rd.external_event_url is null or rd.external_organizer_name is null)
+		and (
+			ae.source_event_id is not null
+			or ae.slug like 'meetup-%'
+			or ae.slug like 'weeklyrides-%'
+			or coalesce(ae.description, '') ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Event link:|WeeklyRides listing:|More information:)'
+		)
 ),
 sanitized as (
 	select
@@ -144,7 +166,8 @@ where rd.activity_event_id = s.activity_event_id
 	);
 
 -- 3. Strip appended link footers from activity_events.description, clean polluted summaries,
--- and replace placeholder or overwritten start_location_name values with real venues.
+-- and replace placeholder or overwritten start_location_name values with real venues,
+-- scoped strictly to imported or footer/placeholder-polluted ride rows.
 with cleaned_activities as (
 	select
 		ae.id,
@@ -193,6 +216,14 @@ with cleaned_activities as (
 	from public.activity_events ae
 	left join public.ride_details rd on rd.activity_event_id = ae.id
 	where ae.activity_type = 'ride'
+		and (
+			ae.source_event_id is not null
+			or ae.slug like 'meetup-%'
+			or ae.slug like 'weeklyrides-%'
+			or lower(btrim(coalesce(ae.start_location_name, ''))) = 'meetup event'
+			or coalesce(ae.description, '') ~* '(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
+			or coalesce(ae.summary, '') ~* '(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
+		)
 ),
 final_activities as (
 	select
@@ -287,15 +318,17 @@ where ae.id = ra.id
 		or ae.start_location_name is distinct from ra.next_location_name
 	);
 
--- 4. Final guard: ensure zero rows retain pace_notes duplicating updated summary.
+-- 4. Final guard: ensure zero ride rows retain pace_notes duplicating updated summary or description.
 update public.ride_details rd
 set
 	pace_notes = null,
 	updated_at = timezone('utc', now())
 from public.activity_events ae
 where rd.activity_event_id = ae.id
+	and ae.activity_type = 'ride'
 	and rd.pace_notes is not null
 	and (
 		btrim(rd.pace_notes) = ''
 		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ae.summary, '')))
+		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ae.description, '')))
 	);
