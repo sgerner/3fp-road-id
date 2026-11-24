@@ -168,7 +168,7 @@
 
 	function filterChipClass(active) {
 		const base =
-			'px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition cursor-pointer';
+			'inline-flex items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition cursor-pointer pointer-coarse:min-h-11 pointer-coarse:min-w-11';
 		return active
 			? `${base} bg-primary-500 text-surface-950`
 			: `${base} bg-surface-950 text-surface-50 hover:bg-tertiary-500 hover:text-surface-950`;
@@ -284,7 +284,7 @@
 			</div>
 			<button
 				type="button"
-				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition"
+				class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 px-5 py-3 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 				onclick={() => window.dispatchEvent(new Event('open-login'))}
 			>
 				Sign in
@@ -323,14 +323,14 @@
 					<div class="flex flex-wrap gap-3">
 						<a
 							href="#group-list"
-							class="group bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							class="group bg-primary-500 text-surface-950 hover:bg-primary-400 inline-flex items-center justify-center gap-2.5 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							Explore groups
 							<IconArrowRight class="h-4 w-4 transition group-hover:translate-x-1" />
 						</a>
 						<a
 							href="/groups/new"
-							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+							class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-3 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>
 							<IconPlus class="h-4 w-4" /> Start a group
 						</a>
@@ -406,7 +406,7 @@
 			<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto]">
 				<div class="border-surface-600 focus-within:border-primary-500 flex border-2">
 					<input
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-2.5 text-sm font-medium focus:outline-none"
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 min-w-0 flex-1 border-0 px-4 py-2.5 text-sm font-medium focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Search groups"
 						bind:value={q}
 						placeholder="Search by group name, city, or description…"
@@ -414,7 +414,7 @@
 					/>
 					<button
 						type="button"
-						class="bg-primary-500 text-surface-950 hover:bg-primary-400 flex shrink-0 cursor-pointer items-center justify-center px-4 transition"
+						class="bg-primary-500 text-surface-950 hover:bg-primary-400 flex shrink-0 cursor-pointer items-center justify-center px-4 transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						onclick={handleSearchButtonClick}
 						aria-label="Search groups"
 						title="Search"
@@ -425,7 +425,7 @@
 
 				<div class="grid grid-cols-2 gap-3">
 					<select
-						class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+						class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 						aria-label="Country"
 						bind:value={country}
 						onchange={scheduleApply}
@@ -442,7 +442,7 @@
 
 					{#if hasStateList}
 						<select
-							class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 							aria-label="State or region"
 							bind:value={state_region}
 							onchange={scheduleApply}
@@ -454,7 +454,7 @@
 						</select>
 					{:else}
 						<input
-							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none"
+							class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 border-2 px-3 py-2.5 text-xs font-bold uppercase focus:outline-none pointer-coarse:min-h-11"
 							aria-label="State or region"
 							bind:value={state_region}
 							oninput={scheduleApply}
@@ -466,7 +466,7 @@
 				{#if activeFilterCount > 0}
 					<button
 						type="button"
-						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition"
+						class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide uppercase transition pointer-coarse:min-h-11"
 						onclick={clearAll}
 						in:fade={{ duration: 120 }}
 					>
@@ -486,7 +486,7 @@
 					<button
 						type="button"
 						aria-pressed={group_type_ids.length === 0}
-						class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.length ===
+						class="inline-flex cursor-pointer items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 {group_type_ids.length ===
 						0
 							? 'bg-primary-500 text-surface-950'
 							: 'border-surface-700 bg-surface-950 text-surface-200 hover:border-primary-500 border'}"
@@ -501,7 +501,7 @@
 						<button
 							type="button"
 							aria-pressed={group_type_ids.includes(t.id)}
-							class="cursor-pointer px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition {group_type_ids.includes(
+							class="inline-flex cursor-pointer items-center justify-center px-3 py-1.5 text-xs font-black tracking-[0.14em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11 {group_type_ids.includes(
 								t.id
 							)
 								? 'bg-primary-500 text-surface-950'
@@ -515,7 +515,7 @@
 
 				<button
 					type="button"
-					class="text-surface-300 hover:text-primary-500 inline-flex cursor-pointer items-center gap-2 py-1 text-xs font-black tracking-[0.18em] uppercase transition"
+					class="text-surface-300 hover:text-primary-500 inline-flex cursor-pointer items-center gap-2 py-1 text-xs font-black tracking-[0.18em] uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					onclick={() => (showAdvanced = !showAdvanced)}
 					aria-expanded={showAdvanced}
 				>
@@ -653,7 +653,7 @@
 				<button
 					type="button"
 					aria-pressed={showMap}
-					class="inline-flex min-h-9 cursor-pointer items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition {showMap
+					class="inline-flex min-h-9 cursor-pointer items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11 {showMap
 						? 'bg-primary-500 text-surface-950'
 						: 'border-surface-700 text-surface-200 hover:border-primary-500 hover:text-primary-500 border-2'}"
 					onclick={() => (showMap = !showMap)}
@@ -665,7 +665,7 @@
 					<button
 						type="button"
 						aria-haspopup="dialog"
-						class="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-9 cursor-pointer items-center gap-2 border-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition"
+						class="border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-9 cursor-pointer items-center gap-2 border-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition pointer-coarse:min-h-11"
 						onclick={() => (showMapLightbox = true)}
 					>
 						<IconMaximize2 class="h-4 w-4" />
