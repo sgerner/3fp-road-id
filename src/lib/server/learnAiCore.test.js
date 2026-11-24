@@ -27,8 +27,9 @@ test('AI input strings are type checked and bounded before reaching prompts', ()
 	assert.equal(normalizeLearnAiTextResult({ text: { toString: 'bad' } }), '');
 	assert.equal(normalizeLearnAiTakeaways({ summary: { text: 'bad' }, takeaways: ['valid'] }), null);
 	assert.equal(
-		normalizeLearnAiTakeaways({ summary: 'Summary', takeaways: [{ text: 'bad' }, 'Useful'] })
-			.keyTakeaways[0],
+		/** @type {any} */ (
+			normalizeLearnAiTakeaways({ summary: 'Summary', takeaways: [{ text: 'bad' }, 'Useful'] })
+		).keyTakeaways[0],
 		'Useful'
 	);
 	assert.equal(normalizeLearnAiTextResult({ text: 'x'.repeat(20) }, 10), '');
@@ -80,6 +81,7 @@ test('long article questions select matching chunks beyond the opening excerpt',
 
 test('takeaway normalization rejects invalid output fields and bounds valid results', () => {
 	assert.equal(normalizeLearnAiTakeaways({ summary: 'ok', takeaways: 'not an array' }), null);
+	/** @type {any} */
 	const result = normalizeLearnAiTakeaways({
 		summary: 's'.repeat(900),
 		takeaways: Array.from({ length: 8 }, (_, index) => `point ${index}`)

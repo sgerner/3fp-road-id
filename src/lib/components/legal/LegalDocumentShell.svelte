@@ -1,5 +1,6 @@
 <script>
 	// Shared Lane Lines shell for public legal policy routes (/privacy, /terms, /data-deletion).
+	/** @type {Record<string, any>} */
 	let {
 		metaTitle,
 		metaDescription,
@@ -9,7 +10,7 @@
 		lead,
 		lastUpdated,
 		currentPath,
-		children,
+		children = undefined,
 		headingSizeClass = 'text-[clamp(2.9rem,6.8vw,6rem)]'
 	} = $props();
 
@@ -77,8 +78,8 @@
 				href={link.href}
 				aria-current={isActive ? 'page' : undefined}
 				class={isActive
-					? 'bg-primary-500 text-surface-950 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase hover:no-underline'
-					: 'border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-secondary-500 border-2 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline'}
+					? 'bg-primary-500 text-surface-950 inline-flex items-center px-4 py-2 text-xs font-black tracking-[0.18em] uppercase hover:no-underline pointer-coarse:min-h-11'
+					: 'border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-secondary-500 inline-flex items-center border-2 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition hover:no-underline pointer-coarse:min-h-11'}
 			>
 				{link.label}
 			</a>

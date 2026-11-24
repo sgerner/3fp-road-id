@@ -79,6 +79,10 @@ function extractRecommendationContext(metadata) {
 	};
 }
 
+/**
+ * @param {Record<string, any> | null | undefined} profileRow
+ * @param {Record<string, any> | null} [reconciled]
+ */
 function normalizeProfileShape(profileRow, reconciled = null) {
 	if (!profileRow && !reconciled) return null;
 	return {
@@ -257,6 +261,7 @@ export async function PUT({ cookies, fetch, request }) {
 	}
 
 	const primaryContact = savedSafety.emergencyContacts[0] ?? null;
+	/** @type {Record<string, any>} */
 	const mutableProfilePayload = {
 		full_name: fullName || null,
 		avatar_url: avatarUrl || null,

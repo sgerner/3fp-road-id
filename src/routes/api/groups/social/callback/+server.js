@@ -19,6 +19,10 @@ import {
 	resolveMetaOAuthRedirectUri
 } from '#lib/server/social/meta/oauth';
 
+/**
+ * @param {any} value
+ * @param {any} [maxLength]
+ */
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
 	const cleaned = String(value).trim();
@@ -26,6 +30,9 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
+/**
+ * @param {any} stateRecord
+ */
 function resolveStoredOauthRedirectUri(stateRecord) {
 	const stored = cleanText(stateRecord?.code_verifier, 2000);
 	if (!stored) return null;
@@ -38,6 +45,10 @@ function resolveStoredOauthRedirectUri(stateRecord) {
 	}
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} groupId
+ */
 async function loadGroupById(supabase, groupId) {
 	const { data, error } = await supabase
 		.from('groups')
@@ -48,10 +59,19 @@ async function loadGroupById(supabase, groupId) {
 	return data ?? null;
 }
 
+/**
+ * @param {any} groupSlug
+ * @param {any} status
+ * @param {any} [reason]
+ */
 function buildReturnPath(groupSlug, status, reason = null) {
 	return buildSocialReturnPath(groupSlug, status, reason);
 }
 
+/**
+ * @param {any} path
+ * @param {any} [values]
+ */
 function withQuery(path, values = {}) {
 	const base = new URL(path, 'http://local.test');
 	for (const [key, value] of Object.entries(values || {})) {
@@ -61,12 +81,16 @@ function withQuery(path, values = {}) {
 	return `${base.pathname}${base.search}${base.hash}`;
 }
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ cookies, url }) {
 	const stateToken = cleanText(url.searchParams.get('state'), 300);
 	const code = cleanText(url.searchParams.get('code'), 4000);
 	const oauthError = cleanText(url.searchParams.get('error'), 200);
 	const oauthErrorDescription = cleanText(url.searchParams.get('error_description'), 400);
 
+	/** @type {any} */
 	let auth = null;
 	try {
 		auth = await getSocialAuthContext(cookies);
@@ -78,7 +102,9 @@ export async function GET({ cookies, url }) {
 		throw redirect(303, '/groups?social=error&social_reason=auth_required');
 	}
 
+	/** @type {any} */
 	let stateRecord = null;
+	/** @type {any} */
 	let group = null;
 	try {
 		stateRecord = await consumeGroupSocialOauthState(auth.serviceSupabase, stateToken);
@@ -123,6 +149,7 @@ export async function GET({ cookies, url }) {
 			url.searchParams.get('granted_scopes') || url.searchParams.get('scope')
 		);
 
+		/** @type {any} */
 		let options = [];
 		if (stateRecord.provider === 'instagram') {
 			options = await listInstagramConnectionOptions({
@@ -140,6 +167,7 @@ export async function GET({ cookies, url }) {
 		}
 
 		const selectedOption = options.length === 1 ? options[0] : null;
+		/** @type {any} */
 		let connectedAccount = null;
 		if (selectedOption) {
 			connectedAccount = await resolveMetaConnectionFromOption({

@@ -5,6 +5,7 @@
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import { fade } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	const site = $derived(data.site);

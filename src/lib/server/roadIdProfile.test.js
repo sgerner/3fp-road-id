@@ -11,8 +11,13 @@ import {
 	validateSafetyPayload
 } from './roadIdProfile.js';
 
+/**
+ * @param {Record<string, any[]>} [initialTables]
+ */
 function createMockSupabase(initialTables = {}) {
+	/** @type {Record<string, any>[]} */
 	const operations = [];
+	/** @type {Record<string, any[]>} */
 	const state = {
 		profiles: structuredClone(initialTables.profiles ?? []),
 		road_id_profiles: structuredClone(initialTables.road_id_profiles ?? []),
@@ -22,6 +27,10 @@ function createMockSupabase(initialTables = {}) {
 	let nextContactId =
 		state.emergency_contacts.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1;
 
+	/**
+	 * @param {Record<string, any>} row
+	 * @param {Record<string, any>[]} filters
+	 */
 	function matchesFilters(row, filters) {
 		return filters.every((f) => {
 			if (f.type === 'eq') return row[f.column] === f.value;
@@ -33,7 +42,8 @@ function createMockSupabase(initialTables = {}) {
 	return {
 		state,
 		operations,
-		from(table) {
+		from(/** @type {string} */ table) {
+			/** @type {Record<string, any>} */
 			const ctx = {
 				table,
 				action: 'select',
@@ -155,7 +165,7 @@ function createMockSupabase(initialTables = {}) {
 					ctx.payload = payload;
 					return builder;
 				},
-				upsert(payload, opts = {}) {
+				upsert(payload, /** @type {Record<string, any>} */ opts = {}) {
 					ctx.action = 'upsert';
 					ctx.payload = payload;
 					ctx.onConflict = opts.onConflict || null;
@@ -178,7 +188,7 @@ function createMockSupabase(initialTables = {}) {
 					ctx.filters.push({ type: 'is', column, value });
 					return builder;
 				},
-				order(column, opts = {}) {
+				order(column, /** @type {Record<string, any>} */ opts = {}) {
 					ctx.orderCol = column;
 					ctx.orderAsc = opts.ascending !== false;
 					return builder;
@@ -231,6 +241,7 @@ test('reconcileRiderSafetyData merges bracelet and profile fields without blanki
 	assert.equal(reconciled.allergies, 'Penicillin');
 	assert.equal(reconciled.medication, 'Aspirin, Albuterol');
 	assert.equal(reconciled.emergency_contacts.length, 1);
+	assert.ok(reconciled.primary_emergency_contact);
 	assert.equal(reconciled.primary_emergency_contact.contact_name, 'Taylor Rider');
 	assert.equal(reconciled.primary_emergency_contact.contact_phone, '480-555-0199');
 });
@@ -297,6 +308,7 @@ test('saveUnifiedRiderSafety upserts road_id_profiles before emergency_contacts 
 		allowBlankIdentity: true
 	});
 
+	assert.ok(saved.roadIdProfile);
 	assert.equal(saved.roadIdProfile.blood_type, 'O+');
 	assert.equal(saved.emergencyContacts.length, 1);
 	assert.equal(saved.emergencyContacts[0].contact_name, 'Casey Rider');
@@ -304,12 +316,14 @@ test('saveUnifiedRiderSafety upserts road_id_profiles before emergency_contacts 
 
 	// Partial update omitting medical fields must preserve blood_type, allergies, medication
 	const partial = validateSafetyPayload({});
+	if (!partial.ok) throw new Error(partial.error);
 	const afterPartial = await saveUnifiedRiderSafety(db, 'user-1', {
 		fullName: 'Alex Updated',
 		phone: '',
 		safety: partial.value,
 		allowBlankIdentity: false
 	});
+	assert.ok(afterPartial.roadIdProfile);
 	assert.equal(afterPartial.roadIdProfile.full_name, 'Alex Updated');
 	assert.equal(afterPartial.roadIdProfile.phone, '+14805550111');
 	assert.equal(afterPartial.roadIdProfile.blood_type, 'O+');
@@ -364,6 +378,8 @@ test('syncVolunteerContactToProfile updates primary contact without clobbering m
 		emergencyContactPhone: '480-555-0199'
 	});
 
+	assert.ok(synced.profile);
+	assert.ok(synced.roadIdProfile);
 	assert.equal(synced.profile.emergency_contact_name, 'New Primary');
 	assert.equal(synced.profile.emergency_contact_phone, '+14805550199');
 	assert.equal(synced.roadIdProfile.blood_type, 'B-');

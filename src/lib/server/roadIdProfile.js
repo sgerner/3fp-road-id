@@ -79,6 +79,12 @@ export function sortEmergencyContacts(contacts) {
  * Reconciles identity, medical notes, and emergency contacts between public.profiles,
  * public.road_id_profiles, and public.emergency_contacts without overwriting non-empty
  * medical records or contact records with blank values.
+ * @param {{
+ *   profileRow?: Record<string, any> | null,
+ *   roadIdRow?: Record<string, any> | null,
+ *   emergencyContacts?: Record<string, any>[],
+ *   preferRoadIdIdentity?: boolean
+ * }} [options]
  */
 export function reconcileRiderSafetyData({
 	profileRow = null,
@@ -126,11 +132,36 @@ export function reconcileRiderSafetyData({
 	};
 }
 
+/**
+ * @param {any} body
+ * @returns {{
+ *   ok: true,
+ *   value: {
+ *     hasEmergencyName: boolean,
+ *     emergency_full_name: string,
+ *     hasEmergencyPhone: boolean,
+ *     emergency_phone: string,
+ *     hasMedicalFields: boolean,
+ *     blood_type: string,
+ *     allergies: string,
+ *     medication: string,
+ *     hasContactsList: boolean,
+ *     emergency_contacts: { id: any, contact_name: string, contact_phone: string, contact_relationship: string }[]
+ *   }
+ * } | {
+ *   ok: false,
+ *   error: string
+ * }}
+ */
 export function validateSafetyPayload(body) {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) {
 		return {
 			ok: true,
 			value: {
+				hasEmergencyName: false,
+				emergency_full_name: '',
+				hasEmergencyPhone: false,
+				emergency_phone: '',
 				hasMedicalFields: false,
 				blood_type: '',
 				allergies: '',
@@ -281,6 +312,16 @@ export function validateSafetyPayload(body) {
 	};
 }
 
+/**
+ * @param {any} supabase
+ * @param {string | null | undefined} userId
+ * @returns {Promise<{
+ *   roadIdProfile: Record<string, any> | null,
+ *   emergencyContacts: { id: any, contact_name: string, contact_phone: string, contact_relationship: string }[],
+ *   claimedCodes: string[],
+ *   linkedCodes: { code: string, created_at: any }[]
+ * }>}
+ */
 export async function loadRiderSafetyState(supabase, userId) {
 	if (!supabase || !userId) {
 		return {
@@ -371,6 +412,16 @@ export async function upsertOwnProfileRow(
  * Saves road_id_profiles and emergency_contacts using the authenticated user's
  * RLS-bound Supabase client. Always ensures road_id_profiles exists first so
  * emergency_contacts RLS policies pass even when zero bracelets are claimed.
+ * @param {any} supabase
+ * @param {string} userId
+ * @param {{
+ *   fullName?: any,
+ *   phone?: any,
+ *   safety?: any,
+ *   existingRoadId?: Record<string, any> | null,
+ *   existingContacts?: Record<string, any>[],
+ *   allowBlankIdentity?: boolean
+ * }} [options]
  */
 export async function saveUnifiedRiderSafety(
 	supabase,
@@ -461,6 +512,7 @@ export async function saveUnifiedRiderSafety(
 		const idsToDelete = [...ownedById.keys()].filter((idKey) => !retainedIds.has(idKey));
 		for (const idKey of idsToDelete) {
 			const target = ownedById.get(idKey);
+			if (!target) continue;
 			const deleteRes = await supabase
 				.from('emergency_contacts')
 				.delete()
@@ -477,8 +529,8 @@ export async function saveUnifiedRiderSafety(
 				contact_phone: item.contact_phone,
 				contact_relationship: item.contact_relationship
 			};
-			if (idKey && ownedById.has(idKey)) {
-				const target = ownedById.get(idKey);
+			const target = idKey ? ownedById.get(idKey) : undefined;
+			if (idKey && target) {
 				const updateRes = await supabase
 					.from('emergency_contacts')
 					.update(contactFields)
@@ -514,6 +566,14 @@ export async function saveUnifiedRiderSafety(
  * Syncs rider name, phone, and primary emergency contact from volunteer signup
  * back to public.profiles, public.road_id_profiles, and public.emergency_contacts
  * without overwriting medical fields or secondary emergency contacts.
+ * @param {any} supabase
+ * @param {string} userId
+ * @param {{
+ *   fullName?: any,
+ *   phone?: any,
+ *   emergencyContactName?: any,
+ *   emergencyContactPhone?: any
+ * }} [options]
  */
 export async function syncVolunteerContactToProfile(
 	supabase,
@@ -564,6 +624,7 @@ export async function syncVolunteerContactToProfile(
 				: ''
 			: cleanText(currentProfile?.emergency_contact_phone, MAX_PHONE_LENGTH);
 
+	/** @type {Record<string, any>} */
 	const profileUpdates = {};
 	if (nextFullName !== (currentProfile?.full_name ?? '')) {
 		profileUpdates.full_name = nextFullName || null;
@@ -775,6 +836,7 @@ export async function claimBraceletForUser({ serviceSupabase, userSupabase, user
 	}
 
 	// Backfill blank profiles fields from existing road_id_profiles / emergency_contacts
+	/** @type {Record<string, any>} */
 	const profileBackfill = {};
 	if (!cleanText(profileRow?.full_name, MAX_NAME_LENGTH) && reconciled.full_name) {
 		profileBackfill.full_name = reconciled.full_name;
@@ -920,6 +982,7 @@ export async function reconcileAfterBraceletClaim(userSupabase, userId) {
 		});
 	}
 
+	/** @type {Record<string, any>} */
 	const profileBackfill = {};
 	if (!cleanText(profileRow?.full_name, MAX_NAME_LENGTH) && reconciled.full_name) {
 		profileBackfill.full_name = reconciled.full_name;

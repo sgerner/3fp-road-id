@@ -17,6 +17,10 @@ import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
 const MAX_UPLOAD_FILES = 8;
 
+/**
+ * @param {any} auth
+ * @param {any} assetId
+ */
 async function loadManagedAsset(auth, assetId) {
 	const { data, error } = await auth.serviceSupabase
 		.from('group_assets')
@@ -29,6 +33,11 @@ async function loadManagedAsset(auth, assetId) {
 	return data ?? null;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} groupId
+ * @param {any} sectionId
+ */
 async function nextSortOrderForSection(supabase, groupId, sectionId) {
 	const { data, error } = await supabase
 		.from('group_assets')
@@ -42,6 +51,11 @@ async function nextSortOrderForSection(supabase, groupId, sectionId) {
 	return Number(data?.[0]?.sort_order ?? -1) + 1;
 }
 
+/**
+ * @param {any} auth
+ * @param {any} files
+ * @param {any} bucket
+ */
 async function uploadBucketFiles(auth, files, bucket) {
 	if (files.length > MAX_UPLOAD_FILES) {
 		return {
@@ -69,7 +83,9 @@ async function uploadBucketFiles(auth, files, bucket) {
 	}
 
 	let sortOrder = await nextSortOrderForSection(auth.serviceSupabase, auth.group.id, section.id);
+	/** @type {any} */
 	const uploadedObjectPaths = [];
+	/** @type {any} */
 	const insertedAssetIds = [];
 
 	for (const file of files) {
@@ -194,6 +210,7 @@ export const actions = {
 			return fail(400, { error: 'Choose at least one photo to upload.' });
 		}
 
+		/** @type {any} */
 		const result = await uploadBucketFiles(auth, files, 'photos');
 		if (!result.ok) {
 			return fail(result.status, { error: result.error });
@@ -261,6 +278,7 @@ export const actions = {
 			return fail(400, { error: 'Choose at least one file to upload.' });
 		}
 
+		/** @type {any} */
 		const result = await uploadBucketFiles(auth, files, 'files');
 		if (!result.ok) {
 			return fail(result.status, { error: result.error });

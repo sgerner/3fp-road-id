@@ -180,7 +180,15 @@ function mapOpenAiTools(tools) {
 	});
 }
 
+/**
+ * @param {{
+ *   model: string,
+ *   contents: any,
+ *   config?: Record<string, any>
+ * }} options
+ */
 export function buildOpenAiResponseBody({ model, contents, config = {} }) {
+	/** @type {Record<string, any>} */
 	const body = {
 		model,
 		input: buildOpenAiInput(contents),
@@ -263,13 +271,21 @@ export function extractOpenAiToolCalls(data) {
 		});
 }
 
+/**
+ * @param {string} apiKey
+ * @param {any} [fetchImpl]
+ */
 export function createOpenAiTextProviderClient(apiKey, fetchImpl = globalThis.fetch) {
 	return {
+		/**
+		 * @param {{ model: any, contents: any, config?: Record<string, any> }} params
+		 */
 		async generateContent({ model, contents, config = {} }) {
 			if (typeof fetchImpl !== 'function') {
 				throw new Error('Fetch is not available for the OpenAI Responses API.');
 			}
 
+			/** @type {RequestInit} */
 			const fetchOptions = {
 				method: 'POST',
 				headers: {

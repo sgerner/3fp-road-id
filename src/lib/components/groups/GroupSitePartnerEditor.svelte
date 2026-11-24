@@ -3,6 +3,7 @@
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconTrash from '@lucide/svelte/icons/trash';
 
+	/** @type {Record<string, any>} */
 	let {
 		sponsors = [],
 		fileNames = {},

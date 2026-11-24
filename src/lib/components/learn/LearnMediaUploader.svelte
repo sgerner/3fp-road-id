@@ -8,16 +8,25 @@
 	import IconFileSpreadsheet from '@lucide/svelte/icons/file-spreadsheet';
 	import IconFileText from '@lucide/svelte/icons/file-text';
 	import IconImage from '@lucide/svelte/icons/image';
+	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSearch from '@lucide/svelte/icons/search';
+	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import IconX from '@lucide/svelte/icons/x';
+	import {
+		LEARN_ALT_TEXT_MAX_LENGTH,
+		buildLearnImageMarkdownSnippet,
+		sanitizeAltText
+	} from '#lib/learn/altText';
 
+	/** @type {Record<string, any>} */
 	let {
 		articleId = '',
 		uploaded = [],
 		heading = 'Media Library',
 		description = '',
-		onInsertSnippet = null
+		onInsertSnippet = null,
+		getContext = null
 	} = $props();
 
 	const FILTERS = [
@@ -26,9 +35,11 @@
 		{ value: 'documents', label: 'Documents' }
 	];
 
+	/** @type {any} */
 	let files = $state([]);
 	let loading = $state(false);
 	let error = $state('');
+	let statusNotice = $state('');
 	let search = $state('');
 	let activeFilter = $state('all');
 	let currentPage = $state(1);
@@ -36,14 +47,43 @@
 	let insertedAssetId = $state('');
 	let copiedNotice = $state('');
 	let previewAssetId = $state('');
+	/** @type {any} */
 	let previewDialog = $state(null);
-	let results = $derived(uploaded);
+	let localUploads = $state([]);
+	let assetOverrides = $state({});
+	let results = $derived.by(() => {
+		const seen = new Set();
+		const merged = [];
+		for (const item of [...localUploads, ...(Array.isArray(uploaded) ? uploaded : [])]) {
+			if (!item) continue;
+			const key = item.id || item.url || item.public_url;
+			if (key && seen.has(key)) continue;
+			if (key) seen.add(key);
+			merged.push(item);
+		}
+		return merged;
+	});
 	const PAGE_SIZE = 12;
+
+	function updateAssetOverride(assetKey, patch) {
+		if (!assetKey) return;
+		assetOverrides = {
+			...assetOverrides,
+			[assetKey]: {
+				...(assetOverrides[assetKey] || {}),
+				...patch
+			}
+		};
+	}
 
 	function buildSnippet(item) {
 		if (!item?.url) return '';
-		if ((item.mimeType || '').startsWith('image/')) {
-			return `![${item.fileName}](${item.url})`;
+		if (item.isImage || (item.mimeType || '').startsWith('image/')) {
+			return buildLearnImageMarkdownSnippet({
+				url: item.url,
+				altText: item.altText,
+				isDecorative: item.isDecorative
+			});
 		}
 		return `[${item.fileName}](${item.url})`;
 	}
@@ -52,10 +92,21 @@
 		const mimeType = item?.mimeType ?? item?.mime_type ?? '';
 		const fileName = item?.fileName ?? item?.file_name ?? 'Asset';
 		const normalizedArticleId = item?.articleId ?? item?.article_id ?? '';
+		const url = item?.url ?? item?.public_url ?? '';
+		const metadata = item?.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+		const assetKey = item?.id || url || fileName;
+		const override = assetOverrides[assetKey] || null;
+		const initialAlt = sanitizeAltText(item?.altText ?? item?.alt_text ?? '', {
+			fileName,
+			imageUrl: url
+		});
+		const initialDecorative = Boolean(item?.isDecorative ?? metadata.is_decorative);
+		const initialAltGenerated = Boolean(item?.altGenerated ?? metadata.alt_generated);
 		return {
 			id: item?.id,
+			assetKey,
 			articleId: normalizedArticleId,
-			url: item?.url ?? item?.public_url ?? '',
+			url,
 			fileName,
 			mimeType,
 			sizeBytes: item?.sizeBytes ?? item?.size_bytes ?? null,
@@ -63,6 +114,13 @@
 			sourceType: item?.sourceType ?? item?.source_type ?? 'upload',
 			sourcePath: item?.sourcePath ?? item?.source_path ?? '',
 			usageKind: item?.usageKind ?? item?.usage_kind ?? 'attachment',
+			altText: override?.altText !== undefined ? override.altText : initialAlt,
+			isDecorative:
+				override?.isDecorative !== undefined ? Boolean(override.isDecorative) : initialDecorative,
+			altGenerated:
+				override?.altGenerated !== undefined ? Boolean(override.altGenerated) : initialAltGenerated,
+			savingAlt: Boolean(override?.savingAlt),
+			draftingAlt: Boolean(override?.draftingAlt),
 			isImage: mimeType.startsWith('image/'),
 			isPdf: mimeType === 'application/pdf',
 			isCsv: mimeType === 'text/csv' || fileName.toLowerCase().endsWith('.csv'),
@@ -73,7 +131,10 @@
 	}
 
 	let displayItems = $derived(results.map(normalizeAsset));
-	let previewAsset = $derived(displayItems.find((item) => item.id === previewAssetId) ?? null);
+	let previewAsset = $derived(
+		displayItems.find((item) => item.assetKey === previewAssetId || item.id === previewAssetId) ??
+			null
+	);
 	$effect(() => {
 		if (previewAsset && previewDialog && !previewDialog.open) previewDialog.showModal();
 	});
@@ -89,7 +150,7 @@
 			if (activeFilter === 'article' && !item.isAttachedToArticle) return false;
 			if (!term) return true;
 
-			return [item.fileName, item.mimeType, item.sourcePath, item.usageKind]
+			return [item.fileName, item.mimeType, item.sourcePath, item.usageKind, item.altText]
 				.filter(Boolean)
 				.some((value) => value.toLowerCase().includes(term));
 		});
@@ -130,31 +191,140 @@
 		return IconFile;
 	}
 
-	async function copySnippet(item) {
+	function focusAltInput(item) {
+		if (typeof document === 'undefined' || !item?.assetKey) return;
+		const dialogOpen = previewDialog?.open && previewAsset?.assetKey === item.assetKey;
+		const targetId = dialogOpen
+			? `dialog-alt-input-${item.assetKey}`
+			: `card-alt-input-${item.assetKey}`;
+		document.getElementById(targetId)?.focus();
+	}
+
+	async function persistAssetAlt(item, overrides = {}) {
+		if (!item?.id || !item?.isImage) return;
+		const nextDecorative =
+			overrides.isDecorative !== undefined ? Boolean(overrides.isDecorative) : item.isDecorative;
+		const rawAlt = overrides.altText !== undefined ? overrides.altText : item.altText;
+		const sanitized = nextDecorative
+			? ''
+			: sanitizeAltText(rawAlt, {
+					fileName: item.fileName,
+					imageUrl: item.url
+				});
+
+		if (!nextDecorative && String(rawAlt || '').trim() && !sanitized) {
+			error = `Alt text for ${item.fileName} must describe the image rather than repeating its filename.`;
+			statusNotice = error;
+			return;
+		}
+
+		if (!nextDecorative && sanitized && sanitized !== rawAlt) {
+			updateAssetOverride(item.assetKey, { altText: sanitized });
+		}
+
+		updateAssetOverride(item.assetKey, { savingAlt: true });
+		try {
+			await fetch('/api/learn/assets', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					assetId: item.id,
+					altText: sanitized,
+					isDecorative: nextDecorative
+				})
+			});
+		} catch {
+			// Non-blocking persistence; local state still drives markdown snippet insertion.
+		} finally {
+			updateAssetOverride(item.assetKey, { savingAlt: false });
+		}
+	}
+
+	async function draftAssetAlt(item) {
+		if (!item?.isImage || item.draftingAlt) return;
+		error = '';
+		updateAssetOverride(item.assetKey, { draftingAlt: true });
+		statusNotice = `Drafting AI alt text for ${item.fileName}…`;
+
+		try {
+			const ctx = getContext?.() ?? {};
+			const response = await fetch('/api/learn/ai', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'draft_asset_alt',
+					...(item.id ? { assetId: item.id } : {}),
+					imageUrl: item.url,
+					mimeType: item.mimeType,
+					title: ctx.title || '',
+					content: ctx.bodyMarkdown || ''
+				})
+			});
+			const result = await response.json().catch(() => ({}));
+			const drafted = sanitizeAltText(result?.altText ?? result?.alt_text ?? '', {
+				fileName: item.fileName,
+				imageUrl: item.url
+			});
+			if (!response.ok || !drafted) {
+				statusNotice = `AI alt-text drafting is unavailable right now for ${item.fileName}. Enter alt text manually below.`;
+				focusAltInput(item);
+				return;
+			}
+
+			updateAssetOverride(item.assetKey, {
+				altText: drafted,
+				isDecorative: Boolean(result?.isDecorative),
+				altGenerated: true
+			});
+			statusNotice = `AI drafted alt text for ${item.fileName}. Review or edit before inserting.`;
+		} catch {
+			statusNotice = `AI alt-text drafting timed out for ${item.fileName}. Enter alt text manually below.`;
+			focusAltInput(item);
+		} finally {
+			updateAssetOverride(item.assetKey, { draftingAlt: false });
+		}
+	}
+
+	function requireReadySnippet(item) {
 		const snippet = buildSnippet(item);
+		if (snippet) return snippet;
+		if (item?.isImage) {
+			error = `Add descriptive alt text for ${item.fileName} (not a filename) or mark it decorative before inserting.`;
+			statusNotice = error;
+			focusAltInput(item);
+		}
+		return '';
+	}
+
+	async function copySnippet(item) {
+		const snippet = requireReadySnippet(item);
 		if (!snippet) return;
 		error = '';
+		void persistAssetAlt(item);
 
 		try {
 			await navigator.clipboard.writeText(snippet);
-			copiedAssetId = item.id;
+			copiedAssetId = item.assetKey;
 			insertedAssetId = '';
 			copiedNotice = `${item.fileName} copied. Paste it into the article body.`;
+			statusNotice = copiedNotice;
 		} catch (copyError) {
 			error = copyError?.message || 'Unable to copy the asset link.';
 		}
 	}
 
 	async function insertSnippet(item) {
-		const snippet = buildSnippet(item);
+		const snippet = requireReadySnippet(item);
 		if (!snippet) return;
 		error = '';
+		void persistAssetAlt(item);
 
 		const inserted = onInsertSnippet?.(snippet);
 		if (inserted) {
-			insertedAssetId = item.id;
+			insertedAssetId = item.assetKey;
 			copiedAssetId = '';
 			copiedNotice = `${item.fileName} inserted into the article.`;
+			statusNotice = copiedNotice;
 			return;
 		}
 
@@ -172,12 +342,16 @@
 			return;
 		}
 		error = '';
+		statusNotice = 'Uploading files and drafting image alt text…';
 		loading = true;
 
 		try {
+			const ctx = getContext?.() ?? {};
 			const payload = new FormData();
 			for (const file of files) payload.append('files', file);
 			if (articleId) payload.append('articleId', articleId);
+			if (ctx.title) payload.append('articleTitle', ctx.title);
+			if (ctx.bodyMarkdown) payload.append('bodyMarkdown', ctx.bodyMarkdown);
 
 			const response = await fetch('/api/learn/assets', {
 				method: 'POST',
@@ -188,11 +362,29 @@
 				throw new Error(body?.error || 'Upload failed.');
 			}
 
-			uploaded = [...(body?.files ?? []), ...uploaded];
+			const uploadedBatch = Array.isArray(body?.files) ? body.files : [];
+			localUploads = [...uploadedBatch, ...localUploads];
 			files = [];
 			currentPage = 1;
+
+			const uploadedImages = uploadedBatch.filter((item) =>
+				String(item?.mimeType ?? '').startsWith('image/')
+			);
+			const summary = body?.aiAltSummary ?? {};
+			if (uploadedImages.length) {
+				if ((summary.unavailable ?? 0) > 0 && (summary.generated ?? 0) === 0) {
+					statusNotice = `Uploaded ${uploadedImages.length} image(s). AI alt-text suggestions are unavailable right now—enter alt text manually below before inserting.`;
+				} else if ((summary.unavailable ?? 0) > 0) {
+					statusNotice = `Uploaded ${uploadedImages.length} image(s). AI drafted ${summary.generated} description(s); enter alt text manually for ${summary.unavailable} image(s).`;
+				} else {
+					statusNotice = `Uploaded ${uploadedImages.length} image(s) with AI-drafted alt text. Review or edit each description before inserting.`;
+				}
+			} else {
+				statusNotice = `Uploaded ${uploadedBatch.length} file(s).`;
+			}
 		} catch (uploadError) {
 			error = uploadError.message || 'Upload failed.';
+			statusNotice = '';
 		} finally {
 			loading = false;
 		}
@@ -204,7 +396,7 @@
 		<p class="label">{heading}</p>
 		<p class="text-sm opacity-70">
 			{description ||
-				'Upload files, search the library, preview assets, and insert or copy markdown snippets for the article.'}
+				'Upload files, review AI-drafted image alt text, preview assets, and insert or copy markdown snippets for the article.'}
 		</p>
 	</div>
 
@@ -224,23 +416,40 @@
 			disabled={loading}
 			onclick={uploadFiles}
 		>
-			<IconUpload class="h-4 w-4" />
-			{loading ? 'Uploading…' : 'Upload files'}
+			{#if loading}
+				<IconLoader class="h-4 w-4 motion-safe:animate-spin" />
+				Uploading…
+			{:else}
+				<IconUpload class="h-4 w-4" />
+				Upload files
+			{/if}
 		</button>
 		{#if files.length}
 			<p class="text-sm opacity-70">{files.length} file(s) ready.</p>
 		{/if}
 	</div>
 
+	<div aria-live="polite" role="status">
+		{#if statusNotice && !copiedNotice}
+			<p class="border-surface-500/30 bg-surface-950 border-l-2 px-3 py-2 text-xs opacity-85">
+				{statusNotice}
+			</p>
+		{/if}
+	</div>
+
 	{#if copiedNotice}
-		<div class="border-success-500/25 bg-success-500/10 flex items-start gap-3 border p-3 text-sm">
+		<div
+			class="border-success-500/25 bg-success-500/10 flex items-start gap-3 border p-3 text-sm"
+			role="status"
+			aria-live="polite"
+		>
 			<IconCheck class="text-success-500 mt-0.5 h-4 w-4" />
 			<p>{copiedNotice}</p>
 		</div>
 	{/if}
 
 	{#if error}
-		<p class="text-error-500 text-sm">{error}</p>
+		<p class="text-error-500 text-sm" role="alert">{error}</p>
 	{/if}
 
 	{#if displayItems.length}
@@ -252,7 +461,7 @@
 				<input
 					class="input pl-10"
 					type="search"
-					placeholder="Search files, types, or paths"
+					placeholder="Search files, alt text, types, or paths"
 					bind:value={search}
 					oninput={() => {
 						currentPage = 1;
@@ -280,25 +489,27 @@
 
 		{#if filteredItems.length}
 			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each pagedItems as item}
+				{#each pagedItems as item (item.assetKey)}
 					<div class="border-surface-500/20 bg-surface-950 overflow-hidden border">
 						<button
 							type="button"
+							aria-label={`Open preview for ${item.fileName}`}
 							class="asset-preview bg-surface-900 flex h-48 w-full items-center justify-center overflow-hidden"
 							onclick={() => {
-								previewAssetId = item.id;
+								previewAssetId = item.assetKey;
 							}}
 						>
 							{#if item.isImage}
 								<img
 									class="h-full w-full object-cover"
 									src={item.url}
-									alt={item.fileName}
+									alt=""
+									aria-hidden="true"
 									loading="lazy"
 								/>
 							{:else}
 								{@const PreviewIcon = getPreviewIcon(item)}
-								<div class="flex flex-col items-center gap-3 px-6 text-center">
+								<div class="flex flex-col items-center gap-3 px-6 text-center" aria-hidden="true">
 									<PreviewIcon class="h-12 w-12 opacity-70" />
 									<div class="space-y-1">
 										<p class="text-sm font-semibold">{item.mimeType || 'Document'}</p>
@@ -315,6 +526,9 @@
 									<div class="flex flex-wrap justify-end gap-1 text-[10px] uppercase opacity-70">
 										{#if item.usageKind}
 											<span class="chip preset-tonal-surface text-[10px]">{item.usageKind}</span>
+										{/if}
+										{#if item.altGenerated && !item.isDecorative}
+											<span class="chip preset-tonal-secondary text-[10px]">AI alt</span>
 										{/if}
 										{#if item.isAttachedToArticle}
 											<span class="chip preset-tonal-primary text-[10px]">attached here</span>
@@ -340,13 +554,80 @@
 								{/if}
 							</div>
 
+							{#if item.isImage}
+								<div class="border-surface-500/20 bg-surface-900 space-y-2 border p-3">
+									<div class="flex items-center justify-between gap-2">
+										<label
+											class="text-xs font-semibold tracking-wide uppercase"
+											for={`card-alt-input-${item.assetKey}`}
+										>
+											Alt text
+										</label>
+										<span class="text-[11px] tabular-nums opacity-65">
+											{item.isDecorative ? 0 : item.altText.length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+										</span>
+									</div>
+									<input
+										id={`card-alt-input-${item.assetKey}`}
+										class="input text-xs"
+										type="text"
+										maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+										disabled={item.isDecorative}
+										value={item.isDecorative ? '' : item.altText}
+										placeholder={item.isDecorative
+											? 'Decorative image — empty alt="" will be inserted'
+											: 'Describe key visual details or poster text…'}
+										oninput={(event) => {
+											updateAssetOverride(item.assetKey, {
+												altText: event.currentTarget.value,
+												altGenerated: false
+											});
+										}}
+										onblur={() => {
+											void persistAssetAlt(item);
+										}}
+									/>
+									<div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+										<label class="flex items-center gap-2 text-xs">
+											<input
+												type="checkbox"
+												class="checkbox accent-secondary-500"
+												checked={item.isDecorative}
+												onchange={(event) => {
+													const checked = event.currentTarget.checked;
+													updateAssetOverride(item.assetKey, { isDecorative: checked });
+													void persistAssetAlt(item, { isDecorative: checked });
+												}}
+											/>
+											<span>Decorative image (<code>alt=""</code>)</span>
+										</label>
+										<button
+											type="button"
+											class="btn btn-sm preset-tonal-surface gap-1.5 text-xs"
+											disabled={item.draftingAlt || item.isDecorative}
+											aria-label={`Draft alt text with AI for ${item.fileName}`}
+											onclick={() => draftAssetAlt(item)}
+										>
+											{#if item.draftingAlt}
+												<IconLoader class="h-3.5 w-3.5 motion-safe:animate-spin" />
+												Drafting…
+											{:else}
+												<IconSparkles class="h-3.5 w-3.5" />
+												Draft with AI
+											{/if}
+										</button>
+									</div>
+								</div>
+							{/if}
+
 							<div class="flex flex-wrap gap-2">
 								<button
 									class="btn btn-sm preset-filled-primary-500 gap-2"
 									type="button"
+									aria-label={`Insert ${item.fileName} into article`}
 									onclick={() => insertSnippet(item)}
 								>
-									{#if insertedAssetId === item.id}
+									{#if insertedAssetId === item.assetKey}
 										<IconCheck class="h-4 w-4" />
 										Inserted
 									{:else}
@@ -357,9 +638,10 @@
 								<button
 									class="btn btn-sm preset-tonal-surface gap-2"
 									type="button"
+									aria-label={`Copy markdown for ${item.fileName}`}
 									onclick={() => copySnippet(item)}
 								>
-									{#if copiedAssetId === item.id}
+									{#if copiedAssetId === item.assetKey}
 										<IconCheck class="h-4 w-4" />
 										Copied
 									{:else}
@@ -370,8 +652,9 @@
 								<button
 									class="btn btn-sm preset-tonal-surface gap-2"
 									type="button"
+									aria-label={`Preview ${item.fileName}`}
 									onclick={() => {
-										previewAssetId = item.id;
+										previewAssetId = item.assetKey;
 									}}
 								>
 									<IconEye class="h-4 w-4" />
@@ -456,9 +739,11 @@
 			<div class="flex-1 overflow-auto p-5">
 				{#if previewAsset.isImage}
 					<img
-						class="mx-auto max-h-[60vh] object-contain"
+						class="mx-auto max-h-[52vh] object-contain"
 						src={previewAsset.url}
-						alt={previewAsset.fileName}
+						alt={previewAsset.isDecorative
+							? ''
+							: previewAsset.altText || `Preview of ${previewAsset.fileName}`}
 					/>
 				{:else if previewAsset.isPdf}
 					<iframe
@@ -484,11 +769,82 @@
 					<p class="mt-4 text-xs opacity-55">{previewAsset.sourcePath}</p>
 				{/if}
 
+				{#if previewAsset.isImage}
+					<div class="border-surface-500/20 bg-surface-900 mt-4 space-y-2 border p-4">
+						<div class="flex items-center justify-between gap-2">
+							<label
+								class="text-xs font-semibold tracking-wide uppercase"
+								for={`dialog-alt-input-${previewAsset.assetKey}`}
+							>
+								Image alt text
+							</label>
+							<span class="text-xs tabular-nums opacity-65">
+								{previewAsset.isDecorative
+									? 0
+									: previewAsset.altText.length}/{LEARN_ALT_TEXT_MAX_LENGTH}
+							</span>
+						</div>
+						<input
+							id={`dialog-alt-input-${previewAsset.assetKey}`}
+							class="input text-sm"
+							type="text"
+							maxlength={LEARN_ALT_TEXT_MAX_LENGTH}
+							disabled={previewAsset.isDecorative}
+							value={previewAsset.isDecorative ? '' : previewAsset.altText}
+							placeholder={previewAsset.isDecorative
+								? 'Decorative image — empty alt="" will be inserted'
+								: 'Describe key visual details or poster text…'}
+							oninput={(event) => {
+								updateAssetOverride(previewAsset.assetKey, {
+									altText: event.currentTarget.value,
+									altGenerated: false
+								});
+							}}
+							onblur={() => {
+								void persistAssetAlt(previewAsset);
+							}}
+						/>
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<label class="flex items-center gap-2 text-xs">
+								<input
+									type="checkbox"
+									class="checkbox accent-secondary-500"
+									checked={previewAsset.isDecorative}
+									onchange={(event) => {
+										const checked = event.currentTarget.checked;
+										updateAssetOverride(previewAsset.assetKey, { isDecorative: checked });
+										void persistAssetAlt(previewAsset, { isDecorative: checked });
+									}}
+								/>
+								<span>Decorative image (empty <code>alt=""</code>)</span>
+							</label>
+							<button
+								type="button"
+								class="btn btn-sm preset-tonal-surface gap-1.5 text-xs"
+								disabled={previewAsset.draftingAlt || previewAsset.isDecorative}
+								aria-label={`Draft alt text with AI for ${previewAsset.fileName}`}
+								onclick={() => draftAssetAlt(previewAsset)}
+							>
+								{#if previewAsset.draftingAlt}
+									<IconLoader class="h-3.5 w-3.5 motion-safe:animate-spin" />
+									Drafting…
+								{:else}
+									<IconSparkles class="h-3.5 w-3.5" />
+									Draft with AI
+								{/if}
+							</button>
+						</div>
+					</div>
+				{/if}
+
 				<textarea
 					class="textarea mt-4 min-h-24 text-xs"
 					aria-label="Markdown snippet"
 					readonly
-					value={buildSnippet(previewAsset)}></textarea>
+					value={buildSnippet(previewAsset) ||
+						(previewAsset.isImage
+							? 'Add descriptive alt text above or mark as decorative to generate markdown.'
+							: '')}></textarea>
 			</div>
 
 			<div class="border-surface-500/15 flex flex-wrap gap-2 border-t p-5">

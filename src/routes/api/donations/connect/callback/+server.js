@@ -39,6 +39,7 @@ export const GET = async ({ url, cookies }) => {
 		throw redirect(303, buildReturnUrl(returnPath, 'error', 'missing_code'));
 	}
 
+	/** @type {any} */
 	let auth = null;
 	if (state.type === 'group') {
 		auth = await requireGroupDonationManager(cookies, state.slug || '');

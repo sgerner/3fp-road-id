@@ -5,6 +5,7 @@
 	import IconReceiptText from '@lucide/svelte/icons/receipt-text';
 	import IconSettings from '@lucide/svelte/icons/settings';
 
+	/** @type {Record<string, any>} */
 	let { children } = $props();
 
 	const pathname = $derived(page.url.pathname);
@@ -55,7 +56,7 @@
 					<a
 						href={item.href}
 						aria-current={active ? 'page' : undefined}
-						class="inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline {active
+						class="inline-flex items-center gap-2 px-4 py-2 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 {active
 							? 'bg-primary-500 text-surface-950'
 							: 'text-surface-50 hover:bg-secondary-500 hover:text-surface-50'}"
 					>
@@ -71,7 +72,7 @@
 				<a
 					href="/merch/manage"
 					aria-current={isManageRoute ? 'page' : undefined}
-					class="inline-flex items-center gap-2 border-2 px-4 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline {isManageRoute
+					class="inline-flex items-center gap-2 border-2 px-4 py-1.5 text-xs font-black tracking-[0.16em] uppercase transition hover:no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 {isManageRoute
 						? 'border-tertiary-500 bg-tertiary-500 text-surface-950'
 						: 'border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950'}"
 				>

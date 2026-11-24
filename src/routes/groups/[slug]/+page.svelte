@@ -36,11 +36,13 @@
 		limitSeoText,
 		toJsonLd
 	} from '#lib/seo';
-	import { ensureLeafletDefaultIcon } from '#lib/map/leaflet';
+	import AccessibleMapShell from '#lib/components/map/AccessibleMapShell.svelte';
+	import { isValidLatLng } from '#lib/map/leaflet';
 	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 
 	// UI state
 	let showSticky = $state(false);
+	/** @type {HTMLElement | null} */
 	let heroSentinel = $state(null);
 	let failedImageUrls = $state({});
 
@@ -49,21 +51,14 @@
 		failedImageUrls = { ...failedImageUrls, [url]: true };
 	}
 
-	// Leaflet map (loaded client-side)
-	let L;
-	let mapEl = $state(null);
-	let map;
-	let marker;
-	let mapInitialized = $state(false);
-	let mapLoadPromise;
-	let instagramFeed = $state(null);
+	let instagramFeed = $state(/** @type {Record<string, any> | null} */ (null));
 
 	const group = $derived(data.group ?? null);
 	const groupName = $derived(cleanSeoText(group?.name) || 'Cycling Group');
 	const selected = $derived(data.selected ?? {});
-	const hasCoords = $derived(Number.isFinite(group?.latitude) && Number.isFinite(group?.longitude));
-	const lat = $derived(hasCoords ? Number(group.latitude) : undefined);
-	const lng = $derived(hasCoords ? Number(group.longitude) : undefined);
+	const hasCoords = $derived(isValidLatLng(group?.latitude, group?.longitude));
+	const lat = $derived(hasCoords ? Number(group.latitude) : 37.8);
+	const lng = $derived(hasCoords ? Number(group.longitude) : -96);
 
 	const rawCoverImage = $derived(
 		group?.cover_photo_url
@@ -79,53 +74,6 @@
 			: ''
 	);
 	const logoImage = $derived(rawLogoImage && !failedImageUrls[rawLogoImage] ? rawLogoImage : '');
-
-	async function initMap() {
-		if (!mapEl || map || mapInitialized) return;
-		await new Promise((resolve) => setTimeout(resolve, 100));
-		try {
-			if (!mapLoadPromise) {
-				mapLoadPromise = Promise.all([import('#lib/map/leaflet.css'), import('leaflet')]).then(
-					([, mod]) => {
-						L = mod.default || mod;
-						return L;
-					}
-				);
-			}
-			await mapLoadPromise;
-			await ensureLeafletDefaultIcon(L);
-		} catch (error) {
-			console.error('Failed to load Leaflet', error);
-			return;
-		}
-		const z = 12;
-		map = L.map(mapEl).setView([lat, lng], z);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		marker = L.marker([lat, lng]).addTo(map);
-		mapInitialized = true;
-	}
-
-	onMount(() => {
-		if (!hasCoords || !mapEl) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (!entries[0]?.isIntersecting) return;
-				observer.disconnect();
-				void initMap();
-			},
-			{ rootMargin: '1500px' }
-		);
-		observer.observe(mapEl);
-	});
-
-	$effect(() => {
-		if (mapEl && !map && L) {
-			requestAnimationFrame(() => initMap());
-		}
-	});
 
 	// Sticky subheader observer
 	onMount(() => {
@@ -181,6 +129,7 @@
 	let claimSuccess = $state('');
 	let claimHoneypot = $state('');
 	let claimEmailValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(claimEmail));
+	/** @type {any} */
 	let claimTurnstile = $state(null);
 
 	async function claimGroup() {
@@ -310,15 +259,6 @@
 						? 'Request Membership'
 						: 'Join Membership')
 	);
-	const headerMembershipCta = $derived(
-		membershipEnabled && data.group?.slug
-			? {
-					href: `/groups/${encodeURIComponent(data.group.slug)}/membership`,
-					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
-					onClick: handleMembershipCtaClick
-				}
-			: null
-	);
 	function resolveSingleFreeFollowTier() {
 		if (!membershipEnabled) return null;
 		if (membershipProgram?.access_mode === 'private_request') return null;
@@ -342,6 +282,16 @@
 	let followLoading = $state(false);
 	let followError = $state('');
 	let donationStartAmount = $state(25);
+
+	const headerMembershipCta = $derived(
+		membershipEnabled && data.group?.slug
+			? {
+					href: `/groups/${encodeURIComponent(data.group.slug)}/membership`,
+					label: followLoading && canInstantFollow ? 'Following...' : membershipCtaLabel,
+					onClick: handleMembershipCtaClick
+				}
+			: null
+	);
 
 	async function joinSingleFreeTierNow() {
 		const groupSlug = data.group?.slug;
@@ -1383,9 +1333,16 @@
 				</div>
 
 				{#if hasCoords}
-					<div class="border-surface-950 border-[3px]">
-						<div bind:this={mapEl} class="z-10 h-60 w-full"></div>
-					</div>
+					<AccessibleMapShell
+						regionLabel={`Location map for ${groupName}`}
+						lazy
+						lazyRootMargin="600px"
+						center={[lat, lng]}
+						zoom={12}
+						staticMarker={{ lat, lng }}
+						shellClass="border-surface-950 border-[3px]"
+						canvasClass="z-10 h-60 w-full"
+					/>
 				{/if}
 			</aside>
 		</section>
@@ -1581,7 +1538,10 @@
 			{@const snapshot = latestAccountingReport.snapshot ?? {}}
 			{@const financialReport = snapshot.report ?? {}}
 			{@const snapshotCurrency =
-				snapshot.currency ?? financialReport.currency ?? data.accounting_currency ?? 'usd'}
+				snapshot.currency ??
+				financialReport.currency ??
+				/** @type {any} */ (data).accounting_currency ??
+				'usd'}
 			{@const retainedActivityCents =
 				Number(financialReport.totals?.equity_cents || 0) -
 				(financialReport.equity ?? []).reduce(
@@ -1977,7 +1937,7 @@
 											title="Instagram post"
 											loading="lazy"
 											referrerpolicy="strict-origin-when-cross-origin"
-											allowtransparency="true"
+											allowtransparency={true}
 											class="h-full w-full border-0"
 										></iframe>
 									{/if}

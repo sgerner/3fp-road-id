@@ -12,6 +12,9 @@ import {
 } from '#lib/ai/imageGenerationModels';
 import { getBikeVibeById, normalizeBikeVibeId } from '#lib/ai/bikeVibes';
 import { getUsStateName, normalizeUsStateCode } from '#lib/geo/usStates';
+import { buildContextualCoverAlt } from '#lib/learn/altText';
+import { extractMarkdownHeadings } from '#lib/learn/markdown';
+import { generateLearnImageAltText } from '#lib/server/learnAi';
 import { uploadCanonicalMediaAsset } from '#lib/server/mediaAssets';
 import { optimizeImageForStorage } from '#lib/server/storageImages';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
@@ -30,15 +33,25 @@ const ALLOWED_TARGETS = new Set(['ride', 'learn', 'group']);
 const ALLOWED_ASPECT_RATIOS = new Set(['1:1', '3:4', '4:3', '4:5', '9:16', '16:9']);
 const MAX_GENERATED_IMAGE_BYTES = 12 * 1024 * 1024;
 
+/**
+ * @param {any} value
+ */
 function safeTrim(value) {
 	if (value == null) return '';
 	return String(value).trim();
 }
 
+/**
+ * @param {any} value
+ * @param {any} [limit]
+ */
 function sanitizePrompt(value, limit = 5000) {
 	return safeTrim(value).replace(/\s+/g, ' ').slice(0, limit);
 }
 
+/**
+ * @param {any} value
+ */
 function slugifySegment(value) {
 	return safeTrim(value)
 		.toLowerCase()
@@ -48,6 +61,9 @@ function slugifySegment(value) {
 		.replace(/^-+|-+$/g, '');
 }
 
+/**
+ * @param {any} text
+ */
 function safeParseJson(text) {
 	if (!text) return null;
 	const first = text.indexOf('{');
@@ -61,6 +77,10 @@ function safeParseJson(text) {
 	}
 }
 
+/**
+ * @param {any} markdown
+ * @param {any} [limit]
+ */
 function summarizeMarkdown(markdown, limit = 1200) {
 	const normalized = safeTrim(markdown)
 		.replace(/```[\s\S]*?```/g, ' ')
@@ -72,6 +92,7 @@ function summarizeMarkdown(markdown, limit = 1200) {
 	return normalized.slice(0, limit);
 }
 
+/** @type {any} */
 const STABILITY_REWRITE_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
@@ -81,6 +102,10 @@ const STABILITY_REWRITE_SCHEMA = {
 	}
 };
 
+/**
+ * @param {any} finalPrompt
+ * @param {any} [param1]
+ */
 async function optimizePromptForStability(
 	finalPrompt,
 	{ allowTextInImage = false, target = 'group' } = {}
@@ -130,6 +155,9 @@ ${finalPrompt}`;
 	}
 }
 
+/**
+ * @param {any} [context]
+ */
 function formatContextLines(context = {}) {
 	return Object.entries(context)
 		.flatMap(([key, value]) => {
@@ -149,6 +177,10 @@ function formatContextLines(context = {}) {
 		.filter(Boolean);
 }
 
+/**
+ * @param {any} target
+ * @param {any} [context]
+ */
 function buildTargetPrompt(target, context = {}) {
 	if (target === 'ride') {
 		return [
@@ -206,6 +238,9 @@ function buildTargetPrompt(target, context = {}) {
 	].join('\n');
 }
 
+/**
+ * @param {any} param0
+ */
 function buildFinalPrompt({
 	target,
 	context,
@@ -270,6 +305,14 @@ Output requirements:
 - Honor the selected visual style and tone; keep the result welcoming and the subject recognizable.`;
 }
 
+/**
+ * @param {any} target
+ * @param {any} userId
+ * @param {any} articleId
+ * @param {any} context
+ * @param {any} [extension]
+ * @param {any} [storageBucket]
+ */
 function getStorageConfig(
 	target,
 	userId,
@@ -309,6 +352,9 @@ function getStorageConfig(
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 async function persistLearnAsset({
 	supabase,
 	userId,
@@ -319,7 +365,9 @@ async function persistLearnAsset({
 	sizeBytes,
 	mimeType,
 	styleId,
-	modelId
+	modelId,
+	altText = '',
+	altGenerated = false
 }) {
 	const { data: assetRow, error: assetError } = await supabase
 		.from('learn_assets')
@@ -332,14 +380,16 @@ async function persistLearnAsset({
 			mime_type: mimeType || 'image/png',
 			size_bytes: sizeBytes,
 			source_type: 'upload',
+			alt_text: altText || null,
 			metadata: {
 				generated: true,
 				styleId,
-				modelId
+				modelId,
+				alt_generated: Boolean(altGenerated)
 			}
 		})
 		.select(
-			'id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at, source_type, source_path'
+			'id, article_id, object_path, public_url, file_name, mime_type, size_bytes, created_at, source_type, source_path, alt_text, metadata'
 		)
 		.single();
 
@@ -351,7 +401,7 @@ async function persistLearnAsset({
 				article_id: articleId,
 				asset_id: assetRow.id,
 				created_by_user_id: userId,
-				usage_kind: 'embedded'
+				usage_kind: 'cover'
 			},
 			{ onConflict: 'article_id,asset_id' }
 		);
@@ -362,6 +412,9 @@ async function persistLearnAsset({
 	return assetRow;
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, cookies } = event;
 	const { user } = await resolveVerifiedSession(cookies);
@@ -501,7 +554,9 @@ export async function POST(event) {
 			optimized.extension || extension,
 			storageBucket
 		);
+		/** @type {any} */
 		let asset = null;
+		/** @type {any} */
 		let url = null;
 
 		if (target === 'ride' || storage.bucket === 'group-social-media') {
@@ -537,6 +592,45 @@ export async function POST(event) {
 			return json({ error: 'Unable to resolve public image URL.' }, { status: 500 });
 		}
 
+		let altText = '';
+		let altGenerated = false;
+		try {
+			const headings =
+				target === 'learn'
+					? extractMarkdownHeadings(context?.bodyMarkdown || '').map((item) => item.text)
+					: [];
+			const altResult = await generateLearnImageAltText({
+				imageBuffer: /** @type {any} */ (optimized.buffer),
+				mimeType: optimized.contentType,
+				fileName: storage.fileName || '',
+				imageUrl: url,
+				title: safeTrim(context?.title || context?.name),
+				summary: safeTrim(context?.summary || context?.tagline || context?.description),
+				headings: /** @type {any} */ (headings),
+				target,
+				context: {
+					...context,
+					textOverlay: allowTextInImage ? textOverlay : ''
+				},
+				timeoutMs: 12_000
+			});
+			altText = altResult.altText || '';
+			altGenerated = Boolean(altResult.altGenerated && altText);
+		} catch (altError) {
+			if (altError?.code !== 'AI_UNAVAILABLE') {
+				console.warn('Generated cover alt synthesis fell back to context:', altError?.message);
+			}
+		}
+
+		if (!altText) {
+			altText = buildContextualCoverAlt({
+				target,
+				context,
+				styleLabel: stylePreset.label
+			});
+			altGenerated = false;
+		}
+
 		if (target === 'learn') {
 			asset = await persistLearnAsset({
 				supabase,
@@ -544,16 +638,21 @@ export async function POST(event) {
 				articleId: storage.articleId,
 				objectPath: storage.objectPath,
 				publicUrl: url,
-				fileName: storage.fileName || path.basename(storage.objectPath),
+				fileName: storage.fileName || path.basename(/** @type {any} */ (storage.objectPath)),
 				sizeBytes: optimized.optimizedBytes,
 				mimeType: optimized.contentType,
 				styleId: stylePreset.id,
-				modelId: model.id
+				modelId: model.id,
+				altText,
+				altGenerated
 			});
 		}
 
 		return json({
 			url,
+			alt_text: altText,
+			altText,
+			alt_generated: altGenerated,
 			target,
 			aspectRatio,
 			styleId: stylePreset.id,

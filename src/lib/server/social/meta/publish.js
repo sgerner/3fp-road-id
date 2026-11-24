@@ -138,7 +138,7 @@ async function publishToFacebookPage({ account, caption, media = [] }) {
 	}
 
 	return {
-		ok: true,
+		ok: /** @type {const} */ (true),
 		platform: 'facebook',
 		post_target: 'page',
 		meta_id: cleanText(response?.id, 200) || null,
@@ -173,7 +173,7 @@ async function publishToFacebookStory({ account, media = [] }) {
 	});
 
 	return {
-		ok: true,
+		ok: /** @type {const} */ (true),
 		platform: 'facebook',
 		post_target: 'story',
 		meta_id: cleanText(response?.id, 200) || null,
@@ -294,7 +294,7 @@ async function publishToInstagramAccount({ account, caption, media = [], postTar
 	});
 
 	return {
-		ok: true,
+		ok: /** @type {const} */ (true),
 		platform: 'instagram',
 		post_target: target,
 		meta_id: cleanText(publishResponse?.id, 200) || creationId,
@@ -304,6 +304,13 @@ async function publishToInstagramAccount({ account, caption, media = [], postTar
 	};
 }
 
+/**
+ * @param {{ platform: string, account: any, post: any }} options
+ * @returns {Promise<
+ *   | { ok: true, platform: string, post_target: string, meta_id: string | null, [key: string]: any }
+ *   | { ok: false, platform: string, error: string, debug?: any }
+ * >}
+ */
 export async function publishGroupSocialPostToPlatform({ platform, account, post }) {
 	const caption = cleanText(post?.caption, 4000);
 	const media = Array.isArray(post?.media) ? post.media : [];

@@ -1,4 +1,5 @@
 <script>
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 </script>
 

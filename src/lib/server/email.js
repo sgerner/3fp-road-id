@@ -4,6 +4,9 @@ import { sendEmail } from '#lib/services/email';
 /**
  * Server-only email client. The public email route requires this capability
  * for jobs and server-side workflows that do not carry an end-user session.
+ *
+ * @param {import('#lib/services/email').SendEmailRequestBody} requestBody
+ * @param {{ fetch?: typeof globalThis.fetch }} [options]
  */
 export function sendServerEmail(requestBody, { fetch } = {}) {
 	const internalSecret = env.EMAIL_API_SECRET || env.SUPABASE_SERVICE_ROLE_KEY;

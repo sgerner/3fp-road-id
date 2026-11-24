@@ -34,7 +34,13 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
-function normalizePositiveInt(value, fallback = 0) {
+/**
+ * @template [T=number]
+ * @param {any} value
+ * @param {T} [fallback]
+ * @returns {number | T}
+ */
+function normalizePositiveInt(value, fallback = /** @type {any} */ (0)) {
 	const parsed = Number.parseInt(String(value ?? ''), 10);
 	if (!Number.isFinite(parsed) || parsed < 0) return fallback;
 	return parsed;
@@ -76,6 +82,7 @@ function createOrderNumber() {
 	return `M-${ts}-${suffix}`;
 }
 
+/** @param {Record<string, any>} [address] */
 function sanitizeAddress(address = {}) {
 	return {
 		line1: cleanText(address?.line1, 120),
@@ -270,6 +277,7 @@ function buildPrintfulItemPayload(item) {
 	const catalogVariantId = normalizePositiveInt(printfulRef.catalogVariantId, null);
 	const productTemplateId = normalizePositiveInt(printfulRef.productId, null);
 	const templateVariantId = normalizePositiveInt(printfulRef.variantId, null);
+	/** @type {Record<string, any> | null} */
 	let payload = null;
 
 	if (catalogVariantId) {
@@ -302,6 +310,12 @@ function buildPrintfulItemPayload(item) {
 	return payload;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} store
+ * @param {any} tokenSet
+ * @param {{ connectedAt?: string | null, disconnectedAt?: string | null, lastError?: string | null }} [options]
+ */
 async function upsertPrintfulPartnerAccountRecord(
 	supabase,
 	store,
@@ -692,7 +706,7 @@ export async function connectPrintfulForStore({ store, tokenSet }) {
 			.map(normalizePrintfulStoreSummary)
 			.filter(Boolean);
 		const selectedStore =
-			availableStores.find((entry) => entry.isDefault) ||
+			availableStores.find((entry) => entry?.isDefault) ||
 			(availableStores.length === 1 ? availableStores[0] : null);
 
 		if (selectedStore?.id) {
@@ -743,6 +757,7 @@ export async function disconnectPrintfulForStore(storeId) {
 }
 
 async function updateMerchStorePrintfulSettings(supabase, storeId, changes) {
+	/** @type {Record<string, any>} */
 	const payload = { updated_at: new Date().toISOString() };
 	if (changes.printfulStoreId !== undefined) {
 		const storeIdValue = normalizePositiveInt(changes.printfulStoreId, 0);
@@ -967,7 +982,7 @@ export async function updatePrintfulStoreSelection({
 	if (selectedStoreId <= 0) throw new Error('Select a Printful store.');
 
 	const availableStores = await listPrintfulStoresForStore(supabase, store);
-	if (!availableStores.some((entry) => Number(entry.id) === selectedStoreId)) {
+	if (!availableStores.some((entry) => Number(entry?.id) === selectedStoreId)) {
 		throw new Error('The selected Printful store is not available for this connection.');
 	}
 
@@ -977,6 +992,7 @@ export async function updatePrintfulStoreSelection({
 	});
 }
 
+/** @param {{ storeSlug?: string, storeId?: string | null }} [options] */
 export async function syncPrintfulCatalogForStore({
 	storeSlug = MAIN_STORE_SLUG,
 	storeId = null
@@ -1192,6 +1208,7 @@ function calculateManualFulfillmentFee(method, lines) {
 	};
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, quote: any }>} */
 export async function calculateMerchQuote({
 	storeId,
 	items,
@@ -1456,6 +1473,7 @@ export async function calculateMerchQuote({
 	};
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, checkoutUrl: string, orderNumber: string }>} */
 export async function createMerchCheckoutSession({
 	requestUrl,
 	storeSlug = MAIN_STORE_SLUG,
@@ -1703,6 +1721,7 @@ export async function createMerchCheckoutSession({
 	return { ok: true, checkoutUrl: session.url, orderNumber: order.order_number };
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, [key: string]: any }>} */
 export async function createMerchPaymentIntent({
 	requestUrl,
 	storeSlug = MAIN_STORE_SLUG,
@@ -1894,6 +1913,7 @@ export async function createMerchPaymentIntent({
 	};
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, [key: string]: any }>} */
 export async function updateMerchPaymentIntent({
 	paymentIntentId,
 	clientSecret,
@@ -2201,6 +2221,18 @@ async function dispatchManualItem(supabase, order, item) {
 	return { ok: true, status: 'sent' };
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} order
+ * @param {any[]} items
+ * @param {{
+ *   status: string,
+ *   externalReference?: string | null,
+ *   requestPayload?: Record<string, any>,
+ *   responsePayload?: Record<string, any>,
+ *   errorMessage?: string | null
+ * }} details
+ */
 async function upsertPrintfulDispatchJobs(
 	supabase,
 	order,
@@ -2273,6 +2305,7 @@ async function dispatchPrintfulItems(supabase, order, items) {
 		(entry) => cleanText(entry?.source, 24) === 'product'
 	);
 
+	/** @type {Record<string, any>} */
 	const requestPayload = {
 		external_id: order.order_number,
 		status: 'draft',
@@ -2285,6 +2318,7 @@ async function dispatchPrintfulItems(supabase, order, items) {
 	if (usesProductSource) requestPayload.items = printfulItems;
 	else requestPayload.order_items = printfulItems;
 
+	/** @type {Record<string, any>} */
 	let responsePayload = {};
 	let status = 'failed';
 	let externalReference = null;
@@ -2412,6 +2446,7 @@ async function dispatchOrderItems(supabase, order, orderItems) {
 		.eq('id', order.id);
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, paid: boolean, order: any, orderItems: any[], dispatchJobs: any[] }>} */
 export async function finalizeMerchOrderBySessionId(sessionId, fetchImpl) {
 	const cleanedSessionId = cleanText(sessionId, 255);
 	if (!cleanedSessionId) return { ok: false, status: 400, error: 'Missing checkout session id.' };
@@ -2496,6 +2531,7 @@ export async function finalizeMerchOrderBySessionId(sessionId, fetchImpl) {
 	};
 }
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, paid: boolean, order: any, orderItems: any[], dispatchJobs: any[] }>} */
 export async function finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetchImpl) {
 	const cleanedPaymentIntentId = cleanText(paymentIntentId, 255);
 	if (!cleanedPaymentIntentId) {
@@ -2585,12 +2621,15 @@ export async function finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetch
 	};
 }
 
+/**
+ * @param {{ userId?: string | null, userEmail?: string | null, isAdmin?: boolean, storeSlug?: string }} [options]
+ */
 export async function listMerchOrdersForUser({
 	userId,
 	userEmail,
 	isAdmin = false,
 	storeSlug = MAIN_STORE_SLUG
-}) {
+} = {}) {
 	const supabase = await getServiceSupabase();
 	const store = await getMerchStoreBySlug(storeSlug);
 

@@ -8,6 +8,7 @@ import {
 } from '#lib/server/roadIdProfile';
 import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '#lib/server/sms';
 
+/** @type {any} */
 const INTEREST_SUGGESTIONS = [
 	'Road riding',
 	'Mountain biking',
@@ -21,6 +22,7 @@ const INTEREST_SUGGESTIONS = [
 	'Beginner-friendly rides'
 ];
 
+/** @type {any} */
 const RECOMMENDATION_OPTIONS = [
 	{
 		value: 'groups',
@@ -39,18 +41,31 @@ const RECOMMENDATION_OPTIONS = [
 	}
 ];
 
+/**
+ * @param {any} value
+ */
 function normalizeMetadataObject(value) {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 	return value;
 }
 
+/**
+ * @param {any} value
+ * @param {any} maxLength
+ */
 function safeText(value, maxLength) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim().slice(0, maxLength);
 }
 
+/**
+ * @param {any} values
+ * @param {any} [limit]
+ * @param {any} [itemMaxLength]
+ */
 function normalizeStringArray(values, limit = 12, itemMaxLength = 40) {
 	if (!Array.isArray(values)) return [];
+	/** @type {any} */
 	const next = [];
 	for (const value of values) {
 		const cleaned = safeText(value, itemMaxLength);
@@ -62,6 +77,9 @@ function normalizeStringArray(values, limit = 12, itemMaxLength = 40) {
 	return next;
 }
 
+/**
+ * @param {any} values
+ */
 function normalizeFocus(values) {
 	const allowed = new Set(['groups', 'rides', 'volunteer']);
 	return normalizeStringArray(values, 3, 20)
@@ -69,6 +87,9 @@ function normalizeFocus(values) {
 		.filter((value) => allowed.has(value));
 }
 
+/**
+ * @param {any} metadata
+ */
 function extractContext(metadata) {
 	const source = normalizeMetadataObject(metadata?.recommendation_context);
 	return {
@@ -124,12 +145,17 @@ export const load = async ({ cookies, url }) => {
 			.maybeSingle(),
 		loadRiderSafetyState(supabase, user.id).catch((err) => {
 			console.warn('Unable to load rider safety state for profile page', err);
-			return { roadIdProfile: null, emergencyContacts: [], claimedCodes: [], linkedCodes: [] };
+			return {
+				roadIdProfile: null,
+				emergencyContacts: [],
+				claimedCodes: /** @type {string[]} */ ([]),
+				linkedCodes: /** @type {{ code: string, created_at: any }[]} */ ([])
+			};
 		})
 	]);
 
-	const data = profileRes.data ?? null;
-	const smsSubscription = smsRes.data ?? null;
+	const data = /** @type {any} */ (profileRes.data ?? null);
+	const smsSubscription = /** @type {any} */ (smsRes.data ?? null);
 	const reconciled = reconcileRiderSafetyData({
 		profileRow: data,
 		roadIdRow: safetyState.roadIdProfile,
@@ -157,6 +183,9 @@ export const load = async ({ cookies, url }) => {
 	const roadIdProfile = safetyState.roadIdProfile
 		? {
 				...safetyState.roadIdProfile,
+				user_id: safetyState.roadIdProfile.user_id ?? user.id,
+				full_name: safetyState.roadIdProfile.full_name ?? '',
+				phone: safetyState.roadIdProfile.phone ?? '',
 				blood_type: reconciled.blood_type,
 				allergies: reconciled.allergies,
 				medication: reconciled.medication
@@ -183,15 +212,15 @@ export const load = async ({ cookies, url }) => {
 		hasSmsSubscription: Boolean(smsSubscription),
 		smsPreferences: smsSubscription
 			? {
-					phone: smsSubscription.phone_e164 ?? '',
-					status: smsSubscription.status ?? 'paused',
-					ride_reminders: smsSubscription.ride_reminders === true,
-					volunteer_reminders: smsSubscription.volunteer_reminders === true,
-					admin_messages: smsSubscription.admin_messages === true,
-					bike_valet_messages: smsSubscription.bike_valet_messages === true,
-					consent_version: smsSubscription.consent_version ?? null,
-					opted_in_at: smsSubscription.opted_in_at ?? null,
-					opted_out_at: smsSubscription.opted_out_at ?? null,
+					phone: /** @type {any} */ (smsSubscription).phone_e164 ?? '',
+					status: /** @type {any} */ (smsSubscription).status ?? 'paused',
+					ride_reminders: /** @type {any} */ (smsSubscription).ride_reminders === true,
+					volunteer_reminders: /** @type {any} */ (smsSubscription).volunteer_reminders === true,
+					admin_messages: /** @type {any} */ (smsSubscription).admin_messages === true,
+					bike_valet_messages: /** @type {any} */ (smsSubscription).bike_valet_messages === true,
+					consent_version: /** @type {any} */ (smsSubscription).consent_version ?? null,
+					opted_in_at: /** @type {any} */ (smsSubscription).opted_in_at ?? null,
+					opted_out_at: /** @type {any} */ (smsSubscription).opted_out_at ?? null,
 					verificationRequired: false
 				}
 			: {

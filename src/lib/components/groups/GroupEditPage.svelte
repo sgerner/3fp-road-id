@@ -1,5 +1,6 @@
 <script>
-	let { data, embedded = false } = $props();
+	/** @type {{ data: any, form?: any, embedded?: boolean }} */
+	let { data, form = null, embedded = false } = $props();
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
@@ -8,9 +9,7 @@
 	import IconTrash2 from '@lucide/svelte/icons/trash';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import '#lib/map/leaflet.css';
-	import * as env from '$app/env/public';
-	import { geocodeAddress } from '#lib/groups/geocoding';
+	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';
 	import { collectGroupSocialLinkInputs } from '#lib/groups/socialLinks';
 	import CoverMediaField from '#lib/components/ai/CoverMediaField.svelte';
 	import SliderImageFramer from '#lib/components/ui/SliderImageFramer.svelte';
@@ -35,14 +34,17 @@
 	}
 	const pageData = getPageData();
 
-	let L; // loaded dynamically on client
-
 	const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let submitError = $state('');
 	let logoPreview = $state('');
 	let coverPreview = $state('');
+	let coverAlt = $state('');
+	let effectiveCoverAlt = $derived(
+		coverAlt.trim() ||
+			(data.group?.name ? `Cover banner for ${data.group.name}` : 'Group cover banner')
+	);
 	let logoFiles = $state([]);
 	let coverFiles = $state([]);
 	let logoUploadKey = $state(0);
@@ -54,9 +56,13 @@
 	let cropPanX = $state(0);
 	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	/** @type {any} */
 	let cropFramer = $state(null);
+	/** @type {HTMLDialogElement | null} */
 	let cropDialogEl = $state(null);
+	/** @type {any} */
 	let cropReturnFocusEl = null;
+	/** @type {any} */
 	let coverFieldRef = $state(null);
 	let formEl = $state();
 
@@ -80,23 +86,29 @@
 
 	// Server logs now print profile; no client logging needed
 
-	// Map + Places
-	let mapEl;
-	let map;
-	let marker;
-	let placesContainer;
-	let placesEl;
-	let placesLoading = $state(false);
-	let searchText = $state('');
+	// Location & Coordinate Picker state
 	let cityValue = $state((pageData.group?.city || '').trim());
 	let stateValue = $state((pageData.group?.state_region || '').trim());
 	let countryValue = $state((pageData.group?.country || 'US').toUpperCase());
-	let locationGeocodeTimeout;
-	let locationPendingGeocode;
-	let locationLastKey = '';
-	let locationGeocoder;
-	let googlePlacesReady = false;
 	let meetingAddress = $state((pageData.group?.specific_meeting_point_address || '').trim());
+	let groupLatitude = $state(pageData.group?.latitude ?? '');
+	let groupLongitude = $state(pageData.group?.longitude ?? '');
+	let geocodeRevision = $state(0);
+
+	const externalLocationQuery = $derived.by(() => {
+		const meetingTrim = (meetingAddress || '').trim();
+		if (meetingTrim) return meetingTrim;
+		const parts = [];
+		const cityTrim = (cityValue || '').trim();
+		const stateTrim = (stateValue || '').trim();
+		const countryTrim = (countryValue || '').trim().toUpperCase();
+		if (cityTrim) parts.push(cityTrim);
+		if (stateTrim) parts.push(stateTrim);
+		if (!parts.length) return '';
+		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
+		return parts.join(', ');
+	});
+
 	function formatDefaultSearch() {
 		const meetingTrim = (meetingAddress || '').trim();
 		if (meetingTrim) return meetingTrim;
@@ -106,228 +118,20 @@
 		if (pageData.group?.country) p.push(pageData.group.country);
 		return p.join(', ');
 	}
-	async function doSearch() {
-		const q = (searchText || '').trim();
-		if (!q) return;
-		if (!window.google?.maps?.Geocoder) {
-			console.warn('Google Maps Geocoder not available');
-			return;
-		}
-		try {
-			const geocoder = new window.google.maps.Geocoder();
-			const { results } = await geocoder.geocode({ address: q });
-			const res = results?.[0];
-			const loc = res?.geometry?.location;
-			if (!loc) return;
-			const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-			const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-			if (typeof lat === 'number' && typeof lng === 'number') {
-				placeMarker(lat, lng);
-				queueSave({ fields: { latitude: lat, longitude: lng } });
-			}
-		} catch (e) {
-			console.error('Google geocode failed', e);
-		}
-	}
-	function ensureMap(lat = 37.8, lng = -96, zoom = 4) {
-		if (!L || !mapEl) return;
-		if (map) return;
-		map = L.map(mapEl).setView([lat, lng], zoom);
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
-			attribution: '&copy; OpenStreetMap contributors'
-		}).addTo(map);
-		map.on('click', (e) => {
-			const { lat, lng } = e.latlng;
-			placeMarker(lat, lng);
-			queueSave({ fields: { latitude: lat, longitude: lng } });
-		});
-	}
-	function syncLatLngInputs(lat, lng) {
-		const latInput = document.getElementById('latitude');
-		const lngInput = document.getElementById('longitude');
-		const latNum = Number(lat);
-		const lngNum = Number(lng);
-		const latStr = Number.isFinite(latNum) ? latNum.toFixed(6) : '';
-		const lngStr = Number.isFinite(lngNum) ? lngNum.toFixed(6) : '';
-		if (latInput) latInput.value = latStr;
-		if (lngInput) lngInput.value = lngStr;
-	}
-	function placeMarker(lat, lng) {
-		syncLatLngInputs(lat, lng);
-		if (!map) return;
-		if (!marker) marker = L.marker([lat, lng]).addTo(map);
-		marker.setLatLng([lat, lng]);
-		map.setView([lat, lng], Math.max(map.getZoom(), 12));
-	}
-	function ensurePlacesHelpers() {
-		if (typeof window === 'undefined') return false;
-		const maps = window.google?.maps;
-		if (!maps?.places) return false;
-		if (!locationGeocoder) locationGeocoder = new maps.Geocoder();
-		googlePlacesReady = Boolean(locationGeocoder);
-		return googlePlacesReady;
-	}
-	function buildLocationConfig() {
-		const countryTrim = (countryValue || '').trim().toUpperCase();
-		const meetingTrim = (meetingAddress || '').trim();
-		if (meetingTrim) {
-			const meetingCountry = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-			return {
-				query: meetingTrim,
-				country: meetingCountry,
-				key: `${meetingTrim}|${meetingCountry}`
-			};
-		}
-		const cityTrim = (cityValue || '').trim();
-		const stateTrim = (stateValue || '').trim();
-		const parts = [];
-		if (cityTrim) parts.push(cityTrim);
-		if (stateTrim) parts.push(stateTrim);
-		if (!parts.length) return null;
-		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
-		const query = parts.join(', ');
-		if (!query) return null;
-		const countryCode = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-		return { query, country: countryCode, key: `${query}|${countryCode}` };
-	}
-	function scheduleLocationGeocode(options = {}) {
-		const config = buildLocationConfig();
-		if (!config) return;
-		if (!options.force && config.key === locationLastKey) return;
-		locationPendingGeocode = config;
-		if (!ensurePlacesHelpers()) return;
-		const run = () => runLocationGeocode(config);
-		clearTimeout(locationGeocodeTimeout);
-		if (options.immediate) run();
-		else locationGeocodeTimeout = setTimeout(run, 600);
-	}
-	async function runLocationGeocode(config) {
-		if (!config) return;
-		const active = locationPendingGeocode;
-		try {
-			const coords = await fetchLocationWithGeocoder(config.query, config.country);
-			if (!coords) return;
-			if (active && active.key !== config.key) return;
-			locationLastKey = config.key;
-			placeMarker(coords.lat, coords.lng);
-			queueSave({ fields: { latitude: coords.lat, longitude: coords.lng } });
-		} catch (error) {
-			console.error('Failed to geocode city/state', error);
-		}
-	}
-	function fetchLocationWithGeocoder(query, countryCode) {
-		return geocodeAddress(
-			locationGeocoder,
-			query,
-			countryCode,
-			window.google?.maps?.GeocoderStatus?.OK
-		);
-	}
+
 	function onLocationBlur() {
-		scheduleLocationGeocode({ immediate: true, force: true });
-	}
-	function loadGooglePlaces() {
-		if (typeof window === 'undefined') return;
-		if (window.google?.maps?.places) {
-			ensurePlacesHelpers();
-			return initPlaces();
-		}
-		const key = env.PUBLIC_GOOGLE_MAPS_API_KEY;
-		if (!key) {
-			console.warn('Missing PUBLIC_GOOGLE_MAPS_API_KEY');
-			return;
-		}
-		if (document.getElementById('gmaps-places')) return; // already loading
-
-		placesLoading = true;
-		const s = document.createElement('script');
-		s.id = 'gmaps-places';
-		s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=beta&callback=initGooglePlaces`;
-		s.async = true;
-		s.defer = true;
-		s.onerror = () => {
-			placesLoading = false;
-			console.error('Failed to load Google Maps Places');
-		};
-		document.head.appendChild(s);
-	}
-	function initPlaces() {
-		placesLoading = false;
-		try {
-			if (!ensurePlacesHelpers()) return;
-			googlePlacesReady = true;
-			if (locationPendingGeocode?.query) {
-				scheduleLocationGeocode({ immediate: true, force: true });
-			}
-			if (!placesContainer || !window.google?.maps?.places) return;
-			const PAE = window.google.maps.places.PlaceAutocompleteElement;
-			if (PAE) {
-				placesEl = new PAE();
-				const def = formatDefaultSearch();
-				if (def) placesEl.value = def;
-				placesContainer.innerHTML = '';
-				placesContainer.appendChild(placesEl);
-				placesEl.addEventListener('gmp-select', async ({ placePrediction }) => {
-					try {
-						const place = placePrediction.toPlace();
-						await place.fetchFields({ fields: ['location', 'viewport'] });
-						const loc = place.location;
-						let lat, lng;
-						if (loc) {
-							lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-							lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-						}
-						if (typeof lat === 'number' && typeof lng === 'number') {
-							placeMarker(lat, lng);
-							queueSave({ fields: { latitude: lat, longitude: lng } });
-						}
-					} catch (err) {
-						console.error('Place selection failed', err);
-					}
-				});
-				return;
-			}
-			// Fallback to legacy Autocomplete
-			const input = document.createElement('input');
-			input.className = 'input bg-primary-50-950/30';
-			input.placeholder = 'Start typing a city or address…';
-			const def = formatDefaultSearch();
-			if (def) input.value = def;
-			placesContainer.innerHTML = '';
-			placesContainer.appendChild(input);
-			if (window.google.maps.places.Autocomplete) {
-				const ac = new window.google.maps.places.Autocomplete(input, {
-					fields: ['geometry'],
-					types: ['(regions)']
-				});
-				ac.addListener('place_changed', () => {
-					const p = ac.getPlace();
-					const loc = p?.geometry?.location;
-					if (!loc) return;
-					const lat = loc.lat();
-					const lng = loc.lng();
-					placeMarker(lat, lng);
-					queueSave({ fields: { latitude: lat, longitude: lng } });
-				});
-			}
-		} catch (e) {
-			console.error('Failed to init Places', e);
+		if (externalLocationQuery) {
+			geocodeRevision += 1;
 		}
 	}
 
-	// No resize listeners while modal is open to avoid layout loops
-
-	// Removed reactive loop on cropScale; clamp offsets on explicit events instead
-
-	onMount(async () => {
-		// Make initPlaces globally available for the callback
-		window.initGooglePlaces = initPlaces;
-		const readVal = (id) => document.getElementById(id)?.value?.trim() || '';
-		meetingAddress = readVal('specific_meeting_point_address');
-		cityValue = readVal('city');
-		stateValue = readVal('state_region');
-		const countryEl = document.getElementById('country');
+	onMount(() => {
+		const readVal = (id) =>
+			/** @type {HTMLInputElement | null} */ (document.getElementById(id))?.value?.trim() || '';
+		meetingAddress = readVal('specific_meeting_point_address') || meetingAddress;
+		cityValue = readVal('city') || cityValue;
+		stateValue = readVal('state_region') || stateValue;
+		const countryEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('country'));
 		if (countryEl) countryValue = (countryEl.value || countryValue).toUpperCase();
 
 		if (data.group?.logo_url) {
@@ -336,37 +140,6 @@
 		if (data.group?.cover_photo_url) {
 			coverPreview = data.group.cover_photo_url;
 		}
-		// Map init
-		try {
-			const mod = await import('leaflet');
-			L = mod.default || mod;
-			const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-			await ensureLeafletDefaultIcon(L);
-		} catch (e) {
-			console.error('Failed to load Leaflet', e);
-		}
-		const hasCoords =
-			Number.isFinite(data.group?.latitude) && Number.isFinite(data.group?.longitude);
-		const lat = hasCoords ? Number(data.group.latitude) : 37.8;
-		const lng = hasCoords ? Number(data.group.longitude) : -96;
-		requestAnimationFrame(() => {
-			ensureMap(lat, lng, hasCoords ? 12 : 4);
-			if (hasCoords) placeMarker(lat, lng);
-		});
-		if (placesContainer) {
-			loadGooglePlaces();
-		}
-		if (!hasCoords && (meetingAddress || '').trim()) {
-			scheduleLocationGeocode({ force: true });
-		}
-
-		return () => {
-			// Cleanup the global function when the component is destroyed
-			if (window.initGooglePlaces === initPlaces) {
-				delete window.initGooglePlaces;
-			}
-			if (locationGeocodeTimeout) clearTimeout(locationGeocodeTimeout);
-		};
 	});
 
 	function openCropper(target, file) {
@@ -394,7 +167,9 @@
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
-			const input = document.getElementById('logo_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('logo_file_cropped')
+			);
 			if (input) input.value = dataUrl;
 			// Autosave cropped logo immediately
 			try {
@@ -417,9 +192,11 @@
 		} else if (cropTarget === 'cover') {
 			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = URL.createObjectURL(blob);
-			const input = document.getElementById('cover_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('cover_file_cropped')
+			);
 			if (input) input.value = dataUrl;
-			const clear = document.getElementById('clear_cover');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_cover'));
 			if (clear) clear.value = '';
 			// Autosave cropped cover immediately
 			try {
@@ -518,12 +295,11 @@
 		if (key === 'state_region') stateValue = (val || '').trim();
 		if (key === 'specific_meeting_point_address') {
 			meetingAddress = (val || '').trim();
-			scheduleLocationGeocode({ force: true });
 		}
 		if (key === 'country') {
 			val = (val || '').toUpperCase();
 			countryValue = val;
-			scheduleLocationGeocode({ immediate: true, force: true });
+			geocodeRevision += 1;
 		}
 		if (key === 'website_url') websiteLocal = val;
 		if (key === 'public_contact_email') emailLocal = val;
@@ -551,7 +327,10 @@
 
 	function collectSocialLinksFromInputs() {
 		return collectGroupSocialLinkInputs(
-			(field) => document.getElementById(`social_${field}`)?.value?.trim() || ''
+			(field) =>
+				/** @type {HTMLInputElement | null} */ (
+					document.getElementById(`social_${field}`)
+				)?.value?.trim() || ''
 		);
 	}
 
@@ -711,10 +490,12 @@
 			linkedin: 'social_linkedin'
 		};
 		for (const [key, inputId] of Object.entries(map)) {
-			const el = document.getElementById(inputId);
+			const el = /** @type {HTMLInputElement | null} */ (document.getElementById(inputId));
 			if (el) el.value = links?.[key] || '';
 		}
-		const postsArea = document.getElementById('social_instagram_posts');
+		const postsArea = /** @type {HTMLTextAreaElement | null} */ (
+			document.getElementById('social_instagram_posts')
+		);
 		if (postsArea) {
 			const urls = Array.isArray(links?.instagram_posts)
 				? links.instagram_posts.map((value) => String(value || '').trim()).filter(Boolean)
@@ -769,8 +550,12 @@
 			fieldsPatch[key] = value.trim();
 		}
 		if (Number.isFinite(fields.latitude) && Number.isFinite(fields.longitude)) {
-			setField('latitude', Number(fields.latitude).toFixed(6));
-			setField('longitude', Number(fields.longitude).toFixed(6));
+			const latFixed = Number(fields.latitude).toFixed(6);
+			const lngFixed = Number(fields.longitude).toFixed(6);
+			groupLatitude = latFixed;
+			groupLongitude = lngFixed;
+			setField('latitude', latFixed);
+			setField('longitude', lngFixed);
 			fieldsPatch.latitude = Number(fields.latitude);
 			fieldsPatch.longitude = Number(fields.longitude);
 		}
@@ -865,10 +650,17 @@
 		if (!url) return;
 		if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		if (result?.alt_text || result?.altText) {
+			coverAlt = result.alt_text || result.altText;
+		}
 		coverTooLarge = false;
-		const croppedInput = document.getElementById('cover_file_cropped');
+		const croppedInput = /** @type {HTMLInputElement | null} */ (
+			document.getElementById('cover_file_cropped')
+		);
 		if (croppedInput) croppedInput.value = '';
-		const clearInput = document.getElementById('clear_cover');
+		const clearInput = /** @type {HTMLInputElement | null} */ (
+			document.getElementById('clear_cover')
+		);
 		if (clearInput) clearInput.value = '';
 		queueSave({ fields: { cover_photo_url: url } });
 	}
@@ -953,6 +745,7 @@
 	let ownerSuccess = $state('');
 	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
+	/** @type {any} */
 	let ownerTurnstile = $state(null);
 	// Local reactive owners list so UI updates on removal
 	let owners = $state((pageData.owners || []).slice());
@@ -1188,9 +981,11 @@
 			logoPreview = '';
 			logoFiles = [];
 			logoUploadKey += 1;
-			const input = document.getElementById('logo_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('logo_file_cropped')
+			);
 			if (input) input.value = '';
-			const clear = document.getElementById('clear_logo');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_logo'));
 			if (clear) clear.value = '1';
 			queueSave({ fields: { logo_url: null } });
 		} else if (which === 'cover') {
@@ -1199,9 +994,11 @@
 			coverFiles = [];
 			coverTooLarge = false;
 			coverUploadKey += 1;
-			const input = document.getElementById('cover_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('cover_file_cropped')
+			);
 			if (input) input.value = '';
-			const clear = document.getElementById('clear_cover');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_cover'));
 			if (clear) clear.value = '1';
 			queueSave({ fields: { cover_photo_url: null } });
 		}
@@ -1394,31 +1191,29 @@
 					</div>
 				</div>
 
-				<!-- Map -->
-				<div class="edit-map-panel p-3">
-					<label class="label mb-2" for="map_location">Map Location</label>
-					<input
-						id="map_location"
-						name="map_location"
-						type="text"
-						class="sr-only"
-						tabindex="-1"
-						aria-hidden="true"
-					/>
-					<div bind:this={placesContainer}></div>
-					<p class="text-surface-600-400 my-1.5 text-xs">
-						Search for a city or address to pin the map.
-					</p>
-					{#if placesLoading}
-						<p class="text-surface-600-400 text-xs">Loading places…</p>
-					{/if}
-					<div class="mt-2 overflow-hidden" style="height: 300px;">
-						<div bind:this={mapEl} style="height: 100%; width: 100%;"></div>
-					</div>
-					<p class="text-surface-600-400 mt-1.5 text-xs">
-						Or click directly on the map to set the pin.
-					</p>
-				</div>
+				<!-- Accessible Coordinate Pin Picker -->
+				<CoordinatePinPicker
+					regionLabel="Group meeting point coordinate picker"
+					latitude={groupLatitude}
+					longitude={groupLongitude}
+					latitudeInputId="latitude"
+					longitudeInputId="longitude"
+					latitudeName="latitude"
+					longitudeName="longitude"
+					searchLabel="Map Location"
+					searchPlaceholder="Search for a city or address to pin the map…"
+					searchValue={formatDefaultSearch()}
+					externalGeocodeQuery={externalLocationQuery}
+					countryCode={countryValue}
+					{geocodeRevision}
+					pinnedZoom={12}
+					canvasClass="h-[300px] w-full"
+					onCoordinatesChange={({ latitude, longitude, latitudeText, longitudeText }) => {
+						groupLatitude = latitudeText;
+						groupLongitude = longitudeText;
+						queueSave({ fields: { latitude, longitude } });
+					}}
+				/>
 
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<div class="flex flex-col gap-1">
@@ -1443,28 +1238,6 @@
 						/>
 					</div>
 				</div>
-			</div>
-
-			<!-- Hidden lat/lng -->
-			<div class="hidden">
-				<input
-					id="latitude"
-					name="latitude"
-					type="number"
-					step="any"
-					value={data.group?.latitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
-				<input
-					id="longitude"
-					name="longitude"
-					type="number"
-					step="any"
-					value={data.group?.longitude ?? ''}
-					oninput={onField}
-					hidden
-				/>
 			</div>
 		</section>
 
@@ -1571,25 +1344,27 @@
 						<div class="text-surface-600-400 mb-1 text-xs">Preview</div>
 						{#key ctaKind + ctaLabel + ctaUrl}
 							{#await Promise.resolve(pickCtaPreview()) then cp}
-								<button
-									type="button"
-									class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
-								>
-									{#if cp.key !== 'custom'}
-										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
-										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
-										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-										{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
-										{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
-										{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
-										{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
-										{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
-										{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
-										{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
-										{:else}<IconLink class="h-4 w-4" />{/if}
-									{/if}
-									<span>{cp.label}</span>
-								</button>
+								{#if cp}
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
+									>
+										{#if cp.key !== 'custom'}
+											{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+											{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+											{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+											{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
+											{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
+											{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
+											{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
+											{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
+											{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
+											{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
+											{:else}<IconLink class="h-4 w-4" />{/if}
+										{/if}
+										<span>{cp.label}</span>
+									</button>
+								{/if}
 							{/await}
 						{/key}
 					</div>
@@ -1840,7 +1615,7 @@
 							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
-							classes="w-full"
+							class="w-full"
 							onFileChange={onLogoChange}
 							onFileReject={onReject}
 						>
@@ -1858,11 +1633,15 @@
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
 						<div class="relative mt-1 aspect-square w-24 overflow-hidden border border-white/10">
-							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+							<img
+								src={logoPreview}
+								alt={data.group?.name ? `${data.group.name} logo` : 'Group logo'}
+								class="h-full w-full object-cover"
+							/>
 							<button
 								type="button"
-								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								aria-label="Remove logo"
+								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -1879,6 +1658,8 @@
 						helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
 						accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 						imageUrl={coverPreview}
+						bind:imageAlt={coverAlt}
+						showAltField={true}
 						uploading={saving}
 						error={coverTooLarge ? 'File exceeds 10MB limit.' : ''}
 						target="group"
@@ -2116,12 +1897,6 @@
 		color: var(--color-primary-500);
 		opacity: 1;
 		margin-bottom: 0;
-	}
-
-	/* ── Map panel ── */
-	.edit-map-panel {
-		background: var(--color-surface-950);
-		border: 1px solid var(--color-surface-700);
 	}
 
 	/* ── Check cards ── */

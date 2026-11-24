@@ -13,7 +13,14 @@ export async function loadLearnEditorOptions(supabase, userId) {
 	return { categories: categories ?? [], subcategories: subcategories ?? [], recentAssets };
 }
 
-export async function prepareLearnArticleSave(event, { supabase, user, formData, articleId }) {
+/**
+ * @param {any} event
+ * @param {{ supabase: any, user: any, formData: FormData, articleId?: string | null }} options
+ */
+export async function prepareLearnArticleSave(
+	event,
+	{ supabase, user, formData, articleId = null }
+) {
 	const normalized = normalizeLearnPayload(formData);
 	const userLimited = enforceRateLimit(event, {
 		name: 'learn-ai-save-user',

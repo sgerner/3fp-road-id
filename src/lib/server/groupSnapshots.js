@@ -35,6 +35,7 @@ const ACTION_QUERY_PARAMS = new Set([
 
 const GROUP_SNAPSHOT_CACHE = new Map();
 
+/** @type {{ expiresAt: number, promise: Promise<any> } | null} */
 let taxonomyCacheEntry = null;
 
 function cleanText(value) {
@@ -85,6 +86,9 @@ export function deepFreezePlainData(value) {
 	return Object.freeze(plain);
 }
 
+/**
+ * @param {{ isAuthenticated?: boolean, url?: URL | null }} [options]
+ */
 export function resolveGroupPageCacheControl({ isAuthenticated = false, url = null } = {}) {
 	if (isAuthenticated) {
 		return GROUP_PRIVATE_CACHE_CONTROL;
@@ -109,6 +113,10 @@ export function clearGroupSnapshotCache() {
 	taxonomyCacheEntry = null;
 }
 
+/**
+ * @param {any} target
+ * @param {string | null} [maybeSlug]
+ */
 export function invalidateGroupSnapshotCache(target, maybeSlug = null) {
 	if (!target && !maybeSlug) return 0;
 
@@ -184,7 +192,9 @@ async function resolveDefaultSupabaseClients({
 
 async function loadPublishedGroupBySlug(publicSupabase, normalizedSlug) {
 	if (!publicSupabase) {
-		const err = new Error('Supabase client is unavailable');
+		const err = /** @type {Error & { status?: number }} */ (
+			new Error('Supabase client is unavailable')
+		);
 		err.status = 500;
 		throw err;
 	}
@@ -197,7 +207,9 @@ async function loadPublishedGroupBySlug(publicSupabase, normalizedSlug) {
 		.maybeSingle();
 
 	if (error) {
-		const lookupError = new Error(error.message || 'Failed to load group');
+		const lookupError = /** @type {Error & { status?: number, cause?: unknown }} */ (
+			new Error(error.message || 'Failed to load group')
+		);
 		lookupError.status = 500;
 		lookupError.cause = error;
 		throw lookupError;
@@ -710,6 +722,9 @@ async function loadPublicGroupSnapshotUncached({
 	});
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export async function loadPublicGroupSnapshot({
 	slug,
 	publicSupabase,
@@ -740,6 +755,7 @@ export async function loadPublicGroupSnapshot({
 	pruneAndBoundSnapshotCache(currentNow, maxEntries);
 
 	const effectiveTtlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : GROUP_SNAPSHOT_CACHE_TTL_MS;
+	/** @type {{ groupId: string | null, slug: string, expiresAt: number, invalidated: boolean, promise: Promise<any> | null }} */
 	const entry = {
 		groupId: null,
 		slug: normalizedSlug,
@@ -779,6 +795,17 @@ export async function loadPublicGroupSnapshot({
 	return entry.promise;
 }
 
+/**
+ * @returns {{
+ *   session_user_id: string | null,
+ *   session_is_admin: boolean,
+ *   is_owner: boolean,
+ *   is_social_manager: boolean,
+ *   my_memberships: any[],
+ *   managed_volunteer_event_ids: any[],
+ *   membership_program?: any
+ * }}
+ */
 export function createAnonymousViewerOverlay() {
 	return {
 		session_user_id: null,
@@ -790,6 +817,9 @@ export function createAnonymousViewerOverlay() {
 	};
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export async function loadGroupViewerOverlay({
 	groupId,
 	volunteerEvents = [],
@@ -951,6 +981,10 @@ export async function loadGroupViewerOverlay({
 	};
 }
 
+/**
+ * @param {any} snapshot
+ * @param {Record<string, any> | null} [overlay]
+ */
 export function applyGroupViewerOverlay(snapshot, overlay = null) {
 	const viewer = overlay ?? createAnonymousViewerOverlay();
 	const sessionUserId = viewer.session_user_id ?? null;
@@ -1000,6 +1034,9 @@ export function applyGroupViewerOverlay(snapshot, overlay = null) {
 	};
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export async function loadGroupProfilePageData({
 	params,
 	cookies,

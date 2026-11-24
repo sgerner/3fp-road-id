@@ -1,31 +1,51 @@
 import { json } from '@sveltejs/kit';
 import {
 	answerLearnArticleQuestion,
+	auditLearnMarkdownAltText,
 	generateLearnAiTakeaways,
+	generateLearnImageAltText,
 	generateLearnWritingDraft,
 	navigateLearnArticles
 } from '#lib/server/learnAi';
 import { getLearnClient } from '#lib/server/learn';
-import { enforceRateLimit, readJsonBody } from '#lib/server/security';
+import {
+	enforceRateLimit,
+	fetchPublicHttp,
+	readJsonBody,
+	readResponseBuffer
+} from '#lib/server/security';
 import {
 	buildLearnQuestionContext,
 	canAccessLearnAiArticle,
+	canManageLearnAsset,
 	canUseLearnAiAction,
 	cleanLearnAiString,
+	isLearnAdminUser,
 	LEARN_AI_SOURCE_LIMIT
 } from '#lib/server/learnAiCore';
 
 const MAX_REQUEST_BYTES = 48 * 1024;
 const MAX_CONTENT_CHARS = 18_000;
 
+/**
+ * @param {any} value
+ * @param {any} limit
+ */
 function cleanText(value, limit) {
 	return cleanLearnAiString(value, limit);
 }
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function fail(message, status = 400) {
 	return json({ error: message }, { status, headers: { 'cache-control': 'no-store' } });
 }
 
+/**
+ * @param {any} error
+ */
 function mapAiError(error) {
 	if (error?.code === 'AI_UNAVAILABLE')
 		return fail('AI writing tools are not configured right now.', 503);
@@ -34,13 +54,20 @@ function mapAiError(error) {
 	return fail('The AI request could not be completed. Please try again.', 502);
 }
 
+/**
+ * @param {any} event
+ */
 export async function POST(event) {
 	const { request, cookies } = event;
 	const parsed = await readJsonBody(request, { maxBytes: MAX_REQUEST_BYTES });
 	if (!parsed.ok) return fail(parsed.error, parsed.status);
 	const body = parsed.value && typeof parsed.value === 'object' ? parsed.value : {};
 	const action = cleanText(body.action, 30).toLowerCase();
-	const writingAction = action === 'write' || action === 'takeaways';
+	const writingAction =
+		action === 'write' ||
+		action === 'takeaways' ||
+		action === 'audit_alt' ||
+		action === 'draft_asset_alt';
 	const { user, supabase } = await getLearnClient(cookies);
 	if (!canUseLearnAiAction(action, user)) return fail('Authentication required.', 401);
 	const limited = enforceRateLimit(event, {
@@ -93,6 +120,105 @@ export async function POST(event) {
 			});
 			return json({ draft }, { headers: { 'cache-control': 'no-store' } });
 		}
+		if (action === 'audit_alt') {
+			if (typeof body.content !== 'string') return fail('Add article content first.');
+			if (body.content.length > MAX_CONTENT_CHARS) {
+				return fail(
+					'Article draft must be 18,000 characters or fewer so the assistant can preserve it completely.',
+					413
+				);
+			}
+			const content = body.content.trim();
+			if (!content) return fail('Add article content first.');
+			const audit = await auditLearnMarkdownAltText({
+				supabase,
+				title: cleanText(body.title, 300),
+				summary: cleanText(body.summary, 500),
+				content: body.content,
+				articleId: cleanText(body.articleId, 80)
+			});
+			return json(
+				{
+					totalImages: audit.totalImages,
+					flaggedCount: audit.flaggedCount,
+					issues: audit.issues,
+					proposals: audit.proposals,
+					draft: audit.draft
+				},
+				{ headers: { 'cache-control': 'no-store' } }
+			);
+		}
+		if (action === 'draft_asset_alt') {
+			const imageUrl = cleanText(body.imageUrl, 2000);
+			if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+				return fail('Provide a valid public image URL.');
+			}
+			const imageResponse = await fetchPublicHttp(
+				imageUrl,
+				{ headers: { accept: 'image/*' } },
+				{ timeoutMs: 8_000, maxRedirects: 2 }
+			).catch(() => null);
+			if (!imageResponse?.ok) {
+				return fail('Unable to inspect that image URL.', 400);
+			}
+			const mimeType =
+				cleanText(imageResponse.headers.get('content-type') || '', 120)
+					.split(';')[0]
+					.trim() || 'image/jpeg';
+			const imageBuffer = await readResponseBuffer(imageResponse, 8 * 1024 * 1024);
+			if (!imageBuffer?.byteLength) {
+				return fail('Uploaded image could not be read.', 400);
+			}
+			const generated = await generateLearnImageAltText({
+				imageBuffer,
+				mimeType,
+				fileName: cleanText(body.fileName, 200),
+				imageUrl,
+				title: cleanText(body.title, 300),
+				surroundingContext: cleanText(body.content, 400),
+				enclosingLinkUrl: cleanText(body.enclosingLinkUrl, 500),
+				isSoleLinkContent: Boolean(body.enclosingLinkUrl)
+			});
+			const assetId = cleanText(body.assetId, 80);
+			if (assetId && supabase && user?.id) {
+				try {
+					const { data: existingAsset } = await supabase
+						.from('learn_assets')
+						.select('id, uploaded_by_user_id, metadata')
+						.eq('id', assetId)
+						.maybeSingle();
+					if (existingAsset) {
+						const isOwner = existingAsset.uploaded_by_user_id === user.id;
+						const isAdmin = isOwner ? false : await isLearnAdminUser(supabase, user.id);
+						if (canManageLearnAsset(existingAsset, user, { isAdmin })) {
+							await supabase
+								.from('learn_assets')
+								.update({
+									alt_text: generated.altText,
+									metadata: {
+										...(existingAsset.metadata && typeof existingAsset.metadata === 'object'
+											? existingAsset.metadata
+											: {}),
+										alt_generated: true,
+										is_decorative: Boolean(generated.isDecorative)
+									}
+								})
+								.eq('id', existingAsset.id);
+						}
+					}
+				} catch {
+					// Non-fatal persistence on user-owned or admin-managed assets.
+				}
+			}
+			return json(
+				{
+					altText: generated.altText,
+					isDecorative: generated.isDecorative,
+					altGenerated: true
+				},
+				{ headers: { 'cache-control': 'no-store' } }
+			);
+		}
 		if (action === 'ask') {
 			const question = cleanText(body.question, 700);
 			if (!question) return fail('Add a question first.');
@@ -105,23 +231,26 @@ export async function POST(event) {
 			query = id ? query.eq('id', id) : query.eq('slug', slug);
 			const { data: article, error: articleError } = await query.maybeSingle();
 			if (articleError) throw articleError;
-			if (!canAccessLearnAiArticle(article, user)) {
+			if (!article || !canAccessLearnAiArticle(article, user)) {
 				return fail('Article not found.', 404);
 			}
+			/** @type {any} */
 			let chunks = [];
 			if (
-				typeof article.body_markdown === 'string' &&
-				article.body_markdown.length > LEARN_AI_SOURCE_LIMIT
+				typeof (/** @type {any} */ (article).body_markdown) === 'string' &&
+				/** @type {any} */ (article).body_markdown.length > LEARN_AI_SOURCE_LIMIT
 			) {
 				const chunkResult = await supabase
 					.from('learn_article_chunks')
 					.select('chunk_index,heading,chunk_text')
-					.eq('article_id', article.id)
+					.eq('article_id', /** @type {any} */ (article).id)
 					.order('chunk_index', { ascending: true })
 					.limit(500);
 				if (!chunkResult.error) chunks = chunkResult.data || [];
 			}
+			/** @type {any} */
 			const context = buildLearnQuestionContext(article, chunks, question);
+			/** @type {any} */
 			const answer = await answerLearnArticleQuestion({
 				question,
 				article: {
@@ -131,7 +260,7 @@ export async function POST(event) {
 				}
 			});
 			return json(
-				{ answer, article: { slug: article.slug, title: article.title } },
+				{ answer, article: { slug: article.slug, title: /** @type {any} */ (article).title } },
 				{ headers: { 'cache-control': 'no-store' } }
 			);
 		}

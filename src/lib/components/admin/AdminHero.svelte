@@ -1,5 +1,6 @@
 <script>
 	// Compact asphalt hero shared by every /admin page (docs/design-language.md, secondary pages).
+	/** @type {Record<string, any>} */
 	let { eyebrow, title, children, actions } = $props();
 </script>
 
