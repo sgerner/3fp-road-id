@@ -1242,7 +1242,9 @@
 						/>
 					</div>
 				</details>
-				<a class="btn preset-tonal-surface" href={`/groups/${group.slug}/manage/site?view=address`}
+				<a
+					class="btn preset-tonal-surface"
+					href={`/groups/${group.slug}/manage/presence?view=address`}
 					><IconExternalLink class="h-4 w-4" /> Website domains</a
 				>
 			</aside>

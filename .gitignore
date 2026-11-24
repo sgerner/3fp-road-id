@@ -37,3 +37,7 @@ vite.config.ts.timestamp-*
 .cache/
 .eslintcache
 .prettiercache
+
+# Supabase
+supabase/.branches
+supabase/.temp
