@@ -1,8 +1,17 @@
 <script>
-	import IconContact from '@lucide/svelte/icons/contact';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
+	import IconContact from '@lucide/svelte/icons/contact';
+	import IconExternalLink from '@lucide/svelte/icons/external-link';
+	import IconUserCircle2 from '@lucide/svelte/icons/circle-user-round';
 	import CrashResponse from '#lib/components/CrashResponse.svelte';
 	import AlertSystem from '#lib/components/AlertSystem.svelte';
+
+	let { data } = $props();
+	const currentUser = $derived(data?.currentUser ?? data?.user ?? null);
+	const claimedCodes = $derived(
+		Array.isArray(data?.claimedCodes) ? data.claimedCodes.filter(Boolean) : []
+	);
+	const safetySummary = $derived(data?.safetySummary ?? null);
 </script>
 
 <svelte:head>
@@ -14,7 +23,7 @@
 </svelte:head>
 
 <div
-	class="bg-surface-50-950 text-surface-950-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
+	class="bg-surface-50-950 text-surface-950-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-x-clip"
 >
 	<!-- HERO -->
 	<section
@@ -22,7 +31,7 @@
 		aria-labelledby="roadid-landing-heading"
 	>
 		<div
-			class="border-primary-500 flex flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-12"
+			class="border-primary-500 flex min-w-0 flex-col justify-between gap-6 border-l-4 px-6 py-8 sm:px-10 lg:px-12 lg:py-12"
 		>
 			<p
 				class="text-secondary-700 dark:text-primary-500 m-0 flex items-center gap-3 text-xs font-bold tracking-[0.22em] uppercase"
@@ -35,7 +44,7 @@
 			<div class="flex flex-col gap-4">
 				<h1
 					id="roadid-landing-heading"
-					class="text-surface-950-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] uppercase italic sm:text-6xl"
+					class="text-surface-950-50! m-0 text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
 				>
 					Road ID. <span class="text-secondary-700 dark:text-primary-500"
 						>Ready when seconds count.</span
@@ -66,34 +75,113 @@
 			</div>
 		</div>
 
-		<!-- Production Notice Panel (orders stay paused) -->
 		<aside
-			class="bg-surface-100-900 text-surface-950-50 border-surface-200-800 border-t-tertiary-500 flex flex-col justify-between gap-4 border-t-4 px-6 py-8 sm:px-10 lg:border-l-2 lg:px-10 lg:py-10"
+			class="bg-surface-100-900 text-surface-950-50 border-surface-200-800 border-t-tertiary-500 flex min-w-0 flex-col justify-between gap-5 border-t-4 px-6 py-8 sm:px-10 lg:border-l-2 lg:px-10 lg:py-10"
 			aria-labelledby="roadid-update-heading"
 		>
-			<div class="flex flex-col gap-3">
-				<span
-					class="bg-tertiary-500 text-surface-950 self-start px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+			{#if currentUser}
+				<div class="flex flex-col gap-3">
+					<span
+						class="bg-primary-500 text-surface-950 self-start px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+					>
+						Your Emergency ID
+					</span>
+					<h2
+						id="roadid-update-heading"
+						class="text-surface-950-50! m-0 text-2xl leading-tight font-black uppercase italic"
+					>
+						Rider Safety &amp; Linked Bracelets
+					</h2>
+					<p class="text-surface-800-200 m-0 text-sm leading-relaxed">
+						Edit your blood type, allergies, medications, emergency contacts, and backup vector QR
+						stickers in your unified profile.
+						{#if safetySummary}
+							Currently saved:
+							<strong class="text-surface-950-50">
+								{safetySummary.emergency_contact_count}
+								{safetySummary.emergency_contact_count === 1 ? 'contact' : 'contacts'}
+							</strong>{safetySummary.blood_type
+								? ` · Blood type ${safetySummary.blood_type}`
+								: ''}.
+						{/if}
+					</p>
+
+					{#if claimedCodes.length > 0}
+						<div class="flex flex-col gap-2 pt-1">
+							<p
+								class="text-secondary-700 dark:text-primary-500 m-0 text-xs font-bold tracking-[0.2em] uppercase"
+							>
+								Linked bracelet previews ({claimedCodes.length})
+							</p>
+							<div class="flex flex-wrap gap-2">
+								{#each claimedCodes as code (code)}
+									<a
+										href={`/roadid/${encodeURIComponent(code)}`}
+										class="border-surface-950-50 bg-surface-50-950 text-surface-950-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex min-h-11 items-center gap-2 border-2 px-3.5 py-2 text-xs font-black tracking-wider uppercase transition"
+									>
+										<span>Preview /roadid/{code}</span>
+										<IconExternalLink class="h-3.5 w-3.5 shrink-0" />
+									</a>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<p
+					class="border-surface-200-800 text-surface-700-300 m-0 border-t pt-3 text-xs leading-relaxed"
 				>
-					Important Update
-				</span>
-				<h2
-					id="roadid-update-heading"
-					class="text-surface-950-50! m-0 text-2xl leading-tight font-black uppercase italic"
+					<strong class="text-tertiary-700 dark:text-tertiary-500 uppercase"
+						>Production Update:</strong
+					>
+					New wristband orders are paused while we evaluate tariff impacts. Existing bracelets and printable
+					QR stickers stay fully supported.
+				</p>
+			{:else}
+				<div class="flex flex-col gap-3">
+					<span
+						class="bg-tertiary-500 text-surface-950 self-start px-3 py-1 text-xs font-black tracking-[0.2em] uppercase"
+					>
+						Important Update
+					</span>
+					<h2
+						id="roadid-update-heading"
+						class="text-surface-950-50! m-0 text-2xl leading-tight font-black uppercase italic"
+					>
+						New wristband orders paused
+					</h2>
+					<ul
+						class="text-surface-800-200 m-0 list-inside list-disc space-y-2 pl-1 text-sm leading-relaxed"
+					>
+						<li>
+							<strong class="text-surface-950-50">New orders paused</strong> while we evaluate tariff
+							impacts
+						</li>
+						<li>Existing bracelets &amp; profiles stay fully supported</li>
+						<li>Print backup vector QR stickers anytime from your Emergency ID workspace</li>
+						<li>We’ll post updates as soon as production resumes</li>
+					</ul>
+				</div>
+
+				<button
+					type="button"
+					class="border-surface-950-50 text-surface-950-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 inline-flex min-h-11 items-center justify-center gap-2 self-start border-2 px-5 py-2.5 text-xs font-black tracking-wider uppercase transition"
+					onclick={(event) => {
+						event.stopPropagation();
+						window.dispatchEvent(
+							new CustomEvent('open-login', {
+								detail: {
+									returnTo: '/roadid',
+									message: 'Sign in to view your linked bracelets and manage your Emergency ID.'
+								}
+							})
+						);
+					}}
 				>
-					New wristband orders paused
-				</h2>
-				<ul
-					class="text-surface-800-200 m-0 list-inside list-disc space-y-2 pl-1 text-sm leading-relaxed"
-				>
-					<li>
-						<strong class="text-surface-950-50">New orders paused</strong> while we evaluate tariff impacts
-					</li>
-					<li>Existing bracelets &amp; profiles stay fully supported</li>
-					<li>Print backup vector QR stickers anytime from your Emergency ID workspace</li>
-					<li>We’ll post updates as soon as production resumes</li>
-				</ul>
-			</div>
+					<IconUserCircle2 class="h-4 w-4" />
+					Rider Sign In
+				</button>
+			{/if}
 		</aside>
 	</section>
 
@@ -103,7 +191,7 @@
 		aria-labelledby="roadid-how-heading"
 	>
 		<div
-			class="lg:border-surface-200-800 flex flex-col gap-5 px-6 py-10 sm:px-10 lg:border-r-2 lg:px-12 lg:py-14"
+			class="lg:border-surface-200-800 flex min-w-0 flex-col gap-5 px-6 py-10 sm:px-10 lg:border-r-2 lg:px-12 lg:py-14"
 		>
 			<div class="flex items-start gap-4">
 				<span
@@ -133,7 +221,7 @@
 			</ul>
 		</div>
 
-		<div class="flex flex-col gap-5 px-6 py-10 sm:px-10 lg:px-12 lg:py-14">
+		<div class="flex min-w-0 flex-col gap-5 px-6 py-10 sm:px-10 lg:px-12 lg:py-14">
 			<div class="flex items-start gap-4">
 				<span
 					class="text-tertiary-700 dark:text-tertiary-500 text-4xl leading-none font-black italic tabular-nums"

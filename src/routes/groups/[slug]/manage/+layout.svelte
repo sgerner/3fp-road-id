@@ -1,6 +1,7 @@
 <script>
 	import { page } from '$app/state';
-	import IconSquarePen from '@lucide/svelte/icons/square-pen';
+	import { normalizeMicrositeSlug } from '#lib/microsites/host';
+	import IconGlobe from '@lucide/svelte/icons/earth';
 	import IconRss from '@lucide/svelte/icons/rss';
 	import IconLayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -9,7 +10,6 @@
 	import IconNewspaper from '@lucide/svelte/icons/newspaper';
 	import IconShield from '@lucide/svelte/icons/shield';
 	import IconFolderOpen from '@lucide/svelte/icons/folder-open';
-	import IconMonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
 	import IconIdCard from '@lucide/svelte/icons/id-card';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
@@ -18,6 +18,9 @@
 	let { children, data } = $props();
 
 	const slug = $derived(data.group?.slug ?? '');
+	const micrositeSlug = $derived(
+		normalizeMicrositeSlug(data.group?.microsite_slug || data.group?.slug || '')
+	);
 	const groupName = $derived(data.group?.name ?? 'Group');
 	const locationLabel = $derived(
 		[data.group?.city, data.group?.state_region, data.group?.country].filter(Boolean).join(', ') ||
@@ -37,16 +40,10 @@
 			badge: pendingSponsorshipCount > 0 ? pendingSponsorshipCount : null
 		},
 		{
-			id: 'edit',
-			label: 'Edit Profile',
-			icon: IconSquarePen,
-			href: `/groups/${slug}/manage/edit`
-		},
-		{
-			id: 'site',
-			label: 'Website',
-			icon: IconMonitorSmartphone,
-			href: `/groups/${slug}/manage/site`
+			id: 'presence',
+			label: 'Public Presence',
+			icon: IconGlobe,
+			href: `/groups/${slug}/manage/presence`
 		},
 		{
 			id: 'membership',
@@ -95,6 +92,13 @@
 	function isActive(tab) {
 		if (tab.id === 'overview') {
 			return pathname === `/groups/${slug}/manage`;
+		}
+		if (tab.id === 'presence') {
+			return (
+				pathname.startsWith(`/groups/${slug}/manage/presence`) ||
+				pathname.startsWith(`/groups/${slug}/manage/edit`) ||
+				pathname.startsWith(`/groups/${slug}/manage/site`)
+			);
 		}
 		return pathname.startsWith(tab.href);
 	}
@@ -149,15 +153,27 @@
 					</div>
 				</div>
 
-				<div class="flex items-center">
+				<div class="flex flex-wrap items-center gap-2">
 					<a
 						href="/groups/{slug}"
-						class="btn preset-outlined-primary-500 hover:preset-filled-primary-500 flex w-full items-center justify-center gap-2 text-sm font-semibold transition-all duration-150 md:w-auto"
+						class="btn preset-outlined-primary-500 hover:preset-filled-primary-500 flex items-center justify-center gap-2 text-sm font-semibold transition-all duration-150"
 						target="_blank"
+						rel="noreferrer"
 					>
 						<IconExternalLink class="h-4 w-4" />
-						View Public Page
+						Directory Page
 					</a>
+					{#if micrositeSlug}
+						<a
+							href="/{micrositeSlug}"
+							class="btn border-surface-700 bg-surface-950 text-surface-100 hover:bg-surface-800 flex items-center justify-center gap-2 border text-sm font-semibold transition-all duration-150"
+							target="_blank"
+							rel="noreferrer"
+						>
+							<IconGlobe class="h-4 w-4" />
+							Custom Website
+						</a>
+					{/if}
 				</div>
 			</div>
 

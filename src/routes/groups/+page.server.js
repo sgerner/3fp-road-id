@@ -2,20 +2,57 @@ import { supabase } from '#lib/supabaseClient';
 import { searchGeocode } from '#lib/server/geocoding';
 import {
 	applyGroupSearchFilter,
-	expandStateCandidates,
 	isPostalCodeQuery,
 	resolvePostalGeocodeBounds
 } from '#lib/server/groupSearch';
+import { fetchNearbyGroups, resolveGroupsDirectoryScope } from '#lib/server/proximity';
+import {
+	AU_STATES,
+	CA_PROVINCES,
+	US_STATES,
+	expandRegionCandidates,
+	normalizeRegionCode
+} from '#lib/server/visitorLocation';
 
 const SEARCH_COLUMN_LIST =
 	'id, slug, name, tagline, description, membership_info, service_area_description, city, state_region, country, logo_url, cover_photo_url, latitude, longitude';
 
-export const load = async ({ url, fetch }) => {
+function buildStateFilterClauses(country, stateRegion) {
+	const trimmed = (stateRegion || '').trim();
+	if (!trimmed) return [];
+
+	const normalizedCode = normalizeRegionCode(country, trimmed);
+	const isKnownSubdivision = Boolean(
+		((!country || country === 'US') && US_STATES[normalizedCode]) ||
+		((!country || country === 'CA') && CA_PROVINCES[normalizedCode]) ||
+		((!country || country === 'AU') && AU_STATES[normalizedCode])
+	);
+
+	if (isKnownSubdivision) {
+		// Exact case-insensitive matching for known codes and full names prevents
+		// 2-letter codes like 'IA' from matching 'California' or 'VA' from matching 'West Virginia'.
+		return expandRegionCandidates(country, trimmed).map(
+			(candidate) => `state_region.ilike.${candidate}`
+		);
+	}
+
+	return [`state_region.ilike.%${trimmed}%`];
+}
+
+export const load = async ({ url, fetch, locals, setHeaders }) => {
 	const q = (url.searchParams.get('q') || '').trim();
-	const country = (url.searchParams.get('country') || '').trim().toUpperCase();
-	const state_region = (url.searchParams.get('state_region') || '').trim();
-	const page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-	const limit = parseInt(url.searchParams.get('limit') || '24', 10) || 24;
+	const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
+	const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '24', 10) || 24);
+
+	const visitorLocation = locals?.visitorLocation ?? null;
+	const scope = resolveGroupsDirectoryScope({ url, visitorLocation });
+	const { country, state_region, sort, proximityActive, proximityLabel, proximitySource } = scope;
+
+	if (scope.shouldSetPrivateNoStore) {
+		setHeaders({
+			'cache-control': 'private, no-store'
+		});
+	}
 
 	const skill_level_ids = url.searchParams
 		.getAll('skill_level_ids')
@@ -97,6 +134,7 @@ export const load = async ({ url, fetch }) => {
 		q,
 		country,
 		state_region,
+		sort,
 		skill_level_ids,
 		group_type_ids,
 		audience_focus_ids,
@@ -118,6 +156,9 @@ export const load = async ({ url, fetch }) => {
 			totalGroups: 0,
 			error: null,
 			filters: commonContext,
+			proximityActive,
+			proximityLabel,
+			proximitySource,
 			skill_levels: levels.data || [],
 			group_types: types.data || [],
 			audience_focuses: af.data || [],
@@ -137,10 +178,9 @@ export const load = async ({ url, fetch }) => {
 		}
 		if (country) query = query.eq('country', country);
 		if (state_region) {
-			const candidates = expandStateCandidates(country, state_region).map((t) => `%${t}%`);
-			if (candidates.length) {
-				const ors = candidates.map((c) => `state_region.ilike.${c}`).join(',');
-				query = query.or(ors);
+			const clauses = buildStateFilterClauses(country, state_region);
+			if (clauses.length) {
+				query = query.or(clauses.join(','));
 			}
 		}
 		if (filterIds !== null) query = query.in('id', filterIds);
@@ -242,8 +282,111 @@ export const load = async ({ url, fetch }) => {
 		return { data: points, error: null, count: Number.isFinite(total) ? total : points.length };
 	}
 
+	/**
+	 * @param {import('#lib/server/groupSearch').CoordinateBounds | null} [postalBounds]
+	 */
+	async function fetchCatalogOrderIds(postalBounds = null) {
+		const pageSize = 1000;
+		let from = 0;
+		/** @type {any} */
+		let total = null;
+		/** @type {any} */
+		const rows = [];
+		while (true) {
+			const includeCount = total === null;
+			let query = supabase
+				.from('groups')
+				.select('id, name', includeCount ? { count: 'exact' } : undefined)
+				.order('name')
+				.range(from, from + pageSize - 1);
+			if (hasActiveFilters) {
+				query = applyCommonFilters(query, { includeSearch: true, postalBounds });
+			}
+			const { data, error, count } = await query;
+			if (error) return { data: [], error };
+			if (includeCount && Number.isFinite(count)) total = count;
+			const chunk = data || [];
+			rows.push(...chunk);
+			if (chunk.length < pageSize) break;
+			from += pageSize;
+			if (Number.isFinite(total) && rows.length >= total) break;
+		}
+		return { data: rows, error: null };
+	}
+
+	/** @type {any} */
+	let nearbyGroupsPromise = null;
+	function getNearbyGroups() {
+		if (!nearbyGroupsPromise) {
+			nearbyGroupsPromise = fetchNearbyGroups(supabase, visitorLocation, {
+				maxMiles: 250,
+				limit: 5000
+			});
+		}
+		return nearbyGroupsPromise;
+	}
+
+	let proximityFallbackToName = false;
+	/**
+	 * @param {{ postalBounds?: import('#lib/server/groupSearch').CoordinateBounds | null }} [options]
+	 */
+	async function fetchProximityOrderedPage({ postalBounds = null } = {}) {
+		const [nearbyRes, catalogRes] = await Promise.all([
+			getNearbyGroups(),
+			fetchCatalogOrderIds(postalBounds)
+		]);
+		if (nearbyRes.error) {
+			proximityFallbackToName = true;
+			return buildListQuery({ postalBounds });
+		}
+		if (catalogRes.error) {
+			return { data: [], count: 0, error: catalogRes.error };
+		}
+
+		const catalogRows = catalogRes.data || [];
+		const catalogIdSet = new Set(catalogRows.map((row) => row.id));
+		const nearbyRows = (nearbyRes.data || []).filter((row) => catalogIdSet.has(row.id));
+		const nearbyById = new Map(nearbyRows.map((row) => [row.id, row]));
+
+		const orderedIds = [
+			...nearbyRows.map((row) => row.id),
+			...catalogRows.filter((row) => !nearbyById.has(row.id)).map((row) => row.id)
+		];
+		const totalCount = orderedIds.length;
+		const pageIds = orderedIds.slice((page - 1) * limit, page * limit);
+		if (!pageIds.length) {
+			return { data: [], count: totalCount, error: null };
+		}
+
+		const missingIds = pageIds.filter((id) => !nearbyById.has(id));
+		let fetchedById = new Map();
+		if (missingIds.length) {
+			const { data: missingRows, error: missingErr } = await supabase
+				.from('groups')
+				.select(SEARCH_COLUMN_LIST)
+				.in('id', missingIds);
+			if (missingErr) {
+				return { data: [], count: totalCount, error: missingErr };
+			}
+			fetchedById = new Map((missingRows || []).map((row) => [row.id, row]));
+		}
+
+		const pageRows = pageIds.map((id) => nearbyById.get(id) || fetchedById.get(id)).filter(Boolean);
+		return { data: pageRows, count: totalCount, error: null };
+	}
+
+	/**
+	 * @param {{ postalBounds?: import('#lib/server/groupSearch').CoordinateBounds | null }} [options]
+	 */
+	function fetchListPage({ postalBounds = null } = {}) {
+		if (proximityActive) {
+			return fetchProximityOrderedPage({ postalBounds });
+		}
+		return buildListQuery({ postalBounds });
+	}
+
 	let [groupsRes, mapRes, facetResults] = await Promise.all([
-		buildListQuery(),
+		fetchListPage(),
 		fetchAllMapPoints(),
 		fetchFacets()
 	]);
@@ -261,7 +404,7 @@ export const load = async ({ url, fetch }) => {
 		});
 		if (postalBounds) {
 			[groupsRes, mapRes] = await Promise.all([
-				buildListQuery({ postalBounds }),
+				fetchListPage({ postalBounds }),
 				fetchAllMapPoints(postalBounds)
 			]);
 		}
@@ -273,13 +416,21 @@ export const load = async ({ url, fetch }) => {
 	const totalGroups = groupsRes.count || 0;
 	const mapPoints = mapRes.data || [];
 	const group_types_map = await fetchGroupTypesMap(groups, typesAllRes.data || []);
+	const effectiveProximityActive = proximityActive && !proximityFallbackToName;
+	const effectiveSort = effectiveProximityActive ? sort : 'name';
 
 	return {
 		groups,
 		mapPoints,
 		totalGroups,
 		error: groupsRes.error?.message || mapRes.error?.message || null,
-		filters: commonContext,
+		filters: {
+			...commonContext,
+			sort: effectiveSort
+		},
+		proximityActive: effectiveProximityActive,
+		proximityLabel: effectiveProximityActive ? proximityLabel : '',
+		proximitySource: effectiveProximityActive ? proximitySource : null,
 		skill_levels: levelsRes.data || [],
 		group_types_map,
 		group_types: typesAllRes.data || [],

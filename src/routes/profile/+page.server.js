@@ -1,8 +1,12 @@
 import { getActivityClient } from '#lib/server/activities';
 import { getConfiguredPublicOrigin } from '#lib/server/publicOrigin';
-import { loadUserRoadIdBundle } from '#lib/server/roadId';
+import {
+	BLOOD_TYPE_OPTIONS,
+	isValidRoadIdCode,
+	loadRiderSafetyState,
+	reconcileRiderSafetyData
+} from '#lib/server/roadIdProfile';
 import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '#lib/server/sms';
-import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
 /** @type {any} */
 const INTEREST_SUGGESTIONS = [
@@ -96,69 +100,119 @@ function extractContext(metadata) {
 	};
 }
 
-export const load = async ({ cookies }) => {
+export const load = async ({ cookies, url }) => {
 	const { user, supabase } = await getActivityClient(cookies);
 	const publicOrigin = getConfiguredPublicOrigin();
+	const rawClaimed = url.searchParams.get('claimed') || '';
+	const claimedCode = isValidRoadIdCode(rawClaimed) ? rawClaimed : null;
 
 	if (!user?.id) {
 		return {
 			currentUser: null,
 			profile: null,
+			roadIdProfile: null,
+			safetyProfile: { blood_type: '', allergies: '', medication: '' },
+			emergencyContacts: [],
+			claimedCodes: [],
+			linkedCodes: [],
+			claimedCode: null,
+			bloodTypeOptions: BLOOD_TYPE_OPTIONS,
+			publicOrigin,
 			context: { location: '', home_location: {}, interests: [], recommendation_focus: [] },
+			hasSmsSubscription: false,
 			smsPreferences: null,
 			smsConsentText: SMS_CONSENT_TEXT,
 			smsConsentVersion: SMS_CONSENT_VERSION,
-			roadIdProfile: null,
-			emergencyContacts: [],
-			linkedCodes: [],
-			publicOrigin,
 			interestSuggestions: INTEREST_SUGGESTIONS,
 			recommendationOptions: RECOMMENDATION_OPTIONS
 		};
 	}
 
-	const serviceSupabase = createServiceSupabaseClient();
-	const roadIdClient = serviceSupabase ?? supabase;
-
-	const [{ data }, { data: smsSubscription }, roadIdBundle] = await Promise.all([
+	const [profileRes, smsRes, safetyState] = await Promise.all([
 		supabase
 			.from('profiles')
-			.select('id,user_id,full_name,avatar_url,bio,email,phone,metadata,updated_at,created_at')
+			.select(
+				'id,user_id,full_name,avatar_url,bio,email,phone,emergency_contact_name,emergency_contact_phone,metadata,updated_at,created_at'
+			)
 			.eq('user_id', user.id)
 			.maybeSingle(),
 		supabase
 			.from('sms_subscriptions')
 			.select(
-				'phone_e164,status,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages,consent_version,opted_in_at,opted_out_at' +
-					',phone_verified_at,verification_expires_at'
+				'phone_e164,status,ride_reminders,volunteer_reminders,admin_messages,bike_valet_messages,consent_version,opted_in_at,opted_out_at,phone_verified_at,verification_expires_at'
 			)
 			.eq('user_id', user.id)
 			.maybeSingle(),
-		loadUserRoadIdBundle(roadIdClient, user.id)
+		loadRiderSafetyState(supabase, user.id).catch((err) => {
+			console.warn('Unable to load rider safety state for profile page', err);
+			return {
+				roadIdProfile: null,
+				emergencyContacts: [],
+				claimedCodes: /** @type {string[]} */ ([]),
+				linkedCodes: /** @type {{ code: string, created_at: any }[]} */ ([])
+			};
+		})
 	]);
 
-	const profile = data
+	const data = /** @type {any} */ (profileRes.data ?? null);
+	const smsSubscription = /** @type {any} */ (smsRes.data ?? null);
+	const reconciled = reconcileRiderSafetyData({
+		profileRow: data,
+		roadIdRow: safetyState.roadIdProfile,
+		emergencyContacts: safetyState.emergencyContacts
+	});
+
+	const profile =
+		data || safetyState.roadIdProfile
+			? {
+					id: data?.id ?? null,
+					user_id: data?.user_id ?? user.id,
+					full_name: reconciled.full_name || null,
+					avatar_url: data?.avatar_url ?? null,
+					bio: data?.bio ?? null,
+					email: data?.email ?? user.email ?? null,
+					phone: reconciled.phone || null,
+					emergency_contact_name: reconciled.primary_emergency_contact?.contact_name || null,
+					emergency_contact_phone: reconciled.primary_emergency_contact?.contact_phone || null,
+					metadata: normalizeMetadataObject(data?.metadata),
+					updated_at: data?.updated_at ?? null,
+					created_at: data?.created_at ?? null
+				}
+			: null;
+
+	const roadIdProfile = safetyState.roadIdProfile
 		? {
-				id: data.id,
-				user_id: data.user_id,
-				full_name: data.full_name ?? null,
-				avatar_url: data.avatar_url ?? null,
-				bio: data.bio ?? null,
-				email: data.email ?? null,
-				phone: data.phone ?? null,
-				metadata: normalizeMetadataObject(data.metadata),
-				updated_at: data.updated_at ?? null,
-				created_at: data.created_at ?? null
+				...safetyState.roadIdProfile,
+				user_id: safetyState.roadIdProfile.user_id ?? user.id,
+				full_name: safetyState.roadIdProfile.full_name ?? '',
+				phone: safetyState.roadIdProfile.phone ?? '',
+				blood_type: reconciled.blood_type,
+				allergies: reconciled.allergies,
+				medication: reconciled.medication
 			}
 		: null;
 
 	return {
 		currentUser: user,
 		profile,
+		roadIdProfile,
+		safetyProfile: {
+			blood_type: reconciled.blood_type,
+			allergies: reconciled.allergies,
+			medication: reconciled.medication
+		},
+		emergencyContacts: reconciled.emergency_contacts,
+		claimedCodes: safetyState.claimedCodes,
+		linkedCodes: safetyState.linkedCodes,
+		claimedCode:
+			claimedCode && safetyState.claimedCodes.includes(claimedCode) ? claimedCode : claimedCode,
+		bloodTypeOptions: BLOOD_TYPE_OPTIONS,
+		publicOrigin,
 		context: extractContext(profile?.metadata ?? {}),
+		hasSmsSubscription: Boolean(smsSubscription),
 		smsPreferences: smsSubscription
 			? {
-					phone: data?.phone || /** @type {any} */ (smsSubscription).phone_e164 || '',
+					phone: /** @type {any} */ (smsSubscription).phone_e164 ?? '',
 					status: /** @type {any} */ (smsSubscription).status ?? 'paused',
 					ride_reminders: /** @type {any} */ (smsSubscription).ride_reminders === true,
 					volunteer_reminders: /** @type {any} */ (smsSubscription).volunteer_reminders === true,
@@ -170,7 +224,7 @@ export const load = async ({ cookies }) => {
 					verificationRequired: false
 				}
 			: {
-					phone: data?.phone ?? '',
+					phone: '',
 					status: 'paused',
 					ride_reminders: false,
 					volunteer_reminders: false,
@@ -183,10 +237,6 @@ export const load = async ({ cookies }) => {
 				},
 		smsConsentText: SMS_CONSENT_TEXT,
 		smsConsentVersion: SMS_CONSENT_VERSION,
-		roadIdProfile: roadIdBundle.roadIdProfile,
-		emergencyContacts: roadIdBundle.emergencyContacts,
-		linkedCodes: roadIdBundle.linkedCodes,
-		publicOrigin,
 		interestSuggestions: INTEREST_SUGGESTIONS,
 		recommendationOptions: RECOMMENDATION_OPTIONS
 	};
