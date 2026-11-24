@@ -91,7 +91,7 @@ test('all nine map surfaces use shared accessible Svelte 5 map components with z
 		['src/lib/components/volunteer/VolunteerEventsExplorer.svelte', 'DirectoryMapExplorer'],
 		['src/routes/ride/widget/frame/+page.svelte', 'DirectoryMapExplorer'],
 		['src/lib/components/volunteer/ScheduleStep.svelte', 'CoordinatePinPicker'],
-		['src/lib/components/groups/GroupEditPage.svelte', 'CoordinatePinPicker']
+		['src/routes/groups/[slug]/manage/presence/+page.svelte', 'CoordinatePinPicker']
 	];
 
 	for (const [relPath, componentName] of expectedSurfaces) {
@@ -153,17 +153,17 @@ test('shared map components comply with Lane Lines square borders and accessible
 	}
 
 	const groupEditSource = fs.readFileSync(
-		path.join(REPO_ROOT, 'src/lib/components/groups/GroupEditPage.svelte'),
+		path.join(REPO_ROOT, 'src/routes/groups/[slug]/manage/presence/+page.svelte'),
 		'utf8'
 	);
 	assert.doesNotMatch(
 		groupEditSource,
 		/name="latitude"[^>]*hidden/s,
-		'GroupEditPage.svelte must not hide the latitude input'
+		'presence/+page.svelte must not hide the latitude input'
 	);
 	assert.doesNotMatch(
 		groupEditSource,
 		/name="longitude"[^>]*hidden/s,
-		'GroupEditPage.svelte must not hide the longitude input'
+		'presence/+page.svelte must not hide the longitude input'
 	);
 });
