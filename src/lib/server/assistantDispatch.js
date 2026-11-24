@@ -4,6 +4,7 @@ import {
 	rideDraftFingerprint,
 	summarizeRideDraft
 } from '#lib/ai/assistantHelpers.js';
+import { SAFETY_REPORT_FALLBACK_ID } from '#lib/server/learnCatalog.js';
 
 export const MAX_ASSISTANT_ENVELOPE_BYTES = 128 * 1024;
 
@@ -297,18 +298,32 @@ export async function dispatchContextualAssistantRequest({
 		const recommendations = Array.isArray(data.articles)
 			? data.articles
 					.filter((article) => article?.slug && article?.title)
-					.map((article) => ({
-						id: article.id ? String(article.id) : String(article.slug),
-						articleId: article.id ? String(article.id) : null,
-						type: 'article',
-						title: String(article.title),
-						subtitle: article.category_name ? String(article.category_name) : 'Learn field guide',
-						summary: article.summary ? String(article.summary) : null,
-						reason: article.summary
-							? String(article.summary)
-							: 'Relevant article in the Learn library.',
-						url: `/learn/${encodeURIComponent(String(article.slug))}`
-					}))
+					.map((article) => {
+						const rawId = article.id ? String(article.id) : '';
+						const persistedArticleId = rawId && rawId !== SAFETY_REPORT_FALLBACK_ID ? rawId : null;
+						const categoryLabel = article.category_name
+							? String(article.category_name)
+							: 'Learn field guide';
+						const matchedHeading =
+							typeof article.matched_heading === 'string' ? article.matched_heading.trim() : '';
+						const subtitle =
+							matchedHeading && matchedHeading.toLowerCase() !== 'overview'
+								? `${categoryLabel} · ${matchedHeading}`
+								: categoryLabel;
+						const matchedSnippet =
+							typeof article.matched_snippet === 'string' ? article.matched_snippet.trim() : '';
+						const summary = article.summary ? String(article.summary) : null;
+						return {
+							id: persistedArticleId || String(article.slug),
+							articleId: persistedArticleId,
+							type: 'article',
+							title: String(article.title),
+							subtitle,
+							summary,
+							reason: matchedSnippet || summary || 'Relevant article in the Learn library.',
+							url: `/learn/${encodeURIComponent(String(article.slug))}`
+						};
+					})
 			: [];
 		return json(
 			{
