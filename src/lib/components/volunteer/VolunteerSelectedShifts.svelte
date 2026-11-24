@@ -2,11 +2,17 @@
 	import IconTrash from '@lucide/svelte/icons/trash';
 	import { slide } from 'svelte/transition';
 
+	/** @type {any} */
 	export let selectedShifts = [];
+	/** @type {any} */
 	export let opportunity = {};
+	/** @type {any} */
 	export let requiresSelection = false;
+	/** @type {any} */
 	export let onRemoveShift = () => {};
+	/** @type {any} */
 	export let requireSelectionMessage = 'Select at least one shift above to enable signup.';
+	/** @type {any} */
 	export let optionalSelectionMessage = 'Organizers will confirm exact timing when they reach out.';
 </script>
 

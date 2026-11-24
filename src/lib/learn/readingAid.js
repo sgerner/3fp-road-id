@@ -60,7 +60,10 @@ export function estimateReadMinutes(markdown) {
 	return Math.max(1, Math.round(words / 220));
 }
 
-export function generateLearnReadingAid({ title = '', summary = '', markdown = '' }) {
+/**
+ * @param {{ title?: string | null, summary?: string | null, markdown?: string | null }} [options]
+ */
+export function generateLearnReadingAid({ title = '', summary = '', markdown = '' } = {}) {
 	const cleanSummary = truncate(stripMarkdown(summary), 260);
 	const paragraphs = extractParagraphs(markdown);
 	const bullets = extractBullets(markdown);

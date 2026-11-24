@@ -36,6 +36,7 @@ function chunk(values, size) {
 }
 
 function parseArgs(argv) {
+	/** @type {{ dryRun: boolean, limit: number | null, sleepMs: number, force: boolean }} */
 	const options = {
 		dryRun: false,
 		limit: null,
@@ -159,7 +160,7 @@ async function main() {
 	}
 
 	let addresses = Array.from(byAddress.keys());
-	if (Number.isInteger(options.limit) && options.limit > 0) {
+	if (typeof options.limit === 'number' && Number.isInteger(options.limit) && options.limit > 0) {
 		addresses = addresses.slice(0, options.limit);
 	}
 

@@ -109,37 +109,43 @@ test('dispatchContextualAssistantRequest enforces exact per-mode byte limits', a
 	const handlers = {};
 	const event = createMockEvent();
 
-	const overSafetyReport = await dispatchContextualAssistantRequest({
-		event,
-		payload: {
-			mode: 'safety-report',
-			messages: [{ role: 'user', content: 'What works?' }]
-		},
-		byteLength: MODE_MAX_BYTES['safety-report'] + 1,
-		handlers
-	});
+	const overSafetyReport = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event,
+			payload: {
+				mode: 'safety-report',
+				messages: [{ role: 'user', content: 'What works?' }]
+			},
+			byteLength: MODE_MAX_BYTES['safety-report'] + 1,
+			handlers
+		})
+	);
 	assert.equal(overSafetyReport.status, 413);
 
-	const overLearn = await dispatchContextualAssistantRequest({
-		event,
-		payload: {
-			mode: 'learn-library',
-			messages: [{ role: 'user', content: 'Commuting' }]
-		},
-		byteLength: MODE_MAX_BYTES['learn-library'] + 1,
-		handlers
-	});
+	const overLearn = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event,
+			payload: {
+				mode: 'learn-library',
+				messages: [{ role: 'user', content: 'Commuting' }]
+			},
+			byteLength: MODE_MAX_BYTES['learn-library'] + 1,
+			handlers
+		})
+	);
 	assert.equal(overLearn.status, 413);
 
-	const overDiscover = await dispatchContextualAssistantRequest({
-		event,
-		payload: {
-			mode: 'discover',
-			messages: [{ role: 'user', content: 'Find rides' }]
-		},
-		byteLength: MODE_MAX_BYTES.discover + 1,
-		handlers
-	});
+	const overDiscover = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event,
+			payload: {
+				mode: 'discover',
+				messages: [{ role: 'user', content: 'Find rides' }]
+			},
+			byteLength: MODE_MAX_BYTES.discover + 1,
+			handlers
+		})
+	);
 	assert.equal(overDiscover.status, 413);
 
 	// Discover within 64KB returns null so /api/ai/assistant runs the discovery pipeline
@@ -175,6 +181,7 @@ test('sanitizeDispatchMessages strips synthetic greetings and bounds safety-repo
 });
 
 test('dispatchContextualAssistantRequest delegates learn-library, learn-article, and safety-report preserving status and evidence', async () => {
+	/** @type {any} */
 	let capturedLearnBody = null;
 	const handlers = {
 		learnAi: async (subEvent) => {
@@ -224,72 +231,82 @@ test('dispatchContextualAssistantRequest delegates learn-library, learn-article,
 		}
 	};
 
-	const navRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			pathname: '/learn',
-			messages: [{ role: 'user', content: 'How do I start commuting?' }]
-		},
-		byteLength: 200,
-		handlers
-	});
+	const navRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				pathname: '/learn',
+				messages: [{ role: 'user', content: 'How do I start commuting?' }]
+			},
+			byteLength: 200,
+			handlers
+		})
+	);
 	assert.equal(navRes.status, 200);
 	const navData = await navRes.json();
 	assert.equal(navData.mode, 'learn-library');
 	assert.equal(navData.recommendations.length, 1);
 	assert.equal(navData.recommendations[0].url, '/learn/commuting-101');
 
-	const articleRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			pathname: '/learn/commuting-101',
-			messages: [{ role: 'user', content: 'Explain this simply' }]
-		},
-		byteLength: 200,
-		handlers
-	});
+	const articleRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				pathname: '/learn/commuting-101',
+				messages: [{ role: 'user', content: 'Explain this simply' }]
+			},
+			byteLength: 200,
+			handlers
+		})
+	);
 	const articleData = await articleRes.json();
 	assert.equal(articleData.mode, 'learn-article');
 	assert.equal(capturedLearnBody.articleSlug, 'commuting-101');
 	assert.match(articleData.reply, /Signal early/);
 
 	// Bad Origin on safety report preserves 403
-	const badOriginRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent({ origin: 'https://evil.example' }),
-		payload: {
-			mode: 'safety-report',
-			messages: [{ role: 'user', content: 'Passing?' }]
-		},
-		byteLength: 200,
-		handlers
-	});
+	const badOriginRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent({ origin: 'https://evil.example' }),
+			payload: {
+				mode: 'safety-report',
+				messages: [{ role: 'user', content: 'Passing?' }]
+			},
+			byteLength: 200,
+			handlers
+		})
+	);
 	assert.equal(badOriginRes.status, 403);
 
 	// 503 AI_UNAVAILABLE preserves related report sections for citation navigation
-	const unavailableRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			mode: 'safety-report',
-			messages: [{ role: 'user', content: 'Simulate unavailable service' }]
-		},
-		byteLength: 200,
-		handlers
-	});
+	const unavailableRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				mode: 'safety-report',
+				messages: [{ role: 'user', content: 'Simulate unavailable service' }]
+			},
+			byteLength: 200,
+			handlers
+		})
+	);
 	assert.equal(unavailableRes.status, 503);
 	const unavailableData = await unavailableRes.json();
 	assert.equal(unavailableData.reportEvidence.sections[0].id, 'chapter-4');
 
 	// 200 safety report includes sections and sources
-	const reportRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			mode: 'safety-report',
-			topic: '4. Passing Encounters',
-			messages: [{ role: 'user', content: 'What works for passing?' }]
-		},
-		byteLength: 200,
-		handlers
-	});
+	const reportRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				mode: 'safety-report',
+				topic: '4. Passing Encounters',
+				messages: [{ role: 'user', content: 'What works for passing?' }]
+			},
+			byteLength: 200,
+			handlers
+		})
+	);
 	assert.equal(reportRes.status, 200);
 	const reportData = await reportRes.json();
 	assert.equal(reportData.reportEvidence.sections[0].id, 'chapter-4');
@@ -340,46 +357,56 @@ test('dispatchContextualAssistantRequest delegates authoring modes and preserves
 	};
 
 	// Unauthenticated learn-write returns 401
-	const unauthWrite = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			mode: 'learn-write',
-			messages: [{ role: 'user', content: 'Polish my draft' }],
-			editorContext: { title: 'Draft', bodyMarkdown: 'Initial text' }
-		},
-		byteLength: 300,
-		handlers
-	});
+	const unauthWrite = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				mode: 'learn-write',
+				messages: [{ role: 'user', content: 'Polish my draft' }],
+				editorContext: { title: 'Draft', bodyMarkdown: 'Initial text' }
+			},
+			byteLength: 300,
+			handlers
+		})
+	);
 	assert.equal(unauthWrite.status, 401);
 
 	// Authenticated learn-write returns preview proposal with baseMarkdown
-	const authedWrite = await dispatchContextualAssistantRequest({
-		event: createMockEvent({ headers: { 'x-auth': 'user-1' } }),
-		payload: {
-			mode: 'learn-write',
-			messages: [{ role: 'user', content: 'Polish my draft' }],
-			editorContext: { title: 'Draft', bodyMarkdown: 'Initial text', baseMarkdown: 'Initial text' }
-		},
-		byteLength: 300,
-		handlers
-	});
+	const authedWrite = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent({ headers: { 'x-auth': 'user-1' } }),
+			payload: {
+				mode: 'learn-write',
+				messages: [{ role: 'user', content: 'Polish my draft' }],
+				editorContext: {
+					title: 'Draft',
+					bodyMarkdown: 'Initial text',
+					baseMarkdown: 'Initial text'
+				}
+			},
+			byteLength: 300,
+			handlers
+		})
+	);
 	const writeData = await authedWrite.json();
 	assert.equal(writeData.proposal.kind, 'learn-draft');
 	assert.equal(writeData.proposal.baseMarkdown, 'Initial text');
 	assert.match(writeData.proposal.draft, /Updated Guide/);
 
 	// Takeaways preview
-	const takeawaysRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent({ headers: { 'x-auth': 'user-1' } }),
-		payload: {
-			mode: 'learn-write',
-			learnAction: 'takeaways',
-			messages: [{ role: 'user', content: 'Preview takeaways' }],
-			editorContext: { title: 'Draft', bodyMarkdown: 'Body', summary: 'Old summary' }
-		},
-		byteLength: 300,
-		handlers
-	});
+	const takeawaysRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent({ headers: { 'x-auth': 'user-1' } }),
+			payload: {
+				mode: 'learn-write',
+				learnAction: 'takeaways',
+				messages: [{ role: 'user', content: 'Preview takeaways' }],
+				editorContext: { title: 'Draft', bodyMarkdown: 'Body', summary: 'Old summary' }
+			},
+			byteLength: 300,
+			handlers
+		})
+	);
 	const takeawaysData = await takeawaysRes.json();
 	assert.equal(takeawaysData.proposal.kind, 'learn-takeaways');
 	assert.equal(takeawaysData.proposal.baseSummary, 'Old summary');
@@ -388,16 +415,18 @@ test('dispatchContextualAssistantRequest delegates authoring modes and preserves
 	// Ride writer returns preview proposal with baseFingerprint and diff summary
 	const initialRide = { title: '', estimatedDistanceMiles: '' };
 	const baseFp = rideDraftFingerprint(initialRide);
-	const rideRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			pathname: '/ride/new',
-			messages: [{ role: 'user', content: 'Saturday coffee ride, 16 miles' }],
-			editorContext: { payload: initialRide, fingerprint: baseFp }
-		},
-		byteLength: 400,
-		handlers
-	});
+	const rideRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				pathname: '/ride/new',
+				messages: [{ role: 'user', content: 'Saturday coffee ride, 16 miles' }],
+				editorContext: { payload: initialRide, fingerprint: baseFp }
+			},
+			byteLength: 400,
+			handlers
+		})
+	);
 	const rideData = await rideRes.json();
 	assert.equal(rideData.mode, 'ride-write');
 	assert.equal(rideData.proposal.kind, 'ride-draft');
@@ -405,19 +434,21 @@ test('dispatchContextualAssistantRequest delegates authoring modes and preserves
 	assert.ok(rideData.proposal.summary.some((line) => line.includes('Saturday Coffee Spin')));
 
 	// Group site draft chat delegates slug param and preserves baseFingerprint
-	const siteRes = await dispatchContextualAssistantRequest({
-		event: createMockEvent(),
-		payload: {
-			pathname: '/groups/desert-spoke/manage/site',
-			messages: [{ role: 'user', content: 'Make it welcoming' }],
-			editorContext: {
-				currentConfig: { site_title: 'Old Title' },
-				baseFingerprint: 'fp-old'
-			}
-		},
-		byteLength: 400,
-		handlers
-	});
+	const siteRes = /** @type {Response} */ (
+		await dispatchContextualAssistantRequest({
+			event: createMockEvent(),
+			payload: {
+				pathname: '/groups/desert-spoke/manage/site',
+				messages: [{ role: 'user', content: 'Make it welcoming' }],
+				editorContext: {
+					currentConfig: { site_title: 'Old Title' },
+					baseFingerprint: 'fp-old'
+				}
+			},
+			byteLength: 400,
+			handlers
+		})
+	);
 	const siteData = await siteRes.json();
 	assert.equal(siteData.mode, 'group-site-write');
 	assert.equal(siteData.proposal.kind, 'group-site-draft');

@@ -22,6 +22,10 @@ function nextClientIp() {
 	return `198.51.100.${ipCounter}`;
 }
 
+/**
+ * @param {any} body
+ * @param {{ ip?: string, rawBody?: string | null, cookies?: Record<string, string> }} [options]
+ */
 function createJsonEvent(body, { ip = nextClientIp(), rawBody = null, cookies = {} } = {}) {
 	const serialized = rawBody !== null ? rawBody : JSON.stringify(body);
 	return {
@@ -41,6 +45,10 @@ function createJsonEvent(body, { ip = nextClientIp(), rawBody = null, cookies = 
 	};
 }
 
+/**
+ * @param {Record<string, any>} [overrides]
+ * @returns {Record<string, any>}
+ */
 function baseOptions(overrides = {}) {
 	const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 	return {

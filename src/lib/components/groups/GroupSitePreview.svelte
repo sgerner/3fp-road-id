@@ -7,6 +7,7 @@
 	import IconSmartphone from '@lucide/svelte/icons/smartphone';
 	import IconTablet from '@lucide/svelte/icons/tablet';
 
+	/** @type {Record<string, any>} */
 	let {
 		mode = $bindable('directory'),
 		directorySrc = '/',
@@ -37,6 +38,9 @@
 	);
 	const previewSrc = $derived(`${activeSrc}${activeSrc.includes('?') ? '&' : '?'}preview=${nonce}`);
 
+	/**
+	 * @param {'directory' | 'website'} nextMode
+	 */
 	function switchMode(nextMode) {
 		if (mode === nextMode) return;
 		loading = true;

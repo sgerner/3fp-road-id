@@ -23,14 +23,20 @@
 		toJsonLd
 	} from '#lib/seo';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {any} */
 	let searchQuery = $state('');
+	/** @type {any} */
 	let activeSubcategory = $state('all');
+	/** @type {any} */
 	let isReordering = $state(false);
 
 	// Mutable local copies used for deterministic ordering
+	/** @type {any[]} */
 	let subcategories = $state([]);
+	/** @type {any} */
 	let articles = $state([]);
 	let reorderAnnouncement = $state('');
 
@@ -39,6 +45,7 @@
 		articles = [...data.articles];
 	});
 
+	/** @type {any} */
 	const filteredArticles = $derived(
 		articles.filter((article) => {
 			if (!searchQuery.trim()) return true;
@@ -48,7 +55,9 @@
 		})
 	);
 
+	/** @type {any} */
 	const groups = $derived.by(() => {
+		/** @type {any} */
 		const items = [];
 		const uncategorized = filteredArticles.filter((a) => !a.subcategory_slug);
 		if (uncategorized.length > 0 || data.canEdit) {
@@ -61,6 +70,7 @@
 		return items;
 	});
 
+	/** @type {any} */
 	const visibleGroups = $derived(
 		activeSubcategory === 'all'
 			? groups.filter((g) => g.articles.length > 0 || (data.canEdit && g.subcategory))
@@ -70,9 +80,14 @@
 				)
 	);
 
+	/** @type {any} */
 	const totalArticles = $derived(articles.length);
+	/** @type {any} */
 	const totalSubcategories = $derived(subcategories.length);
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return '';
 		return new Date(value).toLocaleDateString(undefined, {
@@ -87,25 +102,32 @@
 		...subcategories.map((sub) => ({ value: sub.slug, label: sub.name }))
 	]);
 
+	/** @param {Element | null} node */
+	function isControlDisabled(node) {
+		return (
+			(node instanceof HTMLButtonElement || node instanceof HTMLSelectElement) && node.disabled
+		);
+	}
+
 	async function restoreControlFocus(focusKey) {
 		if (!focusKey) return;
 		await tick();
 		let el = document.querySelector(`[data-focus-key="${CSS.escape(focusKey)}"]`);
-		if (el?.disabled) {
+		if (isControlDisabled(el)) {
 			const fallbackKey = focusKey.endsWith('-up')
 				? focusKey.replace(/-up$/, '-down')
 				: focusKey.endsWith('-down')
 					? focusKey.replace(/-down$/, '-up')
 					: focusKey;
 			const fallback = document.querySelector(`[data-focus-key="${CSS.escape(fallbackKey)}"]`);
-			if (fallback && !fallback.disabled) {
+			if (fallback && !isControlDisabled(fallback)) {
 				el = fallback;
 			} else {
 				const posKey = focusKey.replace(/-(up|down|group)$/, '-pos');
 				el = document.querySelector(`[data-focus-key="${CSS.escape(posKey)}"]`);
 			}
 		}
-		el?.focus?.();
+		if (el instanceof HTMLElement) el.focus();
 	}
 
 	function enterReorderMode() {
@@ -134,10 +156,14 @@
 		if (movedSub) {
 			reorderAnnouncement = `Moved section ${movedSub.name} to position ${movedIndex + 1} of ${nextOrder.length}.`;
 		}
-		document.getElementById('reorder-subcategories-payload').value = JSON.stringify(
-			nextOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
-		);
-		document.getElementById('reorder-subcategories-form').requestSubmit();
+		const subPayloadEl = document.getElementById('reorder-subcategories-payload');
+		if (subPayloadEl instanceof HTMLInputElement) {
+			subPayloadEl.value = JSON.stringify(
+				nextOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
+			);
+		}
+		const subFormEl = document.getElementById('reorder-subcategories-form');
+		if (subFormEl instanceof HTMLFormElement) subFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 
@@ -149,8 +175,12 @@
 		if (!result.movedArticle) return;
 		articles = result.articles;
 		reorderAnnouncement = `Moved ${result.movedArticle.title} to position ${result.position} of ${result.sectionCount}.`;
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(result.payload);
-		document.getElementById('reorder-articles-form').requestSubmit();
+		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
+		if (articlesPayloadEl instanceof HTMLInputElement) {
+			articlesPayloadEl.value = JSON.stringify(result.payload);
+		}
+		const articlesFormEl = document.getElementById('reorder-articles-form');
+		if (articlesFormEl instanceof HTMLFormElement) articlesFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 
@@ -165,11 +195,16 @@
 			? subcategories.find((sub) => sub.slug === result.sectionSlug)?.name || result.sectionSlug
 			: 'General';
 		reorderAnnouncement = `Moved ${result.movedArticle.title} to ${sectionLabel}, position ${result.position} of ${result.sectionCount}.`;
-		document.getElementById('reorder-articles-payload').value = JSON.stringify(result.payload);
-		document.getElementById('reorder-articles-form').requestSubmit();
+		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
+		if (articlesPayloadEl instanceof HTMLInputElement) {
+			articlesPayloadEl.value = JSON.stringify(result.payload);
+		}
+		const articlesFormEl = document.getElementById('reorder-articles-form');
+		if (articlesFormEl instanceof HTMLFormElement) articlesFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 	const seoTitle = $derived.by(() => cleanSeoText(data.category.name || 'Learn Category'));
+	/** @type {any} */
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
 			data.category.description ||
@@ -177,8 +212,11 @@
 			165
 		)
 	);
+	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url));
+	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
+		/** @type {any} */
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -197,6 +235,7 @@
 				}
 			]
 		};
+		/** @type {any} */
 		const collection = {
 			'@context': 'https://schema.org',
 			'@type': 'CollectionPage',
@@ -611,8 +650,10 @@
 											class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center gap-2 px-4 text-xs font-black tracking-wider uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
 											aria-label={`Delete empty subcategory ${sub.name}`}
 											onclick={() => {
-												document.getElementById('delete-subcategory-slug').value = sub.slug;
-												document.getElementById('delete-subcategory-form').requestSubmit();
+												const slugInput = document.getElementById('delete-subcategory-slug');
+												if (slugInput instanceof HTMLInputElement) slugInput.value = sub.slug;
+												const deleteForm = document.getElementById('delete-subcategory-form');
+												if (deleteForm instanceof HTMLFormElement) deleteForm.requestSubmit();
 											}}
 										>
 											<IconTrash2 class="h-4 w-4" aria-hidden="true" />

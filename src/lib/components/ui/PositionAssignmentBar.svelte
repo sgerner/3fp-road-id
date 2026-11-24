@@ -2,6 +2,7 @@
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 	import IconChevronUp from '@lucide/svelte/icons/chevron-up';
 
+	/** @type {Record<string, any>} */
 	let {
 		itemLabel = 'Item',
 		index = 0,

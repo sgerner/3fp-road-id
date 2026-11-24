@@ -13,11 +13,17 @@ import {
 const NOTIFICATION_TYPES = new Set(['register', 'cancel']);
 const MAX_ASSIGNMENTS_PER_REQUEST = 20;
 
+/**
+ * @param {any} value
+ */
 function safeTrim(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
 }
 
+/**
+ * @param {any} value
+ */
 function truthy(value) {
 	if (value === true) return true;
 	if (value === false) return false;
@@ -26,6 +32,10 @@ function truthy(value) {
 	return normalized === 'true' || normalized === '1' || normalized === 'yes';
 }
 
+/**
+ * @param {any} user
+ * @param {any} signup
+ */
 function ownsAssignment(user, signup) {
 	if (!user?.id || !signup) return false;
 	if (String(signup.volunteer_user_id || '') === String(user.id)) return true;
@@ -34,6 +44,10 @@ function ownsAssignment(user, signup) {
 	return Boolean(userEmail && signupEmail && userEmail === signupEmail);
 }
 
+/**
+ * @param {any} type
+ * @param {any} assignment
+ */
 function matchesNotificationType(type, assignment) {
 	const cancelled =
 		Boolean(assignment?.cancelled_at) ||
@@ -41,6 +55,9 @@ function matchesNotificationType(type, assignment) {
 	return type === 'cancel' ? cancelled : !cancelled;
 }
 
+/**
+ * @param {any} value
+ */
 function escapeHtml(value) {
 	return safeTrim(value)
 		.replaceAll('&', '&amp;')
@@ -50,6 +67,11 @@ function escapeHtml(value) {
 		.replaceAll("'", '&#39;');
 }
 
+/**
+ * @param {any} value
+ * @param {any} timezone
+ * @param {any} [options]
+ */
 function formatDateTime(value, timezone, options = {}) {
 	if (!value) return '';
 	const date = value instanceof Date ? value : new Date(value);
@@ -65,6 +87,9 @@ function formatDateTime(value, timezone, options = {}) {
 	}
 }
 
+/**
+ * @param {any} param0
+ */
 function formatShiftWindow({ shift, event, includeDate = true }) {
 	if (!shift) return '';
 	const timezone =
@@ -95,6 +120,10 @@ function formatShiftWindow({ shift, event, includeDate = true }) {
 	return dateLabel || startTime || endTime || '';
 }
 
+/**
+ * @param {any} origin
+ * @param {any} event
+ */
 function buildManageUrl(origin, event) {
 	const base = origin || '';
 	const slug = safeTrim(event?.slug);
@@ -103,12 +132,17 @@ function buildManageUrl(origin, event) {
 	return `${base.replace(/\/$/, '')}/volunteer/shifts`;
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} eventRecord
+ */
 async function loadEventHostRecipients(fetchImpl, eventRecord) {
 	const recipients = new Map();
 	const eventId = normalizeId(eventRecord?.id);
 	const hostUserId = normalizeId(eventRecord?.host_user_id ?? eventRecord?.hostUserId);
 	const hostGroupId = normalizeId(eventRecord?.host_group_id ?? eventRecord?.hostGroupId);
 
+	/** @type {any} */
 	const addRecipient = (record) => {
 		if (!record) return;
 		const email =
@@ -176,6 +210,9 @@ async function loadEventHostRecipients(fetchImpl, eventRecord) {
 	return Array.from(recipients.values());
 }
 
+/**
+ * @param {any} param0
+ */
 function buildEmailContent({ type, eventRecord, contexts, origin }) {
 	const eventTitle = safeTrim(eventRecord?.title) || 'Volunteer event';
 
@@ -205,6 +242,7 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 	const subjectPrefix = type === 'register' ? 'New volunteer signup' : 'Volunteer cancellation';
 	const subject = `${subjectPrefix}: ${eventTitle}`;
 
+	/** @type {any} */
 	const volunteerDetailsHtml = [
 		volunteerName ? `<strong>Name:</strong> ${escapeHtml(volunteerName)}` : null,
 		signup?.volunteer_email
@@ -215,6 +253,7 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 		.filter(Boolean)
 		.join('<br />');
 
+	/** @type {any} */
 	const volunteerDetailsText = [
 		volunteerName ? `Name: ${volunteerName}` : null,
 		signup?.volunteer_email ? `Email: ${signup.volunteer_email}` : null,
@@ -227,6 +266,7 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 		(c) => `- ${c.opportunity?.title}: ${formatShiftWindow({ shift: c.shift, event: eventRecord })}`
 	);
 
+	/** @type {any} */
 	const textParts = [
 		`Hello host,`,
 		'',
@@ -238,6 +278,7 @@ function buildEmailContent({ type, eventRecord, contexts, origin }) {
 		'Thanks for supporting your volunteer team!'
 	].filter(Boolean);
 
+	/** @type {any} */
 	const htmlParts = [
 		'<p>Hello host,</p>',
 		lines,
@@ -317,7 +358,7 @@ export const POST = async (event) => {
 
 	// Group contexts by event
 	const contextsByEvent = contexts.reduce((acc, context) => {
-		const eventId = context.event?.id;
+		const eventId = /** @type {any} */ (context).event?.id;
 		if (!eventId) return acc;
 		if (!acc.has(eventId)) {
 			acc.set(eventId, []);
@@ -327,6 +368,7 @@ export const POST = async (event) => {
 	}, new Map());
 
 	let sentCount = 0;
+	/** @type {any} */
 	const sendErrors = [];
 
 	for (const [eventId, eventContexts] of contextsByEvent.entries()) {
@@ -357,6 +399,7 @@ export const POST = async (event) => {
 		});
 
 		try {
+			/** @type {any} */
 			const tags = [
 				{ Name: 'context', Value: 'volunteer-host-notification-bulk' },
 				{ Name: 'volunteer_event_id', Value: String(eventId) },

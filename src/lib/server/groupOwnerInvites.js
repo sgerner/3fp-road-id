@@ -60,6 +60,10 @@ export function createOwnerInviteState({
 /**
  * Verify the capability and bind it to the route's group and the canonical
  * email returned by Supabase Auth. No browser-supplied user id is accepted.
+ *
+ * @param {any} token
+ * @param {{ groupId?: string, groupSlug?: string, userEmail?: string | null, now?: number }} [options]
+ * @returns {{ ok: false } | { ok: true, payload: Record<string, any> }}
  */
 export function verifyOwnerInviteState(
 	token,

@@ -4,7 +4,7 @@ import { loadManagedVolunteerEvents, loadOwnedGroups } from '#lib/server/section
 import { resolveVerifiedSession } from '#lib/server/session';
 
 export const load = async ({ fetch, cookies, parent, url }) => {
-	const parentData = await parent().catch(() => ({}));
+	const parentData = await parent().catch(() => /** @type {any} */ ({}));
 	const currentUser = parentData?.user ?? (await resolveVerifiedSession(cookies)).user ?? null;
 	const userId = currentUser?.id ?? null;
 
@@ -16,9 +16,11 @@ export const load = async ({ fetch, cookies, parent, url }) => {
 	}
 
 	const ownedGroups = await loadOwnedGroups(fetch, userId);
+	/** @type {any} */
 	const ownerGroupIds = ownedGroups
 		.map((group) => group?.id)
 		.filter((value) => value !== null && value !== undefined);
+	/** @type {any} */
 	const managedEvents = await loadManagedVolunteerEvents(fetch, userId, {
 		ownerGroupIds,
 		limit: 100

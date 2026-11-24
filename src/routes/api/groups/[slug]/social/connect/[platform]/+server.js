@@ -12,6 +12,9 @@ import {
 	resolveMetaOAuthRedirectUri
 } from '#lib/server/social/meta/oauth';
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ cookies, params, url }) {
 	const platform = normalizePlatform(params.platform);
 	if (!platform) {
@@ -28,8 +31,10 @@ export async function GET({ cookies, params, url }) {
 		const redirectTo = isSafeInternalPath(requestedRedirectTo)
 			? requestedRedirectTo
 			: buildSocialReturnPath(auth.group.slug, 'connected');
+		/** @type {any} */
 		const redirectUri = resolveMetaOAuthRedirectUri(url, platform);
 		await purgeExpiredGroupSocialOauthStates(auth.serviceSupabase);
+		/** @type {any} */
 		const stateRecord = await createGroupSocialOauthState(auth.serviceSupabase, {
 			groupId: auth.group.id,
 			userId: auth.userId,

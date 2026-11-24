@@ -53,6 +53,9 @@ async function resolveFacebookPageAccessToken({ pageId, accessToken }) {
 	}
 }
 
+/**
+ * @param {any} [sourcePost]
+ */
 function extractFacebookPostImage(sourcePost = null) {
 	const direct = firstString(
 		[
@@ -69,6 +72,10 @@ function extractFacebookPostImage(sourcePost = null) {
 	return direct || null;
 }
 
+/**
+ * @param {any} comment
+ * @param {any} [sourcePost]
+ */
 function normalizeFacebookComment(comment, sourcePost = null) {
 	const fromName =
 		firstString([comment?.from?.name, comment?.from?.username, comment?.from?.id], 200) || null;
@@ -121,6 +128,10 @@ async function fetchFacebookPostAttachments(postId, accessToken) {
 	}
 }
 
+/**
+ * @param {any} comment
+ * @param {any} [media]
+ */
 function normalizeInstagramComment(comment, media = null) {
 	const mediaId = cleanText(media?.id, 200) || null;
 	const username =
@@ -154,6 +165,9 @@ function normalizeInstagramComment(comment, media = null) {
 	};
 }
 
+/**
+ * @param {{ account?: Record<string, any> | null, limitPosts?: number, limitComments?: number }} [options]
+ */
 export async function fetchFacebookComments({ account, limitPosts = 10, limitComments = 25 } = {}) {
 	const pageId = cleanText(account?.meta_page_id, 120);
 	const accessToken = cleanText(account?.accessToken || account?.access_token, 5000);
@@ -198,6 +212,9 @@ export async function fetchFacebookComments({ account, limitPosts = 10, limitCom
 	return rows;
 }
 
+/**
+ * @param {{ account?: Record<string, any> | null, limitMedia?: number, limitComments?: number }} [options]
+ */
 export async function fetchInstagramComments({
 	account,
 	limitMedia = 10,
@@ -252,6 +269,9 @@ export async function fetchInstagramComments({
 	return rows;
 }
 
+/**
+ * @param {{ account?: Record<string, any> | null, limit?: number }} [options]
+ */
 export async function fetchConnectedAccountComments({ account, limit = 50 } = {}) {
 	const platform = cleanText(account?.platform, 40).toLowerCase();
 	const cappedLimit = Math.max(5, Math.min(100, Number.parseInt(String(limit), 10) || 50));

@@ -47,6 +47,7 @@ const EXTRACTION_RETRY_TIMEOUT_MS = 22000;
 const NARRATIVE_PASS_TIMEOUT_MS = 12000;
 const ENRICHMENT_SOFT_BUDGET_MS = 55000;
 const MIN_TIME_LEFT_FOR_NARRATIVE_MS = 8000;
+/** @type {any} */
 const PRIORITY_FIELDS = [
 	'how_to_join_instructions',
 	'membership_info',
@@ -55,6 +56,7 @@ const PRIORITY_FIELDS = [
 	'typical_activity_day_time',
 	'preferred_contact_method_instructions'
 ];
+/** @type {any} */
 const VOICE_FIELDS = [
 	'tagline',
 	'description',
@@ -63,6 +65,7 @@ const VOICE_FIELDS = [
 	'service_area_description',
 	'preferred_contact_method_instructions'
 ];
+/** @type {any} */
 const ALL_FIELD_KEYS = [
 	'name',
 	'tagline',
@@ -86,6 +89,7 @@ const ALL_FIELD_KEYS = [
 	'logo_url',
 	'cover_photo_url'
 ];
+/** @type {any} */
 const SOCIAL_FIELD_KEYS = [
 	'instagram',
 	'facebook',
@@ -100,6 +104,7 @@ const SOCIAL_FIELD_KEYS = [
 	'discord',
 	'other'
 ];
+/** @type {any} */
 const SOURCE_RELIABILITY_WEIGHTS = {
 	'website-root': 1,
 	'homepage-link': 0.95,
@@ -154,6 +159,7 @@ const HTML_SKIP_TAGS = new Set([
 	'select',
 	'option'
 ]);
+/** @type {any} */
 const DESCRIPTION_BOILERPLATE_MARKERS = [
 	'quick links',
 	'learn more about us',
@@ -171,6 +177,7 @@ const DESCRIPTION_BOILERPLATE_MARKERS = [
 	'login',
 	'sign in'
 ];
+/** @type {any} */
 const BROWSER_LIKE_HEADERS = {
 	'User-Agent':
 		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -178,6 +185,7 @@ const BROWSER_LIKE_HEADERS = {
 	'Accept-Language': 'en-US,en;q=0.9'
 };
 
+/** @type {any} */
 const RESPONSE_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
@@ -257,6 +265,7 @@ const RESPONSE_SCHEMA = {
 	}
 };
 
+/** @type {any} */
 const NARRATIVE_RESPONSE_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
@@ -284,10 +293,16 @@ function isJinaReaderUrl(url = '') {
 	return /^https?:\/\/r\.jina\.ai\//i.test(url || '');
 }
 
+/**
+ * @param {any} [url]
+ */
 function buildJinaReaderUrl(url = '') {
 	return isJinaReaderUrl(url) ? url : `${JINA_READER_PREFIX}${url}`;
 }
 
+/**
+ * @param {any} [html]
+ */
 function extractCleanTextFromHtml(html = '') {
 	if (!html) return '';
 	return html
@@ -299,6 +314,9 @@ function extractCleanTextFromHtml(html = '') {
 		.trim();
 }
 
+/**
+ * @param {any} [markdown]
+ */
 function cleanReaderMarkdown(markdown = '') {
 	if (!markdown) return '';
 	let text = markdown.replace(/\r/g, '').trim();
@@ -315,6 +333,9 @@ function cleanReaderMarkdown(markdown = '') {
 	return text;
 }
 
+/**
+ * @param {any} url
+ */
 async function fetchReaderMarkdown(url) {
 	const readerUrl = buildJinaReaderUrl(url);
 	const res = await fetchWithTimeout(
@@ -334,10 +355,15 @@ async function fetchReaderMarkdown(url) {
 	return cleanReaderMarkdown(raw);
 }
 
+/**
+ * @param {any} url
+ */
 async function fetchAndExtract(url) {
 	try {
 		let html = '';
+		/** @type {any} */
 		let structured = [];
+		/** @type {any} */
 		let pageSignals = null;
 		let fallbackText = '';
 
@@ -382,6 +408,9 @@ async function fetchAndExtract(url) {
 	}
 }
 
+/**
+ * @param {any} input
+ */
 function normalizeUrl(input) {
 	if (!input) return null;
 	try {
@@ -393,6 +422,9 @@ function normalizeUrl(input) {
 	}
 }
 
+/**
+ * @param {any} username
+ */
 function buildInstagramUrl(username) {
 	if (!username) return null;
 	const u = username.replace(/^@/, '').trim();
@@ -400,6 +432,9 @@ function buildInstagramUrl(username) {
 	return `https://www.instagram.com/${u}`;
 }
 
+/**
+ * @param {any} name
+ */
 function buildFacebookUrl(name) {
 	if (!name) return null;
 	const n = name.trim();
@@ -422,8 +457,11 @@ export const POST = async (event) => {
 	}
 	const requestId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 	const startedAt = Date.now();
+	/** @type {any} */
 	const timeRemaining = () => Math.max(0, ENRICHMENT_SOFT_BUDGET_MS - (Date.now() - startedAt));
+	/** @type {any} */
 	const hasTime = (reserveMs = 0) => timeRemaining() > reserveMs;
+	/** @type {any} */
 	const logStage = (stage, startedMs, details = '') => {
 		const elapsed = Date.now() - startedMs;
 		const tail = details ? ` ${details}` : '';
@@ -436,6 +474,7 @@ export const POST = async (event) => {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) {
 		return json({ error: 'Invalid request body.' }, { status: 400 });
 	}
+	/** @type {any} */
 	const textInput = (value, maxLength) =>
 		typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 	const instagram = textInput(body.instagram, 320);
@@ -450,6 +489,7 @@ export const POST = async (event) => {
 	});
 	const existingSocialLinks = existingProfile?.fields?.social_links || {};
 
+	/** @type {any} */
 	const urls = [];
 	const ig = buildInstagramUrl(instagram || existingSocialLinks.instagram || '');
 	if (ig) urls.push(ig);
@@ -477,11 +517,14 @@ export const POST = async (event) => {
 		facebookUrl: fb
 	});
 
+	/** @type {any} */
 	const scraped = [];
 	const existingProfileDoc = buildExistingProfileDoc(existingProfile);
 	if (existingProfileDoc) scraped.push(existingProfileDoc);
 	pushAll(scraped, socialDocs);
+	/** @type {any} */
 	let siteCrawlPlan = [];
+	/** @type {any} */
 	let selectedSite = null;
 	const websiteCandidates = buildWebsiteCandidateList({
 		requestedSite,
@@ -533,9 +576,11 @@ export const POST = async (event) => {
 		existingProfile
 	});
 
+	/** @type {any} */
 	let aiParsed = null;
 	let extractionRaw = '';
 	let narrativeRaw = '';
+	/** @type {any} */
 	const aiErrors = [];
 
 	try {
@@ -753,6 +798,9 @@ export const POST = async (event) => {
 	}
 };
 
+/**
+ * @param {any} s
+ */
 function safeParseJson(s) {
 	if (!s) return null;
 	// Extract first {...} block
@@ -773,7 +821,13 @@ function safeParseJson(s) {
 	}
 }
 
+/**
+ * @param {any} promise
+ * @param {any} timeoutMs
+ * @param {any} [message]
+ */
 async function withTimeout(promise, timeoutMs, message = 'Operation timed out') {
+	/** @type {any} */
 	let timer;
 	try {
 		return await Promise.race([
@@ -787,6 +841,10 @@ async function withTimeout(promise, timeoutMs, message = 'Operation timed out') 
 	}
 }
 
+/**
+ * @param {any} remoteUrl
+ * @param {any} destBasePath
+ */
 async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	try {
 		const storageClient = createServiceSupabaseClient();
@@ -822,6 +880,9 @@ async function mirrorRemoteImageToStorage(remoteUrl, destBasePath) {
 	}
 }
 
+/**
+ * @param {any} fields
+ */
 async function mirrorImageFields(fields) {
 	if (!fields || typeof fields !== 'object') return;
 	try {
@@ -838,6 +899,9 @@ async function mirrorImageFields(fields) {
 	}
 }
 
+/**
+ * @param {any} param0
+ */
 async function runExtractionPass({ client, model, context, name }) {
 	const contents = buildExtractionContents(context, name);
 	const response = await client.generateContent({
@@ -852,7 +916,11 @@ async function runExtractionPass({ client, model, context, name }) {
 	return { parsed, raw: text };
 }
 
+/**
+ * @param {any} param0
+ */
 async function runNarrativePass({ client, model, facts, categories, evidence, name }) {
+	/** @type {any} */
 	const evidenceLines = [];
 	for (const field of VOICE_FIELDS) {
 		const meta = evidence?.[field];
@@ -901,6 +969,9 @@ ${evidenceLines.join('\n') || '(none provided)'}`;
 	return { parsed: safeParseJson(text), raw: text };
 }
 
+/**
+ * @param {any} param0
+ */
 function buildModelContext({
 	urls,
 	scraped,
@@ -930,6 +1001,10 @@ function buildModelContext({
 	};
 }
 
+/**
+ * @param {any} context
+ * @param {any} name
+ */
 function buildExtractionContents(context, name) {
 	const { scraped, siteCrawlPlan, hints, socialFacts, deterministicFacts, existingProfile } =
 		context;
@@ -990,8 +1065,12 @@ Context name (if provided by user): ${name || ''}`;
 	return contents;
 }
 
+/**
+ * @param {any} deterministicFacts
+ */
 function buildDeterministicSummary(deterministicFacts) {
 	if (!deterministicFacts?.fields) return '(none)';
+	/** @type {any} */
 	const out = {};
 	for (const key of ALL_FIELD_KEYS) {
 		const value = deterministicFacts.fields[key];
@@ -1003,6 +1082,9 @@ function buildDeterministicSummary(deterministicFacts) {
 	return truncate(JSON.stringify(out), 2500);
 }
 
+/**
+ * @param {any} [input]
+ */
 function normalizeExistingProfileInput(input = {}) {
 	const sourceFields =
 		input?.fields && typeof input.fields === 'object'
@@ -1014,12 +1096,14 @@ function normalizeExistingProfileInput(input = {}) {
 		input?.categories && typeof input.categories === 'object' ? input.categories : {};
 	const sourceExtras = input?.extras && typeof input.extras === 'object' ? input.extras : {};
 
+	/** @type {any} */
 	const fields = {};
 	for (const key of ALL_FIELD_KEYS) {
 		if (sourceFields[key] != null) fields[key] = sourceFields[key];
 	}
 	fields.social_links = normalizeSocialLinks(sourceFields.social_links || {});
 
+	/** @type {any} */
 	const categories = {
 		group_types: normalizeStringArray(sourceCategories.group_types || []),
 		audience_focuses: normalizeStringArray(sourceCategories.audience_focuses || []),
@@ -1027,6 +1111,7 @@ function normalizeExistingProfileInput(input = {}) {
 		skill_levels: normalizeStringArray(sourceCategories.skill_levels || [])
 	};
 
+	/** @type {any} */
 	const extras = {};
 	for (const [k, v] of Object.entries({ ...sourceFields, ...sourceExtras })) {
 		if (k in fields || k === 'social_links' || k === 'categories') continue;
@@ -1042,8 +1127,12 @@ function normalizeExistingProfileInput(input = {}) {
 	return { fields, categories, extras };
 }
 
+/**
+ * @param {any} existingProfile
+ */
 function summarizeExistingProfile(existingProfile) {
 	if (!existingProfile) return '(none)';
+	/** @type {any} */
 	const summary = {};
 	for (const key of ALL_FIELD_KEYS) {
 		const value = existingProfile?.fields?.[key];
@@ -1057,6 +1146,7 @@ function summarizeExistingProfile(existingProfile) {
 		if (Object.keys(links).length) summary.social_links = links;
 	}
 	if (existingProfile?.categories) {
+		/** @type {any} */
 		const cat = {};
 		if (existingProfile.categories.group_types?.length)
 			cat.group_types = existingProfile.categories.group_types;
@@ -1074,6 +1164,9 @@ function summarizeExistingProfile(existingProfile) {
 	return Object.keys(summary).length ? truncate(JSON.stringify(summary), 2500) : '(none)';
 }
 
+/**
+ * @param {any} existingProfile
+ */
 function buildExistingProfileDoc(existingProfile) {
 	if (!existingProfile) return null;
 	const lines = ['Existing profile baseline (admin-provided):'];
@@ -1107,12 +1200,18 @@ function buildExistingProfileDoc(existingProfile) {
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 function buildWebsiteCandidateList({ requestedSite, socialFacts, socialDocs }) {
+	/** @type {any} */
 	const candidates = [];
 	const seen = new Set();
+	/** @type {any} */
 	const pushCandidate = (value) => {
 		const normalized = normalizeAnyUrl(value);
 		if (!normalized) return;
+		/** @type {any} */
 		let host;
 		try {
 			host = new URL(normalized).hostname.toLowerCase();
@@ -1133,8 +1232,14 @@ function buildWebsiteCandidateList({ requestedSite, socialFacts, socialDocs }) {
 	return candidates.slice(0, Math.max(1, MAX_SOCIAL_FALLBACK_SITES + 1));
 }
 
+/**
+ * @param {any} baseSiteUrl
+ * @param {any} [existing]
+ */
 async function scrapeWebsiteBundle(baseSiteUrl, existing = []) {
+	/** @type {any} */
 	const docs = [];
+	/** @type {any} */
 	let plan = [];
 	const root = await fetchAndExtract(baseSiteUrl);
 	if (!root) return { docs, plan };
@@ -1161,9 +1266,15 @@ async function scrapeWebsiteBundle(baseSiteUrl, existing = []) {
 	return { docs: dedupeDocs(docs), plan };
 }
 
+/**
+ * @param {any} siteDocs
+ * @param {any} baseSiteUrl
+ * @param {any} [existing]
+ */
 async function fetchAssetDocsFromSite(siteDocs, baseSiteUrl, existing = []) {
 	const assetLinks = collectAssetLinks(siteDocs, baseSiteUrl, existing);
 	if (!assetLinks.length) return [];
+	/** @type {any} */
 	const out = [];
 	for (const asset of assetLinks) {
 		if (/\.ics($|\?)/i.test(asset) || /\.ical($|\?)/i.test(asset)) {
@@ -1180,12 +1291,19 @@ async function fetchAssetDocsFromSite(siteDocs, baseSiteUrl, existing = []) {
 	return out;
 }
 
+/**
+ * @param {any} siteDocs
+ * @param {any} baseSiteUrl
+ * @param {any} [existing]
+ */
 function collectAssetLinks(siteDocs, baseSiteUrl, existing = []) {
 	const seen = new Set(existing.map((u) => normalizeAnyUrl(u)).filter(Boolean));
+	/** @type {any} */
 	const found = [];
 	for (const doc of siteDocs) {
 		if (!doc?.html) continue;
 		const regex = /href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>"']+))/gi;
+		/** @type {any} */
 		let match;
 		while ((match = regex.exec(doc.html))) {
 			const href = match[1] || match[2] || match[3] || '';
@@ -1201,6 +1319,10 @@ function collectAssetLinks(siteDocs, baseSiteUrl, existing = []) {
 	return found;
 }
 
+/**
+ * @param {any} input
+ * @param {any} baseUrl
+ */
 function normalizeAssetUrl(input, baseUrl) {
 	if (!input) return null;
 	try {
@@ -1213,6 +1335,9 @@ function normalizeAssetUrl(input, baseUrl) {
 	}
 }
 
+/**
+ * @param {any} assetUrl
+ */
 async function fetchPdfAsset(assetUrl) {
 	const proxy = `https://r.jina.ai/${assetUrl}`;
 	const doc = await fetchAndExtract(proxy);
@@ -1227,6 +1352,9 @@ async function fetchPdfAsset(assetUrl) {
 	};
 }
 
+/**
+ * @param {any} assetUrl
+ */
 async function fetchIcsAsset(assetUrl) {
 	const res = await fetchWithTimeout(
 		assetUrl,
@@ -1237,7 +1365,9 @@ async function fetchIcsAsset(assetUrl) {
 	const raw = await res.text().catch(() => '');
 	if (!raw) return null;
 	const lines = raw.split(/\r?\n/);
+	/** @type {any} */
 	const events = [];
+	/** @type {any} */
 	let current = {};
 	for (const line of lines) {
 		if (line.startsWith('BEGIN:VEVENT')) current = {};
@@ -1256,6 +1386,7 @@ async function fetchIcsAsset(assetUrl) {
 	}
 	const textParts = [`Calendar feed: ${assetUrl}`];
 	for (const event of events) {
+		/** @type {any} */
 		const parts = [];
 		if (event.summary) parts.push(`Summary: ${event.summary}`);
 		if (event.location) parts.push(`Location: ${event.location}`);
@@ -1273,7 +1404,12 @@ async function fetchIcsAsset(assetUrl) {
 	};
 }
 
+/**
+ * @param {any} docs
+ * @param {any} [param1]
+ */
 function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
+	/** @type {any} */
 	const facts = {
 		websiteCandidates: [],
 		emails: [],
@@ -1296,6 +1432,7 @@ function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
 			other: null
 		}
 	};
+	/** @type {any} */
 	const addUnique = (list, value) => {
 		const v = (value || '').trim();
 		if (!v || list.includes(v)) return;
@@ -1320,12 +1457,16 @@ function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
 				addUnique(facts.websiteCandidates, normalized);
 			}
 		}
+		/** @type {any} */
 		const nameMatch = /(?:^|\n)\s*Name:\s*([^\n]+)/i.exec(text);
 		if (nameMatch?.[1]) addUnique(facts.nameCandidates, nameMatch[1].trim());
+		/** @type {any} */
 		const bioMatch = /(?:^|\n)\s*Bio:\s*([^\n]+)/i.exec(text);
 		if (bioMatch?.[1]) addUnique(facts.bioSnippets, truncate(bioMatch[1].trim(), 220));
+		/** @type {any} */
 		const extLinkMatch = /(?:^|\n)\s*External link:\s*([^\n]+)/i.exec(text);
 		if (extLinkMatch?.[1]) {
+			/** @type {any} */
 			const normalized = normalizeAnyUrl(extLinkMatch[1].trim());
 			if (normalized) addUnique(facts.websiteCandidates, normalized);
 		}
@@ -1341,10 +1482,15 @@ function deriveSocialFactsFromDocs(docs, { instagramUrl, facebookUrl } = {}) {
 	return facts;
 }
 
+/**
+ * @param {any} docs
+ * @param {any} param1
+ */
 function extractDeterministicFacts(
 	docs,
 	{ name, requestedSite, selectedSite, socialFacts, existingProfile }
 ) {
+	/** @type {any} */
 	const candidatesByField = {};
 	const addCandidate = (field, value, score, evidence, doc, source = inferDocSourceType(doc)) => {
 		const normalizedValue = normalizeCandidateValue(field, value);
@@ -1362,6 +1508,7 @@ function extractDeterministicFacts(
 		});
 	};
 
+	/** @type {any} */
 	const socialLinks = {
 		instagram: socialFacts?.social_links?.instagram || null,
 		facebook: socialFacts?.social_links?.facebook || null,
@@ -1552,6 +1699,7 @@ function extractDeterministicFacts(
 				sourceType
 			);
 		}
+		/** @type {any} */
 		const taglineCandidates = pickSentencesByRegex(
 			text,
 			/\b(community|inclusive|mission|empower|ride together|ride with us)\b/i,
@@ -1567,6 +1715,7 @@ function extractDeterministicFacts(
 				sourceType
 			);
 		}
+		/** @type {any} */
 		const descCandidates = pickSentencesByRegex(
 			text,
 			/\b(we are|our mission|about us|founded|we organize)\b/i,
@@ -1622,6 +1771,7 @@ function extractDeterministicFacts(
 		);
 	}
 
+	/** @type {any} */
 	const fields = {};
 	for (const key of ALL_FIELD_KEYS) {
 		fields[key] = selectBestCandidateValue(candidatesByField[key], key)?.value ?? null;
@@ -1635,6 +1785,9 @@ function extractDeterministicFacts(
 	return { fields, categories, candidatesByField };
 }
 
+/**
+ * @param {any} param0
+ */
 function mergeAndResolveFacts({
 	aiFields,
 	aiCategories,
@@ -1644,8 +1797,11 @@ function mergeAndResolveFacts({
 	requestedSite,
 	socialFacts
 }) {
+	/** @type {any} */
 	const fields = {};
+	/** @type {any} */
 	const conflicts = [];
+	/** @type {any} */
 	const fieldEvidence = {};
 	for (const key of ALL_FIELD_KEYS) {
 		const candidates = [...(deterministicFacts.candidatesByField?.[key] || [])];
@@ -1699,7 +1855,11 @@ function mergeAndResolveFacts({
 	return { fields, categories, conflicts, fieldEvidence };
 }
 
+/**
+ * @param {any} param0
+ */
 function normalizeAndValidateResult({ fields = {}, categories = {} }) {
+	/** @type {any} */
 	const out = {};
 	for (const key of ALL_FIELD_KEYS) out[key] = normalizeFieldValue(key, fields[key]);
 	out.latitude = normalizeLatitudeLongitude(out.latitude, 'lat');
@@ -1723,6 +1883,9 @@ function normalizeAndValidateResult({ fields = {}, categories = {} }) {
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 function buildEnrichmentMetadata({
 	fields,
 	categories,
@@ -1736,6 +1899,7 @@ function buildEnrichmentMetadata({
 	locationResolution,
 	existingProfile
 }) {
+	/** @type {any} */
 	const fieldConfidence = {};
 	for (const key of ALL_FIELD_KEYS) {
 		fieldConfidence[key] = finalizeFieldConfidence(key, fields[key], fieldEvidence?.[key]);
@@ -1784,8 +1948,12 @@ function buildEnrichmentMetadata({
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 async function resolveLocationFields({ fields, socialFacts, fieldEvidence }) {
 	const base = fields || {};
+	/** @type {any} */
 	const output = {
 		applied: false,
 		method: null,
@@ -1862,8 +2030,14 @@ async function resolveLocationFields({ fields, socialFacts, fieldEvidence }) {
 	return output;
 }
 
+/**
+ * @param {any} [fields]
+ * @param {any} [socialFacts]
+ */
 function buildLocationQueries(fields = {}, socialFacts = {}) {
+	/** @type {any} */
 	const queries = [];
+	/** @type {any} */
 	const pushQuery = (query, type, priority) => {
 		const q = normalizeText(query);
 		if (!q) return;
@@ -1901,6 +2075,9 @@ function buildLocationQueries(fields = {}, socialFacts = {}) {
 	return queries.sort((a, b) => a.priority - b.priority).slice(0, 4);
 }
 
+/**
+ * @param {any} [parts]
+ */
 function composeLocationQuery(parts = []) {
 	return parts
 		.map((part) => normalizeText(part || ''))
@@ -1908,12 +2085,18 @@ function composeLocationQuery(parts = []) {
 		.join(', ');
 }
 
+/**
+ * @param {any} country
+ */
 function locationCountryCodes(country) {
 	const code = normalizeCountryCode(country);
 	if (!code) return '';
 	return code.toLowerCase();
 }
 
+/**
+ * @param {any} [label]
+ */
 function parseGeocodeLabel(label = '') {
 	const text = normalizeText(label);
 	if (!text) return { city: null, state_region: null, country: null, address: null };
@@ -1926,7 +2109,9 @@ function parseGeocodeLabel(label = '') {
 	const country = normalizeCountryCode(countryPart);
 	const secondLast = parts.length >= 2 ? parts[parts.length - 2] : '';
 	const thirdLast = parts.length >= 3 ? parts[parts.length - 3] : '';
+	/** @type {any} */
 	let state_region = null;
+	/** @type {any} */
 	let city = null;
 
 	if (/^[A-Z]{2}$/.test(secondLast)) state_region = secondLast;
@@ -1944,9 +2129,13 @@ function parseGeocodeLabel(label = '') {
 	};
 }
 
+/**
+ * @param {any} [text]
+ */
 function extractLocationHintFromText(text = '') {
 	const normalized = normalizeText(text);
 	if (!normalized) return '';
+	/** @type {any} */
 	const patterns = [
 		/\b(?:based in|serving|across|throughout|chapter in)\s+([A-Za-z\s'.-]{3,80})/i,
 		/\b([A-Za-z\s'.-]{2,50},\s*[A-Z]{2})\b/,
@@ -1959,6 +2148,9 @@ function extractLocationHintFromText(text = '') {
 	return '';
 }
 
+/**
+ * @param {any} param0
+ */
 function scoreLocationResolutionConfidence({ candidate, match, existing }) {
 	let score = 0.62;
 	if (candidate.type === 'address') score += 0.2;
@@ -1974,12 +2166,20 @@ function scoreLocationResolutionConfidence({ candidate, match, existing }) {
 	return score;
 }
 
+/**
+ * @param {any} fieldEvidence
+ * @param {any} fieldKey
+ * @param {any} label
+ * @param {any} match
+ * @param {any} confidence
+ */
 function applyFieldEvidence(fieldEvidence, fieldKey, label, match, confidence) {
 	if (!fieldEvidence || !fieldKey) return;
 	const existing = fieldEvidence[fieldKey] || { confidence: 0, evidence: [], source: null };
 	existing.confidence = Math.max(existing.confidence || 0, clamp(confidence, 0, 0.99));
 	existing.source = match?.source || existing.source || 'geocode';
 	const snippet = `Resolved from geocode result "${truncate(label || '', 180)}".`;
+	/** @type {any} */
 	const evidence = {
 		url: '',
 		snippet,
@@ -1993,6 +2193,9 @@ function applyFieldEvidence(fieldEvidence, fieldKey, label, match, confidence) {
 	fieldEvidence[fieldKey] = existing;
 }
 
+/**
+ * @param {any} input
+ */
 function normalizeAnyUrl(input) {
 	if (!input) return null;
 	try {
@@ -2010,6 +2213,9 @@ function normalizeAnyUrl(input) {
 	}
 }
 
+/**
+ * @param {any} [host]
+ */
 function isSocialHost(host = '') {
 	const h = host.replace(/^www\./i, '').toLowerCase();
 	return [
@@ -2033,6 +2239,9 @@ function isSocialHost(host = '') {
 	].some((item) => h === item || h.endsWith(`.${item}`));
 }
 
+/**
+ * @param {any} [text]
+ */
 function extractUrls(text = '') {
 	if (!text) return [];
 	return Array.from(text.matchAll(/https?:\/\/[^\s<>"')\]]+/gi))
@@ -2040,6 +2249,10 @@ function extractUrls(text = '') {
 		.filter(Boolean);
 }
 
+/**
+ * @param {any} socialLinks
+ * @param {any} url
+ */
 function applySocialUrlByHost(socialLinks, url) {
 	if (!socialLinks || !url) return;
 	let host = '';
@@ -2066,20 +2279,29 @@ function applySocialUrlByHost(socialLinks, url) {
 	else socialLinks.other = socialLinks.other || url;
 }
 
+/**
+ * @param {string} [text]
+ * @param {RegExp} [regex]
+ * @param {number} [limit]
+ */
 function pickSentencesByRegex(text = '', regex, limit = 1) {
+	/** @type {string[]} */
 	const sentences = [];
 	const parts = text.split(/(?<=[.!?])\s+/).slice(0, 180);
 	for (const part of parts) {
 		const sentence = normalizeText(part);
 		if (!sentence || sentence.length < 25 || sentence.length > 260) continue;
 		if (isLikelyBoilerplateText(sentence)) continue;
-		if (!regex.test(sentence)) continue;
+		if (!regex || !regex.test(sentence)) continue;
 		sentences.push(sentence);
 		if (sentences.length >= limit) break;
 	}
 	return sentences;
 }
 
+/**
+ * @param {any} doc
+ */
 function inferDocSourceType(doc) {
 	const source = (doc?.source || '').toLowerCase();
 	const url = (doc?.url || '').toLowerCase();
@@ -2096,6 +2318,9 @@ function inferDocSourceType(doc) {
 	return source || 'unknown';
 }
 
+/**
+ * @param {any} doc
+ */
 function extractRecencyInfo(doc) {
 	const text = [doc?.pageSignals?.title || '', doc?.pageSignals?.description || '', doc?.text || '']
 		.join(' ')
@@ -2103,6 +2328,7 @@ function extractRecencyInfo(doc) {
 	const dates = parseDateCandidates(text);
 	if (!dates.length) return null;
 	const now = Date.now();
+	/** @type {any} */
 	let best = null;
 	for (const date of dates) {
 		const ts = date.getTime();
@@ -2119,7 +2345,11 @@ function extractRecencyInfo(doc) {
 	};
 }
 
+/**
+ * @param {any} [text]
+ */
 function parseDateCandidates(text = '') {
+	/** @type {any} */
 	const dates = [];
 	const isoMatches = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/g) || [];
 	for (const m of isoMatches.slice(0, 12)) {
@@ -2137,6 +2367,9 @@ function parseDateCandidates(text = '') {
 	return dates;
 }
 
+/**
+ * @param {any} ageDays
+ */
 function computeRecencyScore(ageDays) {
 	if (ageDays < 0 && ageDays >= -120) return 0.18;
 	if (ageDays >= 0 && ageDays <= RECENT_DAYS_WINDOW)
@@ -2145,12 +2378,18 @@ function computeRecencyScore(ageDays) {
 	return -0.1;
 }
 
+/**
+ * @param {any} doc
+ */
 function recencyBoost(doc) {
 	if (!doc) return 0;
 	if (!doc?.recency) doc.recency = extractRecencyInfo(doc);
 	return doc?.recency?.score || 0;
 }
 
+/**
+ * @param {any} doc
+ */
 function describeDocRecency(doc) {
 	if (!doc) return '';
 	if (!doc?.recency) doc.recency = extractRecencyInfo(doc);
@@ -2159,6 +2398,10 @@ function describeDocRecency(doc) {
 	return `dated ${doc.recency.date}`;
 }
 
+/**
+ * @param {any} field
+ * @param {any} value
+ */
 function normalizeCandidateValue(field, value) {
 	if (value == null) return null;
 	if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -2175,6 +2418,10 @@ function normalizeCandidateValue(field, value) {
 	return truncate(text, 600);
 }
 
+/**
+ * @param {any} [candidates]
+ * @param {any} [field]
+ */
 function selectBestCandidateValue(candidates = [], field = null) {
 	if (!candidates.length) return null;
 	const sorted = [...candidates]
@@ -2193,10 +2440,18 @@ function selectBestCandidateValue(candidates = [], field = null) {
 	};
 }
 
+/**
+ * @param {any} [score]
+ */
 function scoreToConfidence(score = 0) {
 	return clamp(0.05 + (score - 0.35) * 0.55, 0, 0.98);
 }
 
+/**
+ * @param {any} field
+ * @param {any} winner
+ * @param {any} [allCandidates]
+ */
 function buildFieldEvidenceMeta(field, winner, allCandidates = []) {
 	if (!winner) return { confidence: 0, evidence: [], source: null };
 	const evidence = allCandidates
@@ -2216,7 +2471,11 @@ function buildFieldEvidenceMeta(field, winner, allCandidates = []) {
 	};
 }
 
+/**
+ * @param {any} [values]
+ */
 function uniqueNormalizedValues(values = []) {
+	/** @type {any} */
 	const out = [];
 	const seen = new Set();
 	for (const raw of values) {
@@ -2229,16 +2488,21 @@ function uniqueNormalizedValues(values = []) {
 	return out;
 }
 
+/**
+ * @param {any} [docs]
+ */
 function inferCategoriesFromDocs(docs = []) {
 	const text = docs
 		.map((doc) => doc?.analysisText || doc?.text || '')
 		.join(' ')
 		.toLowerCase();
+	/** @type {any} */
 	const categories = {
 		group_types: [],
 		audience_focuses: [],
 		riding_disciplines: []
 	};
+	/** @type {any} */
 	const pushUnique = (list, value) => {
 		if (!list.includes(value)) list.push(value);
 	};
@@ -2269,6 +2533,10 @@ function inferCategoriesFromDocs(docs = []) {
 	return categories;
 }
 
+/**
+ * @param {any} [aiCategories]
+ * @param {any} [deterministicCategories]
+ */
 function mergeCategorySets(aiCategories = {}, deterministicCategories = {}) {
 	return {
 		group_types: unionCategoryList(aiCategories.group_types, deterministicCategories.group_types),
@@ -2283,10 +2551,19 @@ function mergeCategorySets(aiCategories = {}, deterministicCategories = {}) {
 	};
 }
 
+/**
+ * @param {any} [a]
+ * @param {any} [b]
+ */
 function unionCategoryList(a = [], b = []) {
 	return normalizeStringArray([...(a || []), ...(b || [])]).slice(0, 8);
 }
 
+/**
+ * @param {any} field
+ * @param {any} value
+ * @param {any} [docs]
+ */
 function scoreAiCandidate(field, value, docs = []) {
 	let score = 0.66;
 	const normalizedValue = normalizeCandidateValue(field, value);
@@ -2312,6 +2589,10 @@ function scoreAiCandidate(field, value, docs = []) {
 	return score;
 }
 
+/**
+ * @param {any} field
+ * @param {any} value
+ */
 function normalizeFieldValue(field, value) {
 	if (value == null || value === '') return null;
 	if (field === 'latitude' || field === 'longitude')
@@ -2329,6 +2610,7 @@ function normalizeFieldValue(field, value) {
 	if (field === 'name' && isLowValueNameCandidate(text)) return null;
 	if (field === 'tagline') return sanitizeTagline(text);
 	if (field === 'preferred_contact_method_instructions') return sanitizeContactInstruction(text);
+	/** @type {any} */
 	const maxByField = {
 		tagline: 140,
 		description: 1800,
@@ -2344,6 +2626,10 @@ function normalizeFieldValue(field, value) {
 	return truncateAtWord(text, maxByField[field] || 320);
 }
 
+/**
+ * @param {any} value
+ * @param {any} mode
+ */
 function normalizeLatitudeLongitude(value, mode) {
 	const n = typeof value === 'number' ? value : Number.parseFloat(`${value}`);
 	if (!Number.isFinite(n)) return null;
@@ -2354,10 +2640,16 @@ function normalizeLatitudeLongitude(value, mode) {
 	return null;
 }
 
+/**
+ * @param {any} [value]
+ */
 function isLikelyEmail(value = '') {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+/**
+ * @param {any} value
+ */
 function normalizePhone(value) {
 	if (value == null) return null;
 	let raw = `${value}`.trim();
@@ -2373,9 +2665,13 @@ function normalizePhone(value) {
 	return `${hasPlus ? '+' : ''}${digits}`;
 }
 
+/**
+ * @param {any} value
+ */
 function normalizeCountryCode(value) {
 	if (!value) return null;
 	const normalized = normalizeText(`${value}`).toUpperCase();
+	/** @type {any} */
 	const map = {
 		'UNITED STATES': 'US',
 		USA: 'US',
@@ -2395,7 +2691,11 @@ function normalizeCountryCode(value) {
 	return null;
 }
 
+/**
+ * @param {any} [socialLinks]
+ */
 function normalizeSocialLinks(socialLinks = {}) {
+	/** @type {any} */
 	const out = {};
 	for (const key of SOCIAL_FIELD_KEYS) {
 		out[key] = normalizeSocialLinkValue(key, socialLinks?.[key]);
@@ -2403,6 +2703,10 @@ function normalizeSocialLinks(socialLinks = {}) {
 	return out;
 }
 
+/**
+ * @param {any} key
+ * @param {any} value
+ */
 function normalizeSocialLinkValue(key, value) {
 	if (!value) return null;
 	const v = `${value}`.trim();
@@ -2431,8 +2735,12 @@ function normalizeSocialLinkValue(key, value) {
 	return normalizeAnyUrl(v);
 }
 
+/**
+ * @param {any} [values]
+ */
 function normalizeStringArray(values = []) {
 	const seen = new Set();
+	/** @type {any} */
 	const out = [];
 	for (const value of values) {
 		const normalized = normalizeText(`${value || ''}`);
@@ -2445,6 +2753,11 @@ function normalizeStringArray(values = []) {
 	return out;
 }
 
+/**
+ * @param {any} key
+ * @param {any} value
+ * @param {any} meta
+ */
 function finalizeFieldConfidence(key, value, meta) {
 	if (value == null || value === '') return { confidence: 0, evidence: [] };
 	const confidence = clamp(meta?.confidence ?? 0.6, 0.05, 0.99);
@@ -2452,6 +2765,10 @@ function finalizeFieldConfidence(key, value, meta) {
 	return { confidence, evidence };
 }
 
+/**
+ * @param {any} doc
+ * @param {any} keyPattern
+ */
 function extractLikelyImageFromStructured(doc, keyPattern) {
 	for (const snippet of doc?.structured || []) {
 		const text = snippet?.json || '';
@@ -2468,16 +2785,23 @@ function extractLikelyImageFromStructured(doc, keyPattern) {
 	return null;
 }
 
+/**
+ * @param {any} [text]
+ */
 function extractEmailCandidates(text = '') {
 	return uniqueNormalizedValues(
 		(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []).map((e) => e.toLowerCase())
 	);
 }
 
+/**
+ * @param {any} [text]
+ */
 function extractPhoneCandidates(text = '') {
 	if (!text) return [];
 	const textWithoutUrls = text.replace(/https?:\/\/[^\s<>"')\]]+/gi, ' ');
 	const matches = Array.from(textWithoutUrls.matchAll(/(?:\+?\d[\d\s().-]{7,}\d)/g));
+	/** @type {any} */
 	const out = [];
 	for (const match of matches) {
 		const raw = match?.[0] || '';
@@ -2495,11 +2819,17 @@ function extractPhoneCandidates(text = '') {
 	return out;
 }
 
+/**
+ * @param {any} [title]
+ */
 function isLowValueTitle(title = '') {
 	const t = title.toLowerCase();
 	return /privacy|terms|cookies|login|sign in|404|not found/.test(t);
 }
 
+/**
+ * @param {any} [title]
+ */
 function extractNameFromPageTitle(title = '') {
 	const cleaned = normalizeText(title);
 	if (!cleaned) return null;
@@ -2528,6 +2858,9 @@ function extractNameFromPageTitle(title = '') {
 	return ranked[0].piece;
 }
 
+/**
+ * @param {any} [value]
+ */
 function isLowValueNameCandidate(value = '') {
 	const text = normalizeText(value).toLowerCase();
 	if (!text) return true;
@@ -2542,6 +2875,9 @@ function isLowValueNameCandidate(value = '') {
 	return false;
 }
 
+/**
+ * @param {any} [value]
+ */
 function isLikelyBoilerplateText(value = '') {
 	const text = normalizeText(value).toLowerCase();
 	if (!text) return false;
@@ -2557,6 +2893,9 @@ function isLikelyBoilerplateText(value = '') {
 	return false;
 }
 
+/**
+ * @param {any} [value]
+ */
 function isLowValueDescription(value = '') {
 	const text = normalizeText(value);
 	if (!text) return true;
@@ -2576,6 +2915,9 @@ function isLowValueDescription(value = '') {
 	return false;
 }
 
+/**
+ * @param {any} [value]
+ */
 function isLowValueContactInstruction(value = '') {
 	const text = normalizeText(value);
 	if (!text) return true;
@@ -2591,6 +2933,11 @@ function isLowValueContactInstruction(value = '') {
 	return false;
 }
 
+/**
+ * @param {any} field
+ * @param {any} value
+ * @param {any} [sourceType]
+ */
 function qualityAdjustmentForField(field, value, sourceType = '') {
 	if (value == null || value === '') return -0.4;
 	if (typeof value !== 'string') return 0;
@@ -2611,6 +2958,10 @@ function qualityAdjustmentForField(field, value, sourceType = '') {
 	return adjustment;
 }
 
+/**
+ * @param {any} [text]
+ * @param {any} [max]
+ */
 function truncateAtWord(text = '', max = 160) {
 	if (!text || text.length <= max) return text;
 	const clipped = text.slice(0, max + 1);
@@ -2618,6 +2969,9 @@ function truncateAtWord(text = '', max = 160) {
 	return (idx > Math.floor(max * 0.6) ? clipped.slice(0, idx) : clipped.slice(0, max)).trim();
 }
 
+/**
+ * @param {any} value
+ */
 function sanitizeTagline(value) {
 	const text = normalizeText(value);
 	if (!text || isLikelyBoilerplateText(text)) return null;
@@ -2635,6 +2989,9 @@ function sanitizeTagline(value) {
 	return candidate.replace(/\s+\.\.\.$/, '').trim();
 }
 
+/**
+ * @param {any} value
+ */
 function sanitizeContactInstruction(value) {
 	const text = normalizeText(value);
 	if (!text || isLowValueContactInstruction(text)) return null;
@@ -2645,6 +3002,9 @@ function sanitizeContactInstruction(value) {
 	return truncateAtWord(sentence || text, 220);
 }
 
+/**
+ * @param {any} value
+ */
 function sanitizeDescription(value) {
 	const text = normalizeText(value);
 	if (!text || isLowValueDescription(text)) return null;
@@ -2654,6 +3014,7 @@ function sanitizeDescription(value) {
 		.filter(Boolean)
 		.filter((part) => !isLikelyBoilerplateText(part));
 	if (!sentences.length) return null;
+	/** @type {any} */
 	const chosen = [];
 	for (const sentence of sentences) {
 		if (sentence.length < 35) continue;
@@ -2664,6 +3025,9 @@ function sanitizeDescription(value) {
 	return truncateAtWord(output, 900);
 }
 
+/**
+ * @param {any} description
+ */
 function deriveTaglineFromDescription(description) {
 	const text = normalizeText(description || '');
 	if (!text) return null;
@@ -2674,6 +3038,9 @@ function deriveTaglineFromDescription(description) {
 	return sentence || null;
 }
 
+/**
+ * @param {any} [fields]
+ */
 function buildPreferredContactFallback(fields = {}) {
 	const email = fields.public_contact_email;
 	const phone = fields.public_phone_number;
@@ -2685,6 +3052,9 @@ function buildPreferredContactFallback(fields = {}) {
 	return null;
 }
 
+/**
+ * @param {any} param0
+ */
 function shouldRunNarrativePass({ fields = {}, fieldEvidence = {} }) {
 	for (const key of VOICE_FIELDS) {
 		if (!fields?.[key]) return true;
@@ -2700,9 +3070,13 @@ function shouldRunNarrativePass({ fields = {}, fieldEvidence = {} }) {
 	return false;
 }
 
+/**
+ * @param {any} parsed
+ */
 function shouldRetryExtractionPass(parsed) {
 	if (!parsed?.fields || !parsed?.categories) return true;
 	const fields = parsed.fields || {};
+	/** @type {any} */
 	const critical = [
 		'name',
 		'description',
@@ -2723,9 +3097,13 @@ function shouldRetryExtractionPass(parsed) {
 	return present < 3 || categoryCount < 2;
 }
 
+/**
+ * @param {any} parsed
+ */
 function extractionPayloadScore(parsed) {
 	if (!parsed?.fields || !parsed?.categories) return 0;
 	const fields = parsed.fields || {};
+	/** @type {any} */
 	const weighted = [
 		{ key: 'name', score: 2.5 },
 		{ key: 'description', score: 2 },
@@ -2749,6 +3127,9 @@ function extractionPayloadScore(parsed) {
 	return score;
 }
 
+/**
+ * @param {any} param0
+ */
 function applyFieldQualityGuards({
 	fields = {},
 	existingProfile = null,
@@ -2789,14 +3170,27 @@ function applyFieldQualityGuards({
 	return out;
 }
 
+/**
+ * @param {any} value
+ * @param {any} min
+ * @param {any} max
+ */
 function clamp(value, min, max) {
 	return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * @param {any} url
+ * @param {any} [options]
+ * @param {any} [timeout]
+ */
 async function fetchWithTimeout(url, options = {}, timeout = DEFAULT_FETCH_TIMEOUT) {
 	return fetchPublicHttp(url, options, { timeoutMs: timeout, maxRedirects: 3 });
 }
 
+/**
+ * @param {any} param0
+ */
 async function crawlImportantSitePages({
 	baseUrl,
 	rootDoc,
@@ -2804,6 +3198,7 @@ async function crawlImportantSitePages({
 	limit = SITE_CRAWL_PAGE_LIMIT
 }) {
 	if (!rootDoc?.html || !baseUrl || limit <= 0) return { docs: [], plan: [] };
+	/** @type {any} */
 	let base;
 	try {
 		base = new URL(baseUrl);
@@ -2815,9 +3210,12 @@ async function crawlImportantSitePages({
 	const visited = new Set(existing.map((u) => canonicalizeUrl(u, baseUrl)).filter(Boolean));
 	const planned = new Set();
 	const planMap = new Map();
+	/** @type {any} */
 	const queue = [];
+	/** @type {any} */
 	const docs = [];
 
+	/** @type {any} */
 	const enqueue = (candidate) => {
 		if (!candidate?.url || visited.has(candidate.url) || planned.has(candidate.url)) return;
 		planned.add(candidate.url);
@@ -2833,6 +3231,7 @@ async function crawlImportantSitePages({
 		for (const candidate of sitemapCandidates) enqueue(candidate);
 	}
 
+	/** @type {any} */
 	const predictablePaths = [
 		'/about',
 		'/about-us',
@@ -2919,6 +3318,11 @@ async function crawlImportantSitePages({
 	return { docs: dedupeDocs(docs), plan };
 }
 
+/**
+ * @param {any} html
+ * @param {any} baseUrl
+ * @param {any} [param2]
+ */
 function getInternalLinkCandidates(html, baseUrl, { depth = 0 } = {}) {
 	if (!html) return [];
 	const matches = extractAnchorMatches(html);
@@ -2928,6 +3332,7 @@ function getInternalLinkCandidates(html, baseUrl, { depth = 0 } = {}) {
 		if (!url) continue;
 		const score = scoreInternalLink(url, match.text, depth);
 		const existing = byUrl.get(url);
+		/** @type {any} */
 		const candidate = {
 			url,
 			score,
@@ -2942,9 +3347,14 @@ function getInternalLinkCandidates(html, baseUrl, { depth = 0 } = {}) {
 		.slice(0, SITE_CANDIDATE_LIMIT);
 }
 
+/**
+ * @param {any} html
+ */
 function extractAnchorMatches(html) {
+	/** @type {any} */
 	const anchors = [];
 	const regex = /<a\b[^>]*href\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>"']+))[^>]*>([\s\S]*?)<\/a>/gi;
+	/** @type {any} */
 	let match;
 	while ((match = regex.exec(html))) {
 		const href = (match[1] || match[2] || match[3] || '').trim();
@@ -2957,7 +3367,13 @@ function extractAnchorMatches(html) {
 	return anchors;
 }
 
+/**
+ * @param {any} baseUrl
+ * @param {any} normalizeBaseUrl
+ * @param {any} existingSet
+ */
 async function discoverSitemapCandidates(baseUrl, normalizeBaseUrl, existingSet) {
+	/** @type {any} */
 	let root;
 	try {
 		root = new URL(baseUrl);
@@ -3020,6 +3436,10 @@ async function discoverSitemapCandidates(baseUrl, normalizeBaseUrl, existingSet)
 		.slice(0, SITE_CANDIDATE_LIMIT);
 }
 
+/**
+ * @param {any} input
+ * @param {any} baseUrl
+ */
 function canonicalizeUrl(input, baseUrl) {
 	if (!input) return null;
 	try {
@@ -3040,7 +3460,13 @@ function canonicalizeUrl(input, baseUrl) {
 	}
 }
 
+/**
+ * @param {any} url
+ * @param {any} [anchorText]
+ * @param {any} [depth]
+ */
 function scoreInternalLink(url, anchorText = '', depth = 0) {
+	/** @type {any} */
 	let parsed;
 	try {
 		parsed = new URL(url);
@@ -3051,6 +3477,7 @@ function scoreInternalLink(url, anchorText = '', depth = 0) {
 	const anchor = anchorText.toLowerCase();
 	let score = 0;
 
+	/** @type {any} */
 	const highValueKeywords = [
 		'about',
 		'mission',
@@ -3088,6 +3515,7 @@ function scoreInternalLink(url, anchorText = '', depth = 0) {
 	if (/^\/(contact|contact-us)$/.test(path)) score += 6;
 	if (/^\/(rides|events|calendar|schedule)$/.test(path)) score += 6;
 
+	/** @type {any} */
 	const lowValueKeywords = [
 		'login',
 		'signin',
@@ -3117,12 +3545,18 @@ function scoreInternalLink(url, anchorText = '', depth = 0) {
 	return score;
 }
 
+/**
+ * @param {any} [pathname]
+ */
 function isLikelyBinaryPath(pathname = '') {
 	return /\.(?:jpe?g|png|gif|webp|svg|ico|pdf|zip|rar|7z|tar|gz|mp[34]|avi|mov|wmv|m4v|webm|docx?|xlsx?|pptx?)$/i.test(
 		pathname
 	);
 }
 
+/**
+ * @param {any} html
+ */
 function extractPageSignals(html) {
 	if (!html) return null;
 	const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -3154,8 +3588,12 @@ function extractPageSignals(html) {
 	};
 }
 
+/**
+ * @param {any} [html]
+ */
 function extractImageSignalsFromHtml(html = '') {
 	if (!html) return null;
+	/** @type {any} */
 	let dom;
 	try {
 		dom = parseDocument(html, { decodeEntities: true });
@@ -3164,12 +3602,14 @@ function extractImageSignalsFromHtml(html = '') {
 	}
 	const images = { logo: [], cover: [] };
 	const seen = new Set();
+	/** @type {any} */
 	const push = (field, url, baseUrl = '') => {
 		const normalized = normalizeAssetUrl(url, baseUrl) || normalizeAnyUrl(url);
 		if (!normalized || seen.has(normalized)) return;
 		seen.add(normalized);
 		images[field].push(normalized);
 	};
+	/** @type {any} */
 	const visit = (node) => {
 		if (!node || node.type !== 'tag') return;
 		const tag = (node.name || '').toLowerCase();
@@ -3196,6 +3636,10 @@ function extractImageSignalsFromHtml(html = '') {
 	return images.logo.length || images.cover.length ? images : null;
 }
 
+/**
+ * @param {any} docs
+ * @param {any} [crawlPlan]
+ */
 function rankDocsForContext(docs, crawlPlan = []) {
 	if (!docs?.length) return [];
 	const scoreByUrl = new Map(crawlPlan.map((item) => [item.url, item.score || 0]));
@@ -3208,9 +3652,14 @@ function rankDocsForContext(docs, crawlPlan = []) {
 	});
 }
 
+/**
+ * @param {any} doc
+ * @param {any} [crawlPlan]
+ */
 function buildDocContextLabel(doc, crawlPlan = []) {
 	if (!doc) return '';
 	const plan = crawlPlan.find((item) => item.url === doc.url);
+	/** @type {any} */
 	const parts = [];
 	if (doc?.source || plan?.source) parts.push(`source: ${doc.source || plan.source}`);
 	const score = doc?.crawl?.score ?? plan?.score;
@@ -3220,8 +3669,12 @@ function buildDocContextLabel(doc, crawlPlan = []) {
 	return parts.join(', ');
 }
 
+/**
+ * @param {any} signals
+ */
 function buildPageSignalsText(signals) {
 	if (!signals) return '';
+	/** @type {any} */
 	const lines = [];
 	if (signals.title) lines.push(`Title: ${signals.title}`);
 	if (signals.description) lines.push(`Meta description: ${signals.description}`);
@@ -3230,7 +3683,11 @@ function buildPageSignalsText(signals) {
 	return lines.join('\n');
 }
 
+/**
+ * @param {any} param0
+ */
 function buildAnalysisText({ html = '', readerText = '', fallbackText = '', pageSignals = null }) {
+	/** @type {any} */
 	const sections = [];
 	const signalText = buildPageSignalsText(pageSignals);
 	if (signalText) sections.push(signalText);
@@ -3252,16 +3709,22 @@ function buildAnalysisText({ html = '', readerText = '', fallbackText = '', page
 	);
 }
 
+/**
+ * @param {any} [html]
+ */
 function extractHighValueHtmlBlocks(html = '') {
 	if (!html) return [];
+	/** @type {any} */
 	let dom;
 	try {
 		dom = parseDocument(html, { decodeEntities: true });
 	} catch {
 		return [];
 	}
+	/** @type {any} */
 	const blocks = [];
 	const seen = new Set();
+	/** @type {any} */
 	const visit = (node) => {
 		if (!node || node.type !== 'tag') return;
 		const tag = (node.name || '').toLowerCase();
@@ -3284,6 +3747,9 @@ function extractHighValueHtmlBlocks(html = '') {
 		.slice(0, 12);
 }
 
+/**
+ * @param {any} [text]
+ */
 function extractHighValueTextBlocks(text = '') {
 	if (!text) return [];
 	const rawBlocks = text
@@ -3291,6 +3757,7 @@ function extractHighValueTextBlocks(text = '') {
 		.split(/\n{2,}/)
 		.map((part) => normalizeText(part))
 		.filter(Boolean);
+	/** @type {any} */
 	const blocks = [];
 	const seen = new Set();
 	for (const block of rawBlocks) {
@@ -3305,6 +3772,10 @@ function extractHighValueTextBlocks(text = '') {
 		.slice(0, 12);
 }
 
+/**
+ * @param {any} [text]
+ * @param {any} [tag]
+ */
 function scoreContentBlock(text = '', tag = '') {
 	const normalized = normalizeText(text);
 	if (!normalized) return -10;
@@ -3334,6 +3805,9 @@ function scoreContentBlock(text = '', tag = '') {
 	return score;
 }
 
+/**
+ * @param {any} [text]
+ */
 function isLowValueBlockText(text = '') {
 	const normalized = normalizeText(text);
 	if (!normalized) return true;
@@ -3347,6 +3821,9 @@ function isLowValueBlockText(text = '') {
 	return false;
 }
 
+/**
+ * @param {any} [text]
+ */
 function normalizeText(text = '') {
 	if (!text) return '';
 	return decodeSimpleEntities(
@@ -3357,6 +3834,9 @@ function normalizeText(text = '') {
 	);
 }
 
+/**
+ * @param {any} [text]
+ */
 function decodeSimpleEntities(text = '') {
 	return text
 		.replace(/&nbsp;/gi, ' ')
@@ -3368,9 +3848,14 @@ function decodeSimpleEntities(text = '') {
 		.replace(/&#x2F;/gi, '/');
 }
 
+/**
+ * @param {any} html
+ */
 function extractEmbeddedJson(html) {
 	if (!html) return [];
+	/** @type {any} */
 	const snippets = [];
+	/** @type {any} */
 	const pushSnippet = (label, raw) => {
 		if (!raw) return;
 		const text = raw.trim();
@@ -3393,6 +3878,7 @@ function extractEmbeddedJson(html) {
 	};
 
 	const ldJsonRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+	/** @type {any} */
 	let match;
 	while ((match = ldJsonRegex.exec(html)) && snippets.length < MAX_STRUCTURED_SNIPPETS) {
 		pushSnippet('ld+json', match[1]);
@@ -3403,6 +3889,7 @@ function extractEmbeddedJson(html) {
 		pushSnippet('__NEXT_DATA__', match[1]);
 	}
 
+	/** @type {any} */
 	const windowDataRegexes = [
 		/window\.__INITIAL_DATA__\s*=\s*(\{[\s\S]*?\});/gi,
 		/window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/gi,
@@ -3417,10 +3904,18 @@ function extractEmbeddedJson(html) {
 	return snippets;
 }
 
+/**
+ * @param {any} text
+ * @param {any} max
+ */
 function truncate(text, max) {
 	return text.length > max ? `${text.slice(0, max)}...` : text;
 }
 
+/**
+ * @param {any} target
+ * @param {any} extras
+ */
 function pushAll(target, extras) {
 	if (!extras || !Array.isArray(extras)) return;
 	for (const item of extras) {
@@ -3428,9 +3923,13 @@ function pushAll(target, extras) {
 	}
 }
 
+/**
+ * @param {any} url
+ */
 async function scrapeInstagramProfile(url) {
 	const username = extractInstagramUsername(url);
 	if (!username) return [];
+	/** @type {any} */
 	const docs = [];
 
 	const apiDoc = await fetchInstagramProfileJson(username);
@@ -3452,10 +3951,15 @@ async function scrapeInstagramProfile(url) {
 	return dedupeDocs(docs);
 }
 
+/**
+ * @param {any} url
+ */
 async function scrapeFacebookPage(url) {
 	const path = extractFacebookPath(url);
 	if (!path) return [];
+	/** @type {any} */
 	const docs = [];
+	/** @type {any} */
 	const attempts = [
 		{ url: `https://m.facebook.com${path}?_rdr`, label: `${url} (m.facebook)` },
 		{ url: `https://mbasic.facebook.com${path}?_rdr`, label: `${url} (mbasic)` },
@@ -3477,6 +3981,9 @@ async function scrapeFacebookPage(url) {
 	return dedupeDocs(docs);
 }
 
+/**
+ * @param {any} input
+ */
 function extractInstagramUsername(input) {
 	if (!input) return null;
 	const trimmed = input.replace(/^@/, '').trim();
@@ -3495,6 +4002,9 @@ function extractInstagramUsername(input) {
 	}
 }
 
+/**
+ * @param {any} input
+ */
 function extractFacebookPath(input) {
 	if (!input) return null;
 	try {
@@ -3508,6 +4018,9 @@ function extractFacebookPath(input) {
 	}
 }
 
+/**
+ * @param {any} username
+ */
 async function fetchInstagramProfileJson(username) {
 	const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 	const res = await fetchWithTimeout(
@@ -3531,6 +4044,9 @@ async function fetchInstagramProfileJson(username) {
 	return { url: apiUrl, html: '', text, structured, source: 'instagram-api' };
 }
 
+/**
+ * @param {any} username
+ */
 async function fetchInstagramViaProxy(username) {
 	const proxyUrl = `https://r.jina.ai/https://www.instagram.com/${username}/`;
 	const doc = await fetchAndExtract(proxyUrl);
@@ -3542,6 +4058,9 @@ async function fetchInstagramViaProxy(username) {
 	};
 }
 
+/**
+ * @param {any} user
+ */
 function instagramUserToText(user) {
 	const parts = [`Instagram profile: @${user.username || ''}`.trim()];
 	if (user.full_name) parts.push(`Name: ${user.full_name}`);
@@ -3569,6 +4088,9 @@ function instagramUserToText(user) {
 	return parts.join('\n');
 }
 
+/**
+ * @param {any} n
+ */
 function formatNumber(n) {
 	if (n < 1000) return `${n}`;
 	if (n < 1000000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
@@ -3576,9 +4098,13 @@ function formatNumber(n) {
 	return `${(n / 1000000000).toFixed(1).replace(/\.0$/, '')}b`;
 }
 
+/**
+ * @param {any} docs
+ */
 function dedupeDocs(docs) {
 	if (!docs?.length) return [];
 	const seen = new Set();
+	/** @type {any} */
 	const out = [];
 	for (const doc of docs) {
 		const key = doc?.url;
@@ -3589,15 +4115,21 @@ function dedupeDocs(docs) {
 	return out;
 }
 
+/**
+ * @param {any} docs
+ * @param {any} [param1]
+ */
 function buildHighLevelHints(
 	docs,
 	{ urls = [], name, crawlPlan = [], socialFacts = {}, existingProfile = null } = {}
 ) {
+	/** @type {any} */
 	const hints = [];
 	const combined = docs
 		.map((doc) => doc?.analysisText || doc?.text || '')
 		.join(' ')
 		.toLowerCase();
+	/** @type {any} */
 	const add = (condition, message) => {
 		if (condition) hints.push(message);
 	};
@@ -3649,6 +4181,7 @@ function buildHighLevelHints(
 		if (existingFieldCount) {
 			add(true, `Existing profile baseline contains ${existingFieldCount} non-empty fields.`);
 		}
+		/** @type {any} */
 		const baselineCats = [
 			...(existingProfile?.categories?.group_types || []),
 			...(existingProfile?.categories?.audience_focuses || []),
@@ -3658,6 +4191,7 @@ function buildHighLevelHints(
 			add(true, `Existing categories include: ${baselineCats.slice(0, 8).join(', ')}.`);
 	}
 
+	/** @type {any} */
 	const keywordRules = [
 		{
 			pattern: /women|female|femme|ladies|girlboss|she\/her/,
@@ -3725,6 +4259,7 @@ function buildHighLevelHints(
 	);
 	if (externalLinkMatch) add(true, `External website referenced: ${externalLinkMatch[1].trim()}.`);
 
+	/** @type {any} */
 	const sentences = [];
 	for (const doc of docs) {
 		if (!doc?.text) continue;

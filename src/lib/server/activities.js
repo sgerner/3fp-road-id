@@ -284,12 +284,12 @@ export function normalizeRidePayload(payload = {}) {
 			by_weekdays: uniq(
 				asArray(payload.recurrenceWeekdays ?? payload.recurrence_weekdays)
 					.map((value) => toInteger(value))
-					.filter((value) => value >= 1 && value <= 7)
+					.filter((value) => value !== null && value >= 1 && value <= 7)
 			),
 			by_set_positions: uniq(
 				asArray(payload.recurrenceMonthPositions ?? payload.recurrence_month_positions)
 					.map((value) => toInteger(value))
-					.filter((value) => [-1, 1, 2, 3, 4].includes(value))
+					.filter((value) => value !== null && [-1, 1, 2, 3, 4].includes(value))
 			),
 			until_on: safeTrim(payload.recurrenceUntilOn ?? payload.recurrence_until_on) || null
 		},
@@ -860,6 +860,11 @@ export async function loadRideById(supabase, id, options = {}) {
 	return loadRideRecord(supabase, { id }, options);
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} activityEventId
+ * @param {{ difficultyLevelIds?: any[], ridingDisciplineIds?: any[], emailTemplates?: any[], hostIds?: any[] }} [options]
+ */
 export async function upsertActivityRelations(
 	supabase,
 	activityEventId,

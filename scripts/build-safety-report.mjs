@@ -50,8 +50,10 @@ for (const file of fs.readdirSync(`${report}/print-artwork`).filter((f) => f.end
 
 const document = parseDocument(fs.readFileSync(`${report}/report.html`, 'utf8'));
 const main = findAll((el) => el.name === 'main', document.children)[0];
-const nodes = main.children.filter((n) => n.type === 'tag');
+const nodes = /** @type {any[]} */ (main.children.filter((n) => n.type === 'tag'));
+/** @type {Array<{ id: string, title: string, nodes: any[] }>} */
 const sections = [];
+/** @type {{ id: string, title: string, nodes: any[] } | undefined} */
 let current;
 for (const node of nodes) {
 	if (
@@ -64,7 +66,9 @@ for (const node of nodes) {
 	if (current) current.nodes.push(node);
 }
 // Preserve the opening infrastructure notice alongside the executive findings.
-sections[0].nodes.unshift(nodes.find((n) => n.attribs?.class === 'notice'));
+const noticeNode = nodes.find((n) => n.attribs?.class === 'notice');
+if (noticeNode) sections[0].nodes.unshift(noticeNode);
+/** @type {Array<Record<string, any>>} */
 const figures = [];
 for (const section of sections) {
 	for (const fig of section.nodes.flatMap((n) =>
@@ -81,6 +85,7 @@ for (const section of sections) {
 			.toFile(`${output}/figures/${name}.webp`);
 		img.attribs.src = src;
 		const kind = id.startsWith('fig-') ? 'figure' : 'print';
+		/** @type {Record<string, any>} */
 		const item = {
 			id,
 			number: Number(id.split('-')[1]),
@@ -145,8 +150,12 @@ const sanitize = (html) =>
 		}
 	});
 const resultSections = sections.map((section) => {
-	const html = sanitize(section.nodes.map(getOuterHTML).join(''));
-	const plainText = clean(parseDocument(html).children.map(getText).join(' '));
+	const html = sanitize(section.nodes.map((node) => getOuterHTML(node)).join(''));
+	const plainText = clean(
+		parseDocument(html)
+			.children.map((node) => getText(node))
+			.join(' ')
+	);
 	const takeaways = section.nodes.flatMap((n) =>
 		n.attribs?.class === 'lead' ? descendants(n, 'li').map((li) => clean(getText(li))) : []
 	);

@@ -4,6 +4,7 @@
 	import IconTriangleAlert from '@lucide/svelte/icons/triangle-alert';
 
 	// Flat solid status block. Every field uses dark text (AA on error, warning, and success).
+	/** @type {Record<string, any>} */
 	let { tone = 'error', title, children } = $props();
 
 	const TONES = {

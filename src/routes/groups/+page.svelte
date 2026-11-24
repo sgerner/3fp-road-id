@@ -94,7 +94,7 @@
 			for (const id of riding_discipline_ids) p.append('riding_discipline_ids', String(id));
 			const qs = p.toString();
 			const target = url.pathname + (qs ? `?${qs}` : '');
-			goto(target, { replaceState: true, keepFocus: true, noScroll: true });
+			goto(target, /** @type {any} */ ({ replaceState: true, keepFocus: true, noScroll: true }));
 		} catch {}
 	}
 
@@ -868,7 +868,7 @@
 				<button
 					type="button"
 					class="border-surface-50 text-surface-50 hover:bg-primary-500 hover:border-primary-500 hover:text-surface-950 cursor-pointer border-2 px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page <= 1 || navigating}
+					disabled={page <= 1 || Boolean(navigating)}
 					onclick={() => setPage(page - 1)}
 				>
 					Previous
@@ -884,7 +884,7 @@
 				<button
 					type="button"
 					class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 cursor-pointer px-6 py-3 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-					disabled={page >= totalPages || navigating}
+					disabled={page >= totalPages || Boolean(navigating)}
 					onclick={() => setPage(page + 1)}
 				>
 					Next

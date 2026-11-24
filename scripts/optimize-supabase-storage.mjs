@@ -232,7 +232,7 @@ async function main() {
 	const eligibleObjects = objects.filter((object) => {
 		const key = objectKey(object.bucket, object.name);
 		if (!referenceState.references.has(key)) return false;
-		if (referenceState.protectedReferences.has(key)) return false;
+		if (referenceState.protectedReferences?.has(key)) return false;
 		if (object.name.startsWith('optimized/')) return false;
 		const contentType = mimeTypeFor(object.name, object.metadata);
 		const sizeBytes = Number(object.metadata?.size || object.metadata?.contentLength || 0);
@@ -305,8 +305,8 @@ async function main() {
 				rows_scanned: [...rowsByTable.values()].reduce((sum, rows) => sum + rows.length, 0),
 				objects_scanned: objects.length,
 				referenced_objects: referenceState.references.size,
-				protected_references: referenceState.protectedReferences.size,
-				registry_references: referenceState.registryReferences.size,
+				protected_references: referenceState.protectedReferences?.size ?? 0,
+				registry_references: referenceState.registryReferences?.size ?? 0,
 				unrecognized_reference_locations: referenceState.unrecognizedLocations.size,
 				unrecognized_reference_count: unrecognizedReferenceCount,
 				unrecognized_references: unrecognizedReferences,

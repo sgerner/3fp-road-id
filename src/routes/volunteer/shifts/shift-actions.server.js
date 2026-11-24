@@ -5,6 +5,9 @@ const CANCELLED_STATUSES = new Set(['cancelled', 'no_show', 'declined']);
 const WAITLIST_STATUSES = new Set(['waitlisted']);
 const APPROVED_STATUSES = new Set(['approved', 'confirmed']);
 
+/**
+ * @param {any} params
+ */
 function buildQueryString(params) {
 	if (!params) return '';
 	if (typeof params === 'string') return params;
@@ -28,6 +31,11 @@ function buildQueryString(params) {
 	return qs ? `?${qs}` : '';
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} resource
+ * @param {any} [param2]
+ */
 async function callApi(fetchImpl, resource, { id, params, method = 'GET', body } = {}) {
 	if (!fetchImpl || typeof fetchImpl !== 'function') {
 		throw new Error('A fetch implementation is required for volunteer shift actions.');
@@ -46,6 +54,7 @@ async function callApi(fetchImpl, resource, { id, params, method = 'GET', body }
 
 	const response = await fetchImpl(path, init);
 	const text = await response.text();
+	/** @type {any} */
 	let payload = null;
 	if (text) {
 		try {
@@ -59,14 +68,19 @@ async function callApi(fetchImpl, resource, { id, params, method = 'GET', body }
 		const message =
 			payload?.error || payload?.message || response.statusText || 'Volunteer API request failed';
 		const error = new Error(message);
-		error.status = response.status;
-		error.payload = payload;
+		/** @type {any} */ (error).status = response.status;
+		/** @type {any} */ (error).payload = payload;
 		throw error;
 	}
 
 	return payload ?? null;
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} resource
+ * @param {any} [options]
+ */
 async function fetchSingle(fetchImpl, resource, options = {}) {
 	try {
 		const payload = await callApi(fetchImpl, resource, options);
@@ -81,6 +95,11 @@ async function fetchSingle(fetchImpl, resource, options = {}) {
 	}
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} resource
+ * @param {any} [options]
+ */
 async function fetchList(fetchImpl, resource, options = {}) {
 	try {
 		const payload = await callApi(fetchImpl, resource, options);
@@ -94,6 +113,9 @@ async function fetchList(fetchImpl, resource, options = {}) {
 	}
 }
 
+/**
+ * @param {any} value
+ */
 function normalizeId(value) {
 	if (value === null || value === undefined) return null;
 	if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -103,6 +125,9 @@ function normalizeId(value) {
 	return Number.isFinite(num) ? num : trimmed;
 }
 
+/**
+ * @param {any} value
+ */
 function parseDate(value) {
 	if (!value) return null;
 	const date = new Date(value);
@@ -110,21 +135,34 @@ function parseDate(value) {
 	return date;
 }
 
+/**
+ * @param {any} status
+ */
 function isCancelled(status) {
 	if (!status) return false;
 	return CANCELLED_STATUSES.has(String(status).toLowerCase());
 }
 
+/**
+ * @param {any} status
+ */
 function isWaitlisted(status) {
 	if (!status) return false;
 	return WAITLIST_STATUSES.has(String(status).toLowerCase());
 }
 
+/**
+ * @param {any} status
+ */
 function isApproved(status) {
 	if (!status) return false;
 	return APPROVED_STATUSES.has(String(status).toLowerCase());
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} assignmentId
+ */
 async function loadAssignmentContext(fetchImpl, assignmentId) {
 	const assignment = await fetchSingle(fetchImpl, 'volunteer-signup-shifts', {
 		id: assignmentId,
@@ -134,7 +172,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	});
 	if (!assignment) {
 		const notFound = new Error('Shift signup not found.');
-		notFound.status = 404;
+		/** @type {any} */ (notFound).status = 404;
 		throw notFound;
 	}
 
@@ -142,7 +180,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	const shiftId = normalizeId(assignment.shift_id ?? assignment.shiftId);
 	if (!signupId || !shiftId) {
 		const invalid = new Error('Incomplete signup shift record.');
-		invalid.status = 400;
+		/** @type {any} */ (invalid).status = 400;
 		throw invalid;
 	}
 
@@ -154,7 +192,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	});
 	if (!signup) {
 		const missingSignup = new Error('Signup record not found.');
-		missingSignup.status = 404;
+		/** @type {any} */ (missingSignup).status = 404;
 		throw missingSignup;
 	}
 
@@ -167,7 +205,7 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	});
 	if (!shift) {
 		const missingShift = new Error('Shift record not found.');
-		missingShift.status = 404;
+		/** @type {any} */ (missingShift).status = 404;
 		throw missingShift;
 	}
 
@@ -197,6 +235,10 @@ async function loadAssignmentContext(fetchImpl, assignmentId) {
 	return { assignment, signup, shift, opportunity, event };
 }
 
+/**
+ * @param {any} shift
+ * @param {any} [now]
+ */
 function ensureWithinConfirmWindow(shift, now = new Date()) {
 	const shiftStart = parseDate(shift?.starts_at ?? shift?.startsAt ?? null);
 	if (!shiftStart) return { ok: false, reason: 'missing_start' };
@@ -211,6 +253,11 @@ function ensureWithinConfirmWindow(shift, now = new Date()) {
 	return { ok: true, hoursUntil };
 }
 
+/**
+ * @param {any} shift
+ * @param {any} assignment
+ * @param {any} [now]
+ */
 function canCancelShift(shift, assignment, now = new Date()) {
 	if (isCancelled(assignment?.status) || assignment?.cancelled_at)
 		return { ok: false, reason: 'already_cancelled' };
@@ -221,6 +268,9 @@ function canCancelShift(shift, assignment, now = new Date()) {
 	return { ok: true };
 }
 
+/**
+ * @param {any} value
+ */
 function normalizeCapacity(value) {
 	if (value === null || value === undefined) return null;
 	const num = Number(value);
@@ -228,11 +278,16 @@ function normalizeCapacity(value) {
 	return Math.max(0, Math.floor(num));
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} shift
+ * @param {any} [param2]
+ */
 async function assertCapacityAvailable(fetchImpl, shift, { excludeAssignmentId } = {}) {
 	const shiftId = normalizeId(shift?.id);
 	if (!shiftId) {
 		const invalid = new Error('Shift is missing an identifier.');
-		invalid.status = 400;
+		/** @type {any} */ (invalid).status = 400;
 		throw invalid;
 	}
 	const capacity = normalizeCapacity(shift?.capacity ?? shift?.max_volunteers ?? null);
@@ -257,12 +312,15 @@ async function assertCapacityAvailable(fetchImpl, shift, { excludeAssignmentId }
 	const remaining = Math.max(0, capacity - count);
 	if (remaining <= 0) {
 		const full = new Error('This shift is already full.');
-		full.status = 409;
+		/** @type {any} */ (full).status = 409;
 		throw full;
 	}
 	return { capacity, remaining, count };
 }
 
+/**
+ * @param {any} param0
+ */
 function buildActionResult({
 	success,
 	reason,
@@ -283,6 +341,11 @@ function buildActionResult({
 	};
 }
 
+/**
+ * @param {any} fetchImpl
+ * @param {any} assignmentId
+ * @param {any} type
+ */
 async function sendHostNotification(fetchImpl, assignmentId, type) {
 	const normalizedId = normalizeId(assignmentId);
 	const normalizedType = typeof type === 'string' ? type.toLowerCase() : '';
@@ -301,9 +364,14 @@ async function sendHostNotification(fetchImpl, assignmentId, type) {
 	}
 }
 
+/**
+ * @param {any} event
+ * @param {any} assignmentId
+ */
 export async function confirmShiftAction(event, assignmentId) {
 	const { fetch } = event;
 
+	/** @type {any} */
 	let context;
 	try {
 		context = await loadAssignmentContext(fetch, assignmentId);
@@ -355,6 +423,7 @@ export async function confirmShiftAction(event, assignmentId) {
 		});
 	}
 
+	/** @type {any} */
 	const body = {
 		confirmed_at: new Date().toISOString(),
 		cancelled_at: null
@@ -374,9 +443,14 @@ export async function confirmShiftAction(event, assignmentId) {
 	});
 }
 
+/**
+ * @param {any} event
+ * @param {any} assignmentId
+ */
 export async function cancelShiftAction(event, assignmentId) {
 	const { fetch } = event;
 
+	/** @type {any} */
 	let context;
 	try {
 		context = await loadAssignmentContext(fetch, assignmentId);
@@ -396,6 +470,7 @@ export async function cancelShiftAction(event, assignmentId) {
 		});
 	}
 
+	/** @type {any} */
 	const body = {
 		cancelled_at: new Date().toISOString(),
 		status: 'cancelled',
@@ -418,9 +493,14 @@ export async function cancelShiftAction(event, assignmentId) {
 	});
 }
 
+/**
+ * @param {any} event
+ * @param {any} assignmentId
+ */
 export async function uncancelShiftAction(event, assignmentId) {
 	const { fetch } = event;
 
+	/** @type {any} */
 	let context;
 	try {
 		context = await loadAssignmentContext(fetch, assignmentId);
@@ -442,6 +522,7 @@ export async function uncancelShiftAction(event, assignmentId) {
 
 	await assertCapacityAvailable(fetch, context.shift);
 
+	/** @type {any} */
 	const body = {
 		cancelled_at: null,
 		status: 'pending',
@@ -464,9 +545,15 @@ export async function uncancelShiftAction(event, assignmentId) {
 	});
 }
 
+/**
+ * @param {any} event
+ * @param {any} assignmentId
+ * @param {any} newShiftId
+ */
 export async function rescheduleShiftAction(event, assignmentId, newShiftId) {
 	const { fetch } = event;
 
+	/** @type {any} */
 	let context;
 	try {
 		context = await loadAssignmentContext(fetch, assignmentId);

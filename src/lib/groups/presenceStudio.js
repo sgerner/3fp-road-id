@@ -42,6 +42,7 @@ export const WEBSITE_LAYER_VIEWS = [
 	'more'
 ];
 
+/** @type {Record<string, string>} */
 const VIEW_ALIASES = {
 	edit: 'profile',
 	identity: 'profile',
@@ -75,6 +76,11 @@ function toSearchParams(searchParamsOrUrl) {
 	return new URLSearchParams(queryIndex >= 0 ? raw.slice(queryIndex + 1) : raw);
 }
 
+/**
+ * @param {any} value
+ * @param {string} [fallback]
+ * @returns {string}
+ */
 export function normalizePresenceStudioView(value, fallback = 'profile') {
 	const raw = cleanText(value).toLowerCase();
 	const mapped = VIEW_ALIASES[raw] || raw;
@@ -82,10 +88,19 @@ export function normalizePresenceStudioView(value, fallback = 'profile') {
 	return PRESENCE_STUDIO_VIEWS.includes(fallback) ? fallback : 'profile';
 }
 
+/**
+ * @param {string} view
+ * @returns {boolean}
+ */
 export function isWebsiteLayerView(view) {
 	return WEBSITE_LAYER_VIEWS.includes(view);
 }
 
+/**
+ * @param {any} slug
+ * @param {string | URLSearchParams | URL | null} [searchParamsOrUrl]
+ * @returns {string}
+ */
 export function buildPresenceRedirectFromEdit(slug, searchParamsOrUrl = '') {
 	const encodedSlug = encodeURIComponent(cleanText(slug));
 	const params = toSearchParams(searchParamsOrUrl);
@@ -96,6 +111,11 @@ export function buildPresenceRedirectFromEdit(slug, searchParamsOrUrl = '') {
 	return `/groups/${encodedSlug}/manage/presence${query ? `?${query}` : ''}`;
 }
 
+/**
+ * @param {any} slug
+ * @param {string | URLSearchParams | URL | null} [searchParamsOrUrl]
+ * @returns {string}
+ */
 export function buildPresenceRedirectFromSite(slug, searchParamsOrUrl = '') {
 	const encodedSlug = encodeURIComponent(cleanText(slug));
 	const params = toSearchParams(searchParamsOrUrl);
@@ -107,6 +127,12 @@ export function buildPresenceRedirectFromSite(slug, searchParamsOrUrl = '') {
 	return `/groups/${encodedSlug}/manage/presence?${query}`;
 }
 
+/**
+ * @param {Record<string, any>} [siteConfig]
+ * @param {Record<string, any>} [group]
+ * @param {Record<string, any>} [options]
+ * @returns {Record<string, any>}
+ */
 export function syncSiteConfigWithCoreGroup(siteConfig = {}, group = {}, options = {}) {
 	const defaults = buildDefaultGroupSiteConfig(group);
 	const nextName =
@@ -144,6 +170,14 @@ export function syncSiteConfigWithCoreGroup(siteConfig = {}, group = {}, options
 	};
 }
 
+/**
+ * @param {{
+ *   currentConfig?: Record<string, any>,
+ *   proposalConfig?: Record<string, any>,
+ *   groupDraft?: Record<string, any>
+ * }} [options]
+ * @returns {{ siteConfig: Record<string, any>, groupPatch: Record<string, any>, seoDescription: string }}
+ */
 export function mergeAiProposalIntoPresenceDraft({
 	currentConfig = {},
 	proposalConfig = {},
@@ -154,10 +188,11 @@ export function mergeAiProposalIntoPresenceDraft({
 	const visibility = deriveLegacySiteVisibility(homeBlocks, merged.sections);
 	const anyPageHasRideCalendar = Array.isArray(merged.site_pages)
 		? merged.site_pages.some((page) =>
-				(page?.blocks || []).some((block) => block?.type === 'ride_calendar')
+				(page?.blocks || []).some((/** @type {any} */ block) => block?.type === 'ride_calendar')
 			)
 		: false;
 
+	/** @type {Record<string, any>} */
 	const groupPatch = {};
 	const proposedTagline = cleanText(proposalConfig?.site_tagline, 180);
 	if (proposedTagline && proposedTagline !== cleanText(currentConfig?.site_tagline, 180)) {
@@ -192,6 +227,17 @@ export function mergeAiProposalIntoPresenceDraft({
 	};
 }
 
+/**
+ * @param {{
+ *   site?: any,
+ *   group?: any,
+ *   customPage?: any,
+ *   isHomePage?: boolean,
+ *   seoTitle?: string,
+ *   seoSection?: string
+ * }} [options]
+ * @returns {string}
+ */
 export function resolveMicrositeSeoDescription({
 	site = null,
 	group = null,
@@ -201,7 +247,9 @@ export function resolveMicrositeSeoDescription({
 	seoSection = ''
 } = {}) {
 	if (isHomePage) {
-		const homePage = (site?.siteConfig?.site_pages || []).find((candidate) => candidate?.is_home);
+		const homePage = (site?.siteConfig?.site_pages || []).find(
+			(/** @type {any} */ candidate) => candidate?.is_home
+		);
 		const configuredHomeSeo = cleanSeoText(
 			site?.siteConfig?.seo_description || homePage?.seo_description
 		);
@@ -214,6 +262,7 @@ export function resolveMicrositeSeoDescription({
 		return limitSeoText(customPage.seo_description || customPage.description, 180);
 	}
 
+	/** @type {Record<string, string>} */
 	const sectionDescriptions = {
 		updates: limitSeoText(
 			`${seoTitle} updates, announcements, route changes, volunteer asks, and public notes.`,
@@ -259,8 +308,14 @@ function parseSortedNumericIds(values) {
 	].sort((a, b) => a - b);
 }
 
+/**
+ * @param {FormData} formData
+ * @param {{ group?: any }} [options]
+ * @returns {Record<string, any>}
+ */
 export function extractPresenceStudioFormValues(formData, { group = null } = {}) {
 	const siteValues = extractGroupSiteEditorFormValues(formData, { group });
+	/** @type {Record<string, string>} */
 	const socialInputs = {};
 	for (const key of PRESENCE_SOCIAL_KEYS) {
 		socialInputs[key] = String(formData.get(`social_${key}`) ?? '');

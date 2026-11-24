@@ -6,6 +6,7 @@
 
 	let { categoryName = '' } = $props();
 	const assistantContext = getAssistantContext();
+	/** @type {HTMLButtonElement | null} */
 	let openBtnEl = $state(null);
 
 	const modeDefaults = $derived(getContextualModeDefaults('learn-library', { categoryName }));
@@ -17,6 +18,10 @@
 		}));
 	});
 
+	/**
+	 * @param {string} [prompt]
+	 * @param {HTMLElement | null} [triggerEl]
+	 */
 	function openGuide(prompt = '', triggerEl = openBtnEl) {
 		assistantContext.open({
 			mode: 'page',

@@ -1,6 +1,7 @@
 <script>
 	import GroupSocialManager from '#lib/components/groups/GroupSocialManager.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 </script>
 

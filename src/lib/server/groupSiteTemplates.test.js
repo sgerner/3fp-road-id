@@ -52,6 +52,7 @@ test('template recommendations recognize common bicycle organization types', () 
 });
 
 test('TBAG receives a focused advocacy site with a compact navigation', () => {
+	/** @type {any} */
 	const config = buildTempeBicycleActionGroupSite({
 		name: 'Tempe Bicycle Action Group',
 		city: 'Tempe',
@@ -149,6 +150,7 @@ test('known TBAG groups are upgraded to the advocacy variant by default', () => 
 });
 
 test('saved TBAG configs keep the imported resource pages available to the editor', () => {
+	/** @type {any} */
 	const config = normalizeGroupSiteConfig(
 		{
 			site_variant: 'tbag',

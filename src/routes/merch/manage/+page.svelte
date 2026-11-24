@@ -18,6 +18,7 @@
 	import IconTag from '@lucide/svelte/icons/tag';
 	import IconChevronDown from '@lucide/svelte/icons/chevron-down';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 	let printfulActionState = $state('');
 	let productQuery = $state('');
@@ -26,7 +27,9 @@
 	let productTypeFilter = $state('all');
 	let productModalId = $state('');
 	let productModalOpen = $state(false);
+	/** @type {any} */
 	let productModalTrigger = null;
+	/** @type {any} */
 	let productModalCloseButton = $state(null);
 	let manageTab = $state('orders');
 	let settingsPrintfulOpen = $state(false);

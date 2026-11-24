@@ -21,6 +21,54 @@
 	} from '#lib/ai/assistantMessage';
 	import { safeHttpUrl } from '#lib/security/urls';
 
+	/**
+	 * @typedef {Object} AssistantRecommendation
+	 * @property {string | null} id
+	 * @property {string} type
+	 * @property {string} title
+	 * @property {string | null} subtitle
+	 * @property {string | null} summary
+	 * @property {string} url
+	 * @property {string} reason
+	 * @property {string | null} articleId
+	 * @property {string | null} chunkId
+	 * @property {string | null} contentType
+	 */
+
+	/**
+	 * @typedef {Object} AssistantReportEvidence
+	 * @property {string[]} nextSteps
+	 * @property {Array<{ id: string, title: string }>} sections
+	 * @property {Array<{ record: string, title: string, url: string }>} sources
+	 */
+
+	/**
+	 * @typedef {Object} AssistantTemplate
+	 * @property {string} assetId
+	 * @property {string} title
+	 * @property {string} alt
+	 * @property {string} src
+	 * @property {string | null} pdfUrl
+	 * @property {string | null} editableUrl
+	 * @property {string | null} canvaTemplateUrl
+	 */
+
+	/**
+	 * @typedef {Object} AssistantMessage
+	 * @property {string} id
+	 * @property {'assistant' | 'user'} role
+	 * @property {boolean} synthetic
+	 * @property {string} mode
+	 * @property {string} content
+	 * @property {AssistantRecommendation[]} recommendations
+	 * @property {{ url: string, label: string, reason?: string } | null} navigationTarget
+	 * @property {string | null} followUpQuestion
+	 * @property {AssistantReportEvidence | null} reportEvidence
+	 * @property {AssistantTemplate[]} templates
+	 * @property {Record<string, any> | null} proposal
+	 */
+
+	/** @type {AssistantMessage} */
 	const DEFAULT_WELCOME = {
 		id: 'welcome',
 		role: 'assistant',
@@ -44,17 +92,26 @@
 	let activeLearnAction = $state('');
 	let input = $state('');
 	let error = $state('');
+	/** @type {{ tone: string, text: string } | null} */
 	let statusBanner = $state(null);
+	/** @type {AssistantMessage[]} */
 	let messages = $state([DEFAULT_WELCOME]);
+	/** @type {Record<string, any>} */
 	let proposalStates = $state({});
 	let activeLocationHint = $state('');
+	/** @type {HTMLDivElement | null} */
 	let dialogEl = $state(null);
+	/** @type {HTMLDivElement | null} */
 	let chatBodyEl = $state(null);
+	/** @type {HTMLTextAreaElement | null} */
 	let inputTextareaEl = $state(null);
+	/** @type {HTMLButtonElement | null} */
 	let toggleButtonEl = $state(null);
+	/** @type {HTMLElement | null} */
 	let previousFocusEl = $state(null);
 	let focusRestoreVersion = 0;
 	let assistantSessionId = $state('');
+	/** @type {Record<string, boolean>} */
 	let savedRecommendationKeys = $state({});
 	let hasMounted = $state(false);
 	let lastLoadedStorageKey = $state('');
@@ -137,6 +194,7 @@
 		};
 	});
 
+	/** @param {HTMLElement | null} [explicitTrigger] */
 	function openAssistant(explicitTrigger = null) {
 		if (isOpen) {
 			void tick().then(() => {
@@ -200,7 +258,15 @@
 				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			) ?? []
 		).filter(
-			(element) => element.tabIndex >= 0 && !element.hidden && element.getClientRects().length > 0
+			/**
+			 * @param {Element} element
+			 * @returns {element is HTMLElement}
+			 */
+			(element) =>
+				element instanceof HTMLElement &&
+				element.tabIndex >= 0 &&
+				!element.hidden &&
+				element.getClientRects().length > 0
 		);
 
 		if (!focusable.length) {
@@ -381,6 +447,10 @@
 		}
 	}
 
+	/**
+	 * @param {unknown} raw
+	 * @returns {AssistantMessage[]}
+	 */
 	function normalizeSavedMessages(raw) {
 		if (!Array.isArray(raw)) return [DEFAULT_WELCOME];
 		const rows = raw
@@ -396,7 +466,7 @@
 					? String(entry.followUpQuestion).trim()
 					: null;
 				const isDefaultWelcome = entry.id === 'welcome' || entry.synthetic === true;
-				return {
+				return /** @type {AssistantMessage} */ ({
 					id: entry.id || generateId(role),
 					role,
 					synthetic: isDefaultWelcome,
@@ -408,9 +478,15 @@
 					reportEvidence: normalizeReportEvidence(entry.reportEvidence),
 					templates: Array.isArray(entry.templates) ? entry.templates.slice(0, 3) : [],
 					proposal: null
-				};
+				});
 			})
-			.filter(Boolean)
+			.filter(
+				/**
+				 * @param {AssistantMessage | null} entry
+				 * @returns {entry is AssistantMessage}
+				 */
+				(entry) => Boolean(entry)
+			)
 			.slice(-24);
 		if (!rows.length || rows[0]?.role !== 'assistant') {
 			return [DEFAULT_WELCOME, ...rows];
@@ -467,7 +543,7 @@
 		await tick();
 		if (!chatBodyEl || !messageId) return;
 		const target = chatBodyEl.querySelector(`[data-message-id="${messageId}"]`);
-		if (!target) return;
+		if (!(target instanceof HTMLElement)) return;
 		const prefersReducedMotion =
 			typeof window !== 'undefined' &&
 			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -530,9 +606,10 @@
 			}
 			const target = document.getElementById(cleanId);
 			if (!target) return;
+			/** @type {HTMLElement | null} */
 			let ancestor = target;
 			while (ancestor) {
-				if (ancestor.tagName === 'DETAILS') ancestor.open = true;
+				if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
 				ancestor = ancestor.parentElement;
 			}
 			window.history.replaceState(null, '', `#${cleanId}`);
@@ -697,6 +774,7 @@
 		};
 	}
 
+	/** @param {string | null} [messageId] */
 	async function handleUndoActiveDraft(messageId = null) {
 		if (!pageConfig?.undoDraft) return;
 		const result = await pageConfig.undoDraft();
@@ -722,6 +800,7 @@
 		}
 	}
 
+	/** @param {string | null} [messageId] */
 	async function handleUndoActiveSummary(messageId = null) {
 		if (!pageConfig?.undoSummary) return;
 		const result = await pageConfig.undoSummary();
@@ -803,6 +882,7 @@
 		return base;
 	}
 
+	/** @param {{ learnAction?: string }} [options] */
 	async function sendMessage(options = {}) {
 		const explicitLearnAction = options.learnAction || '';
 		const message = input.trim();
@@ -826,6 +906,7 @@
 		sending = true;
 		activeLearnAction = explicitLearnAction;
 
+		/** @type {AssistantMessage[]} */
 		const nextMessages = [
 			...messages,
 			{
@@ -890,6 +971,7 @@
 					: [];
 
 			const assistantId = generateId('assistant');
+			/** @type {AssistantMessage} */
 			const assistantEntry = {
 				id: assistantId,
 				role: 'assistant',

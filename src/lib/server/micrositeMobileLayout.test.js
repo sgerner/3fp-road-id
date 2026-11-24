@@ -368,8 +368,13 @@ before(async () => {
 		}
 	});
 
-	await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+	await new Promise((resolveListen) =>
+		server.listen(0, '127.0.0.1', () => resolveListen(undefined))
+	);
 	const address = server.address();
+	if (!address || typeof address === 'string') {
+		throw new Error('Expected TCP server address');
+	}
 	sharedHarness = {
 		vite,
 		origin: `http://127.0.0.1:${address.port}`,
@@ -538,6 +543,9 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 				const factsGrid = document.querySelector('.about-facts-grid');
 				const factItems = [...document.querySelectorAll('.about-fact')];
 				const inlineAutoLink = document.querySelector('.about-fact-value a');
+				if (!heroCard || !h1 || !cta || !aboutSection || !factsGrid) {
+					throw new Error('Missing expected microsite hero or about DOM elements');
+				}
 
 				const heroRect = heroCard.getBoundingClientRect();
 				const h1Rect = h1.getBoundingClientRect();
@@ -627,15 +635,16 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		await page.setViewportSize({ width: 320, height: 667 });
 		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${responsiveId}`);
 		const narrow320 = await page.evaluate(() => {
-			const heroRect = document
-				.querySelector('[data-site-block-type="hero"]')
-				.firstElementChild.getBoundingClientRect();
+			const heroCard = document.querySelector('[data-site-block-type="hero"]')?.firstElementChild;
 			const aboutSection = document.querySelector('.about-section');
+			const factsGrid = document.querySelector('.about-facts-grid');
+			if (!heroCard || !aboutSection || !factsGrid) {
+				throw new Error('Missing expected microsite elements at 320px');
+			}
+			const heroRect = heroCard.getBoundingClientRect();
 			aboutSection.scrollIntoView({ block: 'start' });
 			const aboutRect = aboutSection.getBoundingClientRect();
-			const cols = getComputedStyle(document.querySelector('.about-facts-grid'))
-				.gridTemplateColumns.trim()
-				.split(/\s+/).length;
+			const cols = getComputedStyle(factsGrid).gridTemplateColumns.trim().split(/\s+/).length;
 			const maxFactRight = Math.max(
 				...[...document.querySelectorAll('.about-fact *')].map(
 					(el) => el.getBoundingClientRect().right
@@ -655,21 +664,19 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 		assert.ok(narrow320.scrollWidth <= 320);
 
 		await page.setViewportSize({ width: 640, height: 800 });
-		const colsAt640 = await page.evaluate(
-			() =>
-				getComputedStyle(document.querySelector('.about-facts-grid'))
-					.gridTemplateColumns.trim()
-					.split(/\s+/).length
-		);
+		const colsAt640 = await page.evaluate(() => {
+			const grid = document.querySelector('.about-facts-grid');
+			if (!grid) throw new Error('Missing .about-facts-grid');
+			return getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length;
+		});
 		assert.equal(colsAt640, 2, 'Expected 2-column About facts at 640px');
 
 		await page.setViewportSize({ width: 768, height: 900 });
-		const colsAt768 = await page.evaluate(
-			() =>
-				getComputedStyle(document.querySelector('.about-facts-grid'))
-					.gridTemplateColumns.trim()
-					.split(/\s+/).length
-		);
+		const colsAt768 = await page.evaluate(() => {
+			const grid = document.querySelector('.about-facts-grid');
+			if (!grid) throw new Error('Missing .about-facts-grid');
+			return getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length;
+		});
 		assert.equal(colsAt768, 4, 'Expected 4-column About facts at 768px');
 
 		// 3. Verify custom subpage forwarding, TBAG 2-column mobile grid, and 3-feet-please hero override
@@ -693,24 +700,24 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 			buildMicrositeFixture({ heroStyle: 'bold', isTbag: true })
 		);
 		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${tbagId}`);
-		const tbagCols = await page.evaluate(
-			() =>
-				getComputedStyle(document.querySelector('.about-facts-grid--tbag'))
-					.gridTemplateColumns.trim()
-					.split(/\s+/).length
-		);
+		const tbagCols = await page.evaluate(() => {
+			const grid = document.querySelector('.about-facts-grid--tbag');
+			if (!grid) throw new Error('Missing .about-facts-grid--tbag');
+			return getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length;
+		});
 		assert.equal(tbagCols, 2, 'Expected TBAG mobile facts grid to keep 2 compact columns');
 
 		const advocacyId = sharedHarness.registerFixture(
 			buildMicrositeFixture({ heroStyle: 'immersive', isAdvocacy: true })
 		);
 		await gotoReady(`${sharedHarness.origin}/__test/microsite?id=${advocacyId}`);
-		const advocacyHeroHeight = await page.evaluate(
-			() =>
-				document
-					.querySelector('.site-advocacy-home [data-site-block-type="hero"] > .card')
-					.getBoundingClientRect().height
-		);
+		const advocacyHeroHeight = await page.evaluate(() => {
+			const card = document.querySelector(
+				'.site-advocacy-home [data-site-block-type="hero"] > .card'
+			);
+			if (!card) throw new Error('Missing advocacy hero card');
+			return card.getBoundingClientRect().height;
+		});
 		assert.ok(
 			advocacyHeroHeight >= 550,
 			`Expected 3 Feet Please advocacy hero min-height override to remain intact, got ${advocacyHeroHeight}px`
@@ -748,10 +755,14 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 
 			const previewMetrics = await page.evaluate(() => {
 				const root = document.querySelector('.site-preview-root');
+				if (!root) throw new Error('Missing .site-preview-root');
 				const hero = root.querySelector('[data-preview-hero-style]');
-				const heroHeading = hero.querySelector('h2');
-				const heroButton = hero.querySelector('.btn');
+				const heroHeading = hero?.querySelector('h2');
+				const heroButton = hero?.querySelector('.btn');
 				const factsGrid = root.querySelector('[data-preview-facts-grid]');
+				if (!hero || !heroHeading || !heroButton || !factsGrid) {
+					throw new Error('Missing expected preview elements');
+				}
 				const rootRect = root.getBoundingClientRect();
 				const heroRect = hero.getBoundingClientRect();
 				const btnRect = heroButton.getBoundingClientRect();
@@ -763,7 +774,7 @@ test('Playwright 375x667 verifies mobile heroes, unclipped About facts, breakpoi
 					rootWidth: rootRect.width,
 					heroHeight: heroRect.height,
 					headingFontSize: parseFloat(getComputedStyle(heroHeading).fontSize),
-					btnText: heroButton.textContent.trim(),
+					btnText: (heroButton.textContent || '').trim(),
 					btnInsideHero:
 						btnRect.left >= heroRect.left - 1 &&
 						btnRect.right <= heroRect.right + 1 &&

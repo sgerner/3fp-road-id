@@ -10,6 +10,53 @@
 	import SignupQuestionsSection from './SignupQuestionsSection.svelte';
 	import CommunicationsStep from './CommunicationsStep.svelte';
 
+	/**
+	 * @type {{
+	 *   mode?: string,
+	 *   id?: string,
+	 *   eventDetails: Record<string, any>,
+	 *   eventTypeOptions?: any[],
+	 *   statusOptions?: any[],
+	 *   timezoneOptions?: string[],
+	 *   opportunityTypeOptions?: any[],
+	 *   fieldTypeOptions?: any[],
+	 *   emailTypeOptions?: any[],
+	 *   hostGroupSelection?: any[],
+	 *   filteredHostGroupOptions?: any[],
+	 *   currentEventTypeDescription?: string,
+	 *   hasHostGroups?: boolean,
+	 *   opportunities?: any[],
+	 *   customQuestions?: any[],
+	 *   eventEmails?: any[],
+	 *   saving?: boolean,
+	 *   saveIntent?: string,
+	 *   saveError?: string,
+	 *   saveSuccess?: string,
+	 *   capacityOpen?: boolean,
+	 *   rolesOpen?: boolean,
+	 *   questionsOpen?: boolean,
+	 *   remindersOpen?: boolean,
+	 *   onFocusIn?: ((event: any) => any) | undefined,
+	 *   onEventDetailsChange?: (patch: Record<string, any>) => any,
+	 *   onHostGroupValueChange?: (value: any) => any,
+	 *   onHostGroupSearch?: (inputValue: any) => any,
+	 *   onClearHostGroup?: () => any,
+	 *   onAddOpportunity?: () => any,
+	 *   onRemoveOpportunity?: (id: any) => any,
+	 *   onUpdateOpportunity?: (id: any, patch: Record<string, any>) => any,
+	 *   onAddShift?: (opportunityId: any) => any,
+	 *   onRemoveShift?: (opportunityId: any, shiftId: any) => any,
+	 *   onUpdateShift?: (opportunityId: any, shiftId: any, patch: Record<string, any>) => any,
+	 *   onAddQuestion?: () => any,
+	 *   onRemoveQuestion?: (id: any) => any,
+	 *   onUpdateQuestion?: (id: any, patch: Record<string, any>) => any,
+	 *   onAddEmail?: () => any,
+	 *   onRemoveEmail?: (id: any) => any,
+	 *   onUpdateEmail?: (id: any, patch: Record<string, any>) => any,
+	 *   onSubmit?: () => any,
+	 *   onSaveDraft?: () => any
+	 * }}
+	 */
 	let {
 		mode = 'create',
 		id = 'manual-builder',

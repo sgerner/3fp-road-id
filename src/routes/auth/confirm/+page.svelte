@@ -23,6 +23,7 @@
 	let returnToParam = $state('');
 	let emailValid = $derived(isValidRoadIdEmail(resendEmail));
 	let resendHoneypot = $state('');
+	/** @type {any} */
 	let resendTurnstile = $state(null);
 
 	function normalizeParamsFromWeirdPath() {
@@ -119,7 +120,7 @@
 			let autoClaimSlug = '';
 			let autoAddOwnerSlug = '';
 			let ownerInviteToken = '';
-			if (isSafeInternalPath(returnTo)) {
+			if (returnTo && isSafeInternalPath(returnTo)) {
 				try {
 					const rtUrl = new URL(returnTo, window.location.origin);
 					autoClaimSlug = rtUrl.searchParams.get('auto_claim_group') || '';

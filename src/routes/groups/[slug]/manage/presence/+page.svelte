@@ -199,6 +199,10 @@
 		};
 	}
 
+	/**
+	 * @param {Record<string, any>} baseDraft
+	 * @param {Record<string, any> | null} [incomingProfile]
+	 */
 	function applyProfileDraftValues(baseDraft, incomingProfile = null) {
 		if (!incomingProfile || typeof incomingProfile !== 'object') return baseDraft;
 		return {
@@ -289,7 +293,9 @@
 	let submitting = $state(false);
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
+	/** @type {Record<string, string>} */
 	let sponsorFileNames = $state({});
+	/** @type {any} */
 	let aiUndoSnapshot = $state(null);
 	let aiAppliedFingerprint = $state('');
 	let aiUndoConflictMessage = $state('');
@@ -297,7 +303,9 @@
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	// Logo & cover uploads + cropper state
+	/** @type {File | null} */
 	let logoRawFile = $state(null);
+	/** @type {File | null} */
 	let coverRawFile = $state(null);
 	let logoFileRevision = $state(0);
 	let coverFileRevision = $state(0);
@@ -325,7 +333,9 @@
 	let logoTooLarge = $state(false);
 	let coverTooLarge = $state(false);
 	let logoUploadKey = $state(0);
+	/** @type {HTMLInputElement | null} */
 	let logoFileInputEl = $state(null);
+	/** @type {HTMLInputElement | null} */
 	let coverFileInputEl = $state(null);
 
 	let cropping = $state(false);
@@ -335,11 +345,13 @@
 	let cropPanX = $state(0);
 	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	/** @type {any} */
 	let cropFramer = $state(null);
 	/** @type {HTMLDialogElement | null} */
 	let cropDialogEl = $state(null);
 	/** @type {HTMLElement | null} */
 	let cropReturnFocusEl = null;
+	/** @type {any} */
 	let coverFieldRef = $state(null);
 
 	// Admin Deep Enrich
@@ -372,6 +384,7 @@
 	let ownerSuccess = $state('');
 	const ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
+	/** @type {any} */
 	let ownerTurnstile = $state(null);
 
 	// Ride widget state
@@ -758,6 +771,9 @@
 		return `Your draft text was kept, but the page reload cleared your selected image file (${cleared.join(', ')}). Please choose the file again before publishing.`;
 	});
 
+	/**
+	 * @param {HTMLFormElement | null} [formElement]
+	 */
 	function syncStudioStateFromData(formElement = null) {
 		profileDraft = buildInitialProfileDraft(data);
 		const refreshedSite = buildGroupSiteEditorState({
@@ -795,7 +811,7 @@
 		sponsorFileRevision = 0;
 		sponsorFileNames = {};
 		for (const input of formElement?.querySelectorAll('input[type="file"]') || []) {
-			input.value = '';
+			/** @type {HTMLInputElement} */ (input).value = '';
 		}
 		if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
 		if (coverPreview && coverPreview.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
@@ -861,7 +877,7 @@
 			});
 			if (!siteValidation.ok) {
 				localNotice = '';
-				localError = siteValidation.error;
+				localError = siteValidation.error || 'Unable to publish changes.';
 				if (siteValidation.reason === 'invalid_slug' || siteValidation.reason === 'reserved_slug') {
 					selectView('address');
 				}
@@ -892,6 +908,9 @@
 		};
 	}
 
+	/**
+	 * @param {string | null} [fallbackView]
+	 */
 	function syncViewFromUrl(fallbackView = null) {
 		if (typeof window === 'undefined') return;
 		const params = new URL(window.location.href).searchParams;
@@ -2404,7 +2423,7 @@
 									accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 									maxFiles={1}
 									maxFileSize={MAX_BYTES}
-									classes="w-full"
+									class="w-full"
 									onFileChange={onLogoChange}
 									{onFileReject}
 								>
@@ -2749,14 +2768,16 @@
 								</div>
 							</div>
 						{/if}
-						{#if pickCtaPreview()}
+						{#if true}
 							{@const ctaPreview = pickCtaPreview()}
-							<div class="mt-3 flex items-center gap-2 text-xs">
-								<span class="text-surface-400">Active button preview:</span>
-								<span class="badge preset-filled-primary-500 text-surface-950 font-bold">
-									{ctaPreview.label}
-								</span>
-							</div>
+							{#if ctaPreview}
+								<div class="mt-3 flex items-center gap-2 text-xs">
+									<span class="text-surface-400">Active button preview:</span>
+									<span class="badge preset-filled-primary-500 text-surface-950 font-bold">
+										{ctaPreview.label}
+									</span>
+								</div>
+							{/if}
 						{/if}
 					</div>
 				</section>

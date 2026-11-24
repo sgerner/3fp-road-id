@@ -4,8 +4,10 @@
 
 	let { userId = null, pathname = '/' } = $props();
 	const assistantContext = getAssistantContext();
+	/** @type {import('svelte').Component<any> | null} */
 	let assistantComponent = $state(null);
 	let loading = $state(false);
+	/** @type {HTMLButtonElement | null} */
 	let triggerBtnEl = $state(null);
 
 	const buttonBadge = $derived(assistantContext.activeModeMeta?.buttonBadge || 'AI');

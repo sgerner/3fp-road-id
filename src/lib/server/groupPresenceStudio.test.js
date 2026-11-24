@@ -64,12 +64,14 @@ test('legacy profile and website URLs redirect cleanly to matching Presence Stud
 
 	await assert.rejects(
 		async () => {
-			await loadLegacyEdit({
-				params: { slug: 'desert-spokes' },
-				url: new URL('https://3fp.org/groups/desert-spokes/manage/edit?stripe=connected')
-			});
+			await loadLegacyEdit(
+				/** @type {any} */ ({
+					params: { slug: 'desert-spokes' },
+					url: new URL('https://3fp.org/groups/desert-spokes/manage/edit?stripe=connected')
+				})
+			);
 		},
-		(redirectObj) => {
+		(/** @type {any} */ redirectObj) => {
 			assert.equal(redirectObj.status, 307);
 			assert.equal(redirectObj.location, '/groups/desert-spokes/manage/presence?stripe=connected');
 			return true;
@@ -78,12 +80,14 @@ test('legacy profile and website URLs redirect cleanly to matching Presence Stud
 
 	await assert.rejects(
 		async () => {
-			await loadLegacySite({
-				params: { slug: 'desert-spokes' },
-				url: new URL('https://3fp.org/groups/desert-spokes/manage/site?view=address')
-			});
+			await loadLegacySite(
+				/** @type {any} */ ({
+					params: { slug: 'desert-spokes' },
+					url: new URL('https://3fp.org/groups/desert-spokes/manage/site?view=address')
+				})
+			);
 		},
-		(redirectObj) => {
+		(/** @type {any} */ redirectObj) => {
 			assert.equal(redirectObj.status, 307);
 			assert.equal(redirectObj.location, '/groups/desert-spokes/manage/presence?view=address');
 			return true;
@@ -92,12 +96,14 @@ test('legacy profile and website URLs redirect cleanly to matching Presence Stud
 
 	assert.throws(
 		() => {
-			getLegacyRootEdit({
-				params: { slug: 'desert-spokes' },
-				url: new URL('https://3fp.org/groups/desert-spokes/edit?saved=1')
-			});
+			getLegacyRootEdit(
+				/** @type {any} */ ({
+					params: { slug: 'desert-spokes' },
+					url: new URL('https://3fp.org/groups/desert-spokes/edit?saved=1')
+				})
+			);
 		},
-		(redirectObj) => {
+		(/** @type {any} */ redirectObj) => {
 			assert.equal(redirectObj.status, 308);
 			assert.equal(redirectObj.location, '/groups/desert-spokes/manage/presence?saved=1');
 			return true;
@@ -300,6 +306,16 @@ test('extractPresenceStudioFormValues preserves profile and website drafts while
 	]);
 });
 
+/**
+ * @param {{
+ *   initialGroup?: Record<string, any>,
+ *   initialTaxonomies?: Record<string, number[]>,
+ *   initialObjects?: Record<string, Record<string, string | Buffer>>,
+ *   failGroupUpdate?: any,
+ *   failTaxonomyInsertTable?: string | null,
+ *   failUpsertSiteConfig?: any
+ * }} [options]
+ */
 function createPublishMockHarness({
 	initialGroup = {},
 	initialTaxonomies = {},
@@ -371,14 +387,19 @@ function createPublishMockHarness({
 		}))
 	};
 
+	/** @type {Record<string, Map<string, Buffer>>} */
 	const buckets = {
-		storage: new Map([
-			[`groups/${groupId}/logo`, Buffer.from('existing-logo')],
-			[`groups/${groupId}/cover`, Buffer.from('existing-cover')],
-			...Object.entries(initialObjects.storage || {}).map(([k, v]) => [k, Buffer.from(v)])
-		]),
+		storage: new Map(
+			/** @type {Array<[string, Buffer]>} */ ([
+				[`groups/${groupId}/logo`, Buffer.from('existing-logo')],
+				[`groups/${groupId}/cover`, Buffer.from('existing-cover')],
+				...Object.entries(initialObjects.storage || {}).map(([k, v]) => [k, Buffer.from(v)])
+			])
+		),
 		'group-assets': new Map(
-			Object.entries(initialObjects['group-assets'] || {}).map(([k, v]) => [k, Buffer.from(v)])
+			/** @type {Array<[string, Buffer]>} */ (
+				Object.entries(initialObjects['group-assets'] || {}).map(([k, v]) => [k, Buffer.from(v)])
+			)
 		)
 	};
 
@@ -640,7 +661,9 @@ test('publishGroupPresence cleans up staged media and preserves existing assets 
 		supabasePublicUrl: 'https://example.supabase.co'
 	});
 
-	assert.equal(result.ok, false);
+	if (result.ok) {
+		assert.fail('Expected publishGroupPresence to fail on duplicate slug');
+	}
 	assert.equal(result.status, 409);
 	assert.equal(result.body.values.site.microsite_slug, 'taken-slug');
 
@@ -679,7 +702,9 @@ test('publishGroupPresence restores group fields, all 4 taxonomy tables, and cle
 		supabasePublicUrl: 'https://example.supabase.co'
 	});
 
-	assert.equal(result.ok, false);
+	if (result.ok) {
+		assert.fail('Expected publishGroupPresence to fail on taxonomy insert');
+	}
 	assert.equal(result.status, 500);
 	assert.match(result.body.error, /group_x_skill_levels/);
 
@@ -724,7 +749,9 @@ test('publishGroupPresence restores group fields, all 4 taxonomy tables, and pre
 		supabasePublicUrl: 'https://example.supabase.co'
 	});
 
-	assert.equal(result.ok, false);
+	if (result.ok) {
+		assert.fail('Expected publishGroupPresence to fail on upsertSiteConfig');
+	}
 	assert.equal(result.status, 400);
 	assert.equal(result.body.error, 'Invalid microsite block configuration');
 	assert.equal(result.body.values.profile.name, 'Desert Spokes Collective');

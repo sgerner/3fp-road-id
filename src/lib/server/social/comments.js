@@ -80,6 +80,11 @@ function resolveLinkedSocialPostId(comment, lookup) {
 	return null;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} groupId
+ * @param {{ limit?: number, platforms?: string[] }} [options]
+ */
 export async function syncGroupSocialComments(
 	supabase,
 	groupId,
@@ -154,6 +159,11 @@ export async function syncGroupSocialComments(
 	};
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ groupId: string, commentId: string, body: string, createdBy: string | null }} options
+ * @returns {Promise<{ ok: true, reply: any } | { ok: false, status: number, error: string, reply?: any }>}
+ */
 export async function replyToGroupSocialComment(supabase, { groupId, commentId, body, createdBy }) {
 	const comment = await getGroupSocialCommentById(supabase, groupId, commentId);
 	if (!comment) {

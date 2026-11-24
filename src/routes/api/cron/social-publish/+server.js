@@ -6,6 +6,9 @@ import { publishSingleGroupSocialPost } from '#lib/server/social/publish';
 
 export const config = { maxDuration: 60 };
 
+/**
+ * @param {any} request
+ */
 async function verifyCronRequest(request) {
 	const providedSecret =
 		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
@@ -16,6 +19,10 @@ async function verifyCronRequest(request) {
 	return getCronSecretVerifier('social_publish', providedSecret);
 }
 
+/**
+ * @param {any} value
+ * @param {any} [maxLength]
+ */
 function cleanText(value, maxLength = 0) {
 	if (value === null || value === undefined) return '';
 	const cleaned = String(value).trim();
@@ -23,6 +30,11 @@ function cleanText(value, maxLength = 0) {
 	return cleaned.slice(0, maxLength);
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} post
+ * @param {any} error
+ */
 async function persistUnexpectedCronFailure(supabase, post, error) {
 	if (!post?.id || !post?.group_id) return;
 	const nowIso = new Date().toISOString();
@@ -36,6 +48,7 @@ async function persistUnexpectedCronFailure(supabase, post, error) {
 	const latestDebugTimeline = Array.isArray(latestMeta.debug_timeline)
 		? latestMeta.debug_timeline
 		: [];
+	/** @type {any} */
 	const debugTimeline = [
 		...latestDebugTimeline,
 		{
@@ -66,6 +79,10 @@ async function persistUnexpectedCronFailure(supabase, post, error) {
 	});
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} [param1]
+ */
 async function processBatch(supabase, { batchSize = 5 } = {}) {
 	const { data, error } = await supabase.rpc('claim_group_social_posts', {
 		target_batch_size: Math.max(1, Math.min(100, Number.parseInt(String(batchSize), 10) || 5))
@@ -77,6 +94,7 @@ async function processBatch(supabase, { batchSize = 5 } = {}) {
 		post_ids: posts.map((post) => post?.id).filter(Boolean)
 	});
 
+	/** @type {any} */
 	const summary = {
 		claimed: posts.length,
 		published: 0,
@@ -134,6 +152,9 @@ async function processBatch(supabase, { batchSize = 5 } = {}) {
 	return summary;
 }
 
+/**
+ * @param {any} event
+ */
 async function handleCron(event) {
 	const requestedBatch = Number.parseInt(event.url.searchParams.get('batch') || '5', 10) || 5;
 	console.info('social_publish_cron_start', {

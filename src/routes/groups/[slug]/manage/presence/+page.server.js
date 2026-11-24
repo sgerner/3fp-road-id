@@ -26,6 +26,14 @@ import {
 	syncSiteConfigWithCoreGroup
 } from '#lib/groups/presenceStudio';
 
+/**
+ * @param {any} cookies
+ * @param {string} slug
+ * @returns {Promise<
+ *   | { ok: false, response: any }
+ *   | { ok: true, slug: string, group: Record<string, any>, groupId: string, userId: string, isAdmin: boolean, supabase: any }
+ * >}
+ */
 async function requirePresenceManager(cookies, slug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
@@ -71,6 +79,9 @@ async function requirePresenceManager(cookies, slug) {
 	};
 }
 
+/**
+ * @param {{ params: Record<string, string>, request: Request, cookies: any }} event
+ */
 async function publishPresenceChanges({ params, request, cookies }) {
 	const auth = await requirePresenceManager(cookies, params.slug);
 	if (!auth.ok) return auth.response;

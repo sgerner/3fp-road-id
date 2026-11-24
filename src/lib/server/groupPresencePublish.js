@@ -294,6 +294,23 @@ async function prepareSponsorLogoUploads({ formData, optimizeImage }) {
 	return { sponsorItems, pendingUploads };
 }
 
+/**
+ * @param {{
+ *   slug: string,
+ *   group: Record<string, any>,
+ *   groupId: string,
+ *   supabase: any,
+ *   form: FormData,
+ *   getSiteConfig: (groupId: string, opts?: any) => Promise<any>,
+ *   upsertSiteConfig: (groupId: string, config: any) => Promise<any>,
+ *   getServiceSupabase?: () => any,
+ *   invalidateSnapshotCache?: (target: any) => any,
+ *   optimizeImage?: (buffer: any, opts?: any) => Promise<any>,
+ *   prepareRemoteImage?: (url: string, opts?: any) => Promise<any>,
+ *   supabasePublicUrl?: string
+ * }} options
+ * @returns {Promise<{ ok: true, redirectTo: string } | { ok: false, status: number, body: Record<string, any> }>}
+ */
 export async function publishGroupPresence({
 	slug,
 	group,
@@ -376,7 +393,9 @@ export async function publishGroupPresence({
 		};
 	}
 
+	/** @type {any} */
 	const logoFile = form.get('logo_file');
+	/** @type {any} */
 	const coverFile = form.get('cover_file');
 	const logoCropped = form.get('logo_file_cropped')?.toString() || '';
 	const coverCropped = form.get('cover_file_cropped')?.toString() || '';
@@ -510,6 +529,7 @@ export async function publishGroupPresence({
 	}
 	const taxonomySnapshot = taxonomySnapshotResult.snapshot;
 
+	/** @type {Record<string, any>} */
 	const groupPayload = {
 		city: form.get('city')?.toString().trim() ?? '',
 		state_region: stateRegion,
@@ -597,6 +617,9 @@ export async function publishGroupPresence({
 		}
 
 		for (const pending of preparedSponsors.pendingUploads) {
+			if (!serviceSupabase) {
+				throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for sponsor logo uploads.');
+			}
 			const objectPath = buildSponsorLogoObjectPath(groupId, pending.fileName);
 			const { error: uploadError } = await serviceSupabase.storage
 				.from(SPONSOR_LOGO_BUCKET)
@@ -641,6 +664,7 @@ export async function publishGroupPresence({
 		);
 	}
 
+	/** @type {Record<string, any>} */
 	const rollbackGroupSnapshot = {};
 	for (const key of Object.keys(groupPayload)) {
 		if (Object.prototype.hasOwnProperty.call(group, key)) {
@@ -731,6 +755,7 @@ export async function publishGroupPresence({
 		}
 	}
 
+	/** @type {Record<string, any>} */
 	const updatedGroup = { ...group, ...groupPayload };
 	const seoDescription = form.get('seo_description')?.toString().trim() || '';
 	const parsedSiteConfig = parseGroupSiteFormData(form, { group: updatedGroup });
