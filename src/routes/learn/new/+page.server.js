@@ -1,5 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getLearnClient, requireLearnUser, learnFormDataValues } from '#lib/server/learn';
+import {
+	getLearnClient,
+	requireLearnUser,
+	learnFormDataValues,
+	syncLearnCoverAsset
+} from '#lib/server/learn';
 import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
 import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
 
@@ -21,7 +26,8 @@ export const load = async ({ cookies, url }) => {
 			bodyMarkdown: '',
 			editorMode: 'wysiwyg',
 			categoryName: 'General',
-			coverImageUrl: ''
+			coverImageUrl: '',
+			coverImageAlt: ''
 		}
 	};
 };
@@ -51,6 +57,15 @@ export const actions = {
 				return fail(400, {
 					error: insertError.message,
 					values
+				});
+			}
+
+			if (record.cover_image_url) {
+				await syncLearnCoverAsset(supabase, {
+					articleId: data.id,
+					coverImageUrl: record.cover_image_url,
+					coverImageAlt: values.coverImageAlt,
+					user
 				});
 			}
 

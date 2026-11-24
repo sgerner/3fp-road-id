@@ -4,10 +4,12 @@ import {
 	getLearnClient,
 	listLearnAssetsForArticle,
 	requireLearnUser,
-	learnFormDataValues
+	learnFormDataValues,
+	syncLearnCoverAsset
 } from '#lib/server/learn';
 import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
 import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
+import { sanitizeAltText } from '#lib/learn/altText';
 
 export const load = async ({ params, url, cookies }) => {
 	const { user, supabase } = await getLearnClient(cookies);
@@ -43,6 +45,18 @@ export const load = async ({ params, url, cookies }) => {
 		listLearnAssetsForArticle(supabase, article.id)
 	]);
 
+	const matchingCoverAsset = source.cover_image_url
+		? [...articleAssets, ...(editorOptions.recentAssets ?? [])].find(
+				(asset) => asset?.public_url === source.cover_image_url && asset?.alt_text
+			)
+		: null;
+	const initialCoverAlt = matchingCoverAsset
+		? sanitizeAltText(matchingCoverAsset.alt_text, {
+				fileName: matchingCoverAsset.file_name || '',
+				imageUrl: source.cover_image_url || ''
+			})
+		: '';
+
 	return {
 		currentUser: user,
 		...editorOptions,
@@ -60,7 +74,8 @@ export const load = async ({ params, url, cookies }) => {
 			editorMode: source.editor_mode,
 			categoryName: source.category_name,
 			subcategorySlug: source.subcategory_slug || '',
-			coverImageUrl: source.cover_image_url || ''
+			coverImageUrl: source.cover_image_url || '',
+			coverImageAlt: initialCoverAlt
 		}
 	};
 };
@@ -99,6 +114,15 @@ export const actions = {
 				return fail(400, {
 					error: updateError.message,
 					values
+				});
+			}
+
+			if (record.cover_image_url) {
+				await syncLearnCoverAsset(supabase, {
+					articleId: data.id,
+					coverImageUrl: record.cover_image_url,
+					coverImageAlt: values.coverImageAlt,
+					user
 				});
 			}
 

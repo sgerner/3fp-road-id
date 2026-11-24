@@ -170,10 +170,10 @@ Let’s roll together and celebrate our community on wheels! Don’t miss it! �
 
 Click on an image to open up a Canva template you can edit directly
 
-[![neighborhood_bike_bash_-_24_x_18_coroplast_double_sided.jpg](/social-media/neighborhood*bike_bash*-\_24_x_18_coroplast_double_sided.jpg =300x)
+[![Neighborhood Bike Bash double-sided yard sign template for University Presbyterian Church on Feb 8, 9 to 11 AM](/social-media/neighborhood_bike_bash_-_24_x_18_coroplast_double_sided.jpg)
 These make great coroplast yard signs. Print once, then cover the white area with a cheap sticker to reuse for future events.](https://www.canva.com/design/DAGcmCanzGg/o99hxJFBmsQmkg-kMkuj0Q/view?utm_content=DAGcmCanzGg&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
-[![neighborhood_bike_bash_banner.jpg](/social-media/neighborhood_bike_bash_banner.jpg =300x)
+[![Neighborhood Bike Bash vinyl banner template listing free helmets, bike repairs, safety clinic, and bike games](/social-media/neighborhood_bike_bash_banner.jpg)
 This makes a good vinyl banner. Again, you can print a cheaper sticker to change the details for reuse at future events.](https://www.canva.com/design/DAGcmdMCQQg/QyuAnCeYbh0u1i4T0xQnnA/view?utm_content=DAGcmdMCQQg&utm_campaign=designshare&utm_medium=link&utm_source=publishsharelink&mode=preview)
 
 ## Flyer Tips
