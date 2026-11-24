@@ -29,7 +29,7 @@
 	let textareaEl = $state(null);
 	let modeEl = $state(null);
 	let currentMode = $state('wysiwyg');
-	let lastExternalValue = $state('');
+	let lastExternalValue = '';
 	let editor = null;
 	let detachAccessibility = null;
 	let ready = $state(false);

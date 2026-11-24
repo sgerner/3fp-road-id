@@ -13,6 +13,7 @@ import {
 	syncSiteConfigWithCoreGroup
 } from '#lib/groups/presenceStudio.js';
 import { buildGroupSiteEditorState } from '#lib/groups/siteEditor.js';
+import { publishGroupPresence } from '#lib/server/groupPresencePublish.js';
 import { load as loadLegacyEdit } from '../../routes/groups/[slug]/manage/edit/+page.server.js';
 import { load as loadLegacySite } from '../../routes/groups/[slug]/manage/site/+page.server.js';
 import { GET as getLegacyRootEdit } from '../../routes/groups/[slug]/edit/+server.js';
@@ -297,4 +298,463 @@ test('extractPresenceStudioFormValues preserves profile and website drafts while
 	assert.deepEqual(hydratedSite.faqItems, [
 		{ question: 'Bring water?', answer: 'Yes, two bottles in summer.' }
 	]);
+});
+
+function createPublishMockHarness({
+	initialGroup = {},
+	initialTaxonomies = {},
+	initialObjects = {},
+	failGroupUpdate = null,
+	failTaxonomyInsertTable = null,
+	failUpsertSiteConfig = null
+} = {}) {
+	const groupId = initialGroup.id || '11111111-2222-3333-4444-555555555555';
+	const groupRow = {
+		id: groupId,
+		slug: 'desert-spokes',
+		microsite_slug: 'desertspokes',
+		name: 'Desert Spokes',
+		tagline: 'Original tagline',
+		description: 'Original description',
+		city: 'Tempe',
+		state_region: 'AZ',
+		country: 'US',
+		logo_url: `https://example.supabase.co/storage/v1/object/public/storage/groups/${groupId}/logo`,
+		cover_photo_url: `https://example.supabase.co/storage/v1/object/public/storage/groups/${groupId}/cover`,
+		website_url: null,
+		public_contact_email: null,
+		public_phone_number: null,
+		preferred_contact_method_instructions: null,
+		how_to_join_instructions: null,
+		specific_meeting_point_address: null,
+		latitude: 33.4255,
+		longitude: -111.94,
+		service_area_description: null,
+		zip_code: null,
+		activity_frequency: null,
+		typical_activity_day_time: null,
+		membership_info: null,
+		preferred_cta_kind: 'auto',
+		preferred_cta_label: null,
+		preferred_cta_url: null,
+		social_links: null,
+		...initialGroup
+	};
+
+	const taxonomyColumns = {
+		group_x_group_types: 'group_type_id',
+		group_x_audience_focuses: 'audience_focus_id',
+		group_x_riding_disciplines: 'riding_discipline_id',
+		group_x_skill_levels: 'skill_level_id'
+	};
+
+	const taxonomyRows = {
+		group_x_group_types: [...(initialTaxonomies.group_x_group_types ?? [1, 3])].map((id) => ({
+			group_id: groupId,
+			group_type_id: id
+		})),
+		group_x_audience_focuses: [...(initialTaxonomies.group_x_audience_focuses ?? [2])].map(
+			(id) => ({
+				group_id: groupId,
+				audience_focus_id: id
+			})
+		),
+		group_x_riding_disciplines: [...(initialTaxonomies.group_x_riding_disciplines ?? [4, 5])].map(
+			(id) => ({
+				group_id: groupId,
+				riding_discipline_id: id
+			})
+		),
+		group_x_skill_levels: [...(initialTaxonomies.group_x_skill_levels ?? [2, 3])].map((id) => ({
+			group_id: groupId,
+			skill_level_id: id
+		}))
+	};
+
+	const buckets = {
+		storage: new Map([
+			[`groups/${groupId}/logo`, Buffer.from('existing-logo')],
+			[`groups/${groupId}/cover`, Buffer.from('existing-cover')],
+			...Object.entries(initialObjects.storage || {}).map(([k, v]) => [k, Buffer.from(v)])
+		]),
+		'group-assets': new Map(
+			Object.entries(initialObjects['group-assets'] || {}).map(([k, v]) => [k, Buffer.from(v)])
+		)
+	};
+
+	const uploadCalls = [];
+	const removeCalls = [];
+	let groupUpdateCount = 0;
+	let siteConfigSaved = buildDefaultGroupSiteConfig(groupRow);
+	const invalidatedSnapshots = [];
+
+	function makeStorageBucket(bucketName) {
+		const map = buckets[bucketName];
+		return {
+			async upload(objectPath, buffer, options = {}) {
+				uploadCalls.push({ bucket: bucketName, objectPath, options });
+				if (options.upsert !== true && map.has(objectPath)) {
+					return { error: { message: `Object already exists: ${objectPath}` } };
+				}
+				map.set(objectPath, Buffer.from(buffer));
+				return { data: { path: objectPath }, error: null };
+			},
+			getPublicUrl(objectPath) {
+				return {
+					data: {
+						publicUrl: `https://example.supabase.co/storage/v1/object/public/${bucketName}/${objectPath}`
+					}
+				};
+			},
+			async remove(paths) {
+				removeCalls.push({ bucket: bucketName, paths: [...paths] });
+				for (const item of paths) {
+					map.delete(item);
+				}
+				return { data: paths, error: null };
+			}
+		};
+	}
+
+	const supabase = {
+		storage: {
+			from: (bucketName) => makeStorageBucket(bucketName)
+		},
+		from(table) {
+			if (table === 'groups') {
+				return {
+					update(patch) {
+						return {
+							async eq(_col, targetId) {
+								groupUpdateCount += 1;
+								if (groupUpdateCount === 1 && failGroupUpdate) {
+									return { error: failGroupUpdate };
+								}
+								if (targetId === groupId) {
+									Object.assign(groupRow, patch);
+								}
+								return { error: null };
+							}
+						};
+					}
+				};
+			}
+
+			if (Object.prototype.hasOwnProperty.call(taxonomyColumns, table)) {
+				const column = taxonomyColumns[table];
+				return {
+					select() {
+						return {
+							async eq(_col, targetId) {
+								return {
+									data: taxonomyRows[table]
+										.filter((row) => row.group_id === targetId)
+										.map((row) => ({ [column]: row[column] })),
+									error: null
+								};
+							}
+						};
+					},
+					delete() {
+						return {
+							async eq(_col, targetId) {
+								taxonomyRows[table] = taxonomyRows[table].filter(
+									(row) => row.group_id !== targetId
+								);
+								return { error: null };
+							}
+						};
+					},
+					async insert(rows) {
+						if (failTaxonomyInsertTable === table) {
+							failTaxonomyInsertTable = null;
+							return { error: { message: `Foreign key error on ${table}` } };
+						}
+						for (const row of rows) {
+							const exists = taxonomyRows[table].some(
+								(existing) => existing.group_id === row.group_id && existing[column] === row[column]
+							);
+							if (exists) {
+								return { error: { message: `Duplicate PK in ${table}` } };
+							}
+							taxonomyRows[table].push({ ...row });
+						}
+						return { error: null };
+					}
+				};
+			}
+
+			throw new Error(`Unexpected table: ${table}`);
+		}
+	};
+
+	const serviceSupabase = {
+		storage: {
+			from: (bucketName) => makeStorageBucket(bucketName)
+		}
+	};
+
+	function readTaxonomyIds() {
+		return Object.fromEntries(
+			Object.entries(taxonomyColumns).map(([table, col]) => [
+				table,
+				taxonomyRows[table].map((row) => row[col]).sort((a, b) => a - b)
+			])
+		);
+	}
+
+	return {
+		groupId,
+		initialSnapshot: { ...groupRow },
+		groupRow,
+		buckets,
+		uploadCalls,
+		removeCalls,
+		readTaxonomyIds,
+		supabase,
+		serviceSupabase,
+		invalidatedSnapshots,
+		getSiteConfig: async () => siteConfigSaved,
+		upsertSiteConfig: async (_id, nextConfig) => {
+			if (failUpsertSiteConfig) {
+				throw failUpsertSiteConfig;
+			}
+			siteConfigSaved = nextConfig;
+			return nextConfig;
+		},
+		getSavedSiteConfig: () => siteConfigSaved,
+		optimizeImage: async (buffer) => ({
+			buffer,
+			contentType: 'image/webp',
+			extension: 'webp'
+		})
+	};
+}
+
+function buildSamplePublishForm({
+	name = 'Desert Spokes Collective',
+	tagline = 'Updated tagline',
+	micrositeSlug = 'desertspokes',
+	returnView = 'builder',
+	includeUploads = true
+} = {}) {
+	const form = new FormData();
+	form.set('return_view', returnView);
+	form.set('name', name);
+	form.set('tagline', tagline);
+	form.set('description', 'Updated story across Tempe');
+	form.set('city', 'Tempe');
+	form.set('state_region', 'AZ');
+	form.set('country', 'US');
+	form.set('microsite_slug', micrositeSlug);
+	form.set('seo_description', 'Updated SEO description');
+	form.append('group_type_ids', '9');
+	form.append('audience_focus_ids', '7');
+	form.append('riding_discipline_ids', '8');
+	form.append('skill_level_ids', '6');
+	if (includeUploads) {
+		form.set(
+			'logo_file',
+			new File([new Uint8Array([1, 2, 3, 4])], 'new-logo.png', { type: 'image/png' })
+		);
+		form.set(
+			'cover_file',
+			new File([new Uint8Array([5, 6, 7, 8])], 'new-cover.png', { type: 'image/png' })
+		);
+		form.set(
+			'sponsor_items_json',
+			JSON.stringify([{ name: 'Tempe Cyclery', text: 'Shop partner', logo: '', url: '' }])
+		);
+		form.set(
+			'sponsor_logo_file_0',
+			new File([new Uint8Array([9, 10, 11, 12])], 'sponsor.png', { type: 'image/png' })
+		);
+	}
+	return form;
+}
+
+test('publishGroupPresence uploads media to non-overwriting versioned paths and cleans up replaced assets only after commit', async () => {
+	const harness = createPublishMockHarness();
+	const form = buildSamplePublishForm();
+
+	const result = await publishGroupPresence({
+		slug: 'desert-spokes',
+		group: harness.initialSnapshot,
+		groupId: harness.groupId,
+		supabase: harness.supabase,
+		form,
+		getSiteConfig: harness.getSiteConfig,
+		upsertSiteConfig: harness.upsertSiteConfig,
+		getServiceSupabase: () => harness.serviceSupabase,
+		invalidateSnapshotCache: (payload) => harness.invalidatedSnapshots.push(payload),
+		optimizeImage: harness.optimizeImage,
+		supabasePublicUrl: 'https://example.supabase.co'
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(result.redirectTo, '/groups/desert-spokes/manage/presence?saved=1&view=builder');
+
+	// Every storage upload must use upsert: false at a unique versioned path
+	assert.equal(harness.uploadCalls.length, 3);
+	for (const call of harness.uploadCalls) {
+		assert.equal(call.options.upsert, false);
+	}
+	const storageUploads = harness.uploadCalls.filter((call) => call.bucket === 'storage');
+	assert.equal(storageUploads.length, 2);
+	assert.match(storageUploads[0].objectPath, new RegExp(`^groups/${harness.groupId}/logo-`));
+	assert.match(storageUploads[1].objectPath, new RegExp(`^groups/${harness.groupId}/cover-`));
+
+	// Replaced legacy objects are cleaned up post-commit while new objects remain
+	assert.equal(harness.buckets.storage.has(`groups/${harness.groupId}/logo`), false);
+	assert.equal(harness.buckets.storage.has(`groups/${harness.groupId}/cover`), false);
+	assert.equal(harness.buckets.storage.has(storageUploads[0].objectPath), true);
+	assert.equal(harness.buckets.storage.has(storageUploads[1].objectPath), true);
+
+	assert.deepEqual(harness.readTaxonomyIds(), {
+		group_x_group_types: [9],
+		group_x_audience_focuses: [7],
+		group_x_riding_disciplines: [8],
+		group_x_skill_levels: [6]
+	});
+	assert.equal(harness.groupRow.name, 'Desert Spokes Collective');
+	assert.equal(harness.getSavedSiteConfig().site_title, 'Desert Spokes Collective');
+	assert.equal(harness.invalidatedSnapshots.length, 1);
+});
+
+test('publishGroupPresence cleans up staged media and preserves existing assets and taxonomies when group update fails', async () => {
+	const harness = createPublishMockHarness({
+		failGroupUpdate: { code: '23505', message: 'duplicate key value violates unique constraint' }
+	});
+	const form = buildSamplePublishForm({ micrositeSlug: 'taken-slug' });
+
+	const result = await publishGroupPresence({
+		slug: 'desert-spokes',
+		group: harness.initialSnapshot,
+		groupId: harness.groupId,
+		supabase: harness.supabase,
+		form,
+		getSiteConfig: harness.getSiteConfig,
+		upsertSiteConfig: harness.upsertSiteConfig,
+		getServiceSupabase: () => harness.serviceSupabase,
+		optimizeImage: harness.optimizeImage,
+		supabasePublicUrl: 'https://example.supabase.co'
+	});
+
+	assert.equal(result.ok, false);
+	assert.equal(result.status, 409);
+	assert.equal(result.body.values.site.microsite_slug, 'taken-slug');
+
+	// Existing live logo and cover objects were never overwritten or deleted
+	assert.deepEqual(
+		[...harness.buckets.storage.keys()],
+		[`groups/${harness.groupId}/logo`, `groups/${harness.groupId}/cover`]
+	);
+	assert.equal(harness.buckets['group-assets'].size, 0);
+
+	// Taxonomies were untouched
+	assert.deepEqual(harness.readTaxonomyIds(), {
+		group_x_group_types: [1, 3],
+		group_x_audience_focuses: [2],
+		group_x_riding_disciplines: [4, 5],
+		group_x_skill_levels: [2, 3]
+	});
+});
+
+test('publishGroupPresence restores group fields, all 4 taxonomy tables, and cleans up staged media on taxonomy insert failure', async () => {
+	const harness = createPublishMockHarness({
+		failTaxonomyInsertTable: 'group_x_skill_levels'
+	});
+	const form = buildSamplePublishForm();
+
+	const result = await publishGroupPresence({
+		slug: 'desert-spokes',
+		group: harness.initialSnapshot,
+		groupId: harness.groupId,
+		supabase: harness.supabase,
+		form,
+		getSiteConfig: harness.getSiteConfig,
+		upsertSiteConfig: harness.upsertSiteConfig,
+		getServiceSupabase: () => harness.serviceSupabase,
+		optimizeImage: harness.optimizeImage,
+		supabasePublicUrl: 'https://example.supabase.co'
+	});
+
+	assert.equal(result.ok, false);
+	assert.equal(result.status, 500);
+	assert.match(result.body.error, /group_x_skill_levels/);
+
+	// Group row restored to original snapshot (including original logo_url & cover_photo_url)
+	assert.equal(harness.groupRow.name, 'Desert Spokes');
+	assert.equal(harness.groupRow.tagline, 'Original tagline');
+	assert.equal(harness.groupRow.logo_url, harness.initialSnapshot.logo_url);
+	assert.equal(harness.groupRow.cover_photo_url, harness.initialSnapshot.cover_photo_url);
+
+	// All 4 taxonomy tables restored to pre-publish snapshot (not wiped empty or partially updated)
+	assert.deepEqual(harness.readTaxonomyIds(), {
+		group_x_group_types: [1, 3],
+		group_x_audience_focuses: [2],
+		group_x_riding_disciplines: [4, 5],
+		group_x_skill_levels: [2, 3]
+	});
+
+	// Staged uploads removed while original storage objects remain untouched
+	assert.deepEqual(
+		[...harness.buckets.storage.keys()],
+		[`groups/${harness.groupId}/logo`, `groups/${harness.groupId}/cover`]
+	);
+	assert.equal(harness.buckets['group-assets'].size, 0);
+});
+
+test('publishGroupPresence restores group fields, all 4 taxonomy tables, and preserves live media when upsertSiteConfig fails', async () => {
+	const harness = createPublishMockHarness({
+		failUpsertSiteConfig: new Error('Invalid microsite block configuration')
+	});
+	const form = buildSamplePublishForm();
+
+	const result = await publishGroupPresence({
+		slug: 'desert-spokes',
+		group: harness.initialSnapshot,
+		groupId: harness.groupId,
+		supabase: harness.supabase,
+		form,
+		getSiteConfig: harness.getSiteConfig,
+		upsertSiteConfig: harness.upsertSiteConfig,
+		getServiceSupabase: () => harness.serviceSupabase,
+		optimizeImage: harness.optimizeImage,
+		supabasePublicUrl: 'https://example.supabase.co'
+	});
+
+	assert.equal(result.ok, false);
+	assert.equal(result.status, 400);
+	assert.equal(result.body.error, 'Invalid microsite block configuration');
+	assert.equal(result.body.values.profile.name, 'Desert Spokes Collective');
+
+	// Group row restored
+	assert.equal(harness.groupRow.name, 'Desert Spokes');
+	assert.equal(harness.groupRow.tagline, 'Original tagline');
+	assert.equal(harness.groupRow.logo_url, harness.initialSnapshot.logo_url);
+	assert.equal(harness.groupRow.cover_photo_url, harness.initialSnapshot.cover_photo_url);
+
+	// Newly inserted taxonomy rows cleared and all 4 snapshotted taxonomy tables restored without PK collisions
+	assert.deepEqual(harness.readTaxonomyIds(), {
+		group_x_group_types: [1, 3],
+		group_x_audience_focuses: [2],
+		group_x_riding_disciplines: [4, 5],
+		group_x_skill_levels: [2, 3]
+	});
+
+	// Original storage objects remain untouched and newly uploaded objects were rolled back
+	assert.deepEqual(
+		[...harness.buckets.storage.keys()],
+		[`groups/${harness.groupId}/logo`, `groups/${harness.groupId}/cover`]
+	);
+	assert.equal(
+		harness.buckets.storage.get(`groups/${harness.groupId}/logo`)?.toString(),
+		'existing-logo'
+	);
+	assert.equal(
+		harness.buckets.storage.get(`groups/${harness.groupId}/cover`)?.toString(),
+		'existing-cover'
+	);
+	assert.equal(harness.buckets['group-assets'].size, 0);
 });

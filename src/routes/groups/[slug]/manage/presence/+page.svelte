@@ -9,8 +9,8 @@
 		guardUnsavedNavigation,
 		replaceShallowQueryParam
 	} from '#lib/client/navigation';
-	import '#lib/map/leaflet.css';
-	import * as env from '$app/env/public';
+	import { getAssistantContext } from '#lib/ai/assistantContext.svelte.js';
+	import { verifyAppliedFingerprint } from '#lib/ai/assistantHelpers.js';
 	import IconAlertTriangle from '@lucide/svelte/icons/triangle-alert';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -46,7 +46,7 @@
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
 	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
-	import { geocodeAddress } from '#lib/groups/geocoding';
+	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';
 	import {
 		isWebsiteLayerView,
 		mergeAiProposalIntoPresenceDraft,
@@ -56,7 +56,7 @@
 	import {
 		buildGroupSiteEditorState,
 		GROUP_SITE_LOGO_MAX_BYTES,
-		mergeGroupSiteEditorConfig,
+		siteEditorConfigFingerprint,
 		toIsoDateTimeValue,
 		validateGroupSiteDraftSubmission
 	} from '#lib/groups/siteEditor';
@@ -290,6 +290,10 @@
 	let refreshingPalette = $state(false);
 	let sponsorFileRevision = $state(0);
 	let sponsorFileNames = $state({});
+	let aiUndoSnapshot = $state(null);
+	let aiAppliedFingerprint = $state('');
+	let aiUndoConflictMessage = $state('');
+	const assistantContext = getAssistantContext();
 	const recommendedTemplateId = untrack(() => data.recommendedSiteTemplateId || 'community');
 
 	// Logo & cover uploads + cropper state
@@ -801,6 +805,9 @@
 		logoTooLarge = false;
 		coverTooLarge = false;
 		logoUploadKey += 1;
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
 		localNotice = '';
 		localError = '';
 		previewVersion += 1;
@@ -932,91 +939,27 @@
 		profileDraft[listKey] = next;
 	}
 
-	// Leaflet & Google Places integration (safe across tab switches)
-	let leafletModule = null;
-	let activeMapInstance = null;
-	let activeMapMarker = null;
-	let locationGeocodeTimeout;
-	let locationPendingGeocode;
-	let locationLastKey = '';
-	let locationGeocoder;
-	let placesLoading = $state(false);
+	// Accessible coordinate pin picker & address geocoding state
+	let geocodeRevision = $state(0);
 
-	function placeMarker(lat, lng) {
-		const latNum = Number(lat);
-		const lngNum = Number(lng);
-		if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return;
-		profileDraft.latitude = latNum.toFixed(6);
-		profileDraft.longitude = lngNum.toFixed(6);
-		if (!activeMapInstance || !leafletModule) return;
-		if (!activeMapMarker) {
-			activeMapMarker = leafletModule.marker([latNum, lngNum]).addTo(activeMapInstance);
-		} else {
-			activeMapMarker.setLatLng([latNum, lngNum]);
-		}
-		activeMapInstance.setView([latNum, lngNum], Math.max(activeMapInstance.getZoom(), 12));
-	}
-
-	function ensurePlacesHelpers() {
-		if (typeof window === 'undefined') return false;
-		const maps = window.google?.maps;
-		if (!maps?.places) return false;
-		if (!locationGeocoder) locationGeocoder = new maps.Geocoder();
-		return Boolean(locationGeocoder);
-	}
-
-	function buildLocationConfig() {
-		const countryTrim = (profileDraft.country || '').trim().toUpperCase();
+	const externalLocationQuery = $derived.by(() => {
 		const meetingTrim = (profileDraft.specific_meeting_point_address || '').trim();
-		if (meetingTrim) {
-			const meetingCountry = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-			return {
-				query: meetingTrim,
-				country: meetingCountry,
-				key: `${meetingTrim}|${meetingCountry}`
-			};
-		}
+		if (meetingTrim) return meetingTrim;
 		const parts = [
 			(profileDraft.city || '').trim(),
 			(profileDraft.state_region || '').trim(),
 			(profileDraft.zip_code || '').trim()
 		].filter(Boolean);
-		if (!parts.length) return null;
+		if (!parts.length) return '';
+		const countryTrim = (profileDraft.country || '').trim().toUpperCase();
 		if (countryTrim && countryTrim !== 'OTHER') parts.push(countryTrim);
-		const query = parts.join(', ');
-		const countryCode = countryTrim && countryTrim !== 'OTHER' ? countryTrim : '';
-		return { query, country: countryCode, key: `${query}|${countryCode}` };
-	}
+		return parts.join(', ');
+	});
 
-	async function runLocationGeocode(config) {
-		if (!config) return;
-		const active = locationPendingGeocode;
-		try {
-			const coords = await geocodeAddress(
-				locationGeocoder,
-				config.query,
-				config.country,
-				window.google?.maps?.GeocoderStatus?.OK
-			);
-			if (!coords) return;
-			if (active && active.key !== config.key) return;
-			locationLastKey = config.key;
-			placeMarker(coords.lat, coords.lng);
-		} catch (error) {
-			console.error('Failed to geocode location', error);
+	function triggerLocationGeocode() {
+		if (externalLocationQuery) {
+			geocodeRevision += 1;
 		}
-	}
-
-	function scheduleLocationGeocode(options = {}) {
-		const config = buildLocationConfig();
-		if (!config) return;
-		if (!options.force && config.key === locationLastKey) return;
-		locationPendingGeocode = config;
-		if (!ensurePlacesHelpers()) return;
-		const run = () => runLocationGeocode(config);
-		clearTimeout(locationGeocodeTimeout);
-		if (options.immediate) run();
-		else locationGeocodeTimeout = setTimeout(run, 600);
 	}
 
 	function formatDefaultSearch() {
@@ -1026,134 +969,6 @@
 			.map((part) => (part || '').trim())
 			.filter(Boolean)
 			.join(', ');
-	}
-
-	function attachLeafletMap(node) {
-		let cancelled = false;
-		(async () => {
-			try {
-				if (!leafletModule) {
-					const mod = await import('leaflet');
-					leafletModule = mod.default || mod;
-					const { ensureLeafletDefaultIcon } = await import('#lib/map/leaflet');
-					await ensureLeafletDefaultIcon(leafletModule);
-				}
-				if (cancelled || !leafletModule) return;
-				const latNum = Number(profileDraft.latitude);
-				const lngNum = Number(profileDraft.longitude);
-				const hasCoords =
-					profileDraft.latitude !== '' &&
-					profileDraft.longitude !== '' &&
-					Number.isFinite(latNum) &&
-					Number.isFinite(lngNum);
-				const initLat = hasCoords ? latNum : 37.8;
-				const initLng = hasCoords ? lngNum : -96;
-				activeMapInstance = leafletModule.map(node).setView([initLat, initLng], hasCoords ? 12 : 4);
-				leafletModule
-					.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-						maxZoom: 19,
-						attribution: '&copy; OpenStreetMap contributors'
-					})
-					.addTo(activeMapInstance);
-				activeMapInstance.on('click', (event) => {
-					placeMarker(event.latlng.lat, event.latlng.lng);
-				});
-				if (hasCoords) {
-					activeMapMarker = leafletModule.marker([initLat, initLng]).addTo(activeMapInstance);
-				}
-			} catch (error) {
-				console.error('Failed to initialize map', error);
-			}
-		})();
-
-		return {
-			destroy() {
-				cancelled = true;
-				if (activeMapInstance) {
-					activeMapInstance.remove();
-					activeMapInstance = null;
-					activeMapMarker = null;
-				}
-			}
-		};
-	}
-
-	function attachPlacesAutocomplete(container) {
-		function mountWidget() {
-			placesLoading = false;
-			if (!container || !ensurePlacesHelpers() || !window.google?.maps?.places) return;
-			if (locationPendingGeocode?.query) {
-				scheduleLocationGeocode({ immediate: true, force: true });
-			}
-			const PAE = window.google.maps.places.PlaceAutocompleteElement;
-			if (PAE) {
-				const el = new PAE();
-				const def = formatDefaultSearch();
-				if (def) el.value = def;
-				container.innerHTML = '';
-				container.appendChild(el);
-				el.addEventListener('gmp-select', async ({ placePrediction }) => {
-					try {
-						const place = placePrediction.toPlace();
-						await place.fetchFields({ fields: ['location', 'viewport'] });
-						const loc = place.location;
-						if (!loc) return;
-						const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-						const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-						placeMarker(lat, lng);
-					} catch (error) {
-						console.error('Place selection failed', error);
-					}
-				});
-				return;
-			}
-			const input = document.createElement('input');
-			input.className = 'input border-surface-700 bg-surface-950 border';
-			input.placeholder = 'Start typing a city or address…';
-			const def = formatDefaultSearch();
-			if (def) input.value = def;
-			container.innerHTML = '';
-			container.appendChild(input);
-			if (window.google.maps.places.Autocomplete) {
-				const ac = new window.google.maps.places.Autocomplete(input, {
-					fields: ['geometry'],
-					types: ['(regions)']
-				});
-				ac.addListener('place_changed', () => {
-					const place = ac.getPlace();
-					const loc = place?.geometry?.location;
-					if (!loc) return;
-					placeMarker(loc.lat(), loc.lng());
-				});
-			}
-		}
-
-		window.initGooglePlaces = mountWidget;
-		if (window.google?.maps?.places) {
-			mountWidget();
-		} else {
-			const key = env.PUBLIC_GOOGLE_MAPS_API_KEY;
-			if (key && !document.getElementById('gmaps-places')) {
-				placesLoading = true;
-				const script = document.createElement('script');
-				script.id = 'gmaps-places';
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&v=beta&callback=initGooglePlaces`;
-				script.async = true;
-				script.defer = true;
-				script.onerror = () => {
-					placesLoading = false;
-				};
-				document.head.appendChild(script);
-			}
-		}
-
-		return {
-			destroy() {
-				if (window.initGooglePlaces === mountWidget) {
-					delete window.initGooglePlaces;
-				}
-			}
-		};
 	}
 
 	// Cropper & media handlers
@@ -1430,7 +1245,8 @@
 				profileDraft.clearCover = false;
 			}
 			if (Number.isFinite(fields.latitude) && Number.isFinite(fields.longitude)) {
-				placeMarker(fields.latitude, fields.longitude);
+				profileDraft.latitude = Number(fields.latitude).toFixed(6);
+				profileDraft.longitude = Number(fields.longitude).toFixed(6);
 			}
 			if (fields.social_links && typeof fields.social_links === 'object') {
 				for (const item of SOCIAL_FIELDS) {
@@ -1690,6 +1506,114 @@
 		return true;
 	}
 
+	function captureStudioAiUndoState() {
+		return clone({
+			tagline: profileDraft.tagline,
+			description: profileDraft.description,
+			seoDescription,
+			siteConfig,
+			sitePages,
+			selectedPageId,
+			pageBlocks,
+			sponsorItems,
+			sponsorFileNames,
+			faqItems,
+			slugInput,
+			rideFilterMode,
+			rideLocation,
+			rideNear,
+			rideRadius,
+			rideDefaultTab,
+			rideTheme,
+			rideDensity,
+			rideShowFilters,
+			rideShowAdd,
+			ridePrefixCity,
+			rideDifficultyColors,
+			selectedRideGroupIds
+		});
+	}
+
+	function restoreStudioAiUndoState(saved) {
+		if (!saved) return;
+		profileDraft.tagline = saved.tagline ?? '';
+		profileDraft.description = saved.description ?? '';
+		seoDescription = saved.seoDescription ?? '';
+		siteConfig = clone(saved.siteConfig);
+		sitePages = clone(saved.sitePages);
+		selectedPageId = saved.selectedPageId || sitePages[0]?.id || 'home';
+		pageBlocks = clone(saved.pageBlocks);
+		sponsorItems = clone(saved.sponsorItems);
+		sponsorFileNames = clone(saved.sponsorFileNames || {});
+		faqItems = clone(saved.faqItems);
+		slugInput = saved.slugInput;
+		rideFilterMode = saved.rideFilterMode;
+		rideLocation = saved.rideLocation;
+		rideNear = saved.rideNear;
+		rideRadius = saved.rideRadius;
+		rideDefaultTab = saved.rideDefaultTab;
+		rideTheme = saved.rideTheme;
+		rideDensity = saved.rideDensity;
+		rideShowFilters = saved.rideShowFilters;
+		rideShowAdd = saved.rideShowAdd;
+		ridePrefixCity = saved.ridePrefixCity;
+		rideDifficultyColors = saved.rideDifficultyColors;
+		selectedRideGroupIds = clone(saved.selectedRideGroupIds);
+	}
+
+	function applyAiProposal(proposal) {
+		if (!proposal?.config) {
+			return { ok: false, error: 'No website proposal to apply.' };
+		}
+		const previousState = captureStudioAiUndoState();
+		applyAiConfig(proposal.config, proposal.source || 'ai');
+		aiUndoSnapshot = previousState;
+		aiAppliedFingerprint = siteEditorConfigFingerprint(aiCurrentConfig);
+		aiUndoConflictMessage = '';
+		return { ok: true };
+	}
+
+	function undoAiProposal() {
+		if (!aiUndoSnapshot) {
+			return { ok: false, error: 'No applied AI draft to undo.' };
+		}
+		const currentFp = siteEditorConfigFingerprint(aiCurrentConfig);
+		const check = verifyAppliedFingerprint(
+			currentFp,
+			aiAppliedFingerprint,
+			'Your studio draft changed after you applied this AI draft. Keep your manual edits or ask the assistant for a fresh update.'
+		);
+		if (!check.ok) {
+			aiUndoConflictMessage = check.error;
+			return check;
+		}
+		restoreStudioAiUndoState(aiUndoSnapshot);
+		aiUndoSnapshot = null;
+		aiAppliedFingerprint = '';
+		aiUndoConflictMessage = '';
+		previewVersion += 1;
+		localNotice = 'Reverted AI draft changes.';
+		return { ok: true };
+	}
+
+	$effect(() => {
+		return assistantContext.register(() => ({
+			mode: 'group-site-write',
+			groupSlug: data.group?.slug || '',
+			getContext: () => {
+				const currentCopy = clone(aiCurrentConfig);
+				return {
+					currentConfig: currentCopy,
+					baseFingerprint: siteEditorConfigFingerprint(currentCopy)
+				};
+			},
+			applyDraft: applyAiProposal,
+			undoDraft: undoAiProposal,
+			canUndoDraft: Boolean(aiUndoSnapshot) && !aiUndoConflictMessage,
+			undoConflictMessage: aiUndoConflictMessage
+		}));
+	});
+
 	function applySiteTemplate(template) {
 		const confirmed = window.confirm(
 			`Apply the ${template.label} template? This updates website sections, colors, and page style in your draft while keeping your core identity, web address, partners, and connected features intact.`
@@ -1902,7 +1826,6 @@
 		return () => {
 			window.removeEventListener('beforeunload', warn);
 			window.removeEventListener('popstate', handlePopState);
-			if (locationGeocodeTimeout) clearTimeout(locationGeocodeTimeout);
 		};
 	});
 </script>
@@ -2571,8 +2494,7 @@
 								id="profile-meeting-address"
 								class="input border-surface-700 bg-surface-950 border"
 								bind:value={profileDraft.specific_meeting_point_address}
-								oninput={() => scheduleLocationGeocode({ force: true })}
-								onblur={() => scheduleLocationGeocode({ immediate: true, force: true })}
+								onblur={triggerLocationGeocode}
 								placeholder="Park, trailhead, or street address"
 							/>
 						</div>
@@ -2586,7 +2508,7 @@
 									id="profile-city"
 									class="input border-surface-700 bg-surface-950 border"
 									bind:value={profileDraft.city}
-									onblur={() => scheduleLocationGeocode({ immediate: true, force: true })}
+									onblur={triggerLocationGeocode}
 								/>
 							</div>
 							<div class="flex flex-col gap-1">
@@ -2598,7 +2520,7 @@
 									class="input border-surface-700 bg-surface-950 border"
 									required
 									bind:value={profileDraft.state_region}
-									onblur={() => scheduleLocationGeocode({ immediate: true, force: true })}
+									onblur={triggerLocationGeocode}
 								/>
 							</div>
 							<div class="flex flex-col gap-1">
@@ -2609,7 +2531,7 @@
 									id="profile-country"
 									class="select border-surface-700 bg-surface-950 border"
 									bind:value={profileDraft.country}
-									onchange={() => scheduleLocationGeocode({ immediate: true, force: true })}
+									onchange={triggerLocationGeocode}
 								>
 									<option value="US">United States</option>
 									<option value="CA">Canada</option>
@@ -2622,24 +2544,25 @@
 							</div>
 						</div>
 
-						<div class="border-surface-700 bg-surface-950 border p-3">
-							<p class="text-surface-100 mb-2 text-sm font-semibold">Interactive Map Pin</p>
-							<div use:attachPlacesAutocomplete></div>
-							<p class="text-surface-400 my-1.5 text-xs">
-								Search for a city or address, or click directly on the map to pin your meeting spot.
-							</p>
-							{#if placesLoading}
-								<p class="text-surface-400 text-xs">Loading places…</p>
-							{/if}
-							<div class="border-surface-800 mt-2 h-[300px] w-full overflow-hidden border">
-								<div use:attachLeafletMap class="h-full w-full"></div>
-							</div>
-							{#if profileDraft.latitude && profileDraft.longitude}
-								<p class="text-surface-300 mt-2 font-mono text-xs">
-									Pinned coordinates: {profileDraft.latitude}, {profileDraft.longitude}
-								</p>
-							{/if}
-						</div>
+						<CoordinatePinPicker
+							regionLabel="Group meeting point coordinate picker"
+							latitude={profileDraft.latitude}
+							longitude={profileDraft.longitude}
+							latitudeInputId="profile-latitude"
+							longitudeInputId="profile-longitude"
+							searchLabel="Map Location"
+							searchPlaceholder="Search for a city or address to pin the map…"
+							searchValue={formatDefaultSearch()}
+							externalGeocodeQuery={externalLocationQuery}
+							countryCode={profileDraft.country}
+							{geocodeRevision}
+							pinnedZoom={12}
+							canvasClass="h-[300px] w-full"
+							onCoordinatesChange={({ latitudeText, longitudeText }) => {
+								profileDraft.latitude = latitudeText;
+								profileDraft.longitude = longitudeText;
+							}}
+						/>
 
 						<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 							<div class="flex flex-col gap-1">
@@ -2664,7 +2587,7 @@
 									id="profile-zip"
 									class="input border-surface-700 bg-surface-950 border"
 									bind:value={profileDraft.zip_code}
-									onblur={() => scheduleLocationGeocode({ immediate: true, force: true })}
+									onblur={triggerLocationGeocode}
 								/>
 							</div>
 						</div>
@@ -3368,9 +3291,9 @@
 						</p>
 					</div>
 					<GroupSiteAiAssistant
-						groupSlug={data.group.slug}
-						currentConfig={aiCurrentConfig}
-						onapplied={applyAiConfig}
+						canUndo={Boolean(aiUndoSnapshot) && !aiUndoConflictMessage}
+						undoConflictMessage={aiUndoConflictMessage}
+						onundo={() => void undoAiProposal()}
 					/>
 				</section>
 

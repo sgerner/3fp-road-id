@@ -195,20 +195,24 @@
 		>
 			Roadside Safety Reference
 		</h2>
-		<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border-2 p-4">
-			<summary class="text-surface-950-50 flex min-h-11 cursor-pointer items-center font-bold">
+		<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border-2">
+			<summary class="text-surface-950-50 cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
 				Crash response checklist
 			</summary>
-			<div class="mt-4">
-				<CrashResponse />
+			<div class="px-4 pb-4">
+				<div class="mt-4">
+					<CrashResponse />
+				</div>
 			</div>
 		</details>
-		<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border-2 p-4">
-			<summary class="text-surface-950-50 flex min-h-11 cursor-pointer items-center font-bold">
+		<details class="border-surface-700-300 bg-surface-50-950 text-surface-950-50 border-2">
+			<summary class="text-surface-950-50 cursor-pointer px-4 py-2 font-bold pointer-coarse:py-3">
 				Cycling safety tips
 			</summary>
-			<div class="mt-4">
-				<AlertSystem />
+			<div class="px-4 pb-4">
+				<div class="mt-4">
+					<AlertSystem />
+				</div>
 			</div>
 		</details>
 	</section>
