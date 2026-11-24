@@ -32,6 +32,7 @@
 	const shownGroups = $derived(
 		data.locationSource ? (data.localGroups ?? []) : (data.featuredGroups ?? [])
 	);
+	const groupsHref = $derived(data.groupsHref || '/groups');
 	const heroGroup = $derived(
 		[...(data.localGroups ?? []), ...(data.featuredGroups ?? [])].find(
 			(group) => group.cover_photo_url
@@ -257,7 +258,7 @@
 
 			<div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 				<a
-					href="/groups"
+					href={groupsHref}
 					class="group bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-3 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
 				>
 					<IconUsersRound class="h-5 w-5" /> Find your people
@@ -351,7 +352,7 @@
 						{data.locationSource ? 'Close to home' : 'Community directory'}
 					</p>
 					<a
-						href="/groups"
+						href={groupsHref}
 						class="text-surface-50 hover:text-primary-500 inline-flex min-h-6 items-center gap-1.5 py-1 text-sm font-bold pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						All groups <IconArrowRight class="h-4 w-4" />
@@ -362,7 +363,9 @@
 					class="text-surface-50! m-0 max-w-3xl text-4xl leading-[0.92] font-black tracking-[-0.03em] text-balance uppercase italic sm:text-6xl"
 				>
 					{data.locationSource
-						? `People to ride with around ${data.area}`
+						? data.area
+							? `People to ride with around ${data.area}`
+							: 'People to ride with near you'
 						: 'Good people are already riding.'}
 				</h2>
 			</div>
@@ -381,20 +384,24 @@
 									{String(index + 1).padStart(2, '0')}
 								</span>
 								<span
-									class="bg-surface-50 flex h-14 w-14 shrink-0 items-center justify-center p-1.5 sm:h-16 sm:w-16"
+									class="bg-surface-50 text-surface-950 flex h-14 w-14 shrink-0 items-center justify-center p-1.5 sm:h-16 sm:w-16"
 								>
-									<img
-										src={optimizedImageUrl(group.logo_url || group.cover_photo_url, {
-											width: 128,
-											height: 128,
-											quality: 68
-										})}
-										alt=""
-										class="h-full w-full object-contain"
-										width="64"
-										height="64"
-										loading="lazy"
-									/>
+									{#if group.logo_url || group.cover_photo_url}
+										<img
+											src={optimizedImageUrl(group.logo_url || group.cover_photo_url, {
+												width: 128,
+												height: 128,
+												quality: 68
+											})}
+											alt=""
+											class="h-full w-full object-contain"
+											width="64"
+											height="64"
+											loading="lazy"
+										/>
+									{:else}
+										<IconUsersRound class="h-6 w-6" />
+									{/if}
 								</span>
 								<span class="min-w-0 flex-1">
 									<strong class="block truncate text-lg leading-tight font-black sm:text-2xl">
@@ -419,7 +426,7 @@
 					</p>
 					<div class="flex flex-wrap gap-3">
 						<a
-							href="/groups"
+							href={groupsHref}
 							class="bg-primary-500 text-surface-950 hover:bg-primary-600 inline-flex items-center gap-2 px-6 py-3 font-black uppercase hover:no-underline"
 						>
 							Browse directory <IconArrowRight class="h-4 w-4" />

@@ -59,6 +59,9 @@
 			.filter((group) => group.slug);
 	}
 	const initialOwnedGroups = normalizeOwnedGroups(initialLayoutData.ownedGroups);
+	const initialClaimedCodes = Array.isArray(initialLayoutData.claimedCodes)
+		? initialLayoutData.claimedCodes.filter(Boolean)
+		: [];
 	const themeOptions = [
 		{ value: '3fp', label: '3FP' },
 		{ value: 'mint', label: 'Mint' },
@@ -74,6 +77,7 @@
 
 	let user = $state(initialUser);
 	let userProfile = $state(initialUserProfile);
+	let claimedCodes = $state(initialClaimedCodes);
 	let ownedGroups = $state(initialOwnedGroups);
 	/** @type {boolean | null} */
 	let profileCanManageSms = $state(null);
@@ -144,6 +148,7 @@
 			.map((part) => part.charAt(0).toUpperCase())
 			.join('');
 	});
+	const visibleClaimedCodes = $derived(claimedCodes.slice(0, 3));
 	const myGroupsMenuHref = $derived(
 		ownedGroups.length === 1 && ownedGroups[0]?.slug
 			? `/groups/${ownedGroups[0].slug}`
@@ -258,7 +263,9 @@
 		event.preventDefault();
 		event.stopPropagation();
 		const targetIndex =
-			event.key === 'ArrowDown' ? 0 : themeOptions.length + (canManageSms ? 6 : 5);
+			event.key === 'ArrowDown'
+				? 0
+				: themeOptions.length + (canManageSms ? 6 : 5) + visibleClaimedCodes.length;
 		userMenuFocusIndex = targetIndex;
 		if (showUserMenu) {
 			focusUserMenuItem(targetIndex);
@@ -319,6 +326,7 @@
 	async function loadCurrentProfile(nextUser = user) {
 		if (!nextUser?.id) {
 			userProfile = null;
+			claimedCodes = [];
 			profileCanManageSms = false;
 			return;
 		}
@@ -326,16 +334,21 @@
 			const response = await fetch('/api/profile');
 			if (!response.ok) {
 				userProfile = null;
+				claimedCodes = [];
 				profileCanManageSms = false;
 				return;
 			}
 			const payload = await response.json().catch(() => ({}));
 			userProfile = payload?.profile ?? null;
+			claimedCodes = Array.isArray(payload?.claimedCodes)
+				? payload.claimedCodes.filter(Boolean)
+				: [];
 			if (typeof payload?.canManageSms === 'boolean') {
 				profileCanManageSms = payload.canManageSms;
 			}
 		} catch {
 			userProfile = null;
+			claimedCodes = [];
 			profileCanManageSms = false;
 		}
 	}
@@ -523,6 +536,9 @@
 		}
 		function onProfileUpdated(event) {
 			const profile = event?.detail?.profile;
+			if (Array.isArray(event?.detail?.claimedCodes)) {
+				claimedCodes = event.detail.claimedCodes.filter(Boolean);
+			}
 			if (!profile) {
 				void loadCurrentProfile(user);
 				return;
@@ -631,6 +647,7 @@
 		showUserMenu = false;
 		email = '';
 		userProfile = null;
+		claimedCodes = [];
 		ownedGroups = [];
 		profileCanManageSms = false;
 	}
@@ -890,11 +907,28 @@
 											<IconContact class="h-4 w-4 shrink-0" aria-hidden="true" />
 											Emergency ID
 										</a>
+										{#each visibleClaimedCodes as braceletCode, braceletIdx (braceletCode)}
+											<a
+												href={`/roadid/${encodeURIComponent(braceletCode)}`}
+												class="profile-menu-item text-xs"
+												role="menuitem"
+												tabindex={userMenuFocusIndex === themeOptions.length + 3 + braceletIdx
+													? 0
+													: -1}
+												onclick={() => (showUserMenu = false)}
+											>
+												<IconContact class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
+												Bracelet: {braceletCode}
+											</a>
+										{/each}
 										<a
 											href={myGroupsMenuHref}
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 3 ? 0 : -1}
+											tabindex={userMenuFocusIndex ===
+											themeOptions.length + 3 + visibleClaimedCodes.length
+												? 0
+												: -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconUsers class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -904,7 +938,10 @@
 											href="/volunteer/shifts"
 											class="profile-menu-item"
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + 4 ? 0 : -1}
+											tabindex={userMenuFocusIndex ===
+											themeOptions.length + 4 + visibleClaimedCodes.length
+												? 0
+												: -1}
 											onclick={() => (showUserMenu = false)}
 										>
 											<IconHandHeart class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -915,7 +952,10 @@
 												href="/messages"
 												class="profile-menu-item"
 												role="menuitem"
-												tabindex={userMenuFocusIndex === themeOptions.length + 5 ? 0 : -1}
+												tabindex={userMenuFocusIndex ===
+												themeOptions.length + 5 + visibleClaimedCodes.length
+													? 0
+													: -1}
 												onclick={() => (showUserMenu = false)}
 											>
 												<IconMessageCircle class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -928,7 +968,8 @@
 											class="profile-menu-item w-full"
 											onclick={doLogout}
 											role="menuitem"
-											tabindex={userMenuFocusIndex === themeOptions.length + (canManageSms ? 6 : 5)
+											tabindex={userMenuFocusIndex ===
+											themeOptions.length + (canManageSms ? 6 : 5) + visibleClaimedCodes.length
 												? 0
 												: -1}
 										>

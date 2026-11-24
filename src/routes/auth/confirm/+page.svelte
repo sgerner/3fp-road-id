@@ -149,7 +149,9 @@
 						claimPayload?.error || 'Unable to link this bracelet code to your Emergency ID.';
 					return;
 				}
-				dest = '/profile#road-id';
+				if (dest === '/profile#road-id') {
+					dest = `/profile?claimed=${encodeURIComponent(rid)}#road-id`;
+				}
 			}
 
 			if (autoClaimSlug) {
@@ -241,7 +243,7 @@
 </script>
 
 <div
-	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-hidden"
+	class="bg-surface-950 text-surface-50 -m-4 flex min-h-[calc(100dvh-41px)] flex-col overflow-x-clip"
 >
 	<!-- HERO -->
 	<header

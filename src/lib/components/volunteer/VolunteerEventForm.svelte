@@ -21,10 +21,14 @@
 	 *   opportunityTypeOptions?: any[],
 	 *   fieldTypeOptions?: any[],
 	 *   emailTypeOptions?: any[],
-	 *   hostGroupSelection?: any[],
-	 *   filteredHostGroupOptions?: any[],
+	 *   hostGroups?: any[],
+	 *   initialHostGroupId?: string,
+	 *   sponsorshipGroupId?: string,
+	 *   sponsorshipMessage?: string,
+	 *   activeSponsorshipRequest?: any,
+	 *   immediateSponsorshipMode?: boolean,
+	 *   eventId?: string,
 	 *   currentEventTypeDescription?: string,
-	 *   hasHostGroups?: boolean,
 	 *   opportunities?: any[],
 	 *   customQuestions?: any[],
 	 *   eventEmails?: any[],
@@ -38,9 +42,10 @@
 	 *   remindersOpen?: boolean,
 	 *   onFocusIn?: ((event: any) => any) | undefined,
 	 *   onEventDetailsChange?: (patch: Record<string, any>) => any,
-	 *   onHostGroupValueChange?: (value: any) => any,
-	 *   onHostGroupSearch?: (inputValue: any) => any,
-	 *   onClearHostGroup?: () => any,
+	 *   onHostGroupChange?: (groupId: string) => any,
+	 *   onSponsorshipChange?: (payload: { groupId: string, message: string }) => any,
+	 *   onActiveSponsorshipRequestChange?: (request: any) => any,
+	 *   onGroupClaimed?: (group: any) => any,
 	 *   onAddOpportunity?: () => any,
 	 *   onRemoveOpportunity?: (id: any) => any,
 	 *   onUpdateOpportunity?: (id: any, patch: Record<string, any>) => any,
@@ -67,10 +72,14 @@
 		opportunityTypeOptions = [],
 		fieldTypeOptions = [],
 		emailTypeOptions = [],
-		hostGroupSelection = [],
-		filteredHostGroupOptions = [],
+		hostGroups = [],
+		initialHostGroupId = '',
+		sponsorshipGroupId = '',
+		sponsorshipMessage = '',
+		activeSponsorshipRequest = null,
+		immediateSponsorshipMode = false,
+		eventId = '',
 		currentEventTypeDescription = '',
-		hasHostGroups = false,
 		opportunities = [],
 		customQuestions = [],
 		eventEmails = [],
@@ -84,9 +93,10 @@
 		remindersOpen = $bindable(false),
 		onFocusIn = undefined,
 		onEventDetailsChange = () => {},
-		onHostGroupValueChange = () => {},
-		onHostGroupSearch = () => {},
-		onClearHostGroup = () => {},
+		onHostGroupChange = () => {},
+		onSponsorshipChange = () => {},
+		onActiveSponsorshipRequestChange = () => {},
+		onGroupClaimed = () => {},
 		onAddOpportunity = () => {},
 		onRemoveOpportunity = () => {},
 		onUpdateOpportunity = () => {},
@@ -162,15 +172,20 @@
 			{eventTypeOptions}
 			{statusOptions}
 			{timezoneOptions}
-			{hostGroupSelection}
-			{filteredHostGroupOptions}
+			{hostGroups}
+			{initialHostGroupId}
+			{sponsorshipGroupId}
+			{sponsorshipMessage}
+			{activeSponsorshipRequest}
+			{immediateSponsorshipMode}
+			{eventId}
 			showStatusField={isEditMode}
 			{currentEventTypeDescription}
-			{hasHostGroups}
 			{onEventDetailsChange}
-			{onHostGroupValueChange}
-			{onHostGroupSearch}
-			{onClearHostGroup}
+			{onHostGroupChange}
+			{onSponsorshipChange}
+			{onActiveSponsorshipRequestChange}
+			{onGroupClaimed}
 		/>
 	</section>
 

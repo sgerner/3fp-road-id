@@ -11,6 +11,7 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
+	import GroupSponsorshipQueue from '#lib/components/groups/GroupSponsorshipQueue.svelte';
 
 	/** @type {Record<string, any>} */
 	let { data } = $props();
@@ -136,6 +137,12 @@
 </script>
 
 <div class="manage-overview space-y-6 pb-6">
+	<GroupSponsorshipQueue
+		groupSlug={slug}
+		groupName={data.group?.name || 'your organization'}
+		initialRequests={data.sponsorship_requests ?? []}
+	/>
+
 	<!-- Profile completion reminder -->
 	{#if completionStats() < 100}
 		<a

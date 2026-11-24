@@ -99,6 +99,10 @@ export async function PUT(event) {
 		if (!profileWriteClient)
 			return json({ error: 'Profile service is temporarily unavailable.' }, { status: 503 });
 		const phoneProvided = body.phone !== undefined;
+		const preserveProfilePhone = asBoolean(
+			body.preserve_profile_phone ?? body.preserveProfilePhone,
+			false
+		);
 		const submittedPhone = !phoneProvided
 			? normalizeSmsPhone(profile?.phone || existing?.phone_e164 || '')
 			: normalizeSmsPhone(body.phone);
@@ -151,11 +155,13 @@ export async function PUT(event) {
 			if (consentEvent.error) throw consentEvent.error;
 			const deletion = await service.from('sms_subscriptions').delete().eq('id', existing.id);
 			if (deletion.error) throw deletion.error;
-			const profileUpdate = await profileWriteClient
-				.from('profiles')
-				.update({ phone: null, updated_at: now })
-				.eq('user_id', user.id);
-			if (profileUpdate.error) throw profileUpdate.error;
+			if (!preserveProfilePhone) {
+				const profileUpdate = await profileWriteClient
+					.from('profiles')
+					.update({ phone: null, updated_at: now })
+					.eq('user_id', user.id);
+				if (profileUpdate.error) throw profileUpdate.error;
+			}
 			return json({
 				preferences: preferenceShape(null, ''),
 				consentText: SMS_CONSENT_TEXT,
@@ -280,11 +286,13 @@ export async function PUT(event) {
 				welcomeQueued = result.queued === true;
 			}
 
-			const profileUpdate = await profileWriteClient
-				.from('profiles')
-				.update({ phone: submittedPhone || null, updated_at: new Date().toISOString() })
-				.eq('user_id', user.id);
-			if (profileUpdate.error) throw profileUpdate.error;
+			if (!preserveProfilePhone) {
+				const profileUpdate = await profileWriteClient
+					.from('profiles')
+					.update({ phone: submittedPhone || null, updated_at: new Date().toISOString() })
+					.eq('user_id', user.id);
+				if (profileUpdate.error) throw profileUpdate.error;
+			}
 
 			return json({
 				preferences: preferenceShape(
@@ -300,11 +308,13 @@ export async function PUT(event) {
 			});
 		}
 
-		const profileUpdate = await profileWriteClient
-			.from('profiles')
-			.update({ phone: null, updated_at: new Date().toISOString() })
-			.eq('user_id', user.id);
-		if (profileUpdate.error) throw profileUpdate.error;
+		if (!preserveProfilePhone && existing) {
+			const profileUpdate = await profileWriteClient
+				.from('profiles')
+				.update({ phone: null, updated_at: new Date().toISOString() })
+				.eq('user_id', user.id);
+			if (profileUpdate.error) throw profileUpdate.error;
+		}
 		return json({
 			preferences: preferenceShape(existing, ''),
 			consentText: SMS_CONSENT_TEXT,

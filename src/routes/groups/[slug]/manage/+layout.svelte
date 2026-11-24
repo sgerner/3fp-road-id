@@ -27,12 +27,17 @@
 			'Location not set'
 	);
 
+	const pendingSponsorshipCount = $derived(
+		(data.sponsorship_requests ?? []).filter((req) => req?.status === 'pending').length
+	);
+
 	const allTabs = $derived([
 		{
 			id: 'overview',
 			label: 'Overview',
 			icon: IconLayoutDashboard,
-			href: `/groups/${slug}/manage`
+			href: `/groups/${slug}/manage`,
+			badge: pendingSponsorshipCount > 0 ? pendingSponsorshipCount : null
 		},
 		{
 			id: 'presence',
@@ -192,6 +197,13 @@
 						>
 							<Icon class="h-4 w-4 flex-shrink-0" />
 							<span>{tab.label}</span>
+							{#if tab.badge}
+								<span
+									class="bg-warning-500 text-surface-950 rounded-none px-1.5 py-0.5 text-[0.65rem] font-black tabular-nums"
+								>
+									{tab.badge}
+								</span>
+							{/if}
 						</a>
 					{/each}
 				</nav>
