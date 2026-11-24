@@ -45,6 +45,7 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import { geocodeAddress } from '#lib/groups/geocoding';
 	import {
 		isWebsiteLayerView,
@@ -2103,101 +2104,99 @@
 <div class="mx-auto grid max-w-[1800px] gap-4 pb-28 sm:pb-12">
 	<!-- Studio Header & Unified Preview Switcher -->
 	<header
-		class="border-surface-700 bg-surface-900 border-t-primary-500 grid gap-4 border border-t-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center"
+		class="border-surface-700 bg-surface-900 border-t-primary-500 border border-t-4 p-4 sm:p-5"
 	>
-		<div class="flex min-w-0 items-start gap-3">
-			<span
-				class="preset-filled-primary-500 text-surface-950 flex h-11 w-11 shrink-0 items-center justify-center"
-			>
-				<IconGlobe class="h-6 w-6" />
-			</span>
-			<div class="min-w-0 space-y-1">
-				<p class="text-primary-400 text-xs font-bold tracking-[0.16em] uppercase">
-					Unified Public Presence
-				</p>
-				<div class="flex flex-wrap items-center gap-2">
-					<h2 class="text-surface-50 text-xl font-black tracking-tight sm:text-2xl">
-						Presence Studio
-					</h2>
-					{#if dirty}
-						<span class="badge preset-filled-warning-500 text-surface-950 font-bold">
-							Unpublished changes
-						</span>
-					{:else}
-						<span
-							class="badge preset-filled-success-500 text-surface-950 flex items-center gap-1 font-bold"
-						>
-							<IconBadgeCheck class="h-3.5 w-3.5" /> Published
-						</span>
-					{/if}
-				</div>
-				<p class="text-surface-300 max-w-3xl text-sm">
-					Update your group profile once to power both your 3 Feet Please directory listing and your
-					standalone custom website.
-				</p>
-				<div class="flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5 text-xs">
-					<a
-						class="text-surface-200 hover:text-primary-400 inline-flex items-center gap-1 font-semibold underline-offset-4 hover:underline"
-						href={data.directoryUrl}
-						target="_blank"
-						rel="noreferrer"
-					>
-						<IconList class="h-3.5 w-3.5" /> Directory: /groups/{data.group.slug}
-						<IconExternalLink class="h-3 w-3 opacity-70" />
-					</a>
-					<a
-						class="text-surface-200 hover:text-primary-400 inline-flex items-center gap-1 font-semibold underline-offset-4 hover:underline"
-						href={data.liveUrl}
-						target="_blank"
-						rel="noreferrer"
-					>
-						<IconGlobe class="h-3.5 w-3.5" /> Website: {data.liveUrl}
-						<IconExternalLink class="h-3 w-3 opacity-70" />
-					</a>
-				</div>
-			</div>
-		</div>
-
-		<div class="flex flex-wrap items-center gap-2 xl:justify-end">
-			<div
-				class="border-surface-700 bg-surface-950 flex items-center border p-1"
-				role="group"
-				aria-label="Preview mode"
-			>
-				<button
-					type="button"
-					class="btn btn-sm {showPreview && previewMode === 'directory'
-						? 'preset-filled-primary-500 text-surface-950 font-bold'
-						: 'text-surface-200 hover:bg-surface-800'}"
-					aria-pressed={showPreview && previewMode === 'directory'}
-					onclick={() => openPreviewSurface('directory')}
+		<ManageCardHeader
+			as="h2"
+			title="Presence Studio"
+			titleClass="text-surface-50 text-xl font-black tracking-tight sm:text-2xl"
+			eyebrow="Unified Public Presence"
+			subtitle="Update your group profile once to power both your 3 Feet Please directory listing and your standalone custom website."
+			align="start"
+		>
+			{#snippet iconSlot()}
+				<span
+					class="preset-filled-primary-500 text-surface-950 flex h-11 w-11 shrink-0 items-center justify-center"
 				>
-					<IconList class="h-4 w-4" />
-					<span>Directory Preview</span>
-				</button>
-				<button
-					type="button"
-					class="btn btn-sm {showPreview && previewMode === 'website'
-						? 'preset-filled-primary-500 text-surface-950 font-bold'
-						: 'text-surface-200 hover:bg-surface-800'}"
-					aria-pressed={showPreview && previewMode === 'website'}
-					onclick={() => openPreviewSurface('website')}
+					<IconGlobe class="h-6 w-6" />
+				</span>
+			{/snippet}
+			{#snippet badges()}
+				{#if dirty}
+					<span class="badge preset-filled-warning-500 text-surface-950 font-bold">
+						Unpublished changes
+					</span>
+				{:else}
+					<span
+						class="badge preset-filled-success-500 text-surface-950 flex items-center gap-1 font-bold"
+					>
+						<IconBadgeCheck class="h-3.5 w-3.5" /> Published
+					</span>
+				{/if}
+			{/snippet}
+			<div class="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 pt-0.5 text-xs">
+				<a
+					class="text-surface-200 hover:text-primary-400 inline-flex max-w-full min-w-0 items-center gap-1 font-semibold underline-offset-4 hover:underline"
+					href={data.directoryUrl}
+					target="_blank"
+					rel="noreferrer"
 				>
-					<IconGlobe class="h-4 w-4" />
-					<span>Website Preview</span>
-				</button>
+					<IconList class="h-3.5 w-3.5 shrink-0" />
+					<span class="truncate">Directory: /groups/{data.group.slug}</span>
+					<IconExternalLink class="h-3 w-3 shrink-0 opacity-70" />
+				</a>
+				<a
+					class="text-surface-200 hover:text-primary-400 inline-flex max-w-full min-w-0 items-center gap-1 font-semibold underline-offset-4 hover:underline"
+					href={data.liveUrl}
+					target="_blank"
+					rel="noreferrer"
+				>
+					<IconGlobe class="h-3.5 w-3.5 shrink-0" />
+					<span class="truncate">Website: {data.liveUrl}</span>
+					<IconExternalLink class="h-3 w-3 shrink-0 opacity-70" />
+				</a>
 			</div>
+			{#snippet actions()}
+				<div
+					class="border-surface-700 bg-surface-950 flex max-w-full flex-wrap items-center border p-1"
+					role="group"
+					aria-label="Preview mode"
+				>
+					<button
+						type="button"
+						class="btn btn-sm {showPreview && previewMode === 'directory'
+							? 'preset-filled-primary-500 text-surface-950 font-bold'
+							: 'text-surface-200 hover:bg-surface-800'}"
+						aria-pressed={showPreview && previewMode === 'directory'}
+						onclick={() => openPreviewSurface('directory')}
+					>
+						<IconList class="h-4 w-4 shrink-0" />
+						<span>Directory Preview</span>
+					</button>
+					<button
+						type="button"
+						class="btn btn-sm {showPreview && previewMode === 'website'
+							? 'preset-filled-primary-500 text-surface-950 font-bold'
+							: 'text-surface-200 hover:bg-surface-800'}"
+						aria-pressed={showPreview && previewMode === 'website'}
+						onclick={() => openPreviewSurface('website')}
+					>
+						<IconGlobe class="h-4 w-4 shrink-0" />
+						<span>Website Preview</span>
+					</button>
+				</div>
 
-			<button
-				class="btn btn-sm border-surface-700 bg-surface-950 text-surface-100 hover:bg-surface-800 border"
-				type="button"
-				aria-pressed={showPreview}
-				onclick={() => (showPreview = !showPreview)}
-			>
-				<IconEye class="h-4 w-4" />
-				{showPreview ? 'Hide Preview' : 'Show Preview'}
-			</button>
-		</div>
+				<button
+					class="btn btn-sm border-surface-700 bg-surface-950 text-surface-100 hover:bg-surface-800 border"
+					type="button"
+					aria-pressed={showPreview}
+					onclick={() => (showPreview = !showPreview)}
+				>
+					<IconEye class="h-4 w-4 shrink-0" />
+					{showPreview ? 'Hide Preview' : 'Show Preview'}
+				</button>
+			{/snippet}
+		</ManageCardHeader>
 	</header>
 
 	<!-- Status & Error Banners -->
@@ -2301,7 +2300,7 @@
 				{#each websiteViews as view, wIndex}
 					{@const ViewIcon = view.icon}
 					<button
-						class="btn btn-sm min-h-10 justify-center {activeView === view.id
+						class="btn btn-sm min-h-10 min-w-0 justify-center px-2 sm:px-3 {activeView === view.id
 							? 'preset-filled-primary-500 text-surface-950 font-bold'
 							: 'border-surface-800 bg-surface-950 text-surface-200 hover:bg-surface-800 border'}"
 						type="button"
@@ -3717,7 +3716,7 @@
 								{/each}
 							</select>
 						</label>
-						<div class="grid grid-cols-4 gap-2 sm:col-span-2">
+						<div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
 							{#each ['primary', 'secondary', 'accent', 'surface'] as color}
 								<label class="label text-sm">
 									<span class="text-surface-200 capitalize">{color}</span>
