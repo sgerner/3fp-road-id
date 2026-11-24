@@ -1,4 +1,4 @@
-import { optimizeImageForStorage } from '#lib/server/storageImages';
+import { optimizeImageForStorage } from '#lib/server/storageImages.js';
 
 export function parseGroupEditorImageDataUrl(dataUrl) {
 	if (!dataUrl || typeof dataUrl !== 'string') return null;

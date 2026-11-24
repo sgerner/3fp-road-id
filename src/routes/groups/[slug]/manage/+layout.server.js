@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { listGroupSponsorshipRequests } from '#lib/server/eventSponsorships';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 
@@ -69,23 +70,33 @@ export const load = async ({ params, cookies, fetch, url }) => {
 	const canManageSocial = (isAdmin || isSocialManager) && group !== null;
 	let assetSummary = { buckets: 3, assets: 0 };
 
-	try {
-		const assetResult = await supabase
-			.from('group_assets')
-			.select('id', { count: 'exact', head: true })
-			.eq('group_id', group.id);
-
-		assetSummary = {
-			buckets: 3,
-			assets: assetResult.count ?? 0
-		};
-	} catch (err) {
-		console.warn('Failed to load asset counts for group manage layout', err);
-	}
-
 	if (!canEdit) {
 		throw redirect(303, `/groups/${slug}?auth=forbidden`);
 	}
+
+	const [assetResult, sponsorshipRequests] = await Promise.all([
+		Promise.resolve(
+			supabase
+				.from('group_assets')
+				.select('id', { count: 'exact', head: true })
+				.eq('group_id', group.id)
+		).catch((err) => {
+			console.warn('Failed to load asset counts for group manage layout', err);
+			return { count: 0 };
+		}),
+		listGroupSponsorshipRequests({
+			groupId: group.id,
+			group
+		}).catch((err) => {
+			console.warn('Failed to load sponsorship requests for group manage layout', err);
+			return [];
+		})
+	]);
+
+	assetSummary = {
+		buckets: 3,
+		assets: assetResult?.count ?? 0
+	};
 
 	return {
 		group,
@@ -93,6 +104,7 @@ export const load = async ({ params, cookies, fetch, url }) => {
 		is_admin: isAdmin,
 		can_manage_social: canManageSocial,
 		session_user_id: sessionUserId,
-		asset_summary: assetSummary
+		asset_summary: assetSummary,
+		sponsorship_requests: sponsorshipRequests
 	};
 };

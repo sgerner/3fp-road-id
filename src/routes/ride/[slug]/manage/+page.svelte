@@ -13,6 +13,7 @@
 	pageTitle={`Manage ${data.ride?.activity?.title || 'Ride'}`}
 	pageDescription="Edit the series, tune reminders, manage one-off occurrence changes, and keep riders informed."
 	initialRide={data.ride}
+	initialSponsorshipRequest={data.activeSponsorshipRequest}
 	difficultyLevels={data.difficultyLevels}
 	disciplines={data.disciplines}
 	hostGroups={data.hostGroups}

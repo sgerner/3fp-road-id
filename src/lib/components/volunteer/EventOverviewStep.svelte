@@ -1,5 +1,5 @@
 <script>
-	import { Combobox } from '@skeletonlabs/skeleton-svelte';
+	import HostOrganizationSelector from '#lib/components/groups/HostOrganizationSelector.svelte';
 
 	/** @type {Record<string, any>} */
 	export let eventDetails;
@@ -10,36 +10,26 @@
 	/** @type {string[]} */
 	export let timezoneOptions = [];
 	/** @type {any[]} */
-	export let hostGroupSelection = [];
-	/** @type {any[]} */
-	export let filteredHostGroupOptions = [];
+	export let hostGroups = [];
+	export let initialHostGroupId = '';
+	export let sponsorshipGroupId = '';
+	export let sponsorshipMessage = '';
+	/** @type {any} */
+	export let activeSponsorshipRequest = null;
+	export let immediateSponsorshipMode = false;
+	export let eventId = '';
 	export let showStatusField = false;
 	export let currentEventTypeDescription = '';
-	export let hasHostGroups = false;
 	/** @type {(patch: Record<string, any>) => any} */
 	export let onEventDetailsChange = () => {};
-	/** @type {(value: any) => any} */
-	export let onHostGroupValueChange = () => {};
-	/** @type {(inputValue: any) => any} */
-	export let onHostGroupSearch = () => {};
-	/** @type {() => any} */
-	export let onClearHostGroup = () => {};
-
-	/** @type {any} */
-	let hostGroupComboboxProps = {};
-	$: hostGroupComboboxProps = {
-		data: filteredHostGroupOptions,
-		key: 'value',
-		defaultValue: hostGroupSelection,
-		value: hostGroupSelection,
-		onValueChange: (/** @type {any} */ e) => onHostGroupValueChange(e.value),
-		onInputValueChange: (/** @type {any} */ e) => onHostGroupSearch(e.inputValue),
-		label: 'Host group (optional)',
-		placeholder: hasHostGroups ? 'Search groups…' : 'No groups available',
-		classes: 'w-full',
-		inputGroupClasses: 'preset-tonal-surface',
-		contentClasses: 'bg-surface-100-900'
-	};
+	/** @type {(groupId: string) => any} */
+	export let onHostGroupChange = () => {};
+	/** @type {(payload: { groupId: string, message: string }) => any} */
+	export let onSponsorshipChange = () => {};
+	/** @type {(request: any) => any} */
+	export let onActiveSponsorshipRequestChange = () => {};
+	/** @type {(group: any) => any} */
+	export let onGroupClaimed = () => {};
 </script>
 
 <div class="grid gap-4 md:grid-cols-2">
@@ -121,21 +111,25 @@
 			</select>
 		</div>
 	{/if}
-	<div class="flex flex-col gap-1.5 {showStatusField ? 'md:col-span-2' : ''}">
-		<Combobox {...hostGroupComboboxProps} />
-		{#if hostGroupSelection.length}
-			<div>
-				<button
-					type="button"
-					class="text-primary-700-300 inline-flex min-h-11 items-center text-left text-xs underline"
-					onclick={onClearHostGroup}
-				>
-					Clear selection
-				</button>
-			</div>
-		{:else}
-			<p class="text-surface-600-400 text-xs">Leave blank if not tied to a host group.</p>
-		{/if}
+	<div class="min-w-0 md:col-span-2">
+		<HostOrganizationSelector
+			{hostGroups}
+			hostGroupId={eventDetails.hostGroupId || ''}
+			{initialHostGroupId}
+			{sponsorshipGroupId}
+			{sponsorshipMessage}
+			{activeSponsorshipRequest}
+			{immediateSponsorshipMode}
+			eventType="volunteer"
+			{eventId}
+			label="Host organization (optional)"
+			helperText="Leave blank if hosting independently without an organization."
+			inputId="volunteer-host-organization"
+			{onHostGroupChange}
+			{onSponsorshipChange}
+			{onActiveSponsorshipRequestChange}
+			{onGroupClaimed}
+		/>
 	</div>
 	<div class="flex flex-col gap-1.5 md:col-span-2">
 		<label class="text-surface-800-200 text-sm font-medium" for="event-summary">Short summary</label

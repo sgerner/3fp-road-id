@@ -143,7 +143,7 @@ export async function requireGroupDonationManager(cookies, groupSlug) {
 
 function buildConnectReturnPath(target) {
 	if (!target || target.type === 'main') return '/donate?manage=1';
-	if (target.type === 'group') return `/groups/${encodeURIComponent(target.slug)}/manage/edit`;
+	if (target.type === 'group') return `/groups/${encodeURIComponent(target.slug)}/manage/presence`;
 	return '/donate';
 }
 

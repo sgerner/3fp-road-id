@@ -1,5 +1,7 @@
 import { error } from '@sveltejs/kit';
+import { loadRiderSafetyState, reconcileRiderSafetyData } from '#lib/server/roadIdProfile';
 import { resolveVerifiedSession } from '#lib/server/session';
+import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 function buildQuery(params) {
 	const search = new URLSearchParams();
 	if (params && typeof params === 'object') {
@@ -90,7 +92,7 @@ export const load = async ({ params, fetch, cookies, url }) => {
 			eventStartDate < now)
 	);
 
-	const { user: sessionUser } = await resolveVerifiedSession(cookies);
+	const { accessToken, user: sessionUser } = await resolveVerifiedSession(cookies);
 
 	const eventContactEmail =
 		event?.contact_email?.trim?.() ||
@@ -264,19 +266,50 @@ export const load = async ({ params, fetch, cookies, url }) => {
 	const user = sessionUser && sessionUser.id ? { ...sessionUser } : null;
 	let profile = null;
 	if (user?.id) {
-		try {
-			profile = await fetchSingle(fetch, 'profiles', {
+		const userSupabase = accessToken ? createRequestSupabaseClient(accessToken) : null;
+		const [loadedProfile, safetyState] = await Promise.all([
+			fetchSingle(fetch, 'profiles', {
 				user_id: `eq.${user.id}`,
 				select:
 					'user_id,full_name,email,phone,emergency_contact_name,emergency_contact_phone,admin',
 				single: 'true'
-			});
-			if (user && profile?.email && !user.email) {
-				user.email = profile.email;
-			}
-		} catch (err) {
-			console.warn('Failed to load session profile for volunteer event', err);
-			profile = null;
+			}).catch((err) => {
+				console.warn('Failed to load session profile for volunteer event', err);
+				return null;
+			}),
+			userSupabase
+				? loadRiderSafetyState(userSupabase, user.id).catch((err) => {
+						console.warn('Failed to load safety state for volunteer event', err);
+						return { roadIdProfile: null, emergencyContacts: [], claimedCodes: [] };
+					})
+				: Promise.resolve({ roadIdProfile: null, emergencyContacts: [], claimedCodes: [] })
+		]);
+
+		const reconciled = reconcileRiderSafetyData({
+			profileRow: loadedProfile,
+			roadIdRow: safetyState.roadIdProfile,
+			emergencyContacts: safetyState.emergencyContacts
+		});
+
+		profile =
+			loadedProfile || safetyState.roadIdProfile || reconciled.primary_emergency_contact
+				? {
+						...(loadedProfile ?? { user_id: user.id }),
+						full_name: reconciled.full_name || loadedProfile?.full_name || null,
+						phone: reconciled.phone || loadedProfile?.phone || null,
+						emergency_contact_name:
+							reconciled.primary_emergency_contact?.contact_name ||
+							loadedProfile?.emergency_contact_name ||
+							null,
+						emergency_contact_phone:
+							reconciled.primary_emergency_contact?.contact_phone ||
+							loadedProfile?.emergency_contact_phone ||
+							null
+					}
+				: null;
+
+		if (user && profile?.email && !user.email) {
+			user.email = profile.email;
 		}
 	}
 	if (user && profile?.email && !user.email) {

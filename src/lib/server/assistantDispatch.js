@@ -57,7 +57,7 @@ export function inferLearnArticleSlug(pathname) {
 }
 
 export function inferGroupSiteSlug(pathname) {
-	const match = /^\/groups\/([^/]+)\/manage\/site\/?$/i.exec(pathname);
+	const match = /^\/groups\/([^/]+)\/manage\/(?:site|presence)\/?$/i.exec(pathname);
 	if (!match) return '';
 	return safeDecodeSegment(match[1]).trim().slice(0, 140);
 }
@@ -137,7 +137,7 @@ export function resolveAssistantDispatch(payload = {}) {
 			return { mode: 'ride-write', pathname };
 		}
 		const groupSlug = explicitGroupSlug || inferGroupSiteSlug(pathname);
-		if (groupSlug && /^\/groups\/[^/]+\/manage\/site\/?$/i.test(pathname)) {
+		if (groupSlug && /^\/groups\/[^/]+\/manage\/(?:site|presence)\/?$/i.test(pathname)) {
 			return {
 				mode: 'group-site-write',
 				pathname,
