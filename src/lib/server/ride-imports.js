@@ -412,6 +412,26 @@ function extractExternalEventUrl(event) {
 	return null;
 }
 
+/**
+ * @param {any} event
+ * @param {string | null} [primaryEventUrl]
+ */
+function extractExternalGroupUrl(event, primaryEventUrl = null) {
+	const explicit = normalizeExternalEventUrl(
+		event?.externalGroupUrl ?? event?.external_group_url ?? null
+	);
+	if (explicit && explicit.toLowerCase() !== safeTrim(primaryEventUrl).toLowerCase()) {
+		return explicit;
+	}
+	for (const link of Array.isArray(event?.links) ? event.links : []) {
+		const candidate = normalizeExternalEventUrl(link?.url);
+		if (candidate && candidate.toLowerCase() !== safeTrim(primaryEventUrl).toLowerCase()) {
+			return candidate;
+		}
+	}
+	return null;
+}
+
 function extractExternalOrganizerName(event) {
 	const explicit = compactWhitespace(
 		event?.externalOrganizerName ?? event?.external_organizer_name ?? ''
@@ -809,6 +829,7 @@ async function mapEvent(event, { slugPrefix, status, requireGeocoding, skipGeoco
 			waiver_required: false,
 			image_urls: [],
 			external_event_url: extractExternalEventUrl(event),
+			external_group_url: extractExternalGroupUrl(event, extractExternalEventUrl(event)),
 			external_organizer_name: extractExternalOrganizerName(event)
 		},
 		difficultyLevelIds: traits.difficultyLevelIds,

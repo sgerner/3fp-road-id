@@ -441,6 +441,7 @@ test('Meetup import maps real venue, external URL, organizer name, clean descrip
 		mapped.ride.external_event_url,
 		'https://www.meetup.com/one-love-cycling/events/vxkztryjcpbcc/'
 	);
+	assert.equal(mapped.ride.external_group_url, 'https://www.meetup.com/one-love-cycling/');
 	assert.equal(mapped.ride.external_organizer_name, 'One Love Cycling');
 	assert.equal(mapped.ride.pace_notes, null);
 });
@@ -488,6 +489,10 @@ test('WeeklyRides import populates venue, external registration URL, organizer, 
 		/Event link:|WeeklyRides listing:|More information:/i
 	);
 	assert.equal(mapped.ride.external_event_url, 'https://www.nccyclocross.com/');
+	assert.equal(
+		mapped.ride.external_group_url,
+		'https://www.weeklyrides.com/index.php/rides-events/9343-nccx-2026-cyclo-cross-series-ncgp-46348'
+	);
 	assert.equal(mapped.ride.external_organizer_name, 'NC Cyclocross');
 	assert.equal(mapped.ride.pace_notes, null);
 });
@@ -1166,7 +1171,7 @@ test('insertRideDetailsCompat, updateRideDetailsCompat, and importRideSeedData r
 
 const databaseUrl = process.env.ACCOUNTING_TEST_DATABASE_URL;
 test(
-	'structured external ride fields migration validates URL constraint, backfills imported rides, and leaves clean local rides untouched',
+	'structured external ride fields migration backs up modified rows, preserves real venues and unextractable URLs, saves group URLs, and supports rollback',
 	{ skip: !databaseUrl },
 	() => {
 		if (!databaseUrl) return;
@@ -1183,6 +1188,11 @@ test(
 				encoding: 'utf8',
 				stdio: ['pipe', 'pipe', 'pipe']
 			}).trim();
+
+		const migrationSql = fs.readFileSync(
+			'supabase/migrations/20261124040000_add_structured_external_ride_fields.sql',
+			'utf8'
+		);
 
 		run(databaseUrl, fs.readFileSync('supabase/tests/bootstrap_roles.sql', 'utf8'));
 		run(databaseUrl, `create database ${dbName}`);
@@ -1217,6 +1227,7 @@ test(
 				insert into public.activity_events (
 					id, activity_type, source_event_id, host_user_id, host_group_id, slug, title, summary, description, start_location_name, start_location_address, updated_at
 				) values
+					-- 1. Meetup ride with street-numbered venue and both event + group page URLs
 					(
 						'00000000-0000-0000-0000-000000000001',
 						'ride',
@@ -1226,11 +1237,12 @@ test(
 						'meetup-sunrise-club-ride',
 						'Sunrise Club Ride',
 						'Meetup group: One Love Cycling',
-						E'Roll out at 7am sharp.\n\nMeetup group: One Love Cycling\nMeetup event: https://www.meetup.com/one-love-cycling/events/123/',
+						E'Roll out at 7am sharp.\n\nMeetup group: One Love Cycling\n\nMeetup event: https://www.meetup.com/one-love-cycling/events/123/\n\nMeetup group page: https://www.meetup.com/one-love-cycling/',
 						'Meetup event',
 						'Westgate Square, 15810 W State Road 84, Sunrise, FL, US',
 						'2026-01-01T00:00:00Z'
 					),
+					-- 2. Clean local ride (must remain completely untouched)
 					(
 						'00000000-0000-0000-0000-000000000002',
 						'ride',
@@ -1244,35 +1256,102 @@ test(
 						'Tempe Beach Park',
 						'80 W Rio Salado Pkwy, Tempe, AZ',
 						'2026-01-01T00:00:00Z'
+					),
+					-- 3. Imported ride with a real start_location_name ("Bike Tempe") that must NOT be overwritten
+					(
+						'00000000-0000-0000-0000-000000000003',
+						'ride',
+						'btw-bike-tempe-1',
+						null,
+						null,
+						'bike-tempe-community-roll',
+						'Community Roll',
+						'Easy social ride around Tempe.',
+						E'Easy social ride around Tempe.\n\nMore information:\n\nBike Tempe: https://www.biketempe.org/events/roll',
+						'Bike Tempe',
+						'530 W Broadway Rd, Tempe, AZ 85282',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 4. WeeklyRides ride with real venue/event name + both Event link and WeeklyRides listing URLs
+					(
+						'00000000-0000-0000-0000-000000000004',
+						'ride',
+						'https://www.weeklyrides.com/index.php/rides-events/9343-nccx',
+						null,
+						null,
+						'weeklyrides-nccx-pre-season-race',
+						'NCCX Pre-Season Race',
+						E'Location: Zirconia, NC\nCategory: Gravel/Mtb\nEvent link: https://www.nccyclocross.com/',
+						E'Location: Zirconia, NC\nCategory: Gravel/Mtb\nEvent link: https://www.nccyclocross.com/\nWeeklyRides listing: https://www.weeklyrides.com/index.php/rides-events/9343-nccx',
+						'NCCX Pre-Season Race',
+						'Zirconia, NC',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 5. Meetup placeholder whose address is city/country only (no street number) — start_location_name must stay unchanged
+					(
+						'00000000-0000-0000-0000-000000000005',
+						'ride',
+						'meetup:albany-spin:5',
+						null,
+						null,
+						'meetup-albany-weekend-spin',
+						'Albany Weekend Spin',
+						'Morning group ride.',
+						E'Morning group ride.\n\nMeetup group: Albany Riders\n\nMeetup event: https://www.meetup.com/albany-riders/events/555/\n\nMeetup group page: https://www.meetup.com/albany-riders/',
+						'Meetup event',
+						'Albany, OR, US',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 6. Ride whose footer line has an unextractable URL — footer must be kept and row left unchanged in activity_events
+					(
+						'00000000-0000-0000-0000-000000000006',
+						'ride',
+						'seed:unextractable-footer-6',
+						null,
+						null,
+						'desert-twilight-crit',
+						'Desert Twilight Crit',
+						'Fast evening criterium.',
+						E'Fast evening criterium.\n\nEvent link: www.example.com/register (opens next week)',
+						'Downtown Gilbert',
+						'50 E Civic Center Dr, Gilbert, AZ',
+						'2026-01-01T00:00:00Z'
 					);
 
 				insert into public.ride_details (activity_event_id, pace_notes, updated_at) values
 					('00000000-0000-0000-0000-000000000001', 'Meetup group: One Love Cycling', '2026-01-01T00:00:00Z'),
-					('00000000-0000-0000-0000-000000000002', '12-14 mph social no-drop', '2026-01-01T00:00:00Z');
+					('00000000-0000-0000-0000-000000000002', '12-14 mph social no-drop', '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000003', 'Easy social ride around Tempe.', '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000004', '16-18 mph race pace', '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000005', null, '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000006', '22+ mph crit pace', '2026-01-01T00:00:00Z');
 
-				${fs.readFileSync('supabase/migrations/20261124040000_add_structured_external_ride_fields.sql', 'utf8')}
+				${migrationSql}
 				`
 			);
 
-			const constraintValidated = run(
+			const constraintsValidated = run(
 				testDbUrl,
-				`select convalidated::text from pg_constraint where conname = 'ride_details_external_event_url_check';`
+				`select count(*)::text from pg_constraint
+				 where conname in ('ride_details_external_event_url_check', 'ride_details_external_group_url_check')
+				   and convalidated = true;`
 			);
-			assert.equal(constraintValidated, 'true');
+			assert.equal(constraintsValidated, '2');
 
-			const importedRow = run(
+			// Row 1: Meetup placeholder with street number -> Westgate Square; both event and group URLs saved.
+			const importedMeetupRow = run(
 				testDbUrl,
-				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.summary, '') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_organizer_name, '')
+				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.summary, '') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '') || '|' || coalesce(rd.external_organizer_name, '')
 				 from public.activity_events ae
 				 join public.ride_details rd on rd.activity_event_id = ae.id
 				 where ae.id = '00000000-0000-0000-0000-000000000001';`
 			);
 			assert.equal(
-				importedRow,
-				'Westgate Square|Roll out at 7am sharp.|Roll out at 7am sharp.|<null>|https://www.meetup.com/one-love-cycling/events/123/|One Love Cycling'
+				importedMeetupRow,
+				'Westgate Square|Roll out at 7am sharp.|Roll out at 7am sharp.|<null>|https://www.meetup.com/one-love-cycling/events/123/|https://www.meetup.com/one-love-cycling/|One Love Cycling'
 			);
 
-			// Clean local ride should not have been touched by the backfill at all.
+			// Row 2: Clean local ride must not be touched by the backfill at all.
 			const localRideRow = run(
 				testDbUrl,
 				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(rd.pace_notes, '')
@@ -1282,29 +1361,113 @@ test(
 			);
 			assert.equal(localRideRow, 'true|true|12-14 mph social no-drop');
 
-			// Re-running the migration must be idempotent.
+			// Row 3: Real start_location_name ("Bike Tempe") is unchanged even when start_location_address starts with a street number.
+			const realVenueRow = run(
+				testDbUrl,
+				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_organizer_name, '')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000003';`
+			);
+			assert.equal(
+				realVenueRow,
+				'Bike Tempe|Easy social ride around Tempe.|<null>|https://www.biketempe.org/events/roll|Bike Tempe'
+			);
+
+			// Row 4: WeeklyRides real start_location_name ("NCCX Pre-Season Race") is unchanged, and BOTH Event link and WeeklyRides listing URLs are saved.
+			const weeklyRidesRow = run(
+				testDbUrl,
+				`select coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.description, ''), E'\\n', ' / ') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000004';`
+			);
+			assert.equal(
+				weeklyRidesRow,
+				'NCCX Pre-Season Race|Location: Zirconia, NC / Category: Gravel/Mtb|16-18 mph race pace|https://www.nccyclocross.com/|https://www.weeklyrides.com/index.php/rides-events/9343-nccx'
+			);
+
+			// Row 5: "Meetup event" placeholder with city/state/country-only address (no street number) stays unchanged.
+			const cityOnlyPlaceholderName = run(
+				testDbUrl,
+				`select ae.start_location_name from public.activity_events ae where ae.id = '00000000-0000-0000-0000-000000000005';`
+			);
+			assert.equal(cityOnlyPlaceholderName, 'Meetup event');
+
+			// Row 6: Footer line with an unextractable URL is kept intact.
+			const unextractableFooterRow = run(
+				testDbUrl,
+				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.description, ''), E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '<null>')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000006';`
+			);
+			assert.equal(
+				unextractableFooterRow,
+				'true|Downtown Gilbert|Fast evening criterium.\\n\\nEvent link: www.example.com/register (opens next week)|<null>'
+			);
+
+			// Backup table row counts equal updated row counts.
+			const activityCounts = run(
+				testDbUrl,
+				`select (select count(*) from public.activity_events_backfill_20261124)::text || '|' || (select count(*) from public.activity_events where updated_at > '2026-01-01T00:00:00Z')::text;`
+			);
+			assert.equal(activityCounts, '4|4');
+
+			const paceBackupCounts = run(
+				testDbUrl,
+				`select (select count(*) from public.ride_details_backfill_20261124)::text || '|' || (select count(*) from public.ride_details where pace_notes is null and activity_event_id <> '00000000-0000-0000-0000-000000000005')::text;`
+			);
+			assert.equal(paceBackupCounts, '2|2');
+
+			// Re-running the migration must be idempotent and preserve backup tables.
 			const beforeRerunStamp = run(
 				testDbUrl,
 				`select rd.updated_at::text from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
 			);
-			run(
-				testDbUrl,
-				fs.readFileSync(
-					'supabase/migrations/20261124040000_add_structured_external_ride_fields.sql',
-					'utf8'
-				)
-			);
+			run(testDbUrl, migrationSql);
 			const afterRerunStamp = run(
 				testDbUrl,
-				`select rd.updated_at::text from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
+				`select rd.updated_at::text || '|' || (select count(*) from public.activity_events_backfill_20261124)::text || '|' || (select count(*) from public.ride_details_backfill_20261124)::text
+				 from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
 			);
-			assert.equal(afterRerunStamp, beforeRerunStamp);
+			assert.equal(afterRerunStamp, `${beforeRerunStamp}|4|2`);
 
 			assert.throws(() =>
 				run(
 					testDbUrl,
 					`update public.ride_details set external_event_url = 'javascript:alert(1)' where activity_event_id = '00000000-0000-0000-0000-000000000002';`
 				)
+			);
+			assert.throws(() =>
+				run(
+					testDbUrl,
+					`update public.ride_details set external_group_url = 'ftp://example.com/group' where activity_event_id = '00000000-0000-0000-0000-000000000002';`
+				)
+			);
+
+			// Uncomment and execute the rollback block from the bottom of the migration and verify restoration.
+			const rollbackMarker = '-- Rollback (manual):';
+			const markerIndex = migrationSql.indexOf(rollbackMarker);
+			assert.ok(markerIndex !== -1, 'Expected commented rollback block at bottom of migration');
+			const uncommentedRollbackSql = migrationSql
+				.slice(markerIndex)
+				.split('\n')
+				.slice(1)
+				.map((line) => line.replace(/^--\s?/, ''))
+				.join('\n');
+			run(testDbUrl, uncommentedRollbackSql);
+
+			const restoredMeetupRow = run(
+				testDbUrl,
+				`select ae.start_location_name || '|' || ae.summary || '|' || rd.pace_notes
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000001';`
+			);
+			assert.equal(
+				restoredMeetupRow,
+				'Meetup event|Meetup group: One Love Cycling|Meetup group: One Love Cycling'
 			);
 		} finally {
 			run(databaseUrl, `drop database ${dbName} with (force)`);

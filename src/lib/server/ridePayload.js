@@ -40,11 +40,15 @@ export function isValidExternalEventUrlInput(value) {
 	return normalizeExternalEventUrl(raw) !== null;
 }
 
-const EXTERNAL_RIDE_DETAIL_COLUMNS = ['external_event_url', 'external_organizer_name'];
+const EXTERNAL_RIDE_DETAIL_COLUMNS = [
+	'external_event_url',
+	'external_group_url',
+	'external_organizer_name'
+];
 
 /**
  * Detects PostgreSQL (42703) and PostgREST schema-cache (PGRST204) errors caused by
- * deploying runtime code before `external_event_url` / `external_organizer_name` exist.
+ * deploying runtime code before `external_event_url` / `external_group_url` / `external_organizer_name` exist.
  *
  * @param {any} error
  * @returns {boolean}
@@ -56,7 +60,8 @@ export function isMissingExternalRideColumnsError(error) {
 		.map((part) => safeTrim(part))
 		.filter(Boolean)
 		.join(' ');
-	const mentionsExternalColumn = /\b(external_event_url|external_organizer_name)\b/i.test(combined);
+	const mentionsExternalColumn =
+		/\b(external_event_url|external_group_url|external_organizer_name)\b/i.test(combined);
 	if (!mentionsExternalColumn) return false;
 	if (code === 'PGRST204' || code === '42703') return true;
 	return /(does not exist|schema cache|could not find|unknown column)/i.test(combined);
@@ -390,6 +395,13 @@ export function normalizeRidePayload(payload = {}) {
 			external_event_url: normalizeExternalEventUrl(
 				payload.externalEventUrl ?? payload.external_event_url
 			),
+			...('externalGroupUrl' in payload || 'external_group_url' in payload
+				? {
+						external_group_url: normalizeExternalEventUrl(
+							payload.externalGroupUrl ?? payload.external_group_url
+						)
+					}
+				: {}),
 			external_organizer_name:
 				safeTrim(payload.externalOrganizerName ?? payload.external_organizer_name) || null
 		},

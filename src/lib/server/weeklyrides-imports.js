@@ -426,6 +426,8 @@ function buildSeedEventFromRssItem(itemXml) {
 		metadata.links.find((link) => !isWeeklyRidesUrl(link.url)) || metadata.links[0] || null;
 	const detailsLinks = uniq([externalLink?.url || '', itemLink]).filter(Boolean);
 	const externalEventUrl = externalLink?.url || itemLink || null;
+	const externalGroupUrl =
+		externalLink?.url && itemLink && externalLink.url !== itemLink ? itemLink : null;
 	const externalOrganizerName = deriveWeeklyRidesOrganizerName(externalLink, title);
 	const venueName = extractWeeklyRidesVenueName(metadata.location);
 	const { hour: startHour, minute: startMinutes } = getTimePartsInTimeZone(
@@ -457,6 +459,7 @@ function buildSeedEventFromRssItem(itemXml) {
 		location: metadata.location,
 		venueName,
 		externalEventUrl,
+		externalGroupUrl,
 		externalOrganizerName,
 		geocodeCountryCodes: inferGeocodeCountryCodeFromLocation(metadata.location),
 		timezone: WEEKLYRIDES_TIMEZONE,

@@ -290,6 +290,7 @@ export function mapGroupEventToSeedEvent(group, event) {
 		location,
 		venueName,
 		externalEventUrl: eventUrl || null,
+		externalGroupUrl: groupUrl || null,
 		externalOrganizerName,
 		timezone: safeTrim(group?.timezone) || 'America/Phoenix',
 		startDate: startParts.dateOnly,
