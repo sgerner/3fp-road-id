@@ -70,8 +70,8 @@ jobs:
       - run: npm ci
       - name: Start local Supabase stack
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,mailpit,realtime,supavisor,postgres-meta
+      - run: npm run test:db -- --skip-reset
       - run: node scripts/with-webhook-test-server.mjs npm test
-      - run: npm run test:db
 
   deploy-farin:
     if: github.event_name == 'push' || (github.event_name == 'release' && github.event.release.prerelease == false)

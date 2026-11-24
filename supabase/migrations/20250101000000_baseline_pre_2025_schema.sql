@@ -12,14 +12,28 @@ create extension if not exists pg_net;
 create schema if not exists private;
 create schema if not exists map;
 
-create or replace function map.get_improvements()
-returns jsonb
-language sql
-stable
-security invoker
-as $$
-	select '[]'::jsonb;
-$$;
+do $$
+begin
+	if not exists (
+		select 1
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where n.nspname = 'map'
+			and p.proname = 'get_improvements'
+			and p.pronargs = 0
+	) then
+		execute $fn$
+			create function map.get_improvements()
+			returns jsonb
+			language sql
+			stable
+			security invoker
+			as $body$
+				select '[]'::jsonb;
+			$body$;
+		$fn$;
+	end if;
+end $$;
 
 do $$
 begin
@@ -50,23 +64,47 @@ create table if not exists public.profiles (
 	updated_at timestamptz not null default timezone('utc', now())
 );
 
-create or replace function public.create_profile_on_new_user()
-returns trigger
-language plpgsql
-security definer
-as $function$
+do $$
 begin
-	insert into public.profiles (user_id)
-	values (new.id);
+	if not exists (
+		select 1
+		from pg_proc p
+		join pg_namespace n on n.oid = p.pronamespace
+		where n.nspname = 'public'
+			and p.proname = 'create_profile_on_new_user'
+			and p.pronargs = 0
+	) then
+		execute $fn$
+			create function public.create_profile_on_new_user()
+			returns trigger
+			language plpgsql
+			security definer
+			as $function$
+			begin
+				insert into public.profiles (user_id)
+				values (new.id);
 
-	return new;
-end;
-$function$;
+				return new;
+			end;
+			$function$;
+		$fn$;
+	end if;
 
-drop trigger if exists new_user_profile_trigger on auth.users;
-create trigger new_user_profile_trigger
-	after insert on auth.users
-	for each row execute function public.create_profile_on_new_user();
+	if not exists (
+		select 1
+		from pg_trigger t
+		join pg_class c on c.oid = t.tgrelid
+		join pg_namespace n on n.oid = c.relnamespace
+		where n.nspname = 'auth'
+			and c.relname = 'users'
+			and t.tgname = 'new_user_profile_trigger'
+			and not t.tgisinternal
+	) then
+		create trigger new_user_profile_trigger
+			after insert on auth.users
+			for each row execute function public.create_profile_on_new_user();
+	end if;
+end $$;
 
 create table if not exists public.groups (
 	id uuid primary key default extensions.uuid_generate_v4(),
