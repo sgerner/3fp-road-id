@@ -30,7 +30,9 @@
 	let errorMessage = $state('');
 	let submissionSuccess = $state(false);
 	let honeypot = $state('');
+	/** @type {any} */
 	let claimTurnstile = $state(null);
+	/** @type {any} */
 	let ownerLoginTurnstile = $state(null);
 
 	let emailIsValid = $derived(isValidRoadIdEmail(newProfile.email));

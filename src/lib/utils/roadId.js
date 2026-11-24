@@ -16,6 +16,10 @@ export const ROAD_ID_STRING_FIELDS = [
 
 export const ROAD_ID_EMAIL_REGEX = /^\S+@\S+\.[^\s@]+$/;
 
+/**
+ * @param {Record<string, any> | null | undefined} profile
+ * @param {{ id?: string | null } | null} [user]
+ */
 export function normalizeRoadIdProfile(profile, user = null) {
 	if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
 		return {
@@ -103,6 +107,7 @@ export function splitCommaItems(rawValue, normalizer = (item) => String(item ?? 
  * Determine post-confirmation destination. When a bracelet code (`rid`) was
  * claimed during magic-link confirmation, open `/profile#road-id` unless
  * `returnTo` explicitly targets a separate workflow (such as group claims).
+ * @param {{ rid?: string | null, returnTo?: string | null }} [options]
  */
 export function resolveConfirmRedirectDestination({ rid = '', returnTo = '' } = {}) {
 	const hasRid = Boolean(normalizeRoadIdCodeInput(rid));

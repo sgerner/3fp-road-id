@@ -783,6 +783,9 @@ export function extractChatStatedLocation(messages = []) {
 	return null;
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export function resolveTurnLocationContext({
 	messages = [],
 	recommendationContext = {},
@@ -1546,6 +1549,10 @@ export async function searchVolunteerEventsSql(
 	return scored.slice(0, cappedLimit).map((entry) => entry.recommendation);
 }
 
+/**
+ * @param {any} supabase
+ * @param {Record<string, any>} [options]
+ */
 export async function searchGuidesSql(
 	supabase,
 	{
@@ -1748,6 +1755,10 @@ export function normalizeLearnedContext(raw) {
 	};
 }
 
+/**
+ * @param {any} replyText
+ * @param {{ navigationTarget?: any }} [options]
+ */
 export function sanitizeAssistantReplyText(replyText, { navigationTarget = null } = {}) {
 	let cleaned = safeTrim(replyText);
 	if (!cleaned) return '';
@@ -1776,8 +1787,11 @@ export function sanitizeAssistantReplyText(replyText, { navigationTarget = null 
 	return cleaned.replace(/\s{3,}/g, ' ').trim();
 }
 
+/**
+ * @param {Record<string, any>} [options]
+ */
 export function buildDeterministicReply({
-	navigationTarget,
+	navigationTarget = null,
 	recommendations = [],
 	locationHint = '',
 	latestUserMessage = ''
@@ -1985,6 +1999,9 @@ function withDeadline(promise, timeoutMs, label = 'assistant timeout') {
 	});
 }
 
+/**
+ * @param {Record<string, any>} options
+ */
 export async function runAssistantTurn({
 	supabase,
 	messages,
@@ -2057,9 +2074,12 @@ export async function runAssistantTurn({
 		}
 	};
 
+	/** @type {any} */
 	let selectedNavigationTarget = null;
+	/** @type {any[]} */
 	const collectedRecommendations = [];
 	const invokedSearchTools = new Set();
+	/** @type {Record<string, any>} */
 	let guideSignals = {
 		intent: inferArticleIntent(latestUserMessage),
 		retrievalIntent: null,
@@ -2067,6 +2087,9 @@ export async function runAssistantTurn({
 		userWeights: null
 	};
 
+	/**
+	 * @param {Record<string, any>} [args]
+	 */
 	const resolveSearchLocationArgs = (args = {}) => {
 		const explicitParsed = parseLocationInput({
 			city: args.city,
@@ -2098,6 +2121,9 @@ export async function runAssistantTurn({
 		};
 	};
 
+	/**
+	 * @param {any[]} [items]
+	 */
 	const pushRecommendations = (items = []) => {
 		const seenUrls = new Set(collectedRecommendations.map((item) => item.url));
 		for (const item of items) {
@@ -2424,6 +2450,9 @@ export async function runAssistantTurn({
 	};
 }
 
+/**
+ * @param {Record<string, any>} options
+ */
 export async function persistLearnedAssistantContext({
 	supabase,
 	user,

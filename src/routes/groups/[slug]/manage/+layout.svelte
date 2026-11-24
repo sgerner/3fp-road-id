@@ -14,6 +14,7 @@
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconWalletCards from '@lucide/svelte/icons/wallet-cards';
 
+	/** @type {Record<string, any>} */
 	let { children, data } = $props();
 
 	const slug = $derived(data.group?.slug ?? '');

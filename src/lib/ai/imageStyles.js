@@ -340,5 +340,7 @@ const STYLE_GROUP_DEFINITIONS = [
 ];
 export const IMAGE_STYLE_GROUPS = STYLE_GROUP_DEFINITIONS.map((group) => ({
 	label: group.label,
-	presets: group.ids.map((id) => IMAGE_STYLE_PRESETS.find((preset) => preset.id === id))
+	presets: group.ids
+		.map((id) => IMAGE_STYLE_PRESETS.find((preset) => preset.id === id))
+		.filter((preset) => preset !== undefined)
 }));

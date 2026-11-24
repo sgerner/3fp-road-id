@@ -13,8 +13,10 @@ import {
 } from './groupSnapshots.js';
 
 function createDeferred() {
-	let resolve;
-	let reject;
+	/** @type {(value?: any) => void} */
+	let resolve = () => {};
+	/** @type {(reason?: any) => void} */
+	let reject = () => {};
 	const promise = new Promise((res, rej) => {
 		resolve = res;
 		reject = rej;
@@ -22,9 +24,13 @@ function createDeferred() {
 	return { promise, resolve, reject };
 }
 
+/**
+ * @param {{ role?: string, handlers?: Record<string, any>, onQuery?: ((query: any) => any) | null }} [options]
+ */
 function createMockSupabase({ role = 'anon', handlers = {}, onQuery = null } = {}) {
 	return {
 		from(table) {
+			/** @type {Record<string, any>} */
 			const state = {
 				role,
 				table,
@@ -703,7 +709,7 @@ test('missing slug throws HTTP 404 and evicts null entries immediately', async (
 				serviceSupabase,
 				now: 10_000_000
 			}),
-		(err) => {
+		(/** @type {any} */ err) => {
 			assert.equal(err?.status, 404);
 			assert.equal(err?.body?.message, 'Group not found');
 			return true;
@@ -766,7 +772,7 @@ test('redirects stripped microsite_slug requests via 308 while preserving query 
 				serviceSupabase,
 				now: 11_000_000
 			}),
-		(redirectErr) => {
+		(/** @type {any} */ redirectErr) => {
 			assert.equal(redirectErr?.status, 308);
 			assert.equal(
 				redirectErr?.location,
@@ -788,7 +794,7 @@ test('redirects stripped microsite_slug requests via 308 while preserving query 
 				serviceSupabase,
 				now: 11_000_100
 			}),
-		(err) => {
+		(/** @type {any} */ err) => {
 			assert.equal(err?.status, 404);
 			return true;
 		}
@@ -827,7 +833,7 @@ test('failed group lookup throws HTTP 500 and evicts rejected promises immediate
 				serviceSupabase,
 				now: 12_000_000
 			}),
-		(err) => {
+		(/** @type {any} */ err) => {
 			assert.equal(err?.status, 500);
 			assert.equal(err?.body?.message, 'Failed to load group');
 			return true;
@@ -1043,6 +1049,7 @@ test('enforces public vs private Cache-Control rules and preserves auto_follow r
 	clearGroupSnapshotCache();
 	const { publicHandlers, serviceHandlers } = buildSampleGroupFixtures();
 	const headers = {};
+	/** @type {any} */
 	let joinedArgs = null;
 
 	await assert.rejects(
@@ -1068,7 +1075,7 @@ test('enforces public vs private Cache-Control rules and preserves auto_follow r
 				}),
 				now: 40_000_000
 			}),
-		(redirectErr) => {
+		(/** @type {any} */ redirectErr) => {
 			assert.equal(redirectErr?.status, 303);
 			assert.equal(redirectErr?.location, '/groups/tempe-bike-club?follow=success');
 			return true;

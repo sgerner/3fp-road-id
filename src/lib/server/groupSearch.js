@@ -1,3 +1,14 @@
+/**
+ * @typedef {Object} CoordinateBounds
+ * @property {number} latitude
+ * @property {number} longitude
+ * @property {number} radiusMiles
+ * @property {number} minLat
+ * @property {number} maxLat
+ * @property {number} minLng
+ * @property {number} maxLng
+ */
+
 const AMBIGUOUS_REGION_STOP_WORDS = new Set(['in', 'or', 'on']);
 
 export const SEARCH_STOP_WORDS = new Set([
@@ -467,6 +478,17 @@ export function buildCoordinateBounds(
 	};
 }
 
+/**
+ * @param {string} query
+ * @param {{
+ *   country?: string,
+ *   geocode?: ((query: string, options?: any) => Promise<any[]>) | null,
+ *   fetchImpl?: typeof fetch,
+ *   timeoutMs?: number,
+ *   radiusMiles?: number
+ * }} [options]
+ * @returns {Promise<CoordinateBounds | null>}
+ */
 export async function resolvePostalGeocodeBounds(
 	query,
 	{
@@ -487,7 +509,9 @@ export async function resolvePostalGeocodeBounds(
 	if (typeof geocodeFn !== 'function') return null;
 
 	const controller = new AbortController();
+	/** @type {ReturnType<typeof setTimeout> | null} */
 	let timer = null;
+	/** @type {typeof fetch} */
 	const timedFetch = (input, init = {}) =>
 		fetchImpl(input, {
 			...init,
@@ -541,10 +565,17 @@ export async function resolvePostalGeocodeBounds(
 	}
 }
 
+/**
+ * @template T
+ * @param {T} queryBuilder
+ * @param {{ q?: string, country?: string, postalBounds?: CoordinateBounds | null }} [options]
+ * @returns {T}
+ */
 export function applyGroupSearchFilter(
 	queryBuilder,
 	{ q = '', country = '', postalBounds = null } = {}
 ) {
+	/** @type {any} */
 	let query = queryBuilder;
 	const trimmed = (q || '').toString().trim();
 	if (!trimmed) return query;

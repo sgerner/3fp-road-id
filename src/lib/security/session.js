@@ -9,6 +9,7 @@ export async function syncServerSession(session, fetchImpl = globalThis.fetch) {
 	if (!browser || typeof fetchImpl !== 'function') return false;
 
 	const accessToken = typeof session?.access_token === 'string' ? session.access_token.trim() : '';
+	/** @type {RequestInit} */
 	const options = accessToken
 		? {
 				method: 'POST',

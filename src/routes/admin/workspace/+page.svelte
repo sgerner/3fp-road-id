@@ -16,8 +16,10 @@
 	import AdminHero from '#lib/components/admin/AdminHero.svelte';
 	import AdminNotice from '#lib/components/admin/AdminNotice.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {any} */
 	let selectedUserId = $state(null);
 	let showCreateForm = $state(false);
 	let activeTab = $state('profile'); // 'profile', 'security', 'aliases'
@@ -26,8 +28,11 @@
 
 	// Google's user list is eventually consistent: a reload right after a write
 	// often misses it. Keep confirmed changes from this session layered on top.
+	/** @type {any} */
 	let createdUsers = $state([]);
+	/** @type {any} */
 	let deletedUserIds = $state([]);
+	/** @type {any} */
 	let aliasChanges = $state([]);
 
 	const users = $derived.by(() => {

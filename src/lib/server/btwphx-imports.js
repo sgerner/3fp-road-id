@@ -105,7 +105,7 @@ export function parseBtwPhxCalendarData(payload) {
 		throw new Error('Invalid BTWPHX calendar response payload.');
 	}
 
-	const normalized = events.map(normalizeBtwPhxEvent).filter(Boolean);
+	const normalized = events.map(normalizeBtwPhxEvent).filter((event) => event !== null);
 	return {
 		projectId: safeTrim(payload?.project?.id) || BTWPHX_PROJECT_ID,
 		events: normalized

@@ -31,6 +31,7 @@ export async function callApi(fetchImpl, resource, params) {
 	}
 	if (!response.ok) {
 		const message = payload?.error || payload?.message || `Failed to load ${resource}`;
+		/** @type {Error & { status?: number, payload?: any }} */
 		const apiError = new Error(message);
 		apiError.status = response.status;
 		apiError.payload = payload;

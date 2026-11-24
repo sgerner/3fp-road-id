@@ -51,7 +51,11 @@ function matchesSingleClause(row, clause) {
 	return true;
 }
 
+/**
+ * @param {Record<string, any>} [fixtures]
+ */
 function createMockSupabase(fixtures = {}) {
+	/** @type {Record<string, any[]>} */
 	const tables = {
 		groups: fixtures.groups || [],
 		activity_events: fixtures.activity_events || [],
@@ -60,13 +64,19 @@ function createMockSupabase(fixtures = {}) {
 		learn_article_chunks: fixtures.learn_article_chunks || [],
 		profiles: fixtures.profiles || []
 	};
+	/** @type {{ profileUpdates: any[], profileUpserts: any[] }} */
 	const writes = {
 		profileUpdates: [],
 		profileUpserts: []
 	};
+	/** @type {any[]} */
 	const queryLog = [];
 
+	/**
+	 * @param {string} tableName
+	 */
 	function buildQuery(tableName) {
+		/** @type {{ table: string, filters: Array<(row: any) => boolean>, orGroups: any[], orderCol: string | null, orderAsc: boolean, limitCount: number | null }} */
 		const state = {
 			table: tableName,
 			filters: [],
@@ -96,7 +106,7 @@ function createMockSupabase(fixtures = {}) {
 				const dir = state.orderAsc ? 1 : -1;
 				rows.sort((a, b) => String(a?.[col] ?? '').localeCompare(String(b?.[col] ?? '')) * dir);
 			}
-			if (Number.isFinite(state.limitCount)) {
+			if (typeof state.limitCount === 'number' && Number.isFinite(state.limitCount)) {
 				rows = rows.slice(0, state.limitCount);
 			}
 			return rows;

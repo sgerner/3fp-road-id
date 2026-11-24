@@ -3,6 +3,7 @@
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import { page } from '$app/state';
 
+	/** @type {{ data: Record<string, any> }} */
 	const { data } = $props();
 
 	const events = $derived((data?.events ?? []).filter(Boolean));
@@ -12,7 +13,9 @@
 	const opportunities = $derived(
 		(data?.volunteer_opportunities ?? data?.volunteerOpportunities ?? []).filter(Boolean)
 	);
+	/** @type {any} */
 	const currentUser = $derived(data?.user ?? null);
+	/** @type {any} */
 	const authRequired = $derived(
 		page.url.searchParams.get('auth') === 'required' && !currentUser?.id
 	);

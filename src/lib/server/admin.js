@@ -2,6 +2,10 @@ import { error, redirect } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
 
+/**
+ * @param {any} cookies
+ * @param {{ redirectTo?: string | null }} [options]
+ */
 export async function requireAdmin(cookies, { redirectTo = null } = {}) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!user?.id || !accessToken) {

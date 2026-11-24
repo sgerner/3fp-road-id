@@ -4,6 +4,7 @@
 	import IconChevronRight from '@lucide/svelte/icons/chevron-right';
 	import IconX from '@lucide/svelte/icons/x';
 
+	/** @type {Record<string, any>} */
 	let { images = [], startIndex = 0, onClose = () => {} } = $props();
 	let dialog;
 	let closeButton;

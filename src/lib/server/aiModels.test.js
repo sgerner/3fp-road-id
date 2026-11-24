@@ -56,21 +56,27 @@ test('OpenAI input normalization preserves message content', () => {
 });
 
 test('OpenAI provider extracts Responses output and sends the expected request', async () => {
+	/** @type {any} */
 	let request;
-	const client = createOpenAiTextProviderClient('test-key', async (url, options) => {
-		request = { url, options };
-		return {
-			ok: true,
-			async json() {
+	const client = createOpenAiTextProviderClient(
+		'test-key',
+		/** @type {any} */ (
+			async (url, options) => {
+				request = { url, options };
 				return {
-					output: [
-						{ type: 'reasoning', content: [] },
-						{ type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] }
-					]
+					ok: true,
+					async json() {
+						return {
+							output: [
+								{ type: 'reasoning', content: [] },
+								{ type: 'message', content: [{ type: 'output_text', text: '{"ok":true}' }] }
+							]
+						};
+					}
 				};
 			}
-		};
-	});
+		)
+	);
 
 	const response = await client.generateContent({
 		model: OPENAI_GPT_6_LUNA_MODEL,

@@ -3,11 +3,24 @@ import { getContextualModeDefaults } from '#lib/ai/assistantHelpers.js';
 
 const ASSISTANT_CONTEXT_KEY = Symbol('3fp-assistant-context');
 
+/**
+ * @typedef {Object} PendingAssistantRequest
+ * @property {number} id
+ * @property {'page' | 'discover'} mode
+ * @property {string} prompt
+ * @property {boolean} submit
+ * @property {string} learnAction
+ * @property {string} topic
+ * @property {HTMLElement | null} triggerEl
+ */
+
 function createAssistantStore() {
 	let pathname = $state('/');
+	/** @type {Array<{ token: symbol, getConfig: () => Record<string, any> | null }>} */
 	let registrations = $state([]);
-	let modePreference = $state('page');
+	let modePreference = $state(/** @type {'page' | 'discover'} */ ('page'));
 	let requestedOpen = $state(false);
+	/** @type {PendingAssistantRequest | null} */
 	let pendingRequest = $state(null);
 	let requestSeq = 0;
 	let lastRouteSignature = '';
@@ -25,7 +38,7 @@ function createAssistantStore() {
 	const hasPageMode = $derived(Boolean(pageConfig?.mode));
 
 	const activeMode = $derived(
-		hasPageMode && modePreference !== 'discover' ? pageConfig.mode : 'discover'
+		pageConfig?.mode && modePreference !== 'discover' ? pageConfig.mode : 'discover'
 	);
 
 	const pageModeMeta = $derived.by(() => {
@@ -55,6 +68,7 @@ function createAssistantStore() {
 		activeMode !== 'discover' && pageModeMeta ? pageModeMeta : discoveryModeMeta
 	);
 
+	/** @param {() => Record<string, any> | null} getConfig */
 	function register(getConfig) {
 		const token = Symbol('assistant-route-registration');
 		untrack(() => {
@@ -68,6 +82,7 @@ function createAssistantStore() {
 		};
 	}
 
+	/** @param {string} nextPathname */
 	function setPathname(nextPathname) {
 		const normalized = String(nextPathname || '/').trim() || '/';
 		untrack(() => {
@@ -80,12 +95,14 @@ function createAssistantStore() {
 		});
 	}
 
+	/** @param {string} preference */
 	function selectMode(preference) {
 		untrack(() => {
 			modePreference = preference === 'discover' ? 'discover' : 'page';
 		});
 	}
 
+	/** @param {Record<string, any>} [options] */
 	function open(options = {}) {
 		untrack(() => {
 			const targetPreference = options.mode === 'discover' ? 'discover' : 'page';
@@ -103,6 +120,7 @@ function createAssistantStore() {
 		});
 	}
 
+	/** @param {number} id */
 	function consumePendingRequest(id) {
 		untrack(() => {
 			if (pendingRequest?.id === id) {
@@ -157,6 +175,7 @@ function createAssistantStore() {
 	};
 }
 
+/** @type {ReturnType<typeof createAssistantStore>} */
 const FALLBACK_STORE = {
 	pathname: '/',
 	pageConfig: null,

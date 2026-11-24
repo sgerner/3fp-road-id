@@ -4,6 +4,7 @@ import { loadUserRoadIdBundle } from '#lib/server/roadId';
 import { SMS_CONSENT_TEXT, SMS_CONSENT_VERSION } from '#lib/server/sms';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
 
+/** @type {any} */
 const INTEREST_SUGGESTIONS = [
 	'Road riding',
 	'Mountain biking',
@@ -17,6 +18,7 @@ const INTEREST_SUGGESTIONS = [
 	'Beginner-friendly rides'
 ];
 
+/** @type {any} */
 const RECOMMENDATION_OPTIONS = [
 	{
 		value: 'groups',
@@ -35,18 +37,31 @@ const RECOMMENDATION_OPTIONS = [
 	}
 ];
 
+/**
+ * @param {any} value
+ */
 function normalizeMetadataObject(value) {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 	return value;
 }
 
+/**
+ * @param {any} value
+ * @param {any} maxLength
+ */
 function safeText(value, maxLength) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim().slice(0, maxLength);
 }
 
+/**
+ * @param {any} values
+ * @param {any} [limit]
+ * @param {any} [itemMaxLength]
+ */
 function normalizeStringArray(values, limit = 12, itemMaxLength = 40) {
 	if (!Array.isArray(values)) return [];
+	/** @type {any} */
 	const next = [];
 	for (const value of values) {
 		const cleaned = safeText(value, itemMaxLength);
@@ -58,6 +73,9 @@ function normalizeStringArray(values, limit = 12, itemMaxLength = 40) {
 	return next;
 }
 
+/**
+ * @param {any} values
+ */
 function normalizeFocus(values) {
 	const allowed = new Set(['groups', 'rides', 'volunteer']);
 	return normalizeStringArray(values, 3, 20)
@@ -65,6 +83,9 @@ function normalizeFocus(values) {
 		.filter((value) => allowed.has(value));
 }
 
+/**
+ * @param {any} metadata
+ */
 function extractContext(metadata) {
 	const source = normalizeMetadataObject(metadata?.recommendation_context);
 	return {
@@ -137,15 +158,15 @@ export const load = async ({ cookies }) => {
 		context: extractContext(profile?.metadata ?? {}),
 		smsPreferences: smsSubscription
 			? {
-					phone: data?.phone || smsSubscription.phone_e164 || '',
-					status: smsSubscription.status ?? 'paused',
-					ride_reminders: smsSubscription.ride_reminders === true,
-					volunteer_reminders: smsSubscription.volunteer_reminders === true,
-					admin_messages: smsSubscription.admin_messages === true,
-					bike_valet_messages: smsSubscription.bike_valet_messages === true,
-					consent_version: smsSubscription.consent_version ?? null,
-					opted_in_at: smsSubscription.opted_in_at ?? null,
-					opted_out_at: smsSubscription.opted_out_at ?? null,
+					phone: data?.phone || /** @type {any} */ (smsSubscription).phone_e164 || '',
+					status: /** @type {any} */ (smsSubscription).status ?? 'paused',
+					ride_reminders: /** @type {any} */ (smsSubscription).ride_reminders === true,
+					volunteer_reminders: /** @type {any} */ (smsSubscription).volunteer_reminders === true,
+					admin_messages: /** @type {any} */ (smsSubscription).admin_messages === true,
+					bike_valet_messages: /** @type {any} */ (smsSubscription).bike_valet_messages === true,
+					consent_version: /** @type {any} */ (smsSubscription).consent_version ?? null,
+					opted_in_at: /** @type {any} */ (smsSubscription).opted_in_at ?? null,
+					opted_out_at: /** @type {any} */ (smsSubscription).opted_out_at ?? null,
 					verificationRequired: false
 				}
 			: {

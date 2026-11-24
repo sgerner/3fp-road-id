@@ -43,7 +43,9 @@ export const load = async ({ url, fetch }) => {
 		riding_discipline_ids.length
 	);
 
+	/** @type {any} */
 	let filterIds = null;
+	/** @type {any} */
 	const filterRequests = [
 		{
 			table: 'group_x_skill_levels',
@@ -70,7 +72,7 @@ export const load = async ({ url, fetch }) => {
 	if (filterRequests.length) {
 		const filterResults = await Promise.all(
 			filterRequests.map(async (entry) => {
-				const { data, error } = await supabase
+				const { data, error } = await /** @type {any} */ (supabase)
 					.from(entry.table)
 					.select('group_id')
 					.in(entry.column, entry.values);
@@ -90,6 +92,7 @@ export const load = async ({ url, fetch }) => {
 		}
 	}
 
+	/** @type {any} */
 	const commonContext = {
 		q,
 		country,
@@ -123,6 +126,10 @@ export const load = async ({ url, fetch }) => {
 		};
 	}
 
+	/**
+	 * @param {any} qBuilder
+	 * @param {{ includeSearch?: boolean, postalBounds?: import('#lib/server/groupSearch').CoordinateBounds | null }} [options]
+	 */
 	function applyCommonFilters(qBuilder, { includeSearch = true, postalBounds = null } = {}) {
 		let query = qBuilder;
 		if (includeSearch && q) {
@@ -149,6 +156,10 @@ export const load = async ({ url, fetch }) => {
 		]);
 	}
 
+	/**
+	 * @param {any} groups
+	 * @param {any} allTypes
+	 */
 	async function fetchGroupTypesMap(groups, allTypes) {
 		if (!groups.length) return {};
 		const ids = groups.map((g) => g.id);
@@ -157,6 +168,7 @@ export const load = async ({ url, fetch }) => {
 			.select('group_id, group_type_id')
 			.in('group_id', ids);
 		const typeNameById = Object.fromEntries((allTypes || []).map((t) => [t.id, t.name]));
+		/** @type {any} */
 		const map = {};
 		for (const row of gxRes || []) {
 			const arr = map[row.group_id] || (map[row.group_id] = []);
@@ -166,6 +178,9 @@ export const load = async ({ url, fetch }) => {
 		return map;
 	}
 
+	/**
+	 * @param {{ postalBounds?: import('#lib/server/groupSearch').CoordinateBounds | null }} [options]
+	 */
 	function buildListQuery({ postalBounds = null } = {}) {
 		const query = supabase
 			.from('groups')
@@ -175,6 +190,12 @@ export const load = async ({ url, fetch }) => {
 		return applyCommonFilters(query, { includeSearch: true, postalBounds });
 	}
 
+	/**
+	 * @param {number} from
+	 * @param {number} to
+	 * @param {boolean} [includeCount]
+	 * @param {import('#lib/server/groupSearch').CoordinateBounds | null} [postalBounds]
+	 */
 	function buildMapChunkQuery(from, to, includeCount = false, postalBounds = null) {
 		let query = supabase
 			.from('groups')
@@ -192,10 +213,15 @@ export const load = async ({ url, fetch }) => {
 		return query;
 	}
 
+	/**
+	 * @param {import('#lib/server/groupSearch').CoordinateBounds | null} [postalBounds]
+	 */
 	async function fetchAllMapPoints(postalBounds = null) {
 		const pageSize = 1000;
 		let from = 0;
+		/** @type {any} */
 		let total = null;
+		/** @type {any} */
 		const points = [];
 		while (true) {
 			const includeCount = total === null;

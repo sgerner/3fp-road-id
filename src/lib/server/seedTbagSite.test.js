@@ -133,7 +133,10 @@ test('TBAG archive seed includes the source documents and resource routes', () =
 });
 
 test('TBAG photo seed keeps page-specific source collections instead of a shared gallery fallback', () => {
-	const counts = Object.groupBy(SOURCE_PHOTOS, ([, , , sourcePage]) => sourcePage);
+	/** @type {Record<string, any[]>} */
+	const counts = /** @type {any} */ (
+		Object.groupBy(SOURCE_PHOTOS, ([, , , sourcePage]) => sourcePage)
+	);
 	assert.equal(counts['bike-racks']?.length, 9);
 	assert.equal(counts['bike-valet']?.length, 2);
 	assert.equal(counts['cyclists-feat']?.length, 10);
