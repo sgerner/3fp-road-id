@@ -600,13 +600,13 @@ export async function POST(event) {
 					? extractMarkdownHeadings(context?.bodyMarkdown || '').map((item) => item.text)
 					: [];
 			const altResult = await generateLearnImageAltText({
-				imageBuffer: optimized.buffer,
+				imageBuffer: /** @type {any} */ (optimized.buffer),
 				mimeType: optimized.contentType,
 				fileName: storage.fileName || '',
 				imageUrl: url,
 				title: safeTrim(context?.title || context?.name),
 				summary: safeTrim(context?.summary || context?.tagline || context?.description),
-				headings,
+				headings: /** @type {any} */ (headings),
 				target,
 				context: {
 					...context,

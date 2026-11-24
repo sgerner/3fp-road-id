@@ -79,6 +79,11 @@ async function generateJson(prompt, schema, schemaName) {
 	return parsed;
 }
 
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.hasImage]
+ * @param {{ client: any, model: any } | null} [options.clientOverride]
+ */
 function resolveMultimodalClient({ hasImage = true, clientOverride = null } = {}) {
 	if (clientOverride?.client && clientOverride?.model) {
 		return clientOverride;
@@ -89,13 +94,34 @@ function resolveMultimodalClient({ hasImage = true, clientOverride = null } = {}
 			? 'multimodal_structured'
 			: 'structured_text';
 	if (!isAiModelConfigured(profileName)) {
-		const error = new Error(getAiConfigurationError(profileName));
+		/** @type {Error & { code?: string }} */
+		const error = new Error(getAiConfigurationError(profileName) || 'AI model is not configured.');
 		error.code = 'AI_UNAVAILABLE';
 		throw error;
 	}
 	return requireAiModel(profileName);
 }
 
+/**
+ * @param {object} [options]
+ * @param {Uint8Array | Buffer | null} [options.imageBuffer]
+ * @param {string} [options.imageBase64]
+ * @param {string} [options.mimeType]
+ * @param {string} [options.fileName]
+ * @param {string} [options.imageUrl]
+ * @param {string} [options.title]
+ * @param {string} [options.summary]
+ * @param {string} [options.sectionHeading]
+ * @param {string[]} [options.headings]
+ * @param {string} [options.surroundingContext]
+ * @param {string} [options.enclosingLinkUrl]
+ * @param {string} [options.enclosingLinkText]
+ * @param {boolean} [options.isSoleLinkContent]
+ * @param {string} [options.target]
+ * @param {Record<string, any> | null} [options.context]
+ * @param {number} [options.timeoutMs]
+ * @param {{ client: any, model: any } | null} [options.clientOverride]
+ */
 export async function generateLearnImageAltText({
 	imageBuffer = null,
 	imageBase64 = '',
@@ -139,6 +165,10 @@ export async function generateLearnImageAltText({
 	});
 }
 
+/**
+ * @param {string} url
+ * @param {((url: string) => Promise<any>) | null} [fetchImageImpl]
+ */
 async function fetchAuditImageBytes(url, fetchImageImpl = null) {
 	const cleanUrl = cleanText(url, 2000);
 	if (!/^https?:\/\//i.test(cleanUrl)) return null;
@@ -168,6 +198,16 @@ async function fetchAuditImageBytes(url, fetchImageImpl = null) {
 	}
 }
 
+/**
+ * @param {object} [options]
+ * @param {any} [options.supabase]
+ * @param {string} [options.title]
+ * @param {string} [options.summary]
+ * @param {string} [options.content]
+ * @param {string} [options.articleId]
+ * @param {((url: string) => Promise<any>) | null} [options.fetchImageImpl]
+ * @param {((item: any) => Promise<any>) | null} [options.generateAltImpl]
+ */
 export async function auditLearnMarkdownAltText({
 	supabase = null,
 	title = '',

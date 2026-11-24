@@ -27,17 +27,25 @@ function cleanText(value) {
 	return String(value).trim();
 }
 
+/**
+ * @param {unknown} raw
+ * @returns {Array<{ role: 'user' | 'assistant', content: string }>}
+ */
 function normalizeMessages(raw) {
 	if (!Array.isArray(raw)) return [];
 	return raw
 		.map((entry) => {
-			const role =
-				entry?.role === 'assistant' ? 'assistant' : entry?.role === 'user' ? 'user' : null;
+			const role = /** @type {'user' | 'assistant' | null} */ (
+				entry?.role === 'assistant' ? 'assistant' : entry?.role === 'user' ? 'user' : null
+			);
 			const content = cleanText(entry?.content);
 			if (!role || !content) return null;
 			return { role, content };
 		})
-		.filter(Boolean)
+		.filter(
+			/** @param {{ role: 'user' | 'assistant', content: string } | null} entry @returns {entry is { role: 'user' | 'assistant', content: string }} */
+			(entry) => Boolean(entry)
+		)
 		.slice(-MAX_MESSAGES);
 }
 
@@ -209,7 +217,7 @@ export async function POST(event) {
 		name: 'group-site-ai-draft-user',
 		limit: 24,
 		windowMs: 10 * 60 * 1000,
-		key: auth.user?.id || ''
+		key: /** @type {any} */ (auth).user?.id || ''
 	});
 	if (limitedByUser) return limitedByUser;
 
