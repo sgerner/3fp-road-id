@@ -24,6 +24,7 @@
 	} from '#lib/volunteer/merge-tags';
 	import { slide } from 'svelte/transition';
 
+	/** @type {any[]} */
 	export let customQuestions = [];
 	export let showCustomQuestionsSection = true;
 	export let showScheduledEmailsSection = true;
@@ -31,19 +32,32 @@
 	export let showHostNotifications = false;
 	export let showSentHistory = false;
 	export let showAiComposer = false;
+	/** @type {any[]} */
 	export let eventEmails = [];
+	/** @type {Record<string, any>} */
 	export let eventDetails = {};
+	/** @type {any[]} */
 	export let opportunities = [];
+	/** @type {any[]} */
 	export let fieldTypeOptions = [];
+	/** @type {any[]} */
 	export let emailTypeOptions = [];
+	/** @type {() => any} */
 	export let onAddQuestion = () => {};
+	/** @type {(id: any) => any} */
 	export let onRemoveQuestion = () => {};
+	/** @type {(id: any, patch: Record<string, any>) => any} */
 	export let onUpdateQuestion = () => {};
+	/** @type {() => any} */
 	export let onAddEmail = () => {};
+	/** @type {(id: any) => any} */
 	export let onRemoveEmail = () => {};
+	/** @type {(id: any, patch: Record<string, any>) => any} */
 	export let onUpdateEmail = () => {};
+	/** @type {(id: any) => any} */
 	export let onComposeEmail = () => {};
 	export let showImmediateEmailOption = false;
+	/** @type {{ total?: number, approved?: number, pending?: number, waitlisted?: number, checkedIn?: number, declined?: number, [key: string]: any }} */
 	export let volunteerCounts = {
 		total: 0,
 		approved: 0,
@@ -52,8 +66,10 @@
 		checkedIn: 0,
 		declined: 0
 	};
+	/** @type {(payload: any) => Promise<any>} */
 	export let onSendImmediateEmail = async () => {};
 	export let hostNotificationSettings = { register: true, cancel: true };
+	/** @type {any} */
 	export let onHostNotificationChange = () => {};
 	export let hostNotificationSaving = false;
 	export let hostNotificationDisabled = false;
@@ -120,6 +136,19 @@
 		const safeDirection = direction === 'after' ? 'after' : 'before';
 		const minutes = numericHours * 60 * (safeDirection === 'before' ? 1 : -1);
 		onUpdateEmail(id, { sendOffsetMinutes: minutes });
+	}
+
+	/** @param {Record<string, any>} email @param {string} val */
+	function handleEmailTypeChange(email, val) {
+		if (!val) return;
+		/** @type {Record<string, any>} */
+		const patch = { emailType: val };
+		if (val !== 'reminder' && email.requireConfirmation) {
+			patch.requireConfirmation = false;
+			patch.body = removeConfirmationBlock(email.body ?? '');
+		}
+		onUpdateEmail(email.id, patch);
+		resetSendNowFeedback(email.id);
 	}
 
 	function handleConfirmationChange(event, email) {
@@ -356,7 +385,8 @@
 				requireConfirmation: email.requireConfirmation,
 				emailId: email.id
 			});
-			const sentCount = result?.sentCount ?? volunteerCounts.approved + volunteerCounts.checkedIn;
+			const sentCount =
+				result?.sentCount ?? (volunteerCounts.approved || 0) + (volunteerCounts.checkedIn || 0);
 			if (result?.lastSentAt) {
 				onUpdateEmail(email.id, { lastSentAt: result.lastSentAt });
 			}
@@ -517,7 +547,7 @@
 		showImmediateEmailOption &&
 		!immediateEmailSending &&
 		!immediateEmailSuccess &&
-		((immediateEmail.subject ?? '').trim() || (immediateEmail.body ?? '').trim());
+		Boolean((immediateEmail.subject ?? '').trim() || (immediateEmail.body ?? '').trim());
 	$: warnBeforeUnload = immediateDraftDirty;
 
 	onMount(() => {
@@ -1024,18 +1054,7 @@
 								name={`email-type-${email.id}`}
 								class="select preset-tonal-surface min-h-11 w-full rounded-lg px-4 py-2"
 								value={email.emailType}
-								on:change={(e) => {
-									const val = e.currentTarget.value;
-									if (val) {
-										const patch = { emailType: val };
-										if (val !== 'reminder' && email.requireConfirmation) {
-											patch.requireConfirmation = false;
-											patch.body = removeConfirmationBlock(email.body ?? '');
-										}
-										onUpdateEmail(email.id, patch);
-										resetSendNowFeedback(email.id);
-									}
-								}}
+								on:change={(e) => handleEmailTypeChange(email, e.currentTarget.value)}
 							>
 								{#each emailTypeOptions as option (option)}
 									<option value={option}>{formatEmailType(option)}</option>

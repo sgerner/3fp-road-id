@@ -108,7 +108,9 @@
 	const auditTotalPages = $derived(
 		Number(data.audit_total_pages ?? Math.max(1, Math.ceil(auditTotal / auditPageSize)))
 	);
-	const visibility = $derived(data.settings?.public_visibility ?? {});
+	const visibility = $derived(
+		/** @type {Record<string, any>} */ (data.settings?.public_visibility ?? {})
+	);
 	const stripeConnection = $derived(data.stripe_connection || null);
 	const stripeConnected = $derived(Boolean(stripeConnection?.connected));
 	const stripeConnectUrl = $derived(
@@ -125,6 +127,7 @@
 	let syncedTabUrl = $state('');
 	let syncAllBusy = $state(false);
 	let mercurySyncBusy = $state(false);
+	/** @type {Record<string, string>} */
 	let requestIds = $state({});
 	let requestIdsReady = $state(false);
 	let mercuryEditMode = $state(false);
@@ -139,7 +142,9 @@
 	let auditSearch = $state('');
 	let csvImportAccountId = $state('');
 	let editingTransactionId = $state('');
+	/** @type {Record<string, boolean>} */
 	let savingTransactionIds = $state({});
+	/** @type {{ entryDate: string; description: string; memo: string; lineAccounts: Array<{ lineId: string; accountId: string; query: string }> }} */
 	let editingTransactionDraft = $state({
 		entryDate: '',
 		description: '',
@@ -163,6 +168,7 @@
 	let accountGroups = $state(groupAccountsByKind([]));
 	let editingGroupKey = $state('');
 	let editingGroupValue = $state('');
+	/** @type {HTMLInputElement | null} */
 	let groupLabelInput = $state(null);
 	let bucketAnnouncement = $state('');
 	const reportPeriodOptions = [
@@ -201,7 +207,9 @@
 			mercuryConnection?.status !== 'disabled'
 	);
 	let showConnections = $state(false);
+	/** @type {HTMLDialogElement | null} */
 	let syncDetailsDialog = $state(null);
+	/** @type {Record<string, any> | null} */
 	let selectedSyncRun = $state(null);
 	const transactionEntries = $derived(Array.isArray(data.entries) ? data.entries : []);
 	const ledgerPageSize = $derived(Number(data.history_page_size ?? 25));
@@ -254,7 +262,7 @@
 			.filter((entry) => matchesTransaction(entry, transactionSearch))
 	);
 	const transactionDisplayEntries = $derived(transactionEntries);
-	const setupProgress = $derived(data.setup_progress ?? {});
+	const setupProgress = $derived(/** @type {Record<string, any>} */ (data.setup_progress ?? {}));
 	const mappingComplete = $derived(
 		typeof setupProgress.mapping_complete === 'boolean'
 			? setupProgress.mapping_complete
@@ -319,7 +327,7 @@
 	function setActiveTab(tabId, { replaceState = false } = {}) {
 		if (!tabIds.has(tabId)) return;
 		activeTab = tabId;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (tabId === 'overview') {
 			url.searchParams.delete('tab');
 		} else {
@@ -327,32 +335,30 @@
 		}
 		goto(`${url.pathname}${url.search}`, {
 			replaceState,
-			noScroll: true,
-			keepFocus: true
+			reset: false
 		});
 	}
 
 	function setBankReviewPage(pageNumber) {
 		const nextPage = Math.max(1, Number.parseInt(String(pageNumber), 10) || 1);
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (nextPage === 1) {
 			url.searchParams.delete('bankReviewPage');
 		} else {
 			url.searchParams.set('bankReviewPage', String(nextPage));
 		}
 		goto(`${url.pathname}${url.search}`, {
-			noScroll: true,
-			keepFocus: true
+			reset: false
 		});
 	}
 
 	function setHistoryPage(key, pageNumber) {
 		const nextPage = Math.max(1, Number.parseInt(String(pageNumber), 10) || 1);
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('tab', 'settings');
 		if (nextPage === 1) url.searchParams.delete(key);
 		else url.searchParams.set(key, String(nextPage));
-		void goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+		void goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 
 	function localDateParam(date) {
@@ -363,7 +369,7 @@
 	async function applyLedgerFilters(nextPage = 1) {
 		if (transactionDateRangeInvalid) return;
 		const bounds = resolveTransactionPeriodBounds();
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('tab', 'transactions');
 		const setOrDelete = (key, value) => {
 			if (value) url.searchParams.set(key, value);
@@ -377,7 +383,7 @@
 		if (nextPage <= 1) url.searchParams.delete('ledger_page');
 		else url.searchParams.set('ledger_page', String(nextPage));
 		activeTab = 'transactions';
-		await goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+		await goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 
 	function showRecentTransactions() {
@@ -392,7 +398,7 @@
 	}
 
 	async function applyHistoryFilters(kind, nextPage = 1) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('tab', 'settings');
 		const isReceipt = kind === 'receipt';
 		const queryKey = isReceipt ? 'receipt_q' : 'audit_q';
@@ -402,7 +408,7 @@
 		else url.searchParams.delete(queryKey);
 		if (nextPage <= 1) url.searchParams.delete(pageKey);
 		else url.searchParams.set(pageKey, String(nextPage));
-		await goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+		await goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 
 	$effect(() => {
@@ -593,9 +599,10 @@
 			};
 		}
 		if (transactionPeriodKey === 'last_year') {
-			const currentStart = startOfLocalDay(
-				data.fiscal_year_from || `${data.year || new Date().getFullYear()}-01-01`
-			);
+			const currentStart =
+				startOfLocalDay(
+					data.fiscal_year_from || `${data.year || new Date().getFullYear()}-01-01`
+				) ?? new Date();
 			const start = new Date(currentStart);
 			start.setFullYear(start.getFullYear() - 1);
 			const end = new Date(currentStart);
@@ -1570,7 +1577,7 @@
 			url.searchParams.delete('to');
 		}
 		activeTab = 'reports';
-		await goto(url.toString(), { keepFocus: true, noScroll: true, replaceState: true });
+		await goto(url.toString(), { replaceState: true, reset: false });
 	}
 
 	async function handleAccountBucketChange(event, account, kind) {
@@ -1618,7 +1625,7 @@
 		const relocatedSelect = document.querySelector(
 			`select[data-bucket-select-id="${CSS.escape(String(account.id))}"]`
 		);
-		relocatedSelect?.focus?.();
+		if (relocatedSelect instanceof HTMLElement) relocatedSelect.focus();
 	}
 
 	async function connectFinancialAccounts() {
@@ -1711,10 +1718,10 @@
 	function changeBudgetYear(event) {
 		const nextYear = Number(event.currentTarget.value);
 		if (!Number.isInteger(nextYear) || nextYear < 2000 || nextYear > 2200) return;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		url.searchParams.set('tab', 'budgets');
 		url.searchParams.set('year', String(nextYear));
-		void goto(`${url.pathname}${url.search}`, { noScroll: true, keepFocus: true });
+		void goto(`${url.pathname}${url.search}`, { reset: false });
 	}
 </script>
 

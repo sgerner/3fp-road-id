@@ -32,14 +32,15 @@
 	);
 	const isEditing = $derived(Boolean(values.postId || selectedPost));
 	const isPublished = $derived(Boolean(selectedPost?.is_published));
-	const visiblePosts = $derived(showAllPosts ? sortedPosts : sortedPosts.slice(0, 3));
-	const canShowMore = $derived(sortedPosts.length > 3 && !showAllPosts);
-	const canShowLess = $derived(sortedPosts.length > 3 && showAllPosts);
-
 	let postsOpen = $state(false);
 	let postsOpenInitialized = $state(false);
 	let showAllPosts = $state(false);
 	let showDeleteConfirm = $state(false);
+
+	const visiblePosts = $derived(showAllPosts ? sortedPosts : sortedPosts.slice(0, 3));
+	const canShowMore = $derived(sortedPosts.length > 3 && !showAllPosts);
+	const canShowLess = $derived(sortedPosts.length > 3 && showAllPosts);
+	const formSuccess = $derived(Boolean(/** @type {any} */ (form)?.success));
 
 	$effect(() => {
 		if (postsOpenInitialized) return;
@@ -67,7 +68,7 @@
 
 <div class="news-manage">
 	<!-- Banners -->
-	{#if form?.success}
+	{#if formSuccess}
 		<div class="banner success" role="status">
 			<div class="banner-content">
 				<div class="banner-icon success">

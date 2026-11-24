@@ -35,11 +35,16 @@
 		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 	});
 
+	/**
+	 * @param {import('#lib/url/directoryUrlState').SearchParamsInput} searchParamsInput
+	 */
 	function readUrlState(searchParamsInput) {
 		const currentArticles = data?.articles ?? [];
+		/** @type {string[]} */
 		const currentCategories = Array.from(
 			new Set(currentArticles.map((article) => article.category_name).filter(Boolean))
 		).sort();
+		/** @type {Map<string, string>} */
 		const pairsMap = new Map();
 		for (const article of currentArticles) {
 			if (article.category_name && article.category_slug && !pairsMap.has(article.category_name)) {

@@ -17,8 +17,10 @@
 	import IconCheckCircle from '@lucide/svelte/icons/circle-check';
 	import { slide } from 'svelte/transition';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {any} */
 	let interestTurnstile = $state(null);
 	let interestSubmitting = $state(false);
 	let clientInterestError = $state('');

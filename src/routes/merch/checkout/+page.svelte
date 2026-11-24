@@ -20,6 +20,7 @@
 	import { optimizedImageUrl, watchImageError } from '#lib/media/optimized';
 	import { US_STATE_OPTIONS, normalizeUsStateCode } from '#lib/geo/usStates';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
 	let failedImageUrls = $state({});
 
@@ -28,41 +29,70 @@
 		failedImageUrls = { ...failedImageUrls, [url]: true };
 	}
 
+	/** @type {any} */
 	let customerName = $state('');
+	/** @type {any} */
 	let customerEmail = $state('');
+	/** @type {any} */
 	let customerPhone = $state('');
+	/** @type {any} */
 	let donationAmount = $state(0);
+	/** @type {any} */
 	let notes = $state('');
+	/** @type {any} */
 	let manualFulfillmentMethodId = $state('');
+	/** @type {any} */
 	let printfulShippingOptionId = $state('');
+	/** @type {any} */
 	let quote = $state(null);
+	/** @type {any} */
 	let quoteLoading = $state(false);
+	/** @type {any} */
 	let quotePending = $state(false);
+	/** @type {any} */
 	let quoteError = $state('');
+	/** @type {any} */
 	let submitError = $state('');
+	/** @type {any} */
 	let submitSuccess = $state('');
+	/** @type {any} */
 	let submitting = $state(false);
+	/** @type {any} */
 	let preparingPayment = $state(false);
+	/** @type {any} */
 	let paymentFormReady = $state(false);
+	/** @type {any} */
 	let paymentElementHost = $state(null);
+	/** @type {any} */
 	let paymentIntentId = $state('');
+	/** @type {any} */
 	let paymentIntentClientSecret = $state('');
+	/** @type {any} */
 	let paymentReturnUrl = $state('');
+	/** @type {any} */
 	let preparedSignature = $state('');
+	/** @type {any} */
 	let cartLoaded = $state(false);
 	let quoteTimer = 0;
 	let quoteRequestSeq = 0;
 
+	/** @type {any} */
 	let line1 = $state('');
+	/** @type {any} */
 	let line2 = $state('');
+	/** @type {any} */
 	let city = $state('');
+	/** @type {any} */
 	let stateRegion = $state('');
+	/** @type {any} */
 	let postalCode = $state('');
 	const country = 'US';
 
 	const donationPresets = [10, 25, 50, 100, 250];
 	const usStates = US_STATE_OPTIONS;
+	/** @type {any} */
 	let stateItems = $state(usStates);
+	/** @type {any} */
 	const stateCollection = $derived(
 		useListCollection({
 			items: stateItems,
@@ -71,27 +101,40 @@
 		})
 	);
 
+	/** @type {any} */
 	const manualMethods = $derived(data?.fulfillmentMethods ?? []);
+	/** @type {any} */
 	const cartItems = $derived($merchCart ?? []);
+	/** @type {any} */
 	const cartItemCount = $derived(
 		cartItems.reduce((count, line) => count + Math.max(0, Number(line.quantity) || 0), 0)
 	);
+	/** @type {any} */
 	const hasManualItems = $derived(cartItems.some((line) => line.partnerProvider !== 'printful'));
+	/** @type {any} */
 	const hasPrintfulItems = $derived(cartItems.some((line) => line.partnerProvider === 'printful'));
+	/** @type {any} */
 	const selectedManualMethod = $derived(
 		manualMethods.find((method) => method.id === manualFulfillmentMethodId) || null
 	);
+	/** @type {any} */
 	const needsAddress = $derived(
 		Boolean(hasPrintfulItems || selectedManualMethod?.requires_address)
 	);
+	/** @type {any} */
 	const checkoutDetailsComplete = $derived(
 		validateCheckoutForm() === '' && Boolean(quote) && !quotePending && !quoteLoading && !quoteError
 	);
+	/** @type {any} */
 	const payButtonDisabled = $derived(
 		submitting || preparingPayment || !checkoutDetailsComplete || !paymentFormReady
 	);
 	const cartControlsDisabled = $derived(submitting || preparingPayment);
 
+	/**
+	 * @param {any} raw
+	 * @param {{ commitShortCode?: boolean }} [options]
+	 */
 	const syncStateFromInput = (raw, { commitShortCode = false } = {}) => {
 		const trimmed = String(raw || '').trim();
 		const normalized = normalizeUsStateCode(trimmed);
@@ -104,10 +147,12 @@
 		return true;
 	};
 
+	/** @type {any} */
 	const onStateOpenChange = () => {
 		stateItems = usStates;
 	};
 
+	/** @type {any} */
 	const onStateInputValueChange = (event) => {
 		const rawInput = String(event?.inputValue || '').trim();
 		const inputValue = rawInput.toLowerCase();
@@ -122,15 +167,18 @@
 		syncStateFromInput(rawInput, { commitShortCode: event?.reason !== 'input-change' });
 	};
 
+	/** @type {any} */
 	const onStateValueChange = (event) => {
+		/** @type {any} */
 		const next = Array.isArray(event?.value) ? String(event.value[0] || '') : '';
 		stateRegion = normalizeUsStateCode(next);
 		scheduleQuote();
 	};
 
+	/** @type {any} */
 	const onStateDomInput = (event) => {
 		const target = event?.currentTarget;
-		if (!target) return;
+		if (!(target instanceof HTMLInputElement)) return;
 		const isSingleCharTyping =
 			typeof InputEvent !== 'undefined' &&
 			event instanceof InputEvent &&
@@ -144,19 +192,23 @@
 		}
 	};
 
+	/** @type {any} */
 	const onStateDomChange = (event) => {
 		const target = event?.currentTarget;
-		if (!target) return;
+		if (!(target instanceof HTMLInputElement)) return;
 		if (syncStateFromInput(target.value, { commitShortCode: true })) {
 			target.value = stateRegion;
 		}
 	};
 
+	/** @type {any} */
 	let stripe = null;
+	/** @type {any} */
 	let elements = null;
+	/** @type {any} */
 	let paymentElement = null;
 
-	onMount(async () => {
+	onMount(() => {
 		if (!customerEmail && data?.user?.email) {
 			customerEmail = data.user.email;
 		}
@@ -165,8 +217,10 @@
 		}
 		merchCart.load();
 		cartLoaded = true;
-		await tick();
-		await refreshQuote();
+		(async () => {
+			await tick();
+			await refreshQuote();
+		})();
 		return () => {
 			if (quoteTimer) clearTimeout(quoteTimer);
 		};
@@ -204,12 +258,19 @@
 		void preparePaymentElement({ quiet: true });
 	});
 
+	/**
+	 * @param {any} cents
+	 */
 	function formatCurrency(cents) {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
 			Number(cents || 0) / 100
 		);
 	}
 
+	/**
+	 * @param {any} rule
+	 * @param {any} metricType
+	 */
 	function formatRule(rule, metricType) {
 		if (!rule) return '';
 		const min = Number(rule.min_value || 0);
@@ -293,7 +354,7 @@
 	function scheduleQuote() {
 		if (quoteTimer) clearTimeout(quoteTimer);
 		quotePending = true;
-		quoteTimer = setTimeout(() => {
+		/** @type {any} */ (quoteTimer) = setTimeout(() => {
 			quoteTimer = 0;
 			void refreshQuote();
 		}, 220);
@@ -428,6 +489,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} [options]
+	 */
 	async function preparePaymentElement(options = {}) {
 		const { quiet = false } = options;
 		if (!quiet) {
@@ -533,6 +597,9 @@
 		}
 	}
 
+	/**
+	 * @param {any} event
+	 */
 	async function startCheckout(event) {
 		event?.preventDefault?.();
 		if (submitting || preparingPayment) return;

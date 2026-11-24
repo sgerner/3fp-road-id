@@ -8,9 +8,10 @@
 	import EvidenceExplorer from '#lib/components/safety-report/EvidenceExplorer.svelte';
 	import ReportAssistant from '#lib/components/safety-report/ReportAssistant.svelte';
 
+	/** @type {Record<string, any>} */
 	let { data } = $props();
+	/** @type {any} */
 	const report = $derived(data.report);
-
 	const modeTabs = [
 		{ id: 'read', label: 'Read Report', tabId: 'tab-read', panelId: 'panel-read' },
 		{
@@ -27,6 +28,7 @@
 		}
 	];
 
+	/** @type {Record<string, { target: string, pathway?: string }>} */
 	const legacyChapter11Pathways = {
 		'section-47': { target: 'campaign-planner-title' },
 		'section-48': { target: 'pathway-passing', pathway: 'passing' },
@@ -82,7 +84,9 @@
 	let evidenceOutcome = $state('All');
 	let motionReady = $state(false);
 	let isPrinting = $state(false);
+	/** @type {HTMLDivElement | undefined} */
 	let modeBarEl;
+	/** @type {any} */
 	let assistant;
 	/** @type {Record<string, HTMLButtonElement>} */
 	let tabButtons = {};
@@ -166,7 +170,6 @@
 		}
 		return sets;
 	});
-
 	const searchEntries = $derived([
 		...report.sections
 			.filter((section) => section.id !== 'references')
@@ -204,7 +207,6 @@
 			target: figure.id
 		}))
 	]);
-
 	const results = $derived.by(() => {
 		const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
 		if (!terms.length) return [];
@@ -243,6 +245,10 @@
 		);
 	}
 
+	/**
+	 * @param {string} rawId
+	 * @returns {{ mode: string, targetId: string, pathway?: string, resetGallery?: boolean, resetEvidence?: boolean } | null}
+	 */
 	function resolveTarget(rawId) {
 		const id = rawId.trim().replace(/^#/, '');
 		if (!id) return null;
@@ -343,6 +349,7 @@
 		const target = document.getElementById(resolved.targetId);
 		if (!target) return;
 
+		/** @type {HTMLElement | null} */
 		let ancestor = target;
 		while (ancestor) {
 			if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
@@ -379,6 +386,7 @@
 		}
 		const target = document.getElementById(id);
 		if (!target) return;
+		/** @type {HTMLElement | null} */
 		let ancestor = target;
 		while (ancestor) {
 			if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
@@ -467,6 +475,7 @@
 		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		motionReady = !reduceMotion;
 
+		/** @type {Set<string> | null} */
 		let savedOpenIds = null;
 		const enterPrint = () => {
 			isPrinting = true;

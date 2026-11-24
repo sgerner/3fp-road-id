@@ -8,6 +8,9 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HOST_SCOPE_VALUES = new Set(['all', 'group_only', 'selected_groups']);
 
+/**
+ * @param {any} value
+ */
 function toFiniteNumber(value) {
 	if (typeof value === 'number' && Number.isFinite(value)) return value;
 	if (typeof value === 'string' && value.trim()) {
@@ -17,6 +20,10 @@ function toFiniteNumber(value) {
 	return null;
 }
 
+/**
+ * @param {any} widgetId
+ * @param {any} fetch
+ */
 async function loadSavedWidgetConfig(widgetId, fetch) {
 	if (!widgetId || !UUID_RE.test(widgetId)) return null;
 	const response = await fetch(`/api/ride-widgets/${widgetId}`).catch(() => null);
@@ -25,6 +32,10 @@ async function loadSavedWidgetConfig(widgetId, fetch) {
 	return payload?.data?.config ?? null;
 }
 
+/**
+ * @param {any} config
+ * @param {any} fetch
+ */
 async function resolveRadiusCenter(config, fetch) {
 	if (!config?.radiusMiles) return null;
 
@@ -74,7 +85,9 @@ export const load = async ({ url, fetch }) => {
 	const ridesPayload = await ridesResponse.json().catch(() => ({ data: [] }));
 	const rides = Array.isArray(ridesPayload?.data) ? ridesPayload.data : [];
 
+	/** @type {any} */
 	const center = await resolveRadiusCenter(config, fetch);
+	/** @type {any} */
 	let filteredRides = filterRidesForWidget(rides, config, { center });
 
 	const hostScopeRaw = (url.searchParams.get('host_scope') || '').trim().toLowerCase();

@@ -9,19 +9,32 @@ const MAX_LIMIT = 1000;
 const CLAIM_ROLE = 'owner';
 const MANAGER_ROLES = ['owner', 'admin'];
 
+/**
+ * @param {any} value
+ * @param {any} fallback
+ * @param {any} min
+ * @param {any} max
+ */
 function asPositiveInt(value, fallback, min, max) {
 	const parsed = Number.parseInt(String(value ?? '').trim(), 10);
 	if (!Number.isFinite(parsed)) return fallback;
 	return Math.max(min, Math.min(max, parsed));
 }
 
+/**
+ * @param {any} value
+ */
 function toMs(value) {
 	if (!value) return null;
 	const ms = Date.parse(value);
 	return Number.isFinite(ms) ? ms : null;
 }
 
+/**
+ * @param {...any} values
+ */
 function maxIso(...values) {
+	/** @type {any} */
 	let maxMs = null;
 	for (const value of values) {
 		const ms = toMs(value);
@@ -31,12 +44,19 @@ function maxIso(...values) {
 	return maxMs === null ? null : new Date(maxMs).toISOString();
 }
 
+/**
+ * @param {any} isoValue
+ * @param {any} nowMs
+ */
 function daysSince(isoValue, nowMs) {
 	const ms = toMs(isoValue);
 	if (ms === null) return null;
 	return Math.max(0, Math.floor((nowMs - ms) / DAY_MS));
 }
 
+/**
+ * @param {any} status
+ */
 function healthRank(status) {
 	if (status === 'inactive') return 0;
 	if (status === 'critical') return 1;
@@ -45,7 +65,12 @@ function healthRank(status) {
 	return 4;
 }
 
+/**
+ * @param {any} group
+ * @param {any} param1
+ */
 function computeHealth(group, { nowMs, windowDays }) {
+	/** @type {any} */
 	const reasons = [];
 	let score = 100;
 
@@ -103,6 +128,10 @@ function computeHealth(group, { nowMs, windowDays }) {
 	};
 }
 
+/**
+ * @param {any} group
+ * @param {any} ownerClaimedAt
+ */
 function initGroupSummary(group, ownerClaimedAt) {
 	return {
 		group: {
@@ -172,6 +201,9 @@ function initGroupSummary(group, ownerClaimedAt) {
 	};
 }
 
+/**
+ * @param {any} param0
+ */
 export async function GET({ cookies, url }) {
 	await requireAdmin(cookies);
 
@@ -197,6 +229,7 @@ export async function GET({ cookies, url }) {
 	const nowMs = now.getTime();
 	const windowStartMs = nowMs - windowDays * DAY_MS;
 	const windowStartIso = new Date(windowStartMs).toISOString();
+	/** @type {any} */
 	const warnings = [];
 
 	const { data: ownerRows, error: ownerError } = await supabase
@@ -258,6 +291,11 @@ export async function GET({ cookies, url }) {
 
 	const groupIds = Array.from(groupsById.keys());
 
+	/**
+	 * @param {any} table
+	 * @param {any} select
+	 * @param {any} [applyFilters]
+	 */
 	async function fetchRows(table, select, applyFilters = null) {
 		let query = supabase.from(table).select(select);
 		if (typeof applyFilters === 'function') query = applyFilters(query);
@@ -360,7 +398,10 @@ export async function GET({ cookies, url }) {
 		summary.activity.rides_total += 1;
 		if (row.status === 'published') {
 			summary.activity.rides_published += 1;
-			if (toMs(row.published_at) !== null && toMs(row.published_at) >= windowStartMs) {
+			if (
+				toMs(row.published_at) !== null &&
+				/** @type {any} */ (toMs)(row.published_at) >= windowStartMs
+			) {
 				summary.activity.rides_published_in_window += 1;
 			}
 			summary.activity.last_ride_published_at = maxIso(
@@ -368,7 +409,10 @@ export async function GET({ cookies, url }) {
 				row.published_at
 			);
 		}
-		if (toMs(row.next_occurrence_start) !== null && toMs(row.next_occurrence_start) >= nowMs) {
+		if (
+			toMs(row.next_occurrence_start) !== null &&
+			/** @type {any} */ (toMs)(row.next_occurrence_start) >= nowMs
+		) {
 			summary.activity.rides_upcoming += 1;
 		}
 	}
@@ -381,7 +425,10 @@ export async function GET({ cookies, url }) {
 		summary.activity.volunteer_events_total += 1;
 		if (row.status === 'published') {
 			summary.activity.volunteer_events_published += 1;
-			if (toMs(row.published_at) !== null && toMs(row.published_at) >= windowStartMs) {
+			if (
+				toMs(row.published_at) !== null &&
+				/** @type {any} */ (toMs)(row.published_at) >= windowStartMs
+			) {
 				summary.activity.volunteer_events_published_in_window += 1;
 			}
 			summary.activity.last_volunteer_event_published_at = maxIso(
@@ -389,7 +436,7 @@ export async function GET({ cookies, url }) {
 				row.published_at
 			);
 		}
-		if (toMs(row.event_start) !== null && toMs(row.event_start) >= nowMs) {
+		if (toMs(row.event_start) !== null && /** @type {any} */ (toMs)(row.event_start) >= nowMs) {
 			summary.activity.volunteer_events_upcoming += 1;
 		}
 	}
@@ -400,7 +447,10 @@ export async function GET({ cookies, url }) {
 		summary.activity.news_posts_total += 1;
 		if (row.published_at) {
 			summary.activity.news_published_total += 1;
-			if (toMs(row.published_at) !== null && toMs(row.published_at) >= windowStartMs) {
+			if (
+				toMs(row.published_at) !== null &&
+				/** @type {any} */ (toMs)(row.published_at) >= windowStartMs
+			) {
 				summary.activity.news_published_in_window += 1;
 			}
 			summary.activity.last_news_published_at = maxIso(
@@ -425,13 +475,19 @@ export async function GET({ cookies, url }) {
 		if (row.status === 'scheduled' || row.status === 'queued') summary.social.posts_scheduled += 1;
 		if (row.status === 'failed') {
 			summary.social.posts_failed += 1;
-			if (toMs(row.updated_at) !== null && toMs(row.updated_at) >= windowStartMs) {
+			if (
+				toMs(row.updated_at) !== null &&
+				/** @type {any} */ (toMs)(row.updated_at) >= windowStartMs
+			) {
 				summary.social.posts_failed_in_window += 1;
 			}
 		}
 		if (row.status === 'published') {
 			summary.social.posts_published_total += 1;
-			if (toMs(row.published_at) !== null && toMs(row.published_at) >= windowStartMs) {
+			if (
+				toMs(row.published_at) !== null &&
+				/** @type {any} */ (toMs)(row.published_at) >= windowStartMs
+			) {
 				summary.social.posts_published_in_window += 1;
 			}
 			summary.social.last_post_published_at = maxIso(
@@ -507,6 +563,7 @@ export async function GET({ cookies, url }) {
 	});
 	if (limit > 0) groupsOutput = groupsOutput.slice(0, limit);
 
+	/** @type {any} */
 	const totals = {
 		claimed_groups: groupsById.size,
 		returned_groups: groupsOutput.length,

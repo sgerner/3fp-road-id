@@ -10,10 +10,13 @@ import {
 	resolveViewerIncludeInactive
 } from './groupMembershipPublic.js';
 
+/** @param {Record<string, any>} [handlers] */
 function createSupabaseStub(handlers = {}) {
+	/** @type {{ table: string, operations: Record<string, any>[] }[]} */
 	const queries = [];
 
 	function createBuilder(table) {
+		/** @type {{ table: string, operations: Record<string, any>[] }} */
 		const record = { table, operations: [] };
 		queries.push(record);
 		const handler = handlers[table] ?? (() => ({ data: null, error: null }));
@@ -155,6 +158,7 @@ test('getPublicMembershipProgram enforces visibility predicates, public projecti
 	const result = await getPublicMembershipProgram(serviceSupabase, 'tempe-bicycle-action-group');
 
 	assert.equal(result.ok, true);
+	assert.ok(result.ok);
 	assert.equal(result.data.can_manage, false);
 	assert.deepEqual(result.data.stripe_connection, {
 		connected: true,
@@ -246,6 +250,7 @@ for (const scenario of [
 
 		const result = await getPublicMembershipProgram(serviceSupabase, 'club');
 		assert.equal(result.ok, true);
+		assert.ok(result.ok);
 		assert.equal(result.data.program, null);
 		assert.deepEqual(result.data.tiers, []);
 		assert.deepEqual(result.data.form_fields, []);
@@ -290,6 +295,7 @@ test('resolveMembershipProgramForViewer routes anonymous callers to public servi
 	});
 
 	assert.equal(result.ok, true);
+	assert.ok(result.ok);
 	assert.equal(result.data.program, null);
 	assert.equal(result.data.can_manage, false);
 });
@@ -352,6 +358,7 @@ test('resolveMembershipProgramForViewer keeps signed-in riders on requestSupabas
 		options: { includeInactive: false }
 	});
 	assert.equal(result.ok, true);
+	assert.ok(result.ok);
 	assert.equal(result.data.program.access_mode, 'private_request');
 	assert.equal(result.data.stripe_connection.stripe_account_id, null);
 	assert.equal('stripe_account_id' in result.data.tiers[0], false);
@@ -409,6 +416,7 @@ test('resolveMembershipProgramForViewer preserves inactive tiers and stripe_acco
 
 	assert.deepEqual(capturedBundleOptions, { includeInactive: true });
 	assert.equal(result.ok, true);
+	assert.ok(result.ok);
 	assert.equal(result.data.can_manage, true);
 	assert.equal(result.data.stripe_connection.stripe_account_id, 'acct_manager_visible');
 	assert.equal(result.data.tiers[0].stripe_account_id, 'acct_manager_visible');

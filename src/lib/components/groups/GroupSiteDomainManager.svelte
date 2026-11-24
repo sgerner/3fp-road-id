@@ -11,12 +11,14 @@
 	import DomainPurchasePanel from '#lib/components/groups/DomainPurchasePanel.svelte';
 	import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '#lib/microsites/host';
 
+	/** @type {Record<string, any>} */
 	let { group, slug = $bindable(''), currentSlug = '', liveUrl = '' } = $props();
 	let availability = $state({
 		state: 'current',
 		label: 'Current',
 		message: 'This is your included address.'
 	});
+	/** @type {any} */
 	let domains = $state([]);
 	let loading = $state(false);
 	let existingDomain = $state('');

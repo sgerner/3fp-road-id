@@ -5,6 +5,7 @@
 
 	let { articleSlug, articleTitle = '' } = $props();
 	const assistantContext = getAssistantContext();
+	/** @type {HTMLButtonElement | null} */
 	let openBtnEl = $state(null);
 
 	const suggestions = getContextualModeDefaults('learn-article').starterPrompts;
@@ -17,6 +18,10 @@
 		}));
 	});
 
+	/**
+	 * @param {string} [prompt]
+	 * @param {HTMLElement | null} [triggerEl]
+	 */
 	function openArticleAssistant(prompt = '', triggerEl = openBtnEl) {
 		assistantContext.open({
 			mode: 'page',

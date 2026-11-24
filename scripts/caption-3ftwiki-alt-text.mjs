@@ -167,6 +167,14 @@ export function buildReviewedManifestMaps(manifest) {
 	return { byGuideAndAsset, byAsset };
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.docsRoot]
+ * @param {string} [options.manifestPath]
+ * @param {{ generateContent: (params: any) => Promise<any> } | null} [options.client]
+ * @param {string} [options.model]
+ * @param {boolean} [options.forceRegenerate]
+ */
 export async function stageWikiAltCaptions({
 	docsRoot = DEFAULT_DOCS_ROOT,
 	manifestPath = DEFAULT_MANIFEST_PATH,
@@ -381,6 +389,11 @@ export async function verifyWikiAltCaptions({
 	};
 }
 
+/**
+ * @param {object} [options]
+ * @param {any} [options.supabase]
+ * @param {string} [options.manifestPath]
+ */
 export async function applyReviewedManifestToSupabase({
 	supabase,
 	manifestPath = DEFAULT_MANIFEST_PATH

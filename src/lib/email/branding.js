@@ -59,9 +59,14 @@ function normalizeLogoReference(value) {
  * Normalize the small set of presentation values that can be used by the
  * shared email shell. Tenant data can customize the shell without allowing
  * arbitrary CSS or non-web image protocols into an email.
+ *
+ * @param {Record<string, any> | null | undefined} [source]
+ * @param {Record<string, any> | null | undefined} [fallback]
  */
 export function normalizeEmailBrand(source = {}, fallback = BRAND) {
+	/** @type {Record<string, any>} */
 	const input = source && typeof source === 'object' ? source : {};
+	/** @type {Record<string, any>} */
 	const base = fallback && typeof fallback === 'object' ? fallback : BRAND;
 	const hasLogoPath = Object.prototype.hasOwnProperty.call(input, 'logoPath');
 	const hasLogoUrl = Object.prototype.hasOwnProperty.call(input, 'logoUrl');

@@ -236,6 +236,7 @@ test(
 	'search_document migration indexes zip_code and specific_meeting_point_address with simple config',
 	{ skip: !databaseUrl },
 	() => {
+		if (!databaseUrl) return;
 		const url = new URL(databaseUrl);
 		assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname));
 		const dbName = `group_search_test_${process.pid}`;

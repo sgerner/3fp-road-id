@@ -95,24 +95,29 @@ async function getAuthContext(cookies) {
 
 export async function requireMainDonationManager(cookies) {
 	const auth = await getAuthContext(cookies);
-	if (!auth) return { ok: false, status: 401, error: 'Authentication required.' };
-	if (!auth.isAdmin) return { ok: false, status: 403, error: 'Admin access required.' };
-	return { ok: true, ...auth };
+	if (!auth)
+		return { ok: /** @type {const} */ (false), status: 401, error: 'Authentication required.' };
+	if (!auth.isAdmin)
+		return { ok: /** @type {const} */ (false), status: 403, error: 'Admin access required.' };
+	return { ok: /** @type {const} */ (true), ...auth };
 }
 
 export async function requireGroupDonationManager(cookies, groupSlug) {
 	const auth = await getAuthContext(cookies);
-	if (!auth) return { ok: false, status: 401, error: 'Authentication required.' };
+	if (!auth)
+		return { ok: /** @type {const} */ (false), status: 401, error: 'Authentication required.' };
 	const slug = cleanText(groupSlug);
-	if (!slug) return { ok: false, status: 400, error: 'Group slug is required.' };
+	if (!slug)
+		return { ok: /** @type {const} */ (false), status: 400, error: 'Group slug is required.' };
 
 	const { data: group, error: groupError } = await auth.supabase
 		.from('groups')
 		.select('id,slug,name')
 		.eq('slug', slug)
 		.maybeSingle();
-	if (groupError) return { ok: false, status: 500, error: groupError.message };
-	if (!group) return { ok: false, status: 404, error: 'Group not found.' };
+	if (groupError)
+		return { ok: /** @type {const} */ (false), status: 500, error: groupError.message };
+	if (!group) return { ok: /** @type {const} */ (false), status: 404, error: 'Group not found.' };
 
 	if (!auth.isAdmin) {
 		const { data: ownerRows, error: ownerError } = await auth.supabase
@@ -122,13 +127,18 @@ export async function requireGroupDonationManager(cookies, groupSlug) {
 			.eq('role', 'owner')
 			.eq('user_id', auth.userId)
 			.limit(1);
-		if (ownerError) return { ok: false, status: 500, error: ownerError.message };
+		if (ownerError)
+			return { ok: /** @type {const} */ (false), status: 500, error: ownerError.message };
 		if (!ownerRows || ownerRows.length === 0) {
-			return { ok: false, status: 403, error: 'You do not have permission to manage this group.' };
+			return {
+				ok: /** @type {const} */ (false),
+				status: 403,
+				error: 'You do not have permission to manage this group.'
+			};
 		}
 	}
 
-	return { ok: true, ...auth, group };
+	return { ok: /** @type {const} */ (true), ...auth, group };
 }
 
 function buildConnectReturnPath(target) {

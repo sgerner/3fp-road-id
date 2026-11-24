@@ -19,6 +19,7 @@
 		sanitizeAltText
 	} from '#lib/learn/altText';
 
+	/** @type {Record<string, any>} */
 	let {
 		articleId = '',
 		uploaded = [],
@@ -34,6 +35,7 @@
 		{ value: 'documents', label: 'Documents' }
 	];
 
+	/** @type {any} */
 	let files = $state([]);
 	let loading = $state(false);
 	let error = $state('');
@@ -45,6 +47,7 @@
 	let insertedAssetId = $state('');
 	let copiedNotice = $state('');
 	let previewAssetId = $state('');
+	/** @type {any} */
 	let previewDialog = $state(null);
 	let localUploads = $state([]);
 	let assetOverrides = $state({});

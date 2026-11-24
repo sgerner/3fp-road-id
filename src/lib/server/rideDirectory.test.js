@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { queryPublishedUpcomingRides } from './rideDirectory.js';
 
+/**
+ * @param {number} index
+ * @param {Record<string, any>} [overrides]
+ */
 function makeActivityRow(index, overrides = {}) {
 	const dayOffset = index + 1;
 	const start = new Date(Date.UTC(2026, 10, 22 + dayOffset, 15, 0, 0));
@@ -48,6 +52,16 @@ function makeActivityRow(index, overrides = {}) {
 	};
 }
 
+/**
+ * @param {{
+ *   activities?: Array<Record<string, any>>;
+ *   difficultyLevels?: Array<{ id: number; name: string; slug: string }>;
+ *   disciplines?: Array<{ id: number; name: string; slug: string }>;
+ *   groups?: Array<Record<string, any>>;
+ *   rideDetailsMatches?: Array<Record<string, any>>;
+ *   recurringIds?: Set<string>;
+ * }} [options]
+ */
 function createRidesSupabaseMock({
 	activities = [],
 	difficultyLevels = [
@@ -59,6 +73,14 @@ function createRidesSupabaseMock({
 	rideDetailsMatches = [],
 	recurringIds = new Set()
 } = {}) {
+	/**
+	 * @type {{
+	 *   activityRanges: Array<[number, number]>;
+	 *   activityCalls: Array<Record<string, any>>;
+	 *   recurrenceBatches: number[];
+	 *   relatedLimits: Array<[string, number]>;
+	 * }}
+	 */
 	const recorded = {
 		activityRanges: [],
 		activityCalls: [],
@@ -68,7 +90,24 @@ function createRidesSupabaseMock({
 
 	return {
 		recorded,
+		/** @param {string} table */
 		from(table) {
+			/**
+			 * @type {{
+			 *   table: string;
+			 *   columns?: string;
+			 *   selectOptions?: { count?: string };
+			 *   limit?: number;
+			 *   eqs: Array<[string, any]>;
+			 *   nullChecks: Array<[string, any]>;
+			 *   ins: Array<[string, any[]]>;
+			 *   ilikes: Array<[string, string]>;
+			 *   ors: string[];
+			 *   gte: [string, any] | null;
+			 *   orders: Array<[string, any]>;
+			 *   range: [number, number] | null;
+			 * }}
+			 */
 			const state = {
 				table,
 				selectOptions: undefined,

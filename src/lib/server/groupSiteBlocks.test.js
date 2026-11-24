@@ -67,6 +67,7 @@ test('normalization pins one hero first and rejects unknown or duplicate singlet
 });
 
 test('source-specific gallery collections survive normalization and serialization', () => {
+	/** @type {any[]} */
 	const blocks = normalizeGroupSiteBlocks([
 		{ type: 'hero', title: 'A page' },
 		{ type: 'gallery', gallery_source_page: 'bike-racks', title: 'Rack archive' }
@@ -90,19 +91,22 @@ test('repeatable block IDs remain unique, deterministic, and capped', () => {
 
 test('custom links are normalized without allowing arbitrary protocols', () => {
 	assert.equal(
-		createGroupSiteBlock('call_to_action', { overrides: { button_url: 'example.org/join' } })
-			.button_url,
+		/** @type {any} */ (
+			createGroupSiteBlock('call_to_action', { overrides: { button_url: 'example.org/join' } })
+		).button_url,
 		'https://example.org/join'
 	);
 	assert.equal(
-		createGroupSiteBlock('call_to_action', { overrides: { button_url: 'javascript:alert(1)' } })
-			.button_url,
+		/** @type {any} */ (
+			createGroupSiteBlock('call_to_action', { overrides: { button_url: 'javascript:alert(1)' } })
+		).button_url,
 		''
 	);
 });
 
 test('common owner task blocks have useful safe defaults and remain singletons', () => {
 	const taskTypes = ['email_signup', 'membership', 'volunteer', 'updates', 'resources'];
+	/** @type {any[]} */
 	const blocks = normalizeGroupSiteBlocks([
 		{ type: 'hero' },
 		...taskTypes.map((type) => ({ type })),

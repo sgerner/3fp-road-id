@@ -4,6 +4,7 @@ import {
 } from '#lib/server/supabaseClient';
 import { resolveVerifiedSession } from '#lib/server/session';
 
+/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, group: any }>} */
 export async function requireGroupSiteAiOwner(cookies, groupSlug) {
 	const { accessToken, user } = await resolveVerifiedSession(cookies);
 	if (!accessToken || !user?.id) {
@@ -52,6 +53,12 @@ export async function readGroupSiteManagerRoles(serviceSupabase, groupId, userId
 	};
 }
 
+/**
+ * @returns {Promise<
+ *   | { ok: false, status: number, error: string }
+ *   | { ok: true, serviceSupabase: any, group: any, userId: string, isAdmin: boolean }
+ * >}
+ */
 export async function requireGroupSiteManager({ cookies, groupSlug }) {
 	const serviceSupabase = createServiceSupabaseClient();
 	if (!serviceSupabase) {

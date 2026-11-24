@@ -1,19 +1,45 @@
 <script>
 	import { Combobox } from '@skeletonlabs/skeleton-svelte';
 
+	/** @type {Record<string, any>} */
 	export let eventDetails;
+	/** @type {any[]} */
 	export let eventTypeOptions = [];
+	/** @type {any[]} */
 	export let statusOptions = [];
+	/** @type {string[]} */
 	export let timezoneOptions = [];
+	/** @type {any[]} */
 	export let hostGroupSelection = [];
+	/** @type {any[]} */
 	export let filteredHostGroupOptions = [];
 	export let showStatusField = false;
 	export let currentEventTypeDescription = '';
 	export let hasHostGroups = false;
+	/** @type {(patch: Record<string, any>) => any} */
 	export let onEventDetailsChange = () => {};
+	/** @type {(value: any) => any} */
 	export let onHostGroupValueChange = () => {};
+	/** @type {(inputValue: any) => any} */
 	export let onHostGroupSearch = () => {};
+	/** @type {() => any} */
 	export let onClearHostGroup = () => {};
+
+	/** @type {any} */
+	let hostGroupComboboxProps = {};
+	$: hostGroupComboboxProps = {
+		data: filteredHostGroupOptions,
+		key: 'value',
+		defaultValue: hostGroupSelection,
+		value: hostGroupSelection,
+		onValueChange: (/** @type {any} */ e) => onHostGroupValueChange(e.value),
+		onInputValueChange: (/** @type {any} */ e) => onHostGroupSearch(e.inputValue),
+		label: 'Host group (optional)',
+		placeholder: hasHostGroups ? 'Search groups…' : 'No groups available',
+		classes: 'w-full',
+		inputGroupClasses: 'preset-tonal-surface',
+		contentClasses: 'bg-surface-100-900'
+	};
 </script>
 
 <div class="grid gap-4 md:grid-cols-2">
@@ -96,19 +122,7 @@
 		</div>
 	{/if}
 	<div class="flex flex-col gap-1.5 {showStatusField ? 'md:col-span-2' : ''}">
-		<Combobox
-			data={filteredHostGroupOptions}
-			key="value"
-			defaultValue={hostGroupSelection}
-			value={hostGroupSelection}
-			onValueChange={(e) => onHostGroupValueChange(e.value)}
-			onInputValueChange={(e) => onHostGroupSearch(e.inputValue)}
-			label="Host group (optional)"
-			placeholder={hasHostGroups ? 'Search groups…' : 'No groups available'}
-			classes="w-full"
-			inputGroupClasses="preset-tonal-surface"
-			contentClasses="bg-surface-100-900"
-		/>
+		<Combobox {...hostGroupComboboxProps} />
 		{#if hostGroupSelection.length}
 			<div>
 				<button

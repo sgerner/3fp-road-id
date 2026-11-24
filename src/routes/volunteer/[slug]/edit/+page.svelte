@@ -68,8 +68,25 @@
 			.replace(/-+/g, '-');
 	}
 
-	function createAutosave({ delay = 600, onSave, successMessage, errorMessage, setSaving }) {
+	/**
+	 * @param {{
+	 *   delay?: number,
+	 *   onSave: (patch: Record<string, any>) => Promise<void>,
+	 *   successMessage?: string,
+	 *   errorMessage?: string,
+	 *   setSaving?: (value: boolean) => void
+	 * }} options
+	 */
+	function createAutosave({
+		delay = 600,
+		onSave,
+		successMessage,
+		errorMessage,
+		setSaving = undefined
+	}) {
+		/** @type {ReturnType<typeof setTimeout> | null} */
 		let timer = null;
+		/** @type {Record<string, any>} */
 		let pending = {};
 		let saving = false;
 
@@ -387,6 +404,7 @@
 	}
 
 	function updateShift(opportunityId, shiftId, patch) {
+		/** @type {any} */
 		let nextShiftRecord = null;
 		opportunities = opportunities.map((op) => {
 			if (op.id !== opportunityId) return op;
@@ -396,6 +414,7 @@
 			return { ...op, shifts };
 		});
 
+		/** @type {Record<string, any>} */
 		const queuePatch = { ...patch };
 		if (nextShiftRecord && ('startsAt' in patch || 'endsAt' in patch)) {
 			const startMs = nextShiftRecord.startsAt ? Date.parse(String(nextShiftRecord.startsAt)) : NaN;

@@ -30,6 +30,9 @@ export function styleRequiresBikeVibeSelection(styleId) {
 	return styleId === BIKE_VIBE_STYLE_ID;
 }
 
+/**
+ * @param {Record<string, any> | null} [context]
+ */
 export function inferStateCodeFromContext(context = {}) {
 	if (!context || typeof context !== 'object') return '';
 	const directCandidates = [
@@ -70,6 +73,9 @@ export function inferStateCodeFromContext(context = {}) {
 	return '';
 }
 
+/**
+ * @param {Record<string, any> | null} [context]
+ */
 export function inferBikeVibeIdFromContext(context = {}) {
 	if (!context || typeof context !== 'object') return '';
 	const textBlob = [
@@ -96,6 +102,13 @@ export function inferBikeVibeIdFromContext(context = {}) {
 	return '';
 }
 
+/**
+ * @param {{
+ *   currentStateCode?: string;
+ *   context?: Record<string, any> | null;
+ *   fetchImpl?: ((input: any, init?: any) => Promise<{ ok?: boolean; json: () => Promise<any> }>) | null;
+ * }} [options]
+ */
 export async function resolveDefaultStateCode({
 	currentStateCode = '',
 	context = {},
@@ -119,13 +132,23 @@ export async function resolveDefaultStateCode({
 	return '';
 }
 
+/**
+ * @param {{ currentBikeVibeId?: string; context?: Record<string, any> | null }} [options]
+ */
 export function resolveDefaultBikeVibeId({ currentBikeVibeId = '', context = {} } = {}) {
 	const existing = normalizeBikeVibeId(currentBikeVibeId);
 	if (existing) return existing;
 	return normalizeBikeVibeId(inferBikeVibeIdFromContext(context));
 }
 
-export function validateArtworkStyleSelection({ styleId, stateCode = '', bikeVibeId = '' } = {}) {
+/**
+ * @param {{ styleId?: string; stateCode?: string; bikeVibeId?: string }} [options]
+ */
+export function validateArtworkStyleSelection({
+	styleId = '',
+	stateCode = '',
+	bikeVibeId = ''
+} = {}) {
 	if (styleRequiresStateSelection(styleId) && !normalizeUsStateCode(stateCode)) {
 		return 'Select a state or territory for this style.';
 	}
@@ -135,7 +158,11 @@ export function validateArtworkStyleSelection({ styleId, stateCode = '', bikeVib
 	return '';
 }
 
-export function buildArtworkStyleOptions({ styleId, stateCode = '', bikeVibeId = '' } = {}) {
+/**
+ * @param {{ styleId?: string; stateCode?: string; bikeVibeId?: string }} [options]
+ * @returns {Record<string, any>}
+ */
+export function buildArtworkStyleOptions({ styleId = '', stateCode = '', bikeVibeId = '' } = {}) {
 	const normalizedState = normalizeUsStateCode(stateCode);
 	const normalizedBikeVibe = normalizeBikeVibeId(bikeVibeId);
 	const bikeVibe = normalizedBikeVibe ? getBikeVibeById(normalizedBikeVibe) : null;

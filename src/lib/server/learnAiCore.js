@@ -225,6 +225,21 @@ export function normalizeLearnAiAltResult(
 	};
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.title]
+ * @param {string} [options.summary]
+ * @param {string} [options.sectionHeading]
+ * @param {string[]} [options.headings]
+ * @param {string} [options.surroundingContext]
+ * @param {string} [options.enclosingLinkUrl]
+ * @param {string} [options.enclosingLinkText]
+ * @param {boolean} [options.isSoleLinkContent]
+ * @param {string} [options.fileName]
+ * @param {string} [options.imageUrl]
+ * @param {string} [options.target]
+ * @param {Record<string, any> | null} [options.context]
+ */
 export function buildLearnImageAltPrompt({
 	title = '',
 	summary = '',
@@ -326,6 +341,14 @@ export async function isLearnAdminUser(supabase, userId) {
 	return Boolean(profile?.admin);
 }
 
+/**
+ * @param {object} [options]
+ * @param {any} [options.userSupabase]
+ * @param {any} [options.user]
+ * @param {string | null} [options.articleId]
+ * @param {string} [options.articleTitle]
+ * @param {string} [options.bodyMarkdown]
+ */
 export async function resolveLearnUploadArticleContext({
 	userSupabase,
 	user,
@@ -402,6 +425,15 @@ export async function resolveLearnUploadArticleContext({
 	};
 }
 
+/**
+ * @param {object} [options]
+ * @param {any} [options.userSupabase]
+ * @param {any} [options.user]
+ * @param {string} [options.assetId]
+ * @param {string} [options.publicUrl]
+ * @param {string} [options.altText]
+ * @param {boolean} [options.isDecorative]
+ */
 export async function updateLearnAssetAltAuthorized({
 	userSupabase,
 	user,
@@ -522,6 +554,27 @@ export async function generateReadingAidWithFallback({ generate, fallback, timeo
 	return fallback();
 }
 
+/**
+ * @param {object} [options]
+ * @param {any} [options.client]
+ * @param {any} [options.model]
+ * @param {Uint8Array | Buffer | null} [options.imageBuffer]
+ * @param {string} [options.imageBase64]
+ * @param {string} [options.mimeType]
+ * @param {string} [options.fileName]
+ * @param {string} [options.imageUrl]
+ * @param {string} [options.title]
+ * @param {string} [options.summary]
+ * @param {string} [options.sectionHeading]
+ * @param {string[]} [options.headings]
+ * @param {string} [options.surroundingContext]
+ * @param {string} [options.enclosingLinkUrl]
+ * @param {string} [options.enclosingLinkText]
+ * @param {boolean} [options.isSoleLinkContent]
+ * @param {string} [options.target]
+ * @param {Record<string, any> | null} [options.context]
+ * @param {number} [options.timeoutMs]
+ */
 export async function executeLearnMultimodalAltRequest({
 	client,
 	model,
@@ -543,6 +596,7 @@ export async function executeLearnMultimodalAltRequest({
 	timeoutMs = 18_000
 } = {}) {
 	if (!client || typeof client.generateContent !== 'function' || !model) {
+		/** @type {Error & { code?: string }} */
 		const error = new Error('Multimodal AI model is not configured.');
 		error.code = 'AI_UNAVAILABLE';
 		throw error;
@@ -563,9 +617,10 @@ export async function executeLearnMultimodalAltRequest({
 		context
 	});
 
+	/** @type {any[]} */
 	const parts = [{ text: prompt }];
 	if (imageBase64 || (imageBuffer && imageBuffer.byteLength > 0)) {
-		const encoded = imageBase64 || Buffer.from(imageBuffer).toString('base64');
+		const encoded = imageBase64 || (imageBuffer ? Buffer.from(imageBuffer).toString('base64') : '');
 		parts.push({
 			inlineData: {
 				mimeType: cleanLearnAiString(mimeType, 120) || 'image/png',
@@ -625,6 +680,17 @@ function buildHumanizedSlugHint(imageUrl = '', currentAlt = '') {
 	return candidate && !/^\d+$/.test(candidate) ? candidate : '';
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.title]
+ * @param {string} [options.summary]
+ * @param {string} [options.content]
+ * @param {string[]} [options.headings]
+ * @param {Map<string, string>} [options.storedAltByUrl]
+ * @param {((item: any) => Promise<any>) | null} [options.generateAlt]
+ * @param {number} [options.maxImages]
+ * @param {number} [options.concurrency]
+ */
 export async function runLearnMarkdownAltAudit({
 	title = '',
 	summary = '',

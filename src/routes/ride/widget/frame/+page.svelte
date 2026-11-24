@@ -70,12 +70,17 @@
 	let calendarReference = $state(startOfMonth(new Date()));
 	let now = $state(new Date());
 	let viewerTimezone = $state('UTC');
+	/** @type {{ open: boolean, dateLabel: string, rides: any[] }} */
 	let dayModal = $state({ open: false, dateLabel: '', rides: [] });
+	/** @type {HTMLDialogElement | null} */
 	let dayDialog = $state(null);
+	/** @type {any} */
 	let dayModalTrigger = null;
+	/** @type {HTMLButtonElement | null} */
 	let dayModalCloseButton = $state(null);
 
 	const PAGE_SIZE = 8;
+	/** @type {Record<string, any>} */
 	const config = $derived(data?.config ?? {});
 	const rides = $derived((data?.rides ?? []).filter(Boolean));
 	const showFilters = $derived(Boolean(config.showUserFilters));
@@ -239,7 +244,7 @@
 	}
 
 	function rideTitle(ride) {
-		return formatRideWidgetTitle(ride, config);
+		return formatRideWidgetTitle(ride, /** @type {any} */ (config));
 	}
 
 	function changeMonth(offset) {

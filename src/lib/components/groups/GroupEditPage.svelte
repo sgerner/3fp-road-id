@@ -1,5 +1,6 @@
 <script>
-	let { data, embedded = false } = $props();
+	/** @type {{ data: any, form?: any, embedded?: boolean }} */
+	let { data, form = null, embedded = false } = $props();
 	import { FileUpload } from '@skeletonlabs/skeleton-svelte';
 	import IconDropzone from '@lucide/svelte/icons/image-plus';
 	import IconFile from '@lucide/svelte/icons/paperclip';
@@ -55,9 +56,13 @@
 	let cropPanX = $state(0);
 	let cropPanY = $state(0);
 	let cropReady = $state(false);
+	/** @type {any} */
 	let cropFramer = $state(null);
+	/** @type {HTMLDialogElement | null} */
 	let cropDialogEl = $state(null);
+	/** @type {any} */
 	let cropReturnFocusEl = null;
+	/** @type {any} */
 	let coverFieldRef = $state(null);
 	let formEl = $state();
 
@@ -121,11 +126,12 @@
 	}
 
 	onMount(() => {
-		const readVal = (id) => document.getElementById(id)?.value?.trim() || '';
+		const readVal = (id) =>
+			/** @type {HTMLInputElement | null} */ (document.getElementById(id))?.value?.trim() || '';
 		meetingAddress = readVal('specific_meeting_point_address') || meetingAddress;
 		cityValue = readVal('city') || cityValue;
 		stateValue = readVal('state_region') || stateValue;
-		const countryEl = document.getElementById('country');
+		const countryEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('country'));
 		if (countryEl) countryValue = (countryEl.value || countryValue).toUpperCase();
 
 		if (data.group?.logo_url) {
@@ -161,7 +167,9 @@
 		if (cropTarget === 'logo') {
 			if (logoPreview) URL.revokeObjectURL(logoPreview);
 			logoPreview = URL.createObjectURL(blob);
-			const input = document.getElementById('logo_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('logo_file_cropped')
+			);
 			if (input) input.value = dataUrl;
 			// Autosave cropped logo immediately
 			try {
@@ -184,9 +192,11 @@
 		} else if (cropTarget === 'cover') {
 			if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 			coverPreview = URL.createObjectURL(blob);
-			const input = document.getElementById('cover_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('cover_file_cropped')
+			);
 			if (input) input.value = dataUrl;
-			const clear = document.getElementById('clear_cover');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_cover'));
 			if (clear) clear.value = '';
 			// Autosave cropped cover immediately
 			try {
@@ -317,7 +327,10 @@
 
 	function collectSocialLinksFromInputs() {
 		return collectGroupSocialLinkInputs(
-			(field) => document.getElementById(`social_${field}`)?.value?.trim() || ''
+			(field) =>
+				/** @type {HTMLInputElement | null} */ (
+					document.getElementById(`social_${field}`)
+				)?.value?.trim() || ''
 		);
 	}
 
@@ -477,10 +490,12 @@
 			linkedin: 'social_linkedin'
 		};
 		for (const [key, inputId] of Object.entries(map)) {
-			const el = document.getElementById(inputId);
+			const el = /** @type {HTMLInputElement | null} */ (document.getElementById(inputId));
 			if (el) el.value = links?.[key] || '';
 		}
-		const postsArea = document.getElementById('social_instagram_posts');
+		const postsArea = /** @type {HTMLTextAreaElement | null} */ (
+			document.getElementById('social_instagram_posts')
+		);
 		if (postsArea) {
 			const urls = Array.isArray(links?.instagram_posts)
 				? links.instagram_posts.map((value) => String(value || '').trim()).filter(Boolean)
@@ -639,9 +654,13 @@
 			coverAlt = result.alt_text || result.altText;
 		}
 		coverTooLarge = false;
-		const croppedInput = document.getElementById('cover_file_cropped');
+		const croppedInput = /** @type {HTMLInputElement | null} */ (
+			document.getElementById('cover_file_cropped')
+		);
 		if (croppedInput) croppedInput.value = '';
-		const clearInput = document.getElementById('clear_cover');
+		const clearInput = /** @type {HTMLInputElement | null} */ (
+			document.getElementById('clear_cover')
+		);
 		if (clearInput) clearInput.value = '';
 		queueSave({ fields: { cover_photo_url: url } });
 	}
@@ -726,6 +745,7 @@
 	let ownerSuccess = $state('');
 	let ownerValid = $derived(/^\S+@\S+\.[^\s@]+$/.test(ownerEmail));
 	let ownerHoneypot = $state('');
+	/** @type {any} */
 	let ownerTurnstile = $state(null);
 	// Local reactive owners list so UI updates on removal
 	let owners = $state((pageData.owners || []).slice());
@@ -961,9 +981,11 @@
 			logoPreview = '';
 			logoFiles = [];
 			logoUploadKey += 1;
-			const input = document.getElementById('logo_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('logo_file_cropped')
+			);
 			if (input) input.value = '';
-			const clear = document.getElementById('clear_logo');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_logo'));
 			if (clear) clear.value = '1';
 			queueSave({ fields: { logo_url: null } });
 		} else if (which === 'cover') {
@@ -972,9 +994,11 @@
 			coverFiles = [];
 			coverTooLarge = false;
 			coverUploadKey += 1;
-			const input = document.getElementById('cover_file_cropped');
+			const input = /** @type {HTMLInputElement | null} */ (
+				document.getElementById('cover_file_cropped')
+			);
 			if (input) input.value = '';
-			const clear = document.getElementById('clear_cover');
+			const clear = /** @type {HTMLInputElement | null} */ (document.getElementById('clear_cover'));
 			if (clear) clear.value = '1';
 			queueSave({ fields: { cover_photo_url: null } });
 		}
@@ -1320,25 +1344,27 @@
 						<div class="text-surface-600-400 mb-1 text-xs">Preview</div>
 						{#key ctaKind + ctaLabel + ctaUrl}
 							{#await Promise.resolve(pickCtaPreview()) then cp}
-								<button
-									type="button"
-									class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
-								>
-									{#if cp.key !== 'custom'}
-										{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
-										{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
-										{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
-										{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
-										{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
-										{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
-										{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
-										{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
-										{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
-										{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
-										{:else}<IconLink class="h-4 w-4" />{/if}
-									{/if}
-									<span>{cp.label}</span>
-								</button>
+								{#if cp}
+									<button
+										type="button"
+										class="btn btn-sm preset-filled-primary-500 flex items-center gap-2"
+									>
+										{#if cp.key !== 'custom'}
+											{#if cp.key === 'website'}<IconGlobe class="h-4 w-4" />
+											{:else if cp.key === 'email'}<IconMail class="h-4 w-4" />
+											{:else if cp.key === 'phone'}<IconPhone class="h-4 w-4" />
+											{:else if cp.key === 'facebook'}<BrandFacebook class="h-4 w-4" />
+											{:else if cp.key === 'instagram'}<BrandInstagram class="h-4 w-4" />
+											{:else if cp.key === 'strava'}<BrandStrava className="h-4 w-4" />
+											{:else if cp.key === 'x'}<BrandX className="h-4 w-4" />
+											{:else if cp.key === 'tiktok'}<BrandTikTok className="h-4 w-4" />
+											{:else if cp.key === 'mastodon'}<BrandMastodon className="h-4 w-4" />
+											{:else if cp.key === 'discord'}<BrandDiscord className="h-4 w-4" />
+											{:else}<IconLink class="h-4 w-4" />{/if}
+										{/if}
+										<span>{cp.label}</span>
+									</button>
+								{/if}
 							{/await}
 						{/key}
 					</div>
@@ -1589,7 +1615,7 @@
 							accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 							maxFiles={1}
 							maxFileSize={MAX_BYTES}
-							classes="w-full"
+							class="w-full"
 							onFileChange={onLogoChange}
 							onFileReject={onReject}
 						>
