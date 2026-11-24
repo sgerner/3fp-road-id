@@ -56,6 +56,10 @@ export function redirectIfProtectedLearnSlug(slug) {
 	}
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ articleId?: string | null, existingArticle?: Record<string, any> | null, requestedSlug?: string }} [options]
+ */
 export async function assertEditableLearnArticle(
 	supabase,
 	{ articleId = null, existingArticle = null, requestedSlug = '' } = {}
@@ -87,6 +91,11 @@ export async function assertEditableLearnArticle(
 	}
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} source
+ * @param {string | null} [excludeId]
+ */
 export async function ensureUniqueLearnSlug(supabase, source, excludeId = null) {
 	const base = slugifyLearn(source) || 'article';
 	let attempt = 0;
@@ -453,6 +462,10 @@ export function buildSafetyReportCatalogEntry(report = safetyReport) {
 	return entry;
 }
 
+/**
+ * @param {any[]} [articles]
+ * @param {{ categorySlug?: string | null }} [options]
+ */
 export function mergeSafetyReportIntoCatalog(articles = [], { categorySlug = null } = {}) {
 	const list = Array.isArray(articles) ? [...articles] : [];
 	if (categorySlug && safeTrim(categorySlug).toLowerCase() !== SAFETY_REPORT_CATEGORY_SLUG) {
@@ -487,6 +500,10 @@ export function mergeSafetyReportIntoCatalog(articles = [], { categorySlug = nul
 	return [card, ...list];
 }
 
+/**
+ * @param {any} supabase
+ * @param {string | null} [preferredUserId]
+ */
 export async function resolveLearnCatalogSyncUserId(supabase, preferredUserId = null) {
 	if (preferredUserId) return preferredUserId;
 	if (!supabase) return null;
@@ -509,6 +526,10 @@ export async function resolveLearnCatalogSyncUserId(supabase, preferredUserId = 
 	return adminProfile?.user_id || null;
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ userId?: string | null }} [options]
+ */
 export async function syncSafetyReportToDatabase(supabase, { userId = null } = {}) {
 	if (!supabase) return null;
 	const authorUserId = await resolveLearnCatalogSyncUserId(supabase, userId);

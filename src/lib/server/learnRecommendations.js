@@ -258,11 +258,23 @@ function diversifyCandidates(candidates, limit, diversityWeight = 0.06) {
 	return selected;
 }
 
+/**
+ * @param {{
+ *   supabase: any,
+ *   queryText: any,
+ *   profileContext?: any,
+ *   locationHint?: any,
+ *   historyTerms?: string[],
+ *   feedbackEvents?: any[],
+ *   userWeights?: any,
+ *   limit?: number
+ * }} options
+ */
 export async function buildHybridArticleCandidates({
 	supabase,
 	queryText,
-	profileContext,
-	locationHint,
+	profileContext = null,
+	locationHint = null,
 	historyTerms = [],
 	feedbackEvents = [],
 	userWeights = null,
@@ -318,6 +330,7 @@ export async function buildHybridArticleCandidates({
 		...(historyTerms || [])
 	];
 
+	/** @type {Array<{ article: any, score: number, features: Record<string, number>, best_chunk_id?: any, best_chunk_heading?: string | null, best_chunk_text?: string }>} */
 	const prelim = [];
 	for (const article of articles) {
 		if (intentContentTypes && !intentContentTypes.has(article.content_type)) continue;

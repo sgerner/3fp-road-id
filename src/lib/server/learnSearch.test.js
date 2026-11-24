@@ -342,7 +342,7 @@ test('sanitizeLearnSearchQuery and validateLearnSearchQuery enforce bounds and c
 
 	const tooLong = validateLearnSearchQuery('x'.repeat(LEARN_SEARCH_MAX_RAW_LENGTH + 1));
 	assert.equal(tooLong.ok, false);
-	assert.match(tooLong.error, /200 characters or fewer/);
+	assert.match(tooLong.error ?? '', /200 characters or fewer/);
 });
 
 test('server search matches all audited rider-safety queries on /learn and /learn/category/education with snippets', async () => {

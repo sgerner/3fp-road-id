@@ -504,9 +504,13 @@ async function main() {
 	const env = process.env;
 	const { byGuideAndAsset: reviewedAltByGuideAndAsset, byAsset: reviewedAltByAsset } =
 		await loadReviewedAltManifest(DEFAULT_MANIFEST_PATH);
-	const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-		auth: { persistSession: false, autoRefreshToken: false }
-	});
+	const supabase = createClient(
+		/** @type {string} */ (env.PUBLIC_SUPABASE_URL),
+		/** @type {string} */ (env.SUPABASE_SERVICE_ROLE_KEY),
+		{
+			auth: { persistSession: false, autoRefreshToken: false }
+		}
+	);
 	const allFiles = await walk(docsRoot);
 	const contentFiles = allFiles.filter((file) =>
 		contentExtensions.has(path.extname(file).toLowerCase())
@@ -526,6 +530,7 @@ async function main() {
 
 	const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
 
+	/** @type {any[]} */
 	const entries = [];
 	for (const filePath of contentFiles) {
 		const relativePath = path.relative(docsRoot, filePath).replace(/\\/g, '/');

@@ -14,9 +14,13 @@ export async function loadLearnEditorOptions(supabase, userId) {
 	return { categories: categories ?? [], subcategories: subcategories ?? [], recentAssets };
 }
 
+/**
+ * @param {any} event
+ * @param {{ supabase: any, user: any, formData: FormData, articleId?: string | null, existingArticle?: Record<string, any> | null }} options
+ */
 export async function prepareLearnArticleSave(
 	event,
-	{ supabase, user, formData, articleId, existingArticle = null }
+	{ supabase, user, formData, articleId = null, existingArticle = null }
 ) {
 	await assertEditableLearnArticle(supabase, { articleId, existingArticle });
 	const normalized = normalizeLearnPayload(formData);

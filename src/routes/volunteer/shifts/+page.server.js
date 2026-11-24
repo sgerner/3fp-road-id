@@ -20,10 +20,16 @@ const {
 	CONFIRM_WINDOW_HOURS
 } = shiftActionsHelpers;
 
+/**
+ * @param {any} values
+ */
 function unique(values) {
 	return Array.from(new Set(values.filter((value) => value !== null && value !== undefined)));
 }
 
+/**
+ * @param {any} value
+ */
 function toNumber(value) {
 	if (value === null || value === undefined) return null;
 	const num = Number(value);
@@ -31,6 +37,10 @@ function toNumber(value) {
 	return num;
 }
 
+/**
+ * @param {any} notice
+ * @param {any} errorMessage
+ */
 function formatFeedback(notice, errorMessage) {
 	if (!notice) return null;
 	const key = notice.toLowerCase();
@@ -69,6 +79,9 @@ function formatFeedback(notice, errorMessage) {
 	}
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeEvent(row) {
 	if (!row || typeof row !== 'object') return null;
 	return {
@@ -84,6 +97,9 @@ function normalizeEvent(row) {
 	};
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeOpportunity(row) {
 	if (!row || typeof row !== 'object') return null;
 	return {
@@ -94,6 +110,9 @@ function normalizeOpportunity(row) {
 	};
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeShift(row) {
 	if (!row || typeof row !== 'object') return null;
 	return {
@@ -109,6 +128,9 @@ function normalizeShift(row) {
 	};
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeAssignment(row) {
 	if (!row || typeof row !== 'object') return null;
 	return {
@@ -123,6 +145,9 @@ function normalizeAssignment(row) {
 	};
 }
 
+/**
+ * @param {any} row
+ */
 function normalizeSignup(row) {
 	if (!row || typeof row !== 'object') return null;
 	return {
@@ -136,6 +161,9 @@ function normalizeSignup(row) {
 	};
 }
 
+/**
+ * @param {any} assignment
+ */
 function assignmentStatusLabel(assignment) {
 	if (!assignment) return 'Pending';
 	if (assignment.cancelled_at || isCancelled(assignment.status)) return 'Cancelled';
@@ -148,6 +176,13 @@ function assignmentStatusLabel(assignment) {
 	return 'Pending';
 }
 
+/**
+ * @param {any} event
+ * @param {any} opportunities
+ * @param {any} allShifts
+ * @param {any} signupCounts
+ * @param {any} [now]
+ */
 function calculateEventAvailableShifts(
 	event,
 	opportunities,
@@ -169,7 +204,8 @@ function calculateEventAvailableShifts(
 			const remaining = capacity === null ? null : Math.max(0, capacity - count);
 			const shiftStart = parseDate(shift.starts_at);
 			const isFuture = shiftStart ? shiftStart.getTime() > now.getTime() : true;
-			const isAvailable = capacity === null ? isFuture : isFuture && remaining > 0;
+			const isAvailable =
+				capacity === null ? isFuture : isFuture && /** @type {any} */ (remaining) > 0;
 			const opportunity =
 				relevantOpportunities.find((op) => op.id === shift.opportunity_id) ?? null;
 			return {
@@ -189,6 +225,14 @@ function calculateEventAvailableShifts(
 		});
 }
 
+/**
+ * @param {any} assignments
+ * @param {any} shiftsById
+ * @param {any} opportunitiesById
+ * @param {any} eventsById
+ * @param {any} availableByEvent
+ * @param {any} [now]
+ */
 function categorizeAssignments(
 	assignments,
 	shiftsById,
@@ -236,6 +280,7 @@ function categorizeAssignments(
 		targetMap.set(event.id, entry);
 	}
 
+	/** @type {any} */
 	const toArray = (map, sortFn) =>
 		Array.from(map.values()).sort((a, b) => {
 			if (a.earliest === null && b.earliest === null) return 0;
@@ -284,10 +329,12 @@ export const load = async ({ fetch, cookies, url }) => {
 		};
 	}
 
+	/** @type {any} */
 	const filters = [];
 	if (user?.id) filters.push(`volunteer_user_id.eq.${user.id}`);
 	if (sessionEmail) filters.push(`volunteer_email.eq.${sessionEmail}`);
 
+	/** @type {any} */
 	let signupRows = [];
 	if (filters.length) {
 		const params = new URLSearchParams();
@@ -337,10 +384,10 @@ export const load = async ({ fetch, cookies, url }) => {
 	]);
 
 	const events = eventsRaw.map(normalizeEvent).filter(Boolean);
-	const eventById = new Map(events.map((event) => [event.id, event]));
+	const eventById = new Map(events.map((event) => [/** @type {any} */ (event).id, event]));
 	const opportunities = opportunitiesRaw.map(normalizeOpportunity).filter(Boolean);
-	const opportunitiesById = new Map(opportunities.map((op) => [op.id, op]));
-	const opportunityIds = unique(opportunities.map((op) => op.id));
+	const opportunitiesById = new Map(opportunities.map((op) => [/** @type {any} */ (op).id, op]));
+	const opportunityIds = unique(opportunities.map((op) => /** @type {any} */ (op).id));
 
 	const [shiftRows, assignmentRows] = await Promise.all([
 		opportunityIds.length
@@ -363,10 +410,10 @@ export const load = async ({ fetch, cookies, url }) => {
 	]);
 
 	const allShifts = shiftRows.map(normalizeShift).filter(Boolean);
-	const shiftsById = new Map(allShifts.map((shift) => [shift.id, shift]));
+	const shiftsById = new Map(allShifts.map((shift) => [/** @type {any} */ (shift).id, shift]));
 	const assignments = assignmentRows.map(normalizeAssignment).filter(Boolean);
 
-	const shiftIds = unique(allShifts.map((shift) => shift.id));
+	const shiftIds = unique(allShifts.map((shift) => /** @type {any} */ (shift).id));
 	const signupCountRows = shiftIds.length
 		? await fetchList(fetch, 'volunteer-signup-shifts', {
 				params: {
@@ -396,7 +443,7 @@ export const load = async ({ fetch, cookies, url }) => {
 			signupCounts,
 			now
 		);
-		availableByEvent.set(event.id, available);
+		availableByEvent.set(/** @type {any} */ (event).id, available);
 	}
 
 	const categorized = categorizeAssignments(
@@ -418,6 +465,7 @@ export const load = async ({ fetch, cookies, url }) => {
 				? (shiftStart.getTime() - now.getTime()) / (1000 * 60 * 60)
 				: null;
 			const status = assignment.status ?? null;
+			/** @type {any} */
 			let confirmBlockedReason = null;
 			if (assignment.cancelled_at || isCancelled(status)) {
 				confirmBlockedReason = 'cancelled';
@@ -488,6 +536,10 @@ export const load = async ({ fetch, cookies, url }) => {
 	};
 };
 
+/**
+ * @param {any} result
+ * @param {any} fallbackNotice
+ */
 function buildRedirectParams(result, fallbackNotice) {
 	const params = new URLSearchParams();
 	if (result.success) {

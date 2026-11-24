@@ -1,7 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-
 	/** @type {{ report: Record<string, any>, outcome?: string, onNavigate?: (target: string) => void, onAsk?: (question: string) => void }} */
 	let { report, outcome = $bindable('All'), onNavigate = undefined, onAsk = undefined } = $props();
 
@@ -16,6 +15,7 @@
 
 	let selected = $state(0);
 
+	/** @type {[string, RegExp][]} */
 	const filters = [
 		[
 			'Understanding/attitudes',
@@ -44,7 +44,9 @@
 	});
 
 	const current = $derived(outcomes[selected]);
+	/** @type {any} */
 	const source42 = $derived(report?.sources?.find((source) => source.id === 'R42'));
+	/** @type {any} */
 	const axis = (value) =>
 		48 + ((Math.log(value) - Math.log(0.1)) / (Math.log(3) - Math.log(0.1))) * 504;
 

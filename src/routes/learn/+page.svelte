@@ -34,11 +34,16 @@
 		return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 	});
 
+	/**
+	 * @param {import('#lib/url/directoryUrlState').SearchParamsInput} searchParamsInput
+	 */
 	function readUrlState(searchParamsInput) {
 		const currentArticles = data?.articles ?? [];
+		/** @type {string[]} */
 		const currentCategories = Array.from(
 			new Set(currentArticles.map((article) => article.category_name).filter(Boolean))
 		).sort();
+		/** @type {Map<string, string>} */
 		const pairsMap = new Map();
 		for (const article of currentArticles) {
 			if (article.category_name && article.category_slug && !pairsMap.has(article.category_name)) {
@@ -327,12 +332,12 @@
 				<div class="flex flex-wrap gap-3">
 					<a
 						href="#library"
-						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="bg-primary-500 text-surface-950 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						>Browse {articles.length} guides <IconArrowRight class="h-4 w-4" /></a
 					>
 					<a
 						href="/learn/new"
-						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline"
+						class="border-surface-600 text-surface-50 hover:border-primary-500 hover:text-primary-500 inline-flex items-center justify-center gap-2 border-2 px-5 py-2.5 text-sm font-black tracking-wide uppercase transition hover:no-underline pointer-coarse:min-h-11"
 						><IconPlus class="h-4 w-4" /> Write a guide</a
 					>
 				</div>
@@ -357,7 +362,7 @@
 				{#each categoryPairs as [catName, catSlug], idx (catSlug)}
 					<a
 						href={`/learn/category/${catSlug}`}
-						class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-2.5 pr-2 transition hover:px-2 hover:no-underline"
+						class="group border-surface-800 hover:bg-surface-950 flex items-center justify-between gap-3 border-b py-2.5 pr-2 transition hover:px-2 hover:no-underline pointer-coarse:min-h-11"
 					>
 						<span class="flex min-w-0 items-center gap-3">
 							<span class="text-tertiary-500 text-xs font-black italic tabular-nums">
@@ -431,7 +436,9 @@
 	</div>
 
 	<div class="bg-surface-950 border-surface-800 border-b px-6 py-4 sm:px-10 lg:px-12">
-		<a href="/learn/safer-cycling-better-messages" class="text-primary-500 font-bold underline"
+		<a
+			href="/learn/safer-cycling-better-messages"
+			class="text-primary-500 inline-flex min-h-6 items-center py-1 font-bold underline pointer-coarse:min-h-11"
 			>Safer Cycling, Better Messages research report</a
 		>
 	</div>

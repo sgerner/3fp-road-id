@@ -112,7 +112,7 @@ export const actions = {
 			.select('id', { count: 'exact', head: true })
 			.eq('subcategory_slug', slug);
 		if (countError) return fail(500, { error: countError.message });
-		if (count > 0)
+		if (/** @type {any} */ (count) > 0)
 			return fail(400, { error: 'Cannot delete a subcategory that still has articles.' });
 
 		const { error: deleteError } = await supabase

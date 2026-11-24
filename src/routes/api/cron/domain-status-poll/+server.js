@@ -5,11 +5,17 @@ import { getDomainConfigForProject, verifyMicrositeProjectDomain } from '#lib/se
 
 export const config = { maxDuration: 60 };
 
+/**
+ * @param {any} value
+ */
 function cleanText(value) {
 	if (value === null || value === undefined) return '';
 	return String(value).trim();
 }
 
+/**
+ * @param {any} param0
+ */
 function derivePolledStatus({ domainRow, verification, config, verifyError, configError }) {
 	const isVerified = verification?.verified === true;
 	const isConfigured = config?.misconfigured === false;
@@ -35,6 +41,9 @@ function derivePolledStatus({ domainRow, verification, config, verifyError, conf
 	};
 }
 
+/**
+ * @param {any} request
+ */
 async function verifyCronRequest(request) {
 	const providedSecret =
 		request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
@@ -45,6 +54,10 @@ async function verifyCronRequest(request) {
 	return getCronSecretVerifier('domain_status_poll', providedSecret);
 }
 
+/**
+ * @param {any} serviceSupabase
+ * @param {any} domainRow
+ */
 async function pollDomainStatus(serviceSupabase, domainRow) {
 	const domain = cleanText(domainRow?.domain).toLowerCase();
 	if (!domain) throw new Error('Domain is missing.');
@@ -69,6 +82,7 @@ async function pollDomainStatus(serviceSupabase, domainRow) {
 		configError
 	});
 
+	/** @type {any} */
 	const updates = {
 		status: next.status,
 		vercel_verified: next.status === 'active',
@@ -112,6 +126,9 @@ async function pollDomainStatus(serviceSupabase, domainRow) {
 	};
 }
 
+/**
+ * @param {any} event
+ */
 async function handleCron(event) {
 	const authorized = await verifyCronRequest(event.request);
 	if (!authorized) {
@@ -135,6 +152,7 @@ async function handleCron(event) {
 		);
 	}
 
+	/** @type {any} */
 	const summary = {
 		polled: 0,
 		active: 0,

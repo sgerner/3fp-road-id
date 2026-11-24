@@ -112,6 +112,7 @@ export function renderMarkdown(text) {
 	if (!raw.trim()) return '';
 	const lines = raw.split('\n');
 	const blocks = [];
+	/** @type {{ type: 'ol' | 'ul', items: string[] } | null} */
 	let currentList = null;
 
 	const flushList = () => {

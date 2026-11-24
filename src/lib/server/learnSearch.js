@@ -356,6 +356,15 @@ function textContainsTerm(normalizedHaystack, term) {
 	return normalizedHaystack.includes(cleanTerm);
 }
 
+/**
+ * @param {{
+ *   query?: string | ReturnType<typeof parseLearnSearchConcepts>,
+ *   heading?: string,
+ *   text?: string,
+ *   fallbackExcerpt?: string,
+ *   maxLength?: number
+ * }} options
+ */
 export function extractMatchedSnippet({
 	query = '',
 	heading = '',
@@ -434,6 +443,13 @@ export function extractMatchedSnippet({
 	};
 }
 
+/**
+ * @param {{
+ *   article: Record<string, any>,
+ *   chunks?: Array<Record<string, any>>,
+ *   parsedQuery: ReturnType<typeof parseLearnSearchConcepts>
+ * }} options
+ */
 export function scoreLearnSearchCandidate({ article, chunks = [], parsedQuery }) {
 	if (!article || !parsedQuery?.sanitized) return null;
 
@@ -551,6 +567,17 @@ export function scoreLearnSearchCandidate({ article, chunks = [], parsedQuery })
 	};
 }
 
+/**
+ * @param {{
+ *   articles?: any[],
+ *   chunksByArticleId?: Map<string, any[]>,
+ *   query?: string,
+ *   categorySlug?: string | null,
+ *   categoryName?: string | null,
+ *   subcategorySlug?: string | null,
+ *   limit?: number
+ * }} options
+ */
 export function rankLearnSearchCatalog({
 	articles = [],
 	chunksByArticleId = new Map(),
@@ -631,6 +658,11 @@ export function rankLearnSearchCatalog({
 const ARTICLE_SEARCH_SELECT =
 	'id, title, slug, summary, reader_summary, key_takeaways, category_slug, category_name, subcategory_slug, subcategory_name, sort_order, cover_image_url, content_type, tags, import_source_path, is_published, updated_at, created_at, created_by_user_id, updated_by_user_id, last_revision_number';
 
+/**
+ * @param {any} supabase
+ * @param {string} webQuery
+ * @param {{ categorySlug?: string | null, categoryName?: string | null, subcategorySlug?: string | null, limit?: number }} [options]
+ */
 async function runArticleWebsearch(
 	supabase,
 	webQuery,
@@ -666,6 +698,11 @@ async function runArticleWebsearch(
 	return data || [];
 }
 
+/**
+ * @param {any} supabase
+ * @param {string} webQuery
+ * @param {{ articleIds?: string[] | null, limit?: number }} [options]
+ */
 async function runChunkWebsearch(supabase, webQuery, { articleIds = null, limit = 120 } = {}) {
 	if (!webQuery) return [];
 	if (Array.isArray(articleIds) && articleIds.length === 0) return [];
@@ -689,6 +726,16 @@ async function runChunkWebsearch(supabase, webQuery, { articleIds = null, limit 
 	return data || [];
 }
 
+/**
+ * @param {{
+ *   supabase: any,
+ *   query: string,
+ *   categorySlug?: string | null,
+ *   categoryName?: string | null,
+ *   subcategorySlug?: string | null,
+ *   limit?: number
+ * }} options
+ */
 export async function searchLearnArticles({
 	supabase,
 	query,
@@ -836,6 +883,13 @@ function cleanFilterParam(value, maxLength = 120) {
 	return value.trim().slice(0, maxLength);
 }
 
+/**
+ * @param {any} event
+ * @param {{
+ *   getClient?: (cookies: any) => Promise<{ user: any, supabase: any }>,
+ *   getProfilesMap?: (supabase?: any, userIds?: any[]) => Promise<Map<any, any>>
+ * }} [deps]
+ */
 export async function handleLearnSearchRequest(
 	event,
 	{ getClient, getProfilesMap = async () => new Map() } = {}

@@ -43,6 +43,7 @@ const report = {
 };
 
 test('retrieves relevant sections and reference findings and limitations', () => {
+	/** @type {any} */
 	const context = retrieveReportContext('What do protected lanes show?', [], report);
 	assert.equal(context.sections[0].id, 'roads');
 	assert.equal(context.sources.find((s) => s.record === 'R42').limits, 'Observational design');

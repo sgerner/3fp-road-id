@@ -1,9 +1,8 @@
 <script>
-	import { Toast, createToaster } from '@skeletonlabs/skeleton-svelte';
-	import EventOverviewStep from '#lib/components/volunteer/EventOverviewStep.svelte';
-	import ScheduleStep from '#lib/components/volunteer/ScheduleStep.svelte';
-	import RolesStep from '#lib/components/volunteer/RolesStep.svelte';
-	import CommunicationsStep from '#lib/components/volunteer/CommunicationsStep.svelte';
+	import { onMount } from 'svelte';
+	import IconClipboardList from '@lucide/svelte/icons/clipboard-list';
+	import VolunteerEventForm from '#lib/components/volunteer/VolunteerEventForm.svelte';
+	import { toaster } from '../../../toaster-svelte';
 
 	import {
 		mapEventRecordToFormDetails,
@@ -49,11 +48,15 @@
 
 	let { data } = $props();
 
-	const toaster = createToaster({ placement: 'top-end' });
-
 	const notifySuccess = (message) => toaster.success({ title: message });
 	const notifyError = (message) => toaster.error({ title: message });
-	const notifyWarning = (message) => toaster.warning({ title: message });
+
+	let activeSaveCount = $state(0);
+	let saveIntent = $state('publish');
+
+	function trackSaving(delta) {
+		activeSaveCount = Math.max(0, activeSaveCount + delta);
+	}
 
 	function slugify(text) {
 		return (text || '')
@@ -65,8 +68,25 @@
 			.replace(/-+/g, '-');
 	}
 
-	function createAutosave({ delay = 600, onSave, successMessage, errorMessage, setSaving }) {
+	/**
+	 * @param {{
+	 *   delay?: number,
+	 *   onSave: (patch: Record<string, any>) => Promise<void>,
+	 *   successMessage?: string,
+	 *   errorMessage?: string,
+	 *   setSaving?: (value: boolean) => void
+	 * }} options
+	 */
+	function createAutosave({
+		delay = 600,
+		onSave,
+		successMessage,
+		errorMessage,
+		setSaving = undefined
+	}) {
+		/** @type {ReturnType<typeof setTimeout> | null} */
 		let timer = null;
+		/** @type {Record<string, any>} */
 		let pending = {};
 		let saving = false;
 
@@ -79,6 +99,7 @@
 				timer = null;
 			}
 			saving = true;
+			trackSaving(1);
 			setSaving?.(true);
 			try {
 				await onSave(payload);
@@ -91,6 +112,7 @@
 				throw err;
 			} finally {
 				saving = false;
+				trackSaving(-1);
 				setSaving?.(false);
 			}
 		}
@@ -134,9 +156,23 @@
 		eventRecordInitial.host_group_id ?? eventRecordInitial.hostGroupId ?? '';
 	let hostGroupSelection = $state(initialHostGroupId ? [initialHostGroupId] : []);
 	let filteredHostGroupOptions = $state(hostGroupOptions);
-	let showAdvancedSettings = $state(false);
-	let showAdvancedCommunications = $state(false);
 	let eventSaving = $state(false);
+	let baseTimezones = $state(FALLBACK_TIMEZONES);
+	const timezoneOptions = $derived(
+		eventDetails.timezone && !baseTimezones.includes(eventDetails.timezone)
+			? [eventDetails.timezone, ...baseTimezones]
+			: baseTimezones
+	);
+
+	onMount(() => {
+		try {
+			if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+				baseTimezones = Intl.supportedValuesOf('timeZone');
+			}
+		} catch {
+			// keep fallback timezones
+		}
+	});
 
 	function currentEventTypeDescription() {
 		const match = eventTypeOptions.find((option) => option.value === eventDetails.eventTypeSlug);
@@ -145,9 +181,11 @@
 
 	function handleHostGroupValueChange(value) {
 		const next = value ?? [];
+		const nextId = next?.[0] ?? '';
 		hostGroupSelection = next;
+		if (String(nextId) === String(eventDetails.hostGroupId ?? '')) return;
 		updateEventDetails({
-			hostGroupId: next?.[0] ?? ''
+			hostGroupId: nextId
 		});
 	}
 	function handleHostGroupSearch(inputValue) {
@@ -188,23 +226,6 @@
 		eventAutosave.queue(patch);
 	}
 
-	function handleSlugInput(value) {
-		const sanitized = slugify(value);
-		updateEventDetails({ slug: sanitized });
-	}
-
-	const timezoneOptions = FALLBACK_TIMEZONES;
-
-	function overviewDetailsChange(...args) {
-		const patch = args?.[0] ?? {};
-		updateEventDetails(patch);
-	}
-
-	function scheduleDetailsChange(...args) {
-		const patch = args?.[0] ?? {};
-		updateEventDetails(patch);
-	}
-
 	const loadedOpportunities = ensureArray(pageData.opportunities ?? []);
 	let opportunities = $state(
 		loadedOpportunities.map((op) =>
@@ -237,8 +258,8 @@
 					);
 					opportunities = opportunities.map((op) => (op.id === id ? normalized : op));
 				},
-				successMessage: 'Activity saved',
-				errorMessage: 'Unable to save activity.'
+				successMessage: 'Role saved',
+				errorMessage: 'Unable to save role.'
 			});
 			opportunityAutosaves.set(id, autosave);
 		}
@@ -275,7 +296,7 @@
 		try {
 			const payload = buildOpportunityPayload(
 				{
-					title: 'New activity',
+					title: 'New role',
 					opportunityType: opportunityTypeOptions[0]?.value ?? 'coordination',
 					requiresApproval: false,
 					autoConfirmAttendance: true,
@@ -287,7 +308,7 @@
 			);
 			const response = await createVolunteerOpportunity(payload);
 			const created = response?.data ?? response;
-			if (!created || typeof created !== 'object') throw new Error('Unable to create activity.');
+			if (!created || typeof created !== 'object') throw new Error('Unable to create role.');
 			const freshShifts = await listVolunteerShifts({
 				query: {
 					opportunity_id: `eq.${created.id}`,
@@ -299,9 +320,9 @@
 				ensureArray(freshShifts?.data ?? freshShifts)
 			);
 			opportunities = [...opportunities, normalized];
-			notifySuccess('Activity added');
+			notifySuccess('Role added');
 		} catch (err) {
-			notifyError(err?.message || 'Unable to add activity.');
+			notifyError(err?.message || 'Unable to add role.');
 		}
 	}
 
@@ -309,6 +330,11 @@
 		try {
 			await deleteVolunteerOpportunity(id);
 			opportunities = opportunities.filter((op) => op.id !== id);
+			customQuestions = customQuestions.map((question) =>
+				String(question.opportunityId) === String(id)
+					? { ...question, opportunityId: null }
+					: question
+			);
 			opportunityAutosaves.delete(id);
 			for (const [shiftId] of shiftAutosaves.entries()) {
 				const belongsToRemoved = opportunities.every((op) =>
@@ -316,9 +342,9 @@
 				);
 				if (belongsToRemoved) shiftAutosaves.delete(shiftId);
 			}
-			notifySuccess('Activity removed');
+			notifySuccess('Role removed');
 		} catch (err) {
-			notifyError(err?.message || 'Unable to remove activity.');
+			notifyError(err?.message || 'Unable to remove role.');
 		}
 	}
 
@@ -378,6 +404,7 @@
 	}
 
 	function updateShift(opportunityId, shiftId, patch) {
+		/** @type {any} */
 		let nextShiftRecord = null;
 		opportunities = opportunities.map((op) => {
 			if (op.id !== opportunityId) return op;
@@ -387,6 +414,7 @@
 			return { ...op, shifts };
 		});
 
+		/** @type {Record<string, any>} */
 		const queuePatch = { ...patch };
 		if (nextShiftRecord && ('startsAt' in patch || 'endsAt' in patch)) {
 			const startMs = nextShiftRecord.startsAt ? Date.parse(String(nextShiftRecord.startsAt)) : NaN;
@@ -547,21 +575,58 @@
 
 	function updateEmail(id, patch) {
 		eventEmails = eventEmails.map((email) => (email.id === id ? { ...email, ...patch } : email));
-		if (patch && 'aiComposerOpen' in patch) {
-			// Prevent AI composer usage in the edit view.
-			if (patch.aiComposerOpen) {
-				notifyWarning('The AI composer is unavailable on the edit page.');
-				eventEmails = eventEmails.map((email) =>
-					email.id === id ? { ...email, aiComposerOpen: false } : email
-				);
-				return;
-			}
-		}
 		getEmailAutosave(id).queue(patch);
 	}
 
-	function handleComposeEmail(_id) {
-		notifyWarning('Email composer is disabled in this editor.');
+	async function flushAllAutosaves() {
+		const tasks = [
+			eventAutosave.flush(),
+			...Array.from(opportunityAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(shiftAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(questionAutosaves.values(), (entry) => entry.flush()),
+			...Array.from(emailAutosaves.values(), (entry) => entry.flush())
+		];
+		await Promise.all(tasks);
+	}
+
+	async function handleSaveDraft() {
+		saveIntent = 'draft';
+		try {
+			const statusChanged = eventDetails.status !== 'draft';
+			if (statusChanged) {
+				updateEventDetails({ status: 'draft' });
+			}
+			await flushAllAutosaves();
+			if (!statusChanged) {
+				notifySuccess('Draft saved');
+			}
+		} catch {
+			// individual autosave handlers report errors via toast
+		}
+	}
+
+	async function handlePublish() {
+		saveIntent = 'publish';
+		if (!eventDetails.title?.trim()) {
+			notifyError('Event title is required.');
+			return;
+		}
+		if (!eventDetails.eventStart) {
+			notifyError('Event start is required.');
+			return;
+		}
+		try {
+			const statusChanged = eventDetails.status !== 'published';
+			if (statusChanged) {
+				updateEventDetails({ status: 'published' });
+			}
+			await flushAllAutosaves();
+			if (!statusChanged) {
+				notifySuccess('Event changes saved');
+			}
+		} catch {
+			// individual autosave handlers report errors via toast
+		}
 	}
 
 	const rolesAddOpportunityWrapper = () => {
@@ -623,9 +688,6 @@
 		if (id === undefined || !patch) return;
 		updateEmail(id, patch);
 	}
-	function commComposeEmailWrapper(...args) {
-		handleComposeEmail(args?.[0]);
-	}
 </script>
 
 <svelte:head>
@@ -633,101 +695,66 @@
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 
-<div class="mx-auto w-full max-w-5xl space-y-8 pb-16">
-	<header class="space-y-1">
-		<h1 class="text-3xl font-bold">Edit volunteer event</h1>
-		<p class="text-surface-600-400 text-sm">
-			Updates save automatically. You can leave this page when you see a success toast.
-		</p>
+<div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-4 pb-24">
+	<header class="card border-surface-300-700 bg-surface-50-950/80 p-6 shadow-sm">
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div class="space-y-1">
+				<h1 class="!text-left text-2xl font-bold tracking-tight sm:text-3xl">
+					Edit volunteer event
+				</h1>
+				<p class="text-surface-600-400 text-sm">
+					Updates save automatically. Use Manage Event for live volunteer broadcasts and host
+					alerts.
+				</p>
+			</div>
+			{#if eventDetails.slug}
+				<a
+					href={`/volunteer/${encodeURIComponent(eventDetails.slug)}/manage`}
+					class="btn preset-tonal-tertiary flex min-h-11 shrink-0 items-center gap-2"
+				>
+					<IconClipboardList class="h-4 w-4" />
+					<span>Manage event</span>
+				</a>
+			{/if}
+		</div>
 	</header>
 
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Event basics</h2>
-		<div class="grid gap-4 md:grid-cols-2">
-			<div class="flex flex-col gap-2">
-				<label class="label" for="event-status">Status</label>
-				<select
-					id="event-status"
-					class="select bg-surface-100-900/60"
-					value={eventDetails.status}
-					onchange={(event) => updateEventDetails({ status: event.currentTarget.value })}
-				>
-					{#each statusOptions as status}
-						<option value={status}>{status}</option>
-					{/each}
-				</select>
-			</div>
-		</div>
-
-		<EventOverviewStep
-			{statusOptions}
-			{eventDetails}
-			{eventTypeOptions}
-			{hostGroupSelection}
-			{filteredHostGroupOptions}
-			{showAdvancedSettings}
-			currentEventTypeDescription={currentEventTypeDescription()}
-			hasHostGroups={hostGroupOptions.length > 0}
-			onEventDetailsChange={overviewDetailsChange}
-			onHostGroupValueChange={handleHostGroupValueChange}
-			onHostGroupSearch={handleHostGroupSearch}
-			onClearHostGroup={handleClearHostGroup}
-			onToggleAdvanced={() => (showAdvancedSettings = !showAdvancedSettings)}
-		/>
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Schedule &amp; contact</h2>
-		<ScheduleStep {eventDetails} {timezoneOptions} onEventDetailsChange={scheduleDetailsChange} />
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<div class="flex items-center justify-between">
-			<h2 class="text-xl font-semibold">Roles &amp; shifts</h2>
-			<button type="button" class="btn preset-filled-primary-500" onclick={addOpportunity}>
-				Add activity
-			</button>
-		</div>
-		<RolesStep
-			{opportunities}
-			{opportunityTypeOptions}
-			onAddOpportunity={rolesAddOpportunityWrapper}
-			onRemoveOpportunity={rolesRemoveOpportunityWrapper}
-			onUpdateOpportunity={rolesUpdateOpportunityWrapper}
-			onAddShift={rolesAddShiftWrapper}
-			onRemoveShift={rolesRemoveShiftWrapper}
-			onUpdateShift={rolesUpdateShiftWrapper}
-		/>
-	</section>
-
-	<section
-		class="border-surface-300-700 bg-surface-50-950/70 space-y-6 rounded-lg border p-6 shadow-sm"
-	>
-		<h2 class="text-xl font-semibold">Signup questions &amp; messaging</h2>
-		<CommunicationsStep
-			{customQuestions}
-			{eventEmails}
-			{eventDetails}
-			{opportunities}
-			{fieldTypeOptions}
-			{emailTypeOptions}
-			{showAdvancedCommunications}
-			onToggleAdvanced={() => (showAdvancedCommunications = !showAdvancedCommunications)}
-			onAddQuestion={commAddQuestionWrapper}
-			onRemoveQuestion={commRemoveQuestionWrapper}
-			onUpdateQuestion={commUpdateQuestionWrapper}
-			onAddEmail={commAddEmailWrapper}
-			onRemoveEmail={commRemoveEmailWrapper}
-			onUpdateEmail={commUpdateEmailWrapper}
-			onComposeEmail={commComposeEmailWrapper}
-		/>
-	</section>
-
-	<Toast.Group {toaster} />
+	<VolunteerEventForm
+		mode="edit"
+		id="manual-builder"
+		{eventDetails}
+		{eventTypeOptions}
+		{statusOptions}
+		{timezoneOptions}
+		{opportunityTypeOptions}
+		{fieldTypeOptions}
+		{emailTypeOptions}
+		{hostGroupSelection}
+		{filteredHostGroupOptions}
+		currentEventTypeDescription={currentEventTypeDescription()}
+		hasHostGroups={hostGroupOptions.length > 0}
+		{opportunities}
+		{customQuestions}
+		{eventEmails}
+		saving={eventSaving || activeSaveCount > 0}
+		{saveIntent}
+		onEventDetailsChange={updateEventDetails}
+		onHostGroupValueChange={handleHostGroupValueChange}
+		onHostGroupSearch={handleHostGroupSearch}
+		onClearHostGroup={handleClearHostGroup}
+		onAddOpportunity={rolesAddOpportunityWrapper}
+		onRemoveOpportunity={rolesRemoveOpportunityWrapper}
+		onUpdateOpportunity={rolesUpdateOpportunityWrapper}
+		onAddShift={rolesAddShiftWrapper}
+		onRemoveShift={rolesRemoveShiftWrapper}
+		onUpdateShift={rolesUpdateShiftWrapper}
+		onAddQuestion={commAddQuestionWrapper}
+		onRemoveQuestion={commRemoveQuestionWrapper}
+		onUpdateQuestion={commUpdateQuestionWrapper}
+		onAddEmail={commAddEmailWrapper}
+		onRemoveEmail={commRemoveEmailWrapper}
+		onUpdateEmail={commUpdateEmailWrapper}
+		onSubmit={handlePublish}
+		onSaveDraft={handleSaveDraft}
+	/>
 </div>

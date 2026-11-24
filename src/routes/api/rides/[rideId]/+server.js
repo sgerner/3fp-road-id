@@ -12,10 +12,18 @@ import {
 	upsertActivityRelations
 } from '#lib/server/activities';
 
+/**
+ * @param {any} message
+ * @param {any} [status]
+ */
 function invalid(message, status = 400) {
 	return json({ error: message }, { status });
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} rideId
+ */
 async function loadManagedRide(supabase, rideId) {
 	const { data, error } = await supabase
 		.from('activity_events')
@@ -27,6 +35,9 @@ async function loadManagedRide(supabase, rideId) {
 	return data;
 }
 
+/**
+ * @param {any} param0
+ */
 export async function PUT({ params, request, cookies }) {
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
@@ -72,6 +83,7 @@ export async function PUT({ params, request, cookies }) {
 	);
 	const cutoffStart = rawPayload?.cutoffStart ?? null;
 
+	/** @type {any} */
 	const activityPatch = {
 		host_user_id: payload.activity.is_host ? user.id : null,
 		title: payload.activity.title || existing.title,
@@ -136,6 +148,7 @@ export async function PUT({ params, request, cookies }) {
 		}
 	}
 
+	/** @type {any} */
 	let recurrenceRule = null;
 	if (payload.recurrence.enabled) {
 		recurrenceRule = {
@@ -178,6 +191,9 @@ export async function PUT({ params, request, cookies }) {
 	return json({ data: ride });
 }
 
+/**
+ * @param {any} param0
+ */
 export async function DELETE({ params, cookies }) {
 	const { supabase, user } = await getActivityClient(cookies);
 	if (!user?.id) return invalid('Authentication required.', 401);
@@ -220,6 +236,7 @@ export async function DELETE({ params, cookies }) {
 		}
 	}
 
+	/** @type {any} */
 	const deletions = [
 		['activity_email_templates', 'activity_event_id'],
 		['activity_rsvps', 'activity_event_id'],

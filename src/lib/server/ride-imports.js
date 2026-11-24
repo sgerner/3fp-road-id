@@ -950,7 +950,7 @@ export async function fetchExistingRideEventsBySourceId(
 	if (includeWeeklyRidesAliases) {
 		for (const sourceId of sourceIds) {
 			if (existingBySourceId.has(sourceId)) continue;
-			for (const alias of aliasesBySourceId.get(sourceId)) {
+			for (const alias of aliasesBySourceId.get(sourceId) || []) {
 				const existing = existingBySourceId.get(alias);
 				if (!existing) continue;
 				existingBySourceId.set(sourceId, existing);
@@ -1142,6 +1142,11 @@ function sanitizeJsonText(rawText) {
 	return output;
 }
 
+/**
+ * @param {any} supabase
+ * @param {any} source
+ * @param {{ createdByUserId?: string, eventId?: string | null, limit?: number | null, publish?: boolean, slugPrefix?: string, dryRun?: boolean, requireGeocoding?: boolean, skipGeocoding?: boolean, skipImageUpload?: boolean, reconcileMissingImages?: boolean, fetchHttp?: any, existingOnly?: boolean, updateExistingCoordinates?: boolean }} [options]
+ */
 export async function importRideSeedData(
 	supabase,
 	source,
@@ -1163,7 +1168,8 @@ export async function importRideSeedData(
 ) {
 	let events = Array.isArray(source.events) ? source.events : [];
 	if (eventId) events = events.filter((event) => event.id === eventId);
-	if (Number.isInteger(limit) && limit > 0) events = events.slice(0, limit);
+	if (typeof limit === 'number' && Number.isInteger(limit) && limit > 0)
+		events = events.slice(0, limit);
 	if (!events.length) throw new Error('No events matched the provided filters.');
 	const mappedResults = await Promise.all(
 		events.map(async (event) => ({

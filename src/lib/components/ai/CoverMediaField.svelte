@@ -6,6 +6,7 @@
 	import IconUpload from '@lucide/svelte/icons/upload';
 	import { LEARN_ALT_TEXT_MAX_LENGTH, sanitizeAltText } from '#lib/learn/altText';
 
+	/** @type {Record<string, any>} */
 	let {
 		label = 'Cover photo',
 		description = 'Upload a cover photo directly, or open the artwork studio to generate an illustration.',
@@ -43,13 +44,17 @@
 	const inputId = $props.id();
 	const altInputId = `${inputId}-alt`;
 
+	/** @type {HTMLInputElement | null} */
 	let fileInputEl = $state(null);
+	/** @type {HTMLButtonElement | null} */
 	let studioTriggerEl = $state(null);
+	/** @type {any} */
 	let StudioModalComponent = $state(null);
 	let loadingStudio = $state(false);
 	let studioOpen = $state(false);
 	let studioLoadError = $state('');
 	let dragActive = $state(false);
+	/** @type {any[]} */
 	let sessionCandidates = $state([]);
 
 	const previewAspectClass = $derived.by(() => {

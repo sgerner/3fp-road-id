@@ -28,17 +28,24 @@
 
 	const FALLBACK_REPORT_ID = '00000000-0000-4000-8000-000000003f90';
 
+	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
+	/** @type {string} */
 	let searchQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	/** @type {string} */
 	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	/** @type {any[] | null} */
 	let serverSearchResults = $state(untrack(() => data?.initialSearchResults ?? null));
 	let searching = $state(false);
 	let searchError = $state('');
 	let activeSubcategory = $state('all');
+	/** @type {any} */
 	let isReordering = $state(false);
 
+	/** @type {ReturnType<typeof setTimeout> | null} */
 	let debounceTimer = null;
+	/** @type {AbortController | null} */
 	let activeController = null;
 	let routerReady = false;
 
@@ -58,7 +65,9 @@
 	});
 
 	// Mutable local copies used for deterministic ordering
+	/** @type {any[]} */
 	let subcategories = $state([]);
+	/** @type {any} */
 	let articles = $state([]);
 	let reorderAnnouncement = $state('');
 
@@ -78,6 +87,9 @@
 		}
 	});
 
+	/**
+	 * @param {string} nextQuery
+	 */
 	function syncCategoryQueryUrl(nextQuery) {
 		if (!browser || !routerReady) return;
 		const nextUrl = new URL(window.location.href);
@@ -92,6 +104,9 @@
 		}
 	}
 
+	/**
+	 * @param {string} trimmedQuery
+	 */
 	async function runCategorySearch(trimmedQuery) {
 		syncCategoryQueryUrl(trimmedQuery);
 		const controller = new AbortController();
@@ -127,6 +142,9 @@
 		}
 	}
 
+	/**
+	 * @param {string} nextValue
+	 */
 	function handleCategorySearchInput(nextValue) {
 		searchQuery = nextValue;
 		clearPendingSearch();
@@ -149,7 +167,7 @@
 		searchError = '';
 		debounceTimer = setTimeout(() => {
 			debounceTimer = null;
-			runCategorySearch(trimmed);
+			void runCategorySearch(trimmed);
 		}, 250);
 	}
 
@@ -190,6 +208,7 @@
 		}
 	});
 
+	/** @type {any[]} */
 	const filteredArticles = $derived.by(() => {
 		if (!hasSearchFilter) return articles;
 		if (serverSearchResults !== null) return serverSearchResults;
@@ -204,7 +223,9 @@
 		return `${count} ${count === 1 ? 'result' : 'results'} in ${data.category.name}${activeQuery ? ` for “${activeQuery}”` : ''}`;
 	});
 
+	/** @type {any} */
 	const groups = $derived.by(() => {
+		/** @type {any} */
 		const items = [];
 		const uncategorized = filteredArticles.filter((a) => !a.subcategory_slug);
 		if (uncategorized.length > 0 || data.canEdit) {
@@ -217,6 +238,7 @@
 		return items;
 	});
 
+	/** @type {any} */
 	const visibleGroups = $derived(
 		activeSubcategory === 'all'
 			? groups.filter((g) => g.articles.length > 0 || (data.canEdit && g.subcategory))
@@ -226,9 +248,14 @@
 				)
 	);
 
+	/** @type {any} */
 	const totalArticles = $derived(articles.length);
+	/** @type {any} */
 	const totalSubcategories = $derived(subcategories.length);
 
+	/**
+	 * @param {any} value
+	 */
 	function formatDate(value) {
 		if (!value) return '';
 		return new Date(value).toLocaleDateString(undefined, {
@@ -243,25 +270,32 @@
 		...subcategories.map((sub) => ({ value: sub.slug, label: sub.name }))
 	]);
 
+	/** @param {Element | null} node */
+	function isControlDisabled(node) {
+		return (
+			(node instanceof HTMLButtonElement || node instanceof HTMLSelectElement) && node.disabled
+		);
+	}
+
 	async function restoreControlFocus(focusKey) {
 		if (!focusKey) return;
 		await tick();
 		let el = document.querySelector(`[data-focus-key="${CSS.escape(focusKey)}"]`);
-		if (el?.disabled) {
+		if (isControlDisabled(el)) {
 			const fallbackKey = focusKey.endsWith('-up')
 				? focusKey.replace(/-up$/, '-down')
 				: focusKey.endsWith('-down')
 					? focusKey.replace(/-down$/, '-up')
 					: focusKey;
 			const fallback = document.querySelector(`[data-focus-key="${CSS.escape(fallbackKey)}"]`);
-			if (fallback && !fallback.disabled) {
+			if (fallback && !isControlDisabled(fallback)) {
 				el = fallback;
 			} else {
 				const posKey = focusKey.replace(/-(up|down|group)$/, '-pos');
 				el = document.querySelector(`[data-focus-key="${CSS.escape(posKey)}"]`);
 			}
 		}
-		el?.focus?.();
+		if (el instanceof HTMLElement) el.focus();
 	}
 
 	function enterReorderMode() {
@@ -291,16 +325,14 @@
 		if (movedSub) {
 			reorderAnnouncement = `Moved section ${movedSub.name} to position ${movedIndex + 1} of ${nextOrder.length}.`;
 		}
-		const payloadInput = document.getElementById('reorder-subcategories-payload');
-		const formEl = document.getElementById('reorder-subcategories-form');
-		if (payloadInput instanceof HTMLInputElement) {
-			payloadInput.value = JSON.stringify(
+		const subPayloadEl = document.getElementById('reorder-subcategories-payload');
+		if (subPayloadEl instanceof HTMLInputElement) {
+			subPayloadEl.value = JSON.stringify(
 				nextOrder.map((s) => ({ id: s.slug, sort_order: s.sort_order }))
 			);
 		}
-		if (formEl instanceof HTMLFormElement) {
-			formEl.requestSubmit();
-		}
+		const subFormEl = document.getElementById('reorder-subcategories-form');
+		if (subFormEl instanceof HTMLFormElement) subFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 
@@ -314,14 +346,12 @@
 		if (!result.movedArticle) return;
 		articles = [...fallbackArticles, ...result.articles];
 		reorderAnnouncement = `Moved ${result.movedArticle.title} to position ${result.position} of ${result.sectionCount}.`;
-		const payloadInput = document.getElementById('reorder-articles-payload');
-		const formEl = document.getElementById('reorder-articles-form');
-		if (payloadInput instanceof HTMLInputElement) {
-			payloadInput.value = JSON.stringify(result.payload);
+		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
+		if (articlesPayloadEl instanceof HTMLInputElement) {
+			articlesPayloadEl.value = JSON.stringify(result.payload);
 		}
-		if (formEl instanceof HTMLFormElement) {
-			formEl.requestSubmit();
-		}
+		const articlesFormEl = document.getElementById('reorder-articles-form');
+		if (articlesFormEl instanceof HTMLFormElement) articlesFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 
@@ -338,17 +368,16 @@
 			? subcategories.find((sub) => sub.slug === result.sectionSlug)?.name || result.sectionSlug
 			: 'General';
 		reorderAnnouncement = `Moved ${result.movedArticle.title} to ${sectionLabel}, position ${result.position} of ${result.sectionCount}.`;
-		const payloadInput = document.getElementById('reorder-articles-payload');
-		const formEl = document.getElementById('reorder-articles-form');
-		if (payloadInput instanceof HTMLInputElement) {
-			payloadInput.value = JSON.stringify(result.payload);
+		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
+		if (articlesPayloadEl instanceof HTMLInputElement) {
+			articlesPayloadEl.value = JSON.stringify(result.payload);
 		}
-		if (formEl instanceof HTMLFormElement) {
-			formEl.requestSubmit();
-		}
+		const articlesFormEl = document.getElementById('reorder-articles-form');
+		if (articlesFormEl instanceof HTMLFormElement) articlesFormEl.requestSubmit();
 		void restoreControlFocus(focusKey);
 	}
 	const seoTitle = $derived.by(() => cleanSeoText(data.category.name || 'Learn Category'));
+	/** @type {any} */
 	const seoDescription = $derived.by(() =>
 		limitSeoText(
 			data.category.description ||
@@ -356,8 +385,11 @@
 			165
 		)
 	);
+	/** @type {any} */
 	const seoCanonical = $derived(buildCanonicalUrl(page.url));
+	/** @type {any} */
 	const seoStructuredData = $derived.by(() => {
+		/** @type {any} */
 		const breadcrumbs = {
 			'@context': 'https://schema.org',
 			'@type': 'BreadcrumbList',
@@ -376,6 +408,7 @@
 				}
 			]
 		};
+		/** @type {any} */
 		const collection = {
 			'@context': 'https://schema.org',
 			'@type': 'CollectionPage',
@@ -649,7 +682,7 @@
 	═══════════════════════════════════════════════ -->
 	<div class="bg-secondary-500 text-surface-50 px-6 py-8 sm:px-10 lg:px-14 lg:py-10">
 		<div class="flex flex-col gap-6">
-			<LearnNavigator />
+			<LearnNavigator categoryName={data.category.name} />
 
 			{#if data.canEdit}
 				<details class="border-surface-50 bg-surface-950 text-surface-50 border-2">
@@ -830,8 +863,10 @@
 											class="bg-tertiary-500 text-surface-950 hover:bg-primary-500 focus-visible:outline-primary-500 inline-flex h-9 min-h-9 min-w-9 items-center justify-center gap-2 px-4 text-xs font-black tracking-wider uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2"
 											aria-label={`Delete empty subcategory ${sub.name}`}
 											onclick={() => {
-												document.getElementById('delete-subcategory-slug').value = sub.slug;
-												document.getElementById('delete-subcategory-form').requestSubmit();
+												const slugInput = document.getElementById('delete-subcategory-slug');
+												if (slugInput instanceof HTMLInputElement) slugInput.value = sub.slug;
+												const deleteForm = document.getElementById('delete-subcategory-form');
+												if (deleteForm instanceof HTMLFormElement) deleteForm.requestSubmit();
 											}}
 										>
 											<IconTrash2 class="h-4 w-4" aria-hidden="true" />

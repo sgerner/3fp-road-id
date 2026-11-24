@@ -299,6 +299,7 @@ export function inferLearnArticleSearchSignals({
 function splitByHeadings(markdown = '') {
 	const lines = String(markdown || '').split('\n');
 	const sections = [];
+	/** @type {{ heading: string, lines: string[] }} */
 	let current = { heading: 'Overview', lines: [] };
 
 	for (const line of lines) {
@@ -314,6 +315,16 @@ function splitByHeadings(markdown = '') {
 	return sections;
 }
 
+/**
+ * @param {{
+ *   title?: string,
+ *   summary?: string,
+ *   bodyMarkdown?: string,
+ *   categoryName?: string,
+ *   signals?: Record<string, any> | null,
+ *   maxChunkChars?: number
+ * }} [options]
+ */
 export function buildLearnArticleChunks({
 	title = '',
 	summary = '',
@@ -321,7 +332,7 @@ export function buildLearnArticleChunks({
 	categoryName = '',
 	signals = null,
 	maxChunkChars = 900
-}) {
+} = {}) {
 	const resolvedSignals =
 		signals ||
 		inferLearnArticleSearchSignals({
@@ -397,6 +408,10 @@ export function parseLearnEmbedding(raw) {
 	return parseVectorColumn(raw, LEARN_EMBEDDING_DIM);
 }
 
+/**
+ * @param {any} supabase
+ * @param {{ articleId: any, chunks: any[], userId?: string | null }} options
+ */
 export async function syncLearnArticleChunks(supabase, { articleId, chunks, userId = null }) {
 	if (!articleId || !supabase) return;
 	await supabase.from('learn_article_chunks').delete().eq('article_id', articleId);

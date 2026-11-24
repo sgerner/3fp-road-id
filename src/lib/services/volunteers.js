@@ -77,6 +77,27 @@ function isExpiredTokenError(message) {
 	return message.toLowerCase().includes('jwt expired');
 }
 
+/**
+ * @typedef {{
+ *   fetch?: typeof globalThis.fetch,
+ *   query?: Record<string, any>,
+ *   headers?: Record<string, string>,
+ *   [key: string]: any
+ * }} VolunteerApiOptions
+ */
+
+/**
+ * @param {{
+ *   fetch?: typeof globalThis.fetch,
+ *   table: string,
+ *   method?: string,
+ *   id?: any,
+ *   query?: Record<string, any>,
+ *   body?: any,
+ *   headers?: Record<string, string>
+ * }} params
+ * @param {number} [attempt]
+ */
 async function callVolunteerApi(
 	{ fetch: fetchImpl = globalThis.fetch, table, method = 'GET', id, query, body, headers = {} },
 	attempt = 0
@@ -90,6 +111,7 @@ async function callVolunteerApi(
 	const queryString = buildQueryString(query);
 	const url = `/api/v1/${tableSegment}${id ? `/${id}` : ''}${queryString ? `?${queryString}` : ''}`;
 
+	/** @type {RequestInit & { headers: Record<string, string> }} */
 	const requestInit = {
 		method,
 		headers: { ...headers }
@@ -126,6 +148,7 @@ async function callVolunteerApi(
 			}
 		}
 
+		/** @type {Error & { status?: number, payload?: any }} */
 		const error = new Error(
 			isExpiredTokenError(message) ? 'Your session has expired. Please log in again.' : message
 		);
@@ -137,14 +160,24 @@ async function callVolunteerApi(
 	return payload ?? null;
 }
 
+/**
+ * @param {string} table
+ */
 function createTableService(table) {
 	return {
-		list: (options = {}) => callVolunteerApi({ ...options, table }),
-		get: (id, options = {}) => callVolunteerApi({ ...options, table, id }),
-		create: (body, options = {}) => callVolunteerApi({ ...options, table, method: 'POST', body }),
-		update: (id, body, options = {}) =>
-			callVolunteerApi({ ...options, table, method: 'PUT', id, body }),
-		remove: (id, options = {}) => callVolunteerApi({ ...options, table, method: 'DELETE', id })
+		list: (/** @type {VolunteerApiOptions} */ options = {}) =>
+			callVolunteerApi({ ...options, table }),
+		get: (/** @type {any} */ id, /** @type {VolunteerApiOptions} */ options = {}) =>
+			callVolunteerApi({ ...options, table, id }),
+		create: (/** @type {any} */ body, /** @type {VolunteerApiOptions} */ options = {}) =>
+			callVolunteerApi({ ...options, table, method: 'POST', body }),
+		update: (
+			/** @type {any} */ id,
+			/** @type {any} */ body,
+			/** @type {VolunteerApiOptions} */ options = {}
+		) => callVolunteerApi({ ...options, table, method: 'PUT', id, body }),
+		remove: (/** @type {any} */ id, /** @type {VolunteerApiOptions} */ options = {}) =>
+			callVolunteerApi({ ...options, table, method: 'DELETE', id })
 	};
 }
 

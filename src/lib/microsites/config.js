@@ -70,8 +70,11 @@ const DEFAULT_THEME_COLORS = Object.freeze({
 	surface: ''
 });
 
-const DEFAULT_SPONSOR_LINKS = Object.freeze([]);
-const DEFAULT_SPONSOR_ITEMS = Object.freeze([]);
+const DEFAULT_SPONSOR_LINKS = /** @type {readonly string[]} */ (Object.freeze([]));
+const DEFAULT_SPONSOR_ITEMS =
+	/** @type {readonly { name: string, text: string, logo: string, url: string }[]} */ (
+		Object.freeze([])
+	);
 const MAX_SPONSOR_ITEMS = 12;
 
 function cleanText(value) {
@@ -165,6 +168,11 @@ function normalizeSponsorLinks(value) {
 	return cleaned;
 }
 
+/**
+ * @param {any} value
+ * @param {any} [fallbackLinks]
+ * @returns {{ name: string, text: string, logo: string, url: string }[]}
+ */
 function normalizeSponsorItems(value, fallbackLinks = []) {
 	const rawItems = Array.isArray(value) ? value : [];
 	const fromItems = rawItems
@@ -177,7 +185,10 @@ function normalizeSponsorItems(value, fallbackLinks = []) {
 			if (!name && !text && !logo && !url) return null;
 			return { name, text, logo, url };
 		})
-		.filter(Boolean)
+		.filter(
+			/** @returns {item is { name: string, text: string, logo: string, url: string }} */
+			(item) => Boolean(item)
+		)
 		.slice(0, MAX_SPONSOR_ITEMS);
 
 	if (fromItems.length) return fromItems;
@@ -205,14 +216,21 @@ function normalizeIsoDateTime(value) {
 	return date.toISOString();
 }
 
+/**
+ * @param {any} value
+ * @returns {Record<string, boolean>}
+ */
 function normalizeSections(value) {
 	const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 	return GROUP_SITE_SECTION_KEYS.reduce((acc, key) => {
 		acc[key] = normalizeBoolean(source[key], DEFAULT_SITE_SECTIONS[key]);
 		return acc;
-	}, {});
+	}, /** @type {Record<string, boolean>} */ ({}));
 }
 
+/**
+ * @param {Record<string, any>} [group]
+ */
 export function buildDefaultGroupSiteConfig(group = {}) {
 	if (isTempeBicycleActionGroup(group)) {
 		return buildTempeBicycleActionGroupSite(group);
@@ -273,10 +291,10 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 		ride_widget_enabled: false,
 		ride_widget_title: 'Ride calendar',
 		ride_widget_host_scope: 'group_only',
-		ride_widget_group_ids: [],
+		ride_widget_group_ids: /** @type {string[]} */ ([]),
 		ride_widget_config: normalizeRideWidgetConfig({}),
-		announcement_expires_at: null,
-		sections: { ...DEFAULT_SITE_SECTIONS },
+		announcement_expires_at: /** @type {string | null} */ (null),
+		sections: /** @type {Record<string, boolean>} */ ({ ...DEFAULT_SITE_SECTIONS }),
 		page_blocks: pageBlocks,
 		site_pages: normalizeGroupSitePages([], { homeBlocks: pageBlocks }),
 		ai_prompt: '',
@@ -285,6 +303,10 @@ export function buildDefaultGroupSiteConfig(group = {}) {
 	};
 }
 
+/**
+ * @param {any} value
+ * @param {{ group?: Record<string, any> | null }} [options]
+ */
 export function normalizeGroupSiteConfig(value, { group = null } = {}) {
 	const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 	const isTbagGroup =
@@ -465,7 +487,12 @@ export function serializeGroupSiteConfig(config) {
 	};
 }
 
+/**
+ * @param {FormData} formData
+ * @param {{ group?: Record<string, any> | null }} [options]
+ */
 export function parseGroupSiteFormData(formData, { group = null } = {}) {
+	/** @type {Record<string, boolean>} */
 	const sections = {};
 	for (const key of GROUP_SITE_SECTION_KEYS) {
 		sections[key] = formData.get(`section_${key}`) === 'on';
@@ -573,7 +600,11 @@ export function parseGroupSiteFormData(formData, { group = null } = {}) {
 	);
 }
 
+/**
+ * @param {...any} values
+ */
 export function mergeGroupSiteConfig(...values) {
+	/** @type {Record<string, any>} */
 	let merged = {};
 	for (const value of values) {
 		if (!value || typeof value !== 'object' || Array.isArray(value)) continue;

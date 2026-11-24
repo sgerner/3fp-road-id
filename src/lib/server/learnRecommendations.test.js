@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { json } from '@sveltejs/kit';
 import { generateLearnReadingAid } from '#lib/learn/readingAid.js';
+import { dispatchContextualAssistantRequest } from '#lib/server/assistantDispatch.js';
+import { SAFETY_REPORT_FALLBACK_ID } from '#lib/server/learnCatalog.js';
 import {
 	buildLearnNavigationExplanationPrompt,
 	LEARN_AI_SOURCE_LIMIT,
@@ -18,6 +21,10 @@ import {
 	mapIntentToContentTypes
 } from '#lib/server/learnRecommendations.js';
 
+/**
+ * @param {string} relPath
+ * @param {string | null} [overrideContentType]
+ */
 function loadWikiFixture(relPath, overrideContentType = null) {
 	const raw = fs.readFileSync(path.resolve('docs/3ftwiki', relPath), 'utf8');
 	let meta = {};
@@ -134,6 +141,7 @@ test('safety intent allows toolkit and policy guides to compete instead of exclu
 	assert.equal(inferArticleIntent('How can I make my commute safer?'), 'safety');
 
 	const allowed = mapIntentToContentTypes('safety');
+	assert.ok(allowed);
 	assert.equal(allowed.has('safety'), true);
 	assert.equal(allowed.has('toolkit'), true);
 	assert.equal(allowed.has('policy'), true);
@@ -271,4 +279,79 @@ test('buildLearnNavigationExplanationPrompt includes untrusted summaries, takeaw
 		serializedSources.length <= LEARN_AI_SOURCE_LIMIT,
 		`Expected serialized sources <= ${LEARN_AI_SOURCE_LIMIT}, got ${serializedSources.length}`
 	);
+});
+
+test('dispatchContextualAssistantRequest maps learn-library matched headings/snippets and strips synthetic fallback IDs', async () => {
+	const response = await dispatchContextualAssistantRequest({
+		event: {
+			url: new URL('https://3fp.org/api/ai/ride-assist'),
+			request: new Request('https://3fp.org/api/ai/ride-assist', { method: 'POST' }),
+			params: {}
+		},
+		payload: {
+			mode: 'learn-library',
+			pagePath: '/learn',
+			messages: [{ role: 'user', content: 'What should I do after a bike crash?' }]
+		},
+		byteLength: 180,
+		handlers: {
+			learnAi: async (subEvent) => {
+				const body = await subEvent.request.json();
+				assert.equal(body.action, 'navigate');
+				assert.equal(body.question, 'What should I do after a bike crash?');
+				return json({
+					answer: 'Start with Crash Response for immediate steps, then review Safer Cycling.',
+					articles: [
+						{
+							id: '11111111-1111-4111-8111-111111111111',
+							slug: 'crash-response',
+							title: 'Crash Response',
+							category_name: 'Education',
+							summary: 'Immediate steps after a bike crash.',
+							matched_heading: '1. Stay Safe Assess Injury',
+							matched_snippet:
+								'Move out of traffic if possible. Check yourself and others for injuries.'
+						},
+						{
+							id: SAFETY_REPORT_FALLBACK_ID,
+							slug: 'safer-cycling-better-messages',
+							title: 'Safer Cycling, Better Messages',
+							category_name: 'Advocacy & Policy',
+							summary: 'Evidence-based cyclist safety and passing-distance report.',
+							matched_heading: 'Overview',
+							matched_snippet: ''
+						}
+					]
+				});
+			}
+		}
+	});
+
+	assert.ok(response);
+	assert.equal(response.status, 200);
+	const data = await response.json();
+	assert.equal(data.mode, 'learn-library');
+	assert.equal(data.recommendations.length, 2);
+
+	assert.deepEqual(data.recommendations[0], {
+		id: '11111111-1111-4111-8111-111111111111',
+		articleId: '11111111-1111-4111-8111-111111111111',
+		type: 'article',
+		title: 'Crash Response',
+		subtitle: 'Education · 1. Stay Safe Assess Injury',
+		summary: 'Immediate steps after a bike crash.',
+		reason: 'Move out of traffic if possible. Check yourself and others for injuries.',
+		url: '/learn/crash-response'
+	});
+
+	assert.deepEqual(data.recommendations[1], {
+		id: 'safer-cycling-better-messages',
+		articleId: null,
+		type: 'article',
+		title: 'Safer Cycling, Better Messages',
+		subtitle: 'Advocacy & Policy',
+		summary: 'Evidence-based cyclist safety and passing-distance report.',
+		reason: 'Evidence-based cyclist safety and passing-distance report.',
+		url: '/learn/safer-cycling-better-messages'
+	});
 });

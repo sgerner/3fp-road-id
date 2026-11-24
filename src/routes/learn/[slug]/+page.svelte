@@ -56,7 +56,7 @@
 		if (!headingEls.length) return;
 
 		const visible = new Set();
-		observer = new IntersectionObserver(
+		const nextObserver = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
 					if (entry.isIntersecting) visible.add(entry.target.id);
@@ -67,7 +67,8 @@
 			},
 			{ rootMargin: '-10% 0px -75% 0px', threshold: 0 }
 		);
-		headingEls.forEach((el) => observer.observe(el));
+		observer = nextObserver;
+		headingEls.forEach((el) => nextObserver.observe(el));
 	}
 
 	$effect(() => {
@@ -608,7 +609,7 @@
 		<div class="article-page-root">
 			<div class="article-main">
 				{#if !data.viewingRevision}
-					<ArticleAssistant articleSlug={data.article.slug} />
+					<ArticleAssistant articleSlug={data.article.slug} articleTitle={data.article.title} />
 				{/if}
 
 				<!-- ── MOBILE-ONLY TOC ACCORDION ──────────────────────────────── -->

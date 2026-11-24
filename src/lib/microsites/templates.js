@@ -5,12 +5,20 @@ function clean(value) {
 	return String(value ?? '').trim();
 }
 
+/**
+ * @param {Record<string, any>} [group]
+ */
 function groupContext(group = {}) {
 	const name = clean(group.name) || 'Your cycling group';
 	const location = [clean(group.city), clean(group.state_region)].filter(Boolean).join(', ');
 	return { name, location, locationPhrase: location ? ` in ${location}` : '' };
 }
 
+/**
+ * @param {string} type
+ * @param {Record<string, any>} [overrides]
+ * @param {string} [id]
+ */
 function block(type, overrides = {}, id = '') {
 	return createGroupSiteBlock(type, { id, overrides });
 }
@@ -441,11 +449,18 @@ export function getGroupSiteTemplate(templateId) {
 	return GROUP_SITE_TEMPLATES.find((template) => template.id === templateId) || null;
 }
 
+/**
+ * @param {string} templateId
+ * @param {{ group?: Record<string, any> }} [options]
+ */
 export function buildGroupSiteTemplate(templateId, { group = {} } = {}) {
 	const template = getGroupSiteTemplate(templateId) || GROUP_SITE_TEMPLATES[0];
 	return templateConfig(template, group);
 }
 
+/**
+ * @param {{ group?: Record<string, any>, groupTypeNames?: string[] }} [options]
+ */
 export function recommendGroupSiteTemplate({ group = {}, groupTypeNames = [] } = {}) {
 	const haystack = [
 		...groupTypeNames,

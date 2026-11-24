@@ -5,6 +5,20 @@ import { DEFAULT_CREATED_BY_USER_ID } from '../src/lib/server/ride-imports.js';
 import { importMeetupRoadCyclingTopic } from '../src/lib/server/meetup-topic-imports.js';
 
 function parseArgs(argv) {
+	/**
+	 * @type {{
+	 *   createdByUserId: string,
+	 *   publish: boolean,
+	 *   dryRun: boolean,
+	 *   onlyNew: boolean,
+	 *   requireGeocoding: boolean,
+	 *   groupLimit: number | null,
+	 *   groupFetchConcurrency: number,
+	 *   eventsPerGroup: number,
+	 *   maxEventPagesPerGroup: number,
+	 *   horizonDays: number
+	 * }}
+	 */
 	const options = {
 		createdByUserId: DEFAULT_CREATED_BY_USER_ID,
 		publish: true,

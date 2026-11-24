@@ -159,6 +159,7 @@ export async function withProviderSync(auth, provider, options, sync) {
 		} catch {
 			// Preserve the provider failure; monitoring failures never expose provider details.
 		}
+		/** @type {Error & { code?: string }} */
 		const safeError = new Error(safeFailure.message);
 		safeError.code = safeFailure.code;
 		throw safeError;

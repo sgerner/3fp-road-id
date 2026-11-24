@@ -9,10 +9,13 @@ import {
 	listPublicGroupNewsPosts
 } from './groupNewsPublic.js';
 
+/** @param {Record<string, any>} [handlers] */
 function createSupabaseStub(handlers = {}) {
+	/** @type {{ table: string, operations: Record<string, any>[] }[]} */
 	const queries = [];
 
 	function createBuilder(table) {
+		/** @type {{ table: string, operations: Record<string, any>[] }} */
 		const record = { table, operations: [] };
 		queries.push(record);
 		const handler = handlers[table] ?? (() => ({ data: null, error: null }));
@@ -91,6 +94,7 @@ test('getPublicGroupBySlug enforces published predicate and public group column 
 		{ method: 'maybeSingle' }
 	]);
 	assert.equal(PUBLIC_GROUP_NEWS_GROUP_COLUMNS.includes('*'), false);
+	assert.ok(group);
 	assert.equal('internal_notes' in group, false);
 	assert.equal(group.slug, 'tempe-bicycle-action-group');
 });

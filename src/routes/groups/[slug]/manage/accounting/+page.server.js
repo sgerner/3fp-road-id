@@ -43,16 +43,24 @@ import {
 
 const MAX_ACCOUNTING_FORM_BYTES = 12 * 1024 * 1024;
 
+/**
+ * @param {any} request
+ */
 async function readAccountingFormData(request) {
 	const result = await readFormData(request, { maxBytes: MAX_ACCOUNTING_FORM_BYTES });
 	if (!result.ok) {
 		const error = new Error(result.error);
-		error.status = result.status;
+		/** @type {any} */ (error).status = result.status;
 		throw error;
 	}
 	return result.value;
 }
 
+/**
+ * @param {any} cookies
+ * @param {any} params
+ * @param {any} handler
+ */
 async function withAccountingAuth(cookies, params, handler) {
 	const auth = await requireGroupAccountingManager(cookies, params.slug);
 	if (!auth.ok) return fail(auth.status, { accounting_error: auth.error });

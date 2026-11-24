@@ -272,7 +272,7 @@ test('Safer Cycling, Better Messages synchronizes cleanly and is protected from 
 	reservedForm.set('bodyMarkdown', 'Attempted overwrite body');
 	assert.throws(
 		() => normalizeLearnPayload(reservedForm),
-		(err) => err?.status === 403
+		/** @param {any} err */ (err) => err?.status === 403
 	);
 
 	// Auto-slugging a new article with the same title avoids colliding with the protected slug
@@ -304,13 +304,13 @@ test('Safer Cycling, Better Messages synchronizes cleanly and is protected from 
 				import_source_path: SAFETY_REPORT_SOURCE_PATH
 			}
 		}),
-		(err) => err?.status === 403
+		/** @param {any} err */ (err) => err?.status === 403
 	);
 
 	// /learn/safer-cycling-better-messages/edit redirects to dedicated report route
 	assert.throws(
 		() => redirectIfProtectedLearnSlug(SAFETY_REPORT_SLUG),
-		(redirectErr) =>
+		/** @param {any} redirectErr */ (redirectErr) =>
 			redirectErr?.status === 303 && redirectErr?.location === `/learn/${SAFETY_REPORT_SLUG}`
 	);
 });
@@ -324,6 +324,7 @@ test('category updateOrder rejects reorder requests while a search filter is act
 		JSON.stringify([{ id: '11111111-1111-4111-8111-111111111111', sort_order: 0 }])
 	);
 
+	/** @type {any} */
 	const blockedBySearch = await applyCategoryOrderUpdate({
 		supabase: {},
 		categorySlug: 'education',
@@ -354,6 +355,7 @@ test('category updateOrder rejects reorder requests while a search filter is act
 			};
 		}
 	};
+	/** @type {any} */
 	const blockedPartial = await applyCategoryOrderUpdate({
 		supabase: mockSupabase,
 		categorySlug: 'education',
