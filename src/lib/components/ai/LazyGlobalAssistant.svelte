@@ -43,7 +43,7 @@
 		<button
 			bind:this={triggerBtnEl}
 			type="button"
-			class="group border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase shadow-none transition-colors disabled:opacity-60"
+			class="group border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase shadow-none transition-colors disabled:opacity-60 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 			onclick={handleTriggerClick}
 			disabled={loading}
 			aria-label={`Open 3FP assistant (${assistantContext.activeModeMeta?.tabLabel || 'AI'})`}

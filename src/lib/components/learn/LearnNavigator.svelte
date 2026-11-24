@@ -66,7 +66,7 @@
 		{#each modeDefaults.starterPrompts as example}
 			<button
 				type="button"
-				class="border-surface-500 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition"
+				class="border-surface-500 text-surface-300 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 border-2 px-3 py-1.5 text-xs font-bold tracking-wide uppercase transition pointer-coarse:min-h-11"
 				onclick={(event) => openGuide(example, event.currentTarget)}
 			>
 				{example}

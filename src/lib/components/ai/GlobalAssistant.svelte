@@ -480,7 +480,9 @@
 	function resizeInputTextarea() {
 		if (!inputTextareaEl) return;
 		inputTextareaEl.style.height = 'auto';
-		const nextHeight = Math.max(40, Math.min(inputTextareaEl.scrollHeight, 180));
+		const minHeight =
+			typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 44 : 40;
+		const nextHeight = Math.max(minHeight, Math.min(inputTextareaEl.scrollHeight, 180));
 		inputTextareaEl.style.height = `${nextHeight}px`;
 	}
 
@@ -1037,17 +1039,17 @@
 							</p>
 						</div>
 					</div>
-					<div class="flex shrink-0 items-center gap-1.5">
+					<div class="flex shrink-0 items-center gap-2">
 						<button
 							type="button"
-							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 rounded-none border-2 px-2.5 py-1.5 text-[11px] font-black tracking-wider uppercase transition-colors"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-primary-500 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-9 items-center justify-center rounded-none border-2 px-2.5 py-1.5 text-[11px] font-black tracking-wider uppercase transition-colors pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 							onclick={clearChat}
 						>
 							Clear
 						</button>
 						<button
 							type="button"
-							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-error-500 hover:bg-error-500 hover:text-surface-950 inline-flex h-8 w-8 items-center justify-center rounded-none border-2 transition-colors"
+							class="border-surface-500 bg-surface-950 text-surface-50 hover:border-error-500 hover:bg-error-500 hover:text-surface-950 inline-flex h-9 w-9 items-center justify-center rounded-none border-2 transition-colors pointer-coarse:size-11"
 							onclick={() => closeAssistant()}
 							aria-label="Close assistant"
 						>
@@ -1173,7 +1175,7 @@
 							{#if entry.navigationTarget}
 								<a
 									href={entry.navigationTarget.url}
-									class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 mt-3 inline-flex items-center gap-1.5 rounded-none px-3 py-2 text-xs font-black tracking-wider uppercase transition"
+									class="group bg-primary-500 text-surface-950 hover:bg-tertiary-500 mt-3 inline-flex items-center gap-1.5 rounded-none px-3 py-2 text-xs font-black tracking-wider uppercase transition pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 									data-testid="assistant-action-button"
 									onclick={() => closeAssistant()}
 								>
@@ -1678,13 +1680,13 @@
 						placeholder={activeModeMeta?.placeholder ||
 							'Ask for rides, groups, volunteer events, articles, or posting help'}
 						maxlength={maxInputLength}
-						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full resize-none rounded-none border-2 p-2.5 text-sm focus:ring-0 focus:outline-none"
+						class="border-surface-500 bg-surface-950 text-surface-50 placeholder:text-surface-400 focus:border-primary-500 w-full resize-none rounded-none border-2 p-2.5 text-sm focus:ring-0 focus:outline-none pointer-coarse:min-h-11"
 						disabled={sending}
 						aria-label={`Message to 3FP Assistant (${activeModeMeta?.tabLabel || 'AI'})`}
 						onkeydown={handleInputKeydown}></textarea>
 					<button
 						type="submit"
-						class="bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:bg-surface-800 disabled:text-surface-400 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none font-black transition-colors"
+						class="bg-primary-500 text-surface-950 hover:bg-primary-400 disabled:bg-surface-800 disabled:text-surface-400 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-none font-black transition-colors pointer-coarse:size-11"
 						disabled={!canSend}
 						aria-label="Send message"
 					>
@@ -1698,7 +1700,7 @@
 	<button
 		bind:this={toggleButtonEl}
 		type="button"
-		class="group border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase transition-colors"
+		class="group border-primary-500 bg-secondary-500 text-surface-50 hover:bg-primary-500 hover:text-surface-950 inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-none border-2 px-3 py-2 font-black tracking-[0.16em] uppercase transition-colors pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 		onclick={toggleAssistant}
 		aria-label={isOpen
 			? 'Close 3FP assistant'
