@@ -4,6 +4,7 @@ import {
 	normalizeHostname
 } from '#lib/microsites/host';
 import { lookupCustomDomainMicrositeSlug } from '#lib/server/micrositeRouting';
+import { resolveVisitorLocation, shouldSkipVisitorLocation } from '#lib/server/visitorLocation';
 
 const redirectCodes = new Set([
 	'1NOS2hP3',
@@ -79,6 +80,11 @@ export const handle = async ({ event, resolve }) => {
 	if (micrositeSlug) {
 		event.locals.micrositeSlug = micrositeSlug;
 		event.locals.micrositePublicPathname = pathname;
+		event.locals.visitorLocation = null;
+	} else if (!shouldSkipVisitorLocation(event, { micrositeSlug })) {
+		event.locals.visitorLocation = await resolveVisitorLocation(event);
+	} else {
+		event.locals.visitorLocation = null;
 	}
 
 	const response = await resolve(event);
