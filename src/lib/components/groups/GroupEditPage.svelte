@@ -43,6 +43,11 @@
 	let submitError = $state('');
 	let logoPreview = $state('');
 	let coverPreview = $state('');
+	let coverAlt = $state('');
+	let effectiveCoverAlt = $derived(
+		coverAlt.trim() ||
+			(data.group?.name ? `Cover banner for ${data.group.name}` : 'Group cover banner')
+	);
 	let logoFiles = $state([]);
 	let coverFiles = $state([]);
 	let logoUploadKey = $state(0);
@@ -865,6 +870,9 @@
 		if (!url) return;
 		if (coverPreview?.startsWith('blob:')) URL.revokeObjectURL(coverPreview);
 		coverPreview = url;
+		if (result?.alt_text || result?.altText) {
+			coverAlt = result.alt_text || result.altText;
+		}
 		coverTooLarge = false;
 		const croppedInput = document.getElementById('cover_file_cropped');
 		if (croppedInput) croppedInput.value = '';
@@ -1858,11 +1866,15 @@
 					{#if logoTooLarge}<p class="text-error-600-400 text-xs">File exceeds 10MB limit.</p>{/if}
 					{#if logoPreview}
 						<div class="relative mt-1 aspect-square w-24 overflow-hidden border border-white/10">
-							<img src={logoPreview} alt="Logo preview" class="h-full w-full object-cover" />
+							<img
+								src={logoPreview}
+								alt={data.group?.name ? `${data.group.name} logo` : 'Group logo'}
+								class="h-full w-full object-cover"
+							/>
 							<button
 								type="button"
-								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								aria-label="Remove logo"
+								class="absolute top-1 right-1 bg-black/60 p-0.5"
 								onclick={() => removeImage('logo')}
 							>
 								<IconRemove class="h-4 w-4 text-white" />
@@ -1879,6 +1891,8 @@
 						helperNote="PNG, JPG, WebP, GIF, or AVIF · Max 10 MB · 16:9"
 						accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
 						imageUrl={coverPreview}
+						bind:imageAlt={coverAlt}
+						showAltField={true}
 						uploading={saving}
 						error={coverTooLarge ? 'File exceeds 10MB limit.' : ''}
 						target="group"
