@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { resolveVerifiedSession } from '#lib/server/session';
 import { createRequestSupabaseClient } from '#lib/server/supabaseClient';
+import { isTurnstileEnabled } from '#lib/server/turnstile';
 
 async function safeJson(fetchPromise, fallback = null) {
 	try {
@@ -61,10 +62,18 @@ export const load = async ({ params, fetch, cookies }) => {
 
 		myApplications = appsRes.data || [];
 		myMemberships = membershipsRes.data || [];
-		currentUserProfile = profileRes.data || {
-			full_name: null,
-			email: user.email || null,
-			phone: null
+		const latestScoped =
+			myMemberships.find(
+				(row) => row?.contact_full_name || row?.contact_email || row?.contact_phone
+			) ||
+			myApplications.find(
+				(row) => row?.contact_full_name || row?.contact_email || row?.contact_phone
+			) ||
+			null;
+		currentUserProfile = {
+			full_name: latestScoped?.contact_full_name || profileRes.data?.full_name || null,
+			email: latestScoped?.contact_email || profileRes.data?.email || user.email || null,
+			phone: latestScoped?.contact_phone || profileRes.data?.phone || null
 		};
 
 		const membershipIds = myMemberships.map((row) => row?.id).filter(Boolean);
@@ -87,6 +96,7 @@ export const load = async ({ params, fetch, cookies }) => {
 		my_memberships: myMemberships,
 		my_tier_change_requests: myTierChangeRequests,
 		current_user_profile: currentUserProfile,
-		current_user_id: user?.id || null
+		current_user_id: user?.id || null,
+		turnstile_enabled: isTurnstileEnabled()
 	};
 };
