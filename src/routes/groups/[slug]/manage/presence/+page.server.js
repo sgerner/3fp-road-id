@@ -13,6 +13,7 @@ import {
 	upsertGroupSiteConfig
 } from '#lib/server/groupSites';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
+import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection.js';
 import {
 	managedSponsorLogoObjectPaths,
 	publishGroupPresence,
@@ -130,6 +131,7 @@ export const load = async ({ parent, url, cookies }) => {
 		selectedDisciplinesResponse,
 		selectedSkillsResponse,
 		donationResponse,
+		membershipBillingGuard,
 		storedSiteConfig,
 		groupsResponse
 	] = await Promise.all([
@@ -157,6 +159,7 @@ export const load = async ({ parent, url, cookies }) => {
 				.eq('group_id', group.id)
 				.maybeSingle()
 		).catch(() => ({ data: null })),
+		getGroupStripeBillingGuard(privateSupabase, group.id, group.slug).catch(() => null),
 		getGroupSiteConfig(group.id, { group, supabaseClient: supabase }),
 		supabase
 			.from('groups')
@@ -220,6 +223,7 @@ export const load = async ({ parent, url, cookies }) => {
 			email: ownerEmails.find((entry) => entry.user_id === row.user_id)?.email || ''
 		})),
 		donation_account: donationResponse?.data ?? null,
+		membership_billing_guard: membershipBillingGuard,
 		stripe_status: url.searchParams.get('stripe') || '',
 		stripe_reason: url.searchParams.get('reason') || '',
 		current_user_id: user?.id || parentData.session_user_id || '',

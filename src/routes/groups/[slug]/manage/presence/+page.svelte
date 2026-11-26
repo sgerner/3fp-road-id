@@ -45,6 +45,7 @@
 	import GroupSiteDomainManager from '#lib/components/groups/GroupSiteDomainManager.svelte';
 	import GroupSitePartnerEditor from '#lib/components/groups/GroupSitePartnerEditor.svelte';
 	import GroupSitePreview from '#lib/components/groups/GroupSitePreview.svelte';
+	import GroupStripePaymentCard from '#lib/components/groups/GroupStripePaymentCard.svelte';
 	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
 	import CoordinatePinPicker from '#lib/components/map/CoordinatePinPicker.svelte';
 	import {
@@ -360,21 +361,15 @@
 	let deepEnrichError = $state('');
 	let deepEnrichSuccess = $state('');
 
-	// Stripe Connect
+	// Stripe Connect & Membership Tiers Shortcut
 	let stripeAccount = $state(untrack(() => data.donation_account || null));
-	let stripeBusy = $state(false);
-	let stripeError = $state('');
-	let stripeMessage = $state(
-		untrack(() =>
-			data.stripe_status === 'connected'
-				? 'Stripe account connected.'
-				: data.stripe_status === 'error'
-					? `Stripe connection failed${data.stripe_reason ? `: ${data.stripe_reason}` : ''}`
-					: ''
-		)
+	const membershipInfoValue = $derived((profileDraft.membership_info || '').trim());
+	const activeMembershipTierCount = $derived(
+		Number(data.membership_billing_guard?.active_tier_count || 0)
 	);
-	const stripeConnected = $derived(Boolean(stripeAccount?.stripe_account_id));
-	const stripeReady = $derived(Boolean(stripeAccount?.charges_enabled));
+	const showProgramAndTiersShortcut = $derived(
+		Boolean(membershipInfoValue) && activeMembershipTierCount === 0
+	);
 
 	// Co-owners
 	let owners = $state(untrack(() => (data.owners || []).slice()));
@@ -1283,44 +1278,7 @@
 		}
 	}
 
-	// Stripe & Co-owner handlers
-	function connectStripeForGroup() {
-		const slug = data.group?.slug || '';
-		if (!slug) return;
-		window.location.href = `/api/donations/connect/start?recipient=group&group=${encodeURIComponent(slug)}`;
-	}
-
-	async function disconnectStripeForGroup() {
-		if (!window.confirm('Disconnect this group Stripe account?')) return;
-		stripeError = '';
-		stripeMessage = '';
-		stripeBusy = true;
-		try {
-			const response = await fetch('/api/donations/connect/disconnect', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ recipient: 'group', group: data.group?.slug || '' })
-			});
-			const payload = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(payload?.error || 'Failed to disconnect Stripe account.');
-			}
-			stripeAccount = {
-				...(stripeAccount || {}),
-				stripe_account_id: null,
-				stripe_account_email: null,
-				charges_enabled: false,
-				payouts_enabled: false,
-				connected_at: null
-			};
-			stripeMessage = 'Stripe account disconnected.';
-		} catch (error) {
-			stripeError = error?.message || 'Failed to disconnect Stripe account.';
-		} finally {
-			stripeBusy = false;
-		}
-	}
-
+	// Co-owner handlers
 	async function inviteOwner(event) {
 		event?.preventDefault?.();
 		if (ownerLoading || !ownerTurnstile) return;
@@ -2835,6 +2793,26 @@
 								class="textarea border-surface-700 bg-surface-950 border"
 								rows="3"
 								bind:value={profileDraft.membership_info}></textarea>
+							{#if showProgramAndTiersShortcut && data.group?.slug}
+								<div
+									class="border-primary-500/35 bg-primary-500/10 mt-2 flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
+									data-testid="membership-info-program-shortcut"
+								>
+									<div class="space-y-0.5">
+										<div class="font-semibold">Turn membership notes into structured tiers</div>
+										<p class="text-surface-300 text-xs">
+											This group has membership notes saved here, but no active membership tiers
+											yet. Set up online join options, policies, and pricing in Program and Tiers.
+										</p>
+									</div>
+									<a
+										class="btn btn-sm preset-filled-primary-500 text-surface-950 font-bold"
+										href={`/groups/${data.group.slug}/manage/membership?view=program`}
+									>
+										Set up Program and Tiers
+									</a>
+								</div>
+							{/if}
 						</div>
 					</div>
 
@@ -2922,62 +2900,29 @@
 					<section
 						class="border-surface-700 bg-surface-900 border-t-tertiary-500 grid content-start gap-4 border border-t-4 p-5"
 					>
-						<div>
-							<p class="text-tertiary-400 text-xs font-bold tracking-[0.14em] uppercase">
-								Donations
-							</p>
-							<h3 class="text-surface-50 mt-1 text-lg font-bold">Fundraising & Stripe</h3>
-							<p class="text-surface-300 text-sm">
-								Connect Stripe once to accept donations on both your directory page and custom
-								website.
-							</p>
-						</div>
-
-						<div class="border-surface-700 bg-surface-950 border p-4">
-							<div class="flex flex-wrap items-start justify-between gap-3">
-								<div class="text-sm">
-									<p class="text-surface-50 font-semibold">
-										{stripeConnected ? 'Stripe account connected' : 'Stripe not connected'}
-									</p>
-									{#if stripeConnected}
-										<p class="text-surface-300 mt-0.5 text-xs">
-											{stripeAccount?.stripe_account_email || stripeAccount?.stripe_account_id}
-										</p>
-										<p class="text-surface-400 mt-0.5 text-xs">
-											{stripeReady
-												? 'Ready to accept donations.'
-												: 'Connected, pending charge verification.'}
-										</p>
-									{/if}
-								</div>
-								<div class="flex flex-wrap gap-2">
-									<button
-										type="button"
-										class="btn btn-sm preset-filled-primary-500 text-surface-950 font-bold"
-										disabled={stripeBusy}
-										onclick={connectStripeForGroup}
-									>
-										{stripeConnected ? 'Reconnect Stripe' : 'Connect Stripe'}
-									</button>
-									{#if stripeConnected}
-										<button
-											type="button"
-											class="btn btn-sm preset-outlined-error-500"
-											disabled={stripeBusy}
-											onclick={disconnectStripeForGroup}
-										>
-											{stripeBusy ? 'Disconnecting…' : 'Disconnect'}
-										</button>
-									{/if}
-								</div>
-							</div>
-							{#if stripeError}
-								<p class="text-error-400 mt-3 text-xs">{stripeError}</p>
-							{/if}
-							{#if stripeMessage}
-								<p class="text-success-400 mt-3 text-xs">{stripeMessage}</p>
-							{/if}
-						</div>
+						<p class="text-tertiary-400 text-xs font-bold tracking-[0.14em] uppercase">
+							Donations & Membership
+						</p>
+						<GroupStripePaymentCard
+							slug={data.group?.slug || ''}
+							stripeConnection={stripeAccount}
+							billingGuard={data.membership_billing_guard || null}
+							title="Fundraising, Membership & Stripe"
+							description="Connect Stripe once to accept donations and paid membership tiers on both your directory page and custom website."
+							returnTo={data.group?.slug ? `/groups/${data.group.slug}/manage/presence` : ''}
+							stripeStatus={data.stripe_status || ''}
+							stripeReason={data.stripe_reason || ''}
+							onDisconnected={() => {
+								stripeAccount = {
+									...(stripeAccount || {}),
+									stripe_account_id: null,
+									stripe_account_email: null,
+									charges_enabled: false,
+									payouts_enabled: false,
+									connected_at: null
+								};
+							}}
+						/>
 					</section>
 
 					<section

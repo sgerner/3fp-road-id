@@ -188,7 +188,15 @@ async function loadPublicProgramBundle(serviceSupabase, programId) {
  *         stripe_connection: {
  *           connected: boolean,
  *           charges_enabled: boolean,
- *           stripe_account_id: string | null
+ *           stripe_account_id: string | null,
+ *           stripe_account_email?: string | null,
+ *           active_tier_count?: number,
+ *           active_paid_tier_count?: number,
+ *           active_subscription_count?: number,
+ *           past_due_count?: number,
+ *           can_disconnect?: boolean,
+ *           disconnect_blocked_reason?: string | null,
+ *           manage_url?: string
  *         },
  *         can_manage: boolean
  *       }
@@ -254,6 +262,7 @@ export async function getPublicMembershipProgram(serviceSupabase, groupSlug) {
  *   loadGroupBySlugFn?: any,
  *   isGroupManagerFn?: any,
  *   loadDonationAccountFn?: any,
+ *   buildStripeConnectionFn?: any,
  *   ensureProgramFn?: any,
  *   loadProgramFn?: any,
  *   ensureDefaultApplicationFieldsFn?: any,
@@ -269,6 +278,7 @@ export async function resolveMembershipProgramForViewer({
 	loadGroupBySlugFn,
 	isGroupManagerFn,
 	loadDonationAccountFn,
+	buildStripeConnectionFn,
 	ensureProgramFn,
 	loadProgramFn,
 	ensureDefaultApplicationFieldsFn,
@@ -288,8 +298,11 @@ export async function resolveMembershipProgramForViewer({
 	);
 	const effectiveIncludeInactive = resolveViewerIncludeInactive(includeInactive, { canManage });
 	const sourceSupabase = canManage ? serviceSupabase : viewer.requestSupabase;
-	const donationAccount = await loadDonationAccountFn(serviceSupabase, group.id);
-	const stripeConnection = buildViewerStripeConnection(donationAccount, { canManage });
+	const stripeConnection = buildStripeConnectionFn
+		? await buildStripeConnectionFn(serviceSupabase, group, { canManage })
+		: buildViewerStripeConnection(await loadDonationAccountFn(serviceSupabase, group.id), {
+				canManage
+			});
 
 	let program = null;
 	if (canManage) {

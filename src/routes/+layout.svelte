@@ -9,7 +9,10 @@
 	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
 	import { loadThemeStyles } from '#lib/themeLoader';
 	import { syncServerSession } from '#lib/security/session';
-	import { isSafeInternalPath } from '#lib/security/navigation.js';
+	import {
+		isSafeInternalPath,
+		resolveRegisteredLoginReturnPath
+	} from '#lib/security/navigation.js';
 	import { setAssistantContext } from '#lib/ai/assistantContext.svelte.js';
 	import { resolveRootLayoutWrapperMode } from '#lib/microsites/host';
 	import LazyGlobalAssistant from '#lib/components/ai/LazyGlobalAssistant.svelte';
@@ -604,12 +607,13 @@
 					let rt = '/';
 					if (typeof window !== 'undefined') {
 						const currentUrl = new URL(window.location.href);
+						const customReturnTo = resolveRegisteredLoginReturnPath(currentUrl.pathname);
 						const requestedReturnTo = currentUrl.searchParams.get('returnTo') || '';
 						rt =
 							currentUrl.searchParams.get('auth') === 'required' &&
 							isSafeInternalPath(requestedReturnTo)
 								? requestedReturnTo
-								: currentUrl.pathname + currentUrl.search + currentUrl.hash;
+								: customReturnTo || currentUrl.pathname + currentUrl.search + currentUrl.hash;
 					}
 					const res = await fetch('/api/v1/auth/login', {
 						method: 'POST',
