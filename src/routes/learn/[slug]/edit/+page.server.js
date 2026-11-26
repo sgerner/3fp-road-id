@@ -6,12 +6,20 @@ import {
 	requireLearnUser,
 	learnFormDataValues,
 	syncLearnCoverAsset
-} from '#lib/server/learn';
-import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor';
-import { syncLearnArticleChunks } from '#lib/server/learnDiscovery';
-import { sanitizeAltText } from '#lib/learn/altText';
+} from '#lib/server/learn.js';
+import { sanitizeAltText } from '#lib/learn/altText.js';
+import {
+	isProtectedLearnCatalogArticle,
+	isProtectedLearnCatalogSlug,
+	redirectIfProtectedLearnSlug,
+	SAFETY_REPORT_SLUG
+} from '#lib/server/learnCatalog.js';
+import { loadLearnEditorOptions, prepareLearnArticleSave } from '#lib/server/learnEditor.js';
+import { syncLearnArticleChunks } from '#lib/server/learnDiscovery.js';
 
 export const load = async ({ params, url, cookies }) => {
+	redirectIfProtectedLearnSlug(params.slug);
+
 	const { user, supabase } = await getLearnClient(cookies);
 	if (!user) {
 		throw redirect(
@@ -23,6 +31,9 @@ export const load = async ({ params, url, cookies }) => {
 	const article = await getLearnArticleBySlug(supabase, params.slug);
 	if (!article) {
 		throw redirect(303, '/learn');
+	}
+	if (isProtectedLearnCatalogArticle(article)) {
+		throw redirect(303, `/learn/${SAFETY_REPORT_SLUG}`);
 	}
 
 	const fromRevisionId = url.searchParams.get('fromRevision');
@@ -85,10 +96,23 @@ export const actions = {
 		const { request, cookies, params } = event;
 		let values = null;
 		try {
+			if (isProtectedLearnCatalogSlug(params.slug)) {
+				return fail(403, {
+					error:
+						'Safer Cycling, Better Messages is managed from its authoritative report source and cannot be overwritten in the wiki editor.'
+				});
+			}
+
 			const { user, supabase } = await requireLearnUser(cookies);
 			const article = await getLearnArticleBySlug(supabase, params.slug);
 			if (!article) {
 				throw redirect(303, '/learn');
+			}
+			if (isProtectedLearnCatalogArticle(article)) {
+				return fail(403, {
+					error:
+						'Safer Cycling, Better Messages is managed from its authoritative report source and cannot be overwritten in the wiki editor.'
+				});
 			}
 
 			const formData = await request.formData();
@@ -97,7 +121,8 @@ export const actions = {
 				supabase,
 				user,
 				formData,
-				articleId: article.id
+				articleId: article.id,
+				existingArticle: article
 			});
 
 			const { data, error: updateError } = await supabase

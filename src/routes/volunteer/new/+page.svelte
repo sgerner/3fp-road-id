@@ -42,6 +42,7 @@
 		fieldTypeOptions
 	} from '#lib/components/volunteer/form-options';
 	import VolunteerEventForm from '#lib/components/volunteer/VolunteerEventForm.svelte';
+	import { HOST_GROUP_STATUS, getHostGroupStatus } from '#lib/groups/hostGroupDirectory';
 
 	const { data } = $props();
 
@@ -121,8 +122,8 @@
 		return data ?? {};
 	}
 	const pageData = getPageData();
-	const hostGroups = pageData.hostGroups ?? [];
-	const ownerGroupIds = pageData.ownerGroupIds ?? [];
+	let hostGroups = $state(pageData.hostGroups ?? []);
+	let ownerGroupIds = $state(pageData.ownerGroupIds ?? []);
 	const eventTypes = pageData.eventTypes ?? [];
 
 	const eventTypeOptions = eventTypes.map((item) => ({
@@ -130,10 +131,6 @@
 		label: item.event_type,
 		description: item.description
 	}));
-
-	const hostGroupOptions = hostGroups
-		.map((group) => ({ label: group.name, value: group.id }))
-		.sort((a, b) => a.label.localeCompare(b.label));
 
 	const initialTimezone = FALLBACK_TIMEZONES[0];
 	const currentUser = $derived(data?.currentUser ?? null);
@@ -201,8 +198,8 @@
 		locationAddress: ''
 	});
 
-	let hostGroupSelection = $state([]);
-	let filteredHostGroupOptions = $state(hostGroupOptions);
+	let sponsorshipGroupId = $state('');
+	let sponsorshipMessage = $state('');
 	let slugUpdateToken = 0;
 	let slugDebounce;
 	let slugCheckInFlight = $state(false);
@@ -271,23 +268,30 @@
 		mergeEventDetails(patch, options);
 	}
 
-	function handleHostGroupValueChange(value) {
-		hostGroupSelection = value;
-		const newId = value?.[0] ?? '';
-		filteredHostGroupOptions = hostGroupOptions;
-		if (String(newId) === String(eventDetails.hostGroupId ?? '')) return;
-		updateEventDetails({ hostGroupId: newId });
+	function handleHostGroupChange(nextGroupId) {
+		updateEventDetails({ hostGroupId: nextGroupId || '' });
 	}
 
-	function handleHostGroupSearch(inputValue) {
-		const query = inputValue?.trim().toLowerCase() ?? '';
-		if (!query) {
-			filteredHostGroupOptions = hostGroupOptions;
-			return;
+	function handleSponsorshipChange({ groupId = '', message = '' } = {}) {
+		sponsorshipGroupId = groupId || '';
+		sponsorshipMessage = message || '';
+		if (sponsorshipGroupId && eventDetails.hostGroupId) {
+			updateEventDetails({ hostGroupId: '' });
 		}
-		filteredHostGroupOptions = hostGroupOptions.filter((option) =>
-			option.label.toLowerCase().includes(query)
+		isDirty = true;
+	}
+
+	function handleGroupClaimed(claimedGroup) {
+		if (!claimedGroup?.id) return;
+		const claimedId = String(claimedGroup.id);
+		hostGroups = hostGroups.map((group) =>
+			String(group.id) === claimedId
+				? { ...group, status: HOST_GROUP_STATUS.MANAGED, isClaimed: true, canManage: true }
+				: group
 		);
+		if (!ownerGroupIds.includes(claimedId)) {
+			ownerGroupIds = [...ownerGroupIds, claimedId];
+		}
 	}
 
 	function currentEventType() {
@@ -649,9 +653,21 @@
 		if (!bundle?.event?.id) throw new Error('Invalid volunteer event to clone.');
 
 		const mappedEvent = mapEventRecordToFormDetails(bundle.event);
+		const clonedGroupId = mappedEvent.hostGroupId || '';
+		const clonedGroup = clonedGroupId
+			? hostGroups.find((group) => String(group.id) === String(clonedGroupId))
+			: null;
+		const clonedStatus = clonedGroup ? getHostGroupStatus(clonedGroup) : null;
+
+		const safeHostGroupId =
+			clonedGroup && clonedStatus === HOST_GROUP_STATUS.MANAGED ? String(clonedGroup.id) : '';
+		sponsorshipGroupId =
+			clonedGroup && clonedStatus === HOST_GROUP_STATUS.EXTERNAL ? String(clonedGroup.id) : '';
+		sponsorshipMessage = '';
+
 		const detailPatch = {
 			...mappedEvent,
-			hostGroupId: mappedEvent.hostGroupId || '',
+			hostGroupId: safeHostGroupId,
 			status: 'draft',
 			slug: '',
 			registerNotifications:
@@ -667,7 +683,6 @@
 		};
 
 		mergeEventDetails(detailPatch, { slugSource: mappedEvent.title || '' });
-		hostGroupSelection = detailPatch.hostGroupId ? [detailPatch.hostGroupId] : [];
 
 		const clonedOpportunities = mapClonedOpportunities(bundle.opportunities ?? []);
 		const idMap = new Map();
@@ -884,26 +899,17 @@
 			// ignore unsupported browsers
 		}
 
-		const ownedDefault = hostGroups.find((group) => ownerGroupIds.includes(group.id))?.id;
+		const ownedDefault = !pageData.isAdmin
+			? hostGroups.find((group) => ownerGroupIds.includes(group.id))?.id
+			: '';
 		let initialHostGroupId = eventDetails.hostGroupId;
-		if (!initialHostGroupId) {
-			if (ownedDefault) {
-				initialHostGroupId = ownedDefault;
-			} else if (hostGroups.length === 1) {
-				initialHostGroupId = hostGroups[0].id;
-			}
+		if (!initialHostGroupId && ownedDefault) {
+			initialHostGroupId = ownedDefault;
 		}
 
-		if (initialHostGroupId) {
-			hostGroupSelection = [initialHostGroupId];
-			if (initialHostGroupId !== eventDetails.hostGroupId) {
-				updateEventDetails({ hostGroupId: initialHostGroupId });
-			}
-		} else {
-			hostGroupSelection = [];
+		if (initialHostGroupId && initialHostGroupId !== eventDetails.hostGroupId) {
+			updateEventDetails({ hostGroupId: initialHostGroupId });
 		}
-
-		filteredHostGroupOptions = hostGroupOptions;
 
 		const searchParams = new URLSearchParams(window.location.search);
 		const cloneId = searchParams.get('clone');
@@ -1105,7 +1111,6 @@
 				'requireSignupApproval'
 			]);
 			const metaWaitlistEnabled = readValue(meta, ['waitlist_enabled', 'waitlistEnabled']);
-			const metaHostGroupId = readValue(meta, ['host_group_id', 'hostGroupId']);
 			const metaLatitude = readValue(meta, ['latitude', 'lat']);
 			const metaLongitude = readValue(meta, ['longitude', 'lng', 'long']);
 			const metaContactEmail = readValue(meta, ['contact_email', 'contactEmail']);
@@ -1420,7 +1425,7 @@
 				summary: eventDetails.summary || null,
 				description: eventDetails.description || null,
 				event_type_slug: eventDetails.eventTypeSlug || 'ride',
-				host_group_id: eventDetails.hostGroupId || null,
+				host_group_id: sponsorshipGroupId ? null : eventDetails.hostGroupId || null,
 				event_start: eventStartIso,
 				event_end: eventEndIso,
 				timezone: eventDetails.timezone,
@@ -1528,10 +1533,34 @@
 				await createVolunteerEventEmail(payload);
 			}
 
+			let sponsorshipQueued = false;
+			if (sponsorshipGroupId) {
+				const sponsorshipRes = await fetch('/api/event-sponsorship-requests', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						eventType: 'volunteer',
+						eventId,
+						groupId: sponsorshipGroupId,
+						message: sponsorshipMessage
+					})
+				});
+				const sponsorshipJson = await sponsorshipRes.json().catch(() => ({}));
+				if (!sponsorshipRes.ok) {
+					console.warn('Volunteer event saved, but sponsorship request failed:', sponsorshipJson);
+				} else {
+					sponsorshipQueued = true;
+				}
+			}
+
 			saveSuccess =
 				normalizedStatus === 'published'
-					? 'Volunteer event published and ready for volunteers.'
-					: 'Draft saved. You can publish when you are ready.';
+					? sponsorshipQueued
+						? 'Volunteer event published under personal hosting and sponsorship request sent.'
+						: 'Volunteer event published and ready for volunteers.'
+					: sponsorshipQueued
+						? 'Draft saved under personal hosting and sponsorship request sent.'
+						: 'Draft saved. You can publish when you are ready.';
 			if (normalizedStatus === 'published' && createdEvent.slug) {
 				isDirty = false;
 				await goto(`/volunteer/${encodeURIComponent(createdEvent.slug)}`);
@@ -1900,10 +1929,10 @@
 			{opportunityTypeOptions}
 			{fieldTypeOptions}
 			{emailTypeOptions}
-			{hostGroupSelection}
-			{filteredHostGroupOptions}
+			{hostGroups}
+			{sponsorshipGroupId}
+			{sponsorshipMessage}
 			currentEventTypeDescription={currentEventType()?.description ?? ''}
-			hasHostGroups={hostGroupOptions.length > 0}
 			{opportunities}
 			{customQuestions}
 			{eventEmails}
@@ -1917,9 +1946,9 @@
 			bind:remindersOpen
 			onFocusIn={handleManualInteraction}
 			onEventDetailsChange={updateEventDetails}
-			onHostGroupValueChange={handleHostGroupValueChange}
-			onHostGroupSearch={handleHostGroupSearch}
-			onClearHostGroup={() => handleHostGroupValueChange([])}
+			onHostGroupChange={handleHostGroupChange}
+			onSponsorshipChange={handleSponsorshipChange}
+			onGroupClaimed={handleGroupClaimed}
 			onAddOpportunity={addOpportunity}
 			onRemoveOpportunity={removeOpportunity}
 			onUpdateOpportunity={updateOpportunity}

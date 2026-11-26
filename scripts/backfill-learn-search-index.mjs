@@ -2,6 +2,12 @@ import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { generateLearnReadingAid, isGenericLearnPlaceholder } from '../src/lib/learn/readingAid.js';
+import { buildLearnArticleBackfillUpdate } from '../src/lib/server/learnSearchBackfill.js';
+import {
+	isProtectedLearnCatalogArticle,
+	syncSafetyReportToDatabase
+} from '../src/lib/server/learnCatalog.js';
 import {
 	buildLearnArticleChunks,
 	inferLearnArticleSearchSignals,
@@ -11,6 +17,8 @@ import {
 const workspace = fileURLToPath(new URL('../', import.meta.url));
 const envPath = path.join(workspace, '.env');
 const pageSize = 100;
+// --index-only rebuilds only embeddings and chunks; curated metadata is left untouched.
+const indexOnly = process.argv.includes('--index-only');
 
 async function loadEnv() {
 	try {
@@ -35,13 +43,14 @@ async function backfillArticles() {
 
 	let processed = 0;
 	let from = 0;
+	let fallbackAuthorUserId = null;
 
 	while (true) {
 		const to = from + pageSize - 1;
 		const { data: rows, error } = await supabase
 			.from('learn_articles')
 			.select(
-				'id,title,summary,body_markdown,category_name,subcategory_name,created_by_user_id,updated_by_user_id'
+				'id,slug,title,summary,reader_summary,key_takeaways,body_markdown,category_name,subcategory_name,import_source_path,created_by_user_id,updated_by_user_id'
 			)
 			.order('updated_at', { ascending: false })
 			.range(from, to);
@@ -49,38 +58,46 @@ async function backfillArticles() {
 		if (!rows?.length) break;
 
 		for (const article of rows) {
-			const signals = inferLearnArticleSearchSignals({
+			const editorUserId = article.updated_by_user_id || article.created_by_user_id || null;
+			if (!fallbackAuthorUserId && editorUserId) {
+				fallbackAuthorUserId = editorUserId;
+			}
+
+			// The authoritative Safer Cycling report is synced directly from safetyReport.json below.
+			if (isProtectedLearnCatalogArticle(article)) {
+				continue;
+			}
+
+			const readingAid = generateLearnReadingAid({
 				title: article.title || '',
 				summary: article.summary || '',
+				markdown: article.body_markdown || ''
+			});
+			const nextReaderSummary =
+				article.reader_summary && !isGenericLearnPlaceholder(article.reader_summary)
+					? article.reader_summary
+					: readingAid.readerSummary;
+
+			const signals = inferLearnArticleSearchSignals({
+				title: article.title || '',
+				summary: article.summary || nextReaderSummary || '',
 				bodyMarkdown: article.body_markdown || '',
 				categoryName: article.category_name || '',
 				subcategoryName: article.subcategory_name || ''
 			});
 			const chunks = buildLearnArticleChunks({
 				title: article.title || '',
-				summary: article.summary || '',
+				summary: article.summary || nextReaderSummary || '',
 				bodyMarkdown: article.body_markdown || '',
 				categoryName: article.category_name || '',
 				signals
 			});
 
-			const editorUserId = article.updated_by_user_id || article.created_by_user_id || null;
 			const { error: updateError } = await supabase
 				.from('learn_articles')
-				.update({
-					tags: signals.tags,
-					audience: signals.audience,
-					difficulty_level: signals.difficulty_level,
-					ride_type: signals.ride_type,
-					geo_scope: signals.geo_scope,
-					geo_city: signals.geo_city,
-					geo_state: signals.geo_state,
-					content_type: signals.content_type,
-					is_evergreen: signals.is_evergreen,
-					metadata_confidence: signals.metadata_confidence,
-					article_embedding: signals.embedding_literal,
-					updated_by_user_id: editorUserId
-				})
+				.update(
+					buildLearnArticleBackfillUpdate({ article, signals, readingAid, editorUserId, indexOnly })
+				)
 				.eq('id', article.id);
 			if (updateError) throw updateError;
 
@@ -91,14 +108,34 @@ async function backfillArticles() {
 			});
 
 			processed += 1;
-			console.log(`Backfilled article ${processed}: ${article.title || article.id}`);
+			console.log(
+				`Backfilled article ${processed}: ${article.title || article.id} [${signals.content_type}]`
+			);
 		}
 
 		if (rows.length < pageSize) break;
 		from += pageSize;
 	}
 
-	console.log(`Done. Backfilled ${processed} article(s).`);
+	if (indexOnly) {
+		console.log(`Done. Rebuilt embeddings and chunks for ${processed} wiki article(s).`);
+		return;
+	}
+
+	const reportSync = await syncSafetyReportToDatabase(supabase, {
+		userId: fallbackAuthorUserId
+	});
+	if (reportSync) {
+		console.log(
+			`Synchronized Safer Cycling, Better Messages (${reportSync.articleId}) with ${reportSync.chunkCount} chunks.`
+		);
+	} else {
+		console.warn(
+			'Skipped Safer Cycling, Better Messages DB sync because no author user ID was available.'
+		);
+	}
+
+	console.log(`Done. Backfilled ${processed} wiki article(s).`);
 }
 
 await backfillArticles();

@@ -10,6 +10,7 @@ export const load = async ({ cookies, fetch, route }) => {
 		return {
 			user: null,
 			userProfile: null,
+			claimedCodes: [],
 			ownedGroups: [],
 			isAdmin: false,
 			canManageSms: false,
@@ -23,6 +24,7 @@ export const load = async ({ cookies, fetch, route }) => {
 		return {
 			user: null,
 			userProfile: null,
+			claimedCodes: [],
 			ownedGroups: [],
 			isAdmin: false,
 			canManageSms: false,
@@ -35,17 +37,34 @@ export const load = async ({ cookies, fetch, route }) => {
 	let canManageSms = false;
 	let userProfile = null;
 	let ownedGroups = [];
+	let claimedCodes = [];
 
-	ownedGroups = await loadOwnedGroups(fetch, currentUser.id).catch((err) => {
-		console.warn('Failed to load owned groups for app layout', err);
-		return [];
-	});
 	const requestSupabase = createRequestSupabaseClient(accessToken);
-	const { data: profile } = await requestSupabase
-		.from('profiles')
-		.select('id,user_id,full_name,avatar_url,bio,email,metadata,admin')
-		.eq('user_id', currentUser.id)
-		.maybeSingle();
+	const [loadedGroups, profileRes, qrRes] = await Promise.all([
+		loadOwnedGroups(fetch, currentUser.id).catch((err) => {
+			console.warn('Failed to load owned groups for app layout', err);
+			return [];
+		}),
+		requestSupabase
+			.from('profiles')
+			.select('id,user_id,full_name,avatar_url,bio,email,metadata,admin')
+			.eq('user_id', currentUser.id)
+			.maybeSingle(),
+		requestSupabase
+			.from('qr_codes')
+			.select('code')
+			.eq('profile_id', currentUser.id)
+			.order('code', { ascending: true })
+	]);
+
+	ownedGroups = loadedGroups;
+	const profile = profileRes?.data ?? null;
+	if (Array.isArray(qrRes?.data)) {
+		claimedCodes = qrRes.data
+			.map((row) => (typeof row?.code === 'string' ? row.code.trim() : ''))
+			.filter(Boolean);
+	}
+
 	isAdmin = profile?.admin === true;
 	const smsAccessClient = getSmsServiceClient() ?? requestSupabase;
 	canManageSms =
@@ -75,6 +94,7 @@ export const load = async ({ cookies, fetch, route }) => {
 	return {
 		user: currentUser,
 		userProfile,
+		claimedCodes,
 		ownedGroups,
 		isAdmin,
 		canManageSms,

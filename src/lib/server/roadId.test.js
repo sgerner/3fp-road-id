@@ -411,6 +411,7 @@ test('Road ID routes share email/profile helpers and bind #blood_type in unified
 	assert.match(codePage, /isValidRoadIdEmail\(newProfile\.email\)/);
 	assert.match(confirmPage, /isValidRoadIdEmail\(resendEmail\)/);
 	assert.doesNotMatch(codePage, /id="blood_type"/);
+	assert.doesNotMatch(codePage, /\bonblur=/);
 	assert.match(
 		profilePage,
 		/let emergencyBloodType = \$state\(existingRoadId\?\.blood_type \?\? ''\);/

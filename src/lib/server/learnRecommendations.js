@@ -1,3 +1,8 @@
+import { stripMarkdown } from '#lib/learn/readingAid.js';
+import {
+	buildSafetyReportCatalogEntry,
+	isProtectedLearnCatalogArticle
+} from '#lib/server/learnCatalog.js';
 import {
 	buildDeterministicEmbedding,
 	cosineSimilarity,
@@ -77,6 +82,9 @@ function normalizeArticle(row) {
 		slug: row?.slug ?? null,
 		title: row?.title ?? 'Learn article',
 		summary: row?.summary ?? '',
+		reader_summary: row?.reader_summary ?? '',
+		key_takeaways: Array.isArray(row?.key_takeaways) ? row.key_takeaways : [],
+		import_source_path: row?.import_source_path ?? null,
 		category_name: row?.category_name ?? row?.category_slug ?? '',
 		subcategory_name: row?.subcategory_name ?? '',
 		tags: Array.isArray(row?.tags) ? row.tags : [],
@@ -109,7 +117,13 @@ function normalizeChunk(row) {
 export function inferArticleIntent(message) {
 	const text = safeTrim(message).toLowerCase();
 	if (!text) return 'general';
-	if (/\b(crash|safety|alert|injury|waiver)\b/.test(text)) return 'safety';
+	if (
+		/\b(crash|crashes|collision|safety|safer|safe\s+(?:pass|passing|riding|commut\w*|street|streets|road|roads|lane|lanes)|make\s+.*\bsafe\w*|alert|injury|injuries|waiver|911|emergenc(?:y|ies)|helmets?|dooring|door\s+zone|dutch\s+reach|3\s*feet|three\s*feet|passing\s+distance|close\s+pass|blind\s+spots?|high\s+visibility|hi-?vis|first\s+aid|hit\s+and\s+run)\b/.test(
+			text
+		)
+	) {
+		return 'safety';
+	}
 	if (/\b(policy|ordinance|council|resolution|legislation|advocacy)\b/.test(text)) return 'policy';
 	if (/\b(checklist|template|tool|spreadsheet|tracker)\b/.test(text)) return 'toolkit';
 	if (/\b(story|example|case study|interview|spotlight)\b/.test(text)) return 'story';
@@ -118,10 +132,12 @@ export function inferArticleIntent(message) {
 	return 'general';
 }
 
-function mapIntentToContentTypes(intent) {
+export function mapIntentToContentTypes(intent) {
 	switch (intent) {
 		case 'safety':
-			return new Set(['safety', 'guide', 'reference']);
+			// Allow toolkit and policy guides to compete on relevance during safety queries
+			// instead of dropping them upfront.
+			return new Set(['safety', 'guide', 'toolkit', 'policy', 'reference']);
 		case 'policy':
 			return new Set(['policy', 'reference', 'guide']);
 		case 'toolkit':
@@ -131,7 +147,7 @@ function mapIntentToContentTypes(intent) {
 		case 'event':
 			return new Set(['event', 'reference']);
 		case 'guide':
-			return new Set(['guide', 'toolkit', 'reference']);
+			return new Set(['guide', 'toolkit', 'safety', 'reference']);
 		default:
 			return null;
 	}
@@ -162,6 +178,8 @@ function buildArticleText(article) {
 	return [
 		article.title,
 		article.summary,
+		article.reader_summary,
+		...(article.key_takeaways || []),
 		article.category_name,
 		article.subcategory_name,
 		article.content_type,
@@ -282,7 +300,7 @@ export async function buildHybridArticleCandidates({
 	let articleQuery = supabase
 		.from('learn_articles')
 		.select(
-			'id,slug,title,summary,category_name,subcategory_name,tags,audience,difficulty_level,ride_type,geo_scope,geo_city,geo_state,content_type,is_evergreen,metadata_confidence,updated_at,article_embedding'
+			'id,slug,title,summary,reader_summary,key_takeaways,import_source_path,category_name,subcategory_name,tags,audience,difficulty_level,ride_type,geo_scope,geo_city,geo_state,content_type,is_evergreen,metadata_confidence,updated_at,article_embedding'
 		)
 		.eq('is_published', true);
 	if (typeof articleQuery.neq === 'function') {
@@ -296,7 +314,14 @@ export async function buildHybridArticleCandidates({
 		return { intent, candidates: [] };
 	}
 
-	const articles = (articleRowsResponse.data || [])
+	const rawRows = [...(articleRowsResponse.data || [])];
+	const reportEntry = buildSafetyReportCatalogEntry();
+	const hasSyncedReport = rawRows.some((row) => isProtectedLearnCatalogArticle(row));
+	if (!hasSyncedReport) {
+		rawRows.push(reportEntry.card);
+	}
+
+	const articles = rawRows
 		.map(normalizeArticle)
 		.filter((article) => article.id && !isPlaceholderLearnArticle(article));
 	const feedbackSignals = buildFeedbackSignals(feedbackEvents);
@@ -305,7 +330,7 @@ export async function buildHybridArticleCandidates({
 		...(historyTerms || [])
 	];
 
-	/** @type {Array<{ article: any, score: number, features: Record<string, number>, best_chunk_id?: any, best_chunk_heading?: string | null }>} */
+	/** @type {Array<{ article: any, score: number, features: Record<string, number>, best_chunk_id?: any, best_chunk_heading?: string | null, best_chunk_text?: string }>} */
 	const prelim = [];
 	for (const article of articles) {
 		if (intentContentTypes && !intentContentTypes.has(article.content_type)) continue;
@@ -357,9 +382,14 @@ export async function buildHybridArticleCandidates({
 			.in('article_id', articleIdsForChunks)
 			.order('chunk_index', { ascending: true });
 
-		if (!chunkError && Array.isArray(chunkRows) && chunkRows.length) {
+		const mergedChunkRows = [...(!chunkError && Array.isArray(chunkRows) ? chunkRows : [])];
+		if (!hasSyncedReport && articleIdsForChunks.includes(reportEntry.card.id)) {
+			mergedChunkRows.push(...reportEntry.chunks);
+		}
+
+		if (mergedChunkRows.length) {
 			const chunkMap = new Map();
-			for (const row of chunkRows.map(normalizeChunk)) {
+			for (const row of mergedChunkRows.map(normalizeChunk)) {
 				const key = String(row.article_id);
 				if (!chunkMap.has(key)) chunkMap.set(key, []);
 				chunkMap.get(key).push(row);
@@ -376,7 +406,7 @@ export async function buildHybridArticleCandidates({
 					if (semantic > bestChunkSemantic) bestChunkSemantic = semantic;
 					const lexical = scoreLexicalMatch(queryTokens, `${chunk.heading} ${chunk.chunk_text}`);
 					if (lexical > bestChunkLexical) bestChunkLexical = lexical;
-					const combined = semantic * 0.65 + lexical * 0.35;
+					const combined = semantic * 0.45 + lexical * 0.55;
 					if (combined >= bestChunkCombined) {
 						bestChunkCombined = combined;
 						bestChunk = chunk;
@@ -387,9 +417,12 @@ export async function buildHybridArticleCandidates({
 				entry.features.chunk_lexical = bestChunkLexical;
 				entry.best_chunk_id = bestChunk?.id || null;
 				entry.best_chunk_heading = bestChunk?.heading || null;
+				entry.best_chunk_text = bestChunk?.chunk_text
+					? stripMarkdown(bestChunk.chunk_text).slice(0, 360)
+					: '';
 				entry.score +=
 					normalizedWeights.semantic_weight * bestChunkSemantic * 0.22 +
-					normalizedWeights.lexical_weight * bestChunkLexical * 0.18;
+					normalizedWeights.lexical_weight * bestChunkLexical * 0.24;
 			}
 		}
 	}

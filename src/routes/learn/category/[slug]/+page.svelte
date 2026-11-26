@@ -1,6 +1,10 @@
 <script>
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
 	import PositionAssignmentBar from '#lib/components/ui/PositionAssignmentBar.svelte';
+	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
 	import { reassignAndOrderLearnArticles, reorderListItem } from '#lib/ui/formControlHelpers';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpDown from '@lucide/svelte/icons/arrow-up-down';
@@ -12,7 +16,6 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconSparkles from '@lucide/svelte/icons/sparkles';
 	import IconTrash2 from '@lucide/svelte/icons/trash';
-	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import {
@@ -23,15 +26,43 @@
 		toJsonLd
 	} from '#lib/seo';
 
+	const FALLBACK_REPORT_ID = '00000000-0000-4000-8000-000000003f90';
+
 	/** @type {Record<string, any>} */
 	let { data, form } = $props();
 
-	/** @type {any} */
-	let searchQuery = $state('');
-	/** @type {any} */
+	/** @type {string} */
+	let searchQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	/** @type {string} */
+	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	/** @type {any[] | null} */
+	let serverSearchResults = $state(untrack(() => data?.initialSearchResults ?? null));
+	let searching = $state(false);
+	let searchError = $state('');
 	let activeSubcategory = $state('all');
 	/** @type {any} */
 	let isReordering = $state(false);
+
+	/** @type {ReturnType<typeof setTimeout> | null} */
+	let debounceTimer = null;
+	/** @type {AbortController | null} */
+	let activeController = null;
+	let routerReady = false;
+
+	function clearPendingSearch() {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		if (activeController) {
+			activeController.abort();
+			activeController = null;
+		}
+	}
+
+	onDestroy(() => {
+		clearPendingSearch();
+	});
 
 	// Mutable local copies used for deterministic ordering
 	/** @type {any[]} */
@@ -45,15 +76,152 @@
 		articles = [...data.articles];
 	});
 
-	/** @type {any} */
-	const filteredArticles = $derived(
-		articles.filter((article) => {
-			if (!searchQuery.trim()) return true;
-			const query = searchQuery.trim().toLowerCase();
-			const haystack = [article.title, article.summary].filter(Boolean).join(' ');
-			return haystack.toLowerCase().includes(query);
-		})
-	);
+	const hasSearchFilter = $derived(Boolean(searchQuery.trim()));
+	const reorderableArticles = $derived(articles.filter((a) => a.id !== FALLBACK_REPORT_ID));
+
+	// Disable manual reordering whenever a search filter is active so filtered views
+	// can never overwrite full category order.
+	$effect(() => {
+		if (hasSearchFilter && isReordering) {
+			isReordering = false;
+		}
+	});
+
+	/**
+	 * @param {string} nextQuery
+	 */
+	function syncCategoryQueryUrl(nextQuery) {
+		if (!browser || !routerReady) return;
+		const nextUrl = new URL(window.location.href);
+		const trimmed = nextQuery.trim();
+		if (trimmed) {
+			nextUrl.searchParams.set('q', trimmed);
+		} else {
+			nextUrl.searchParams.delete('q');
+		}
+		if (nextUrl.href !== window.location.href) {
+			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	/**
+	 * @param {string} trimmedQuery
+	 */
+	async function runCategorySearch(trimmedQuery) {
+		syncCategoryQueryUrl(trimmedQuery);
+		const controller = new AbortController();
+		activeController = controller;
+		searching = true;
+		searchError = '';
+
+		try {
+			const params = new URLSearchParams({
+				q: trimmedQuery,
+				categorySlug: data.category.slug
+			});
+			const response = await fetch(`/api/learn/search?${params.toString()}`, {
+				signal: controller.signal
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (activeController !== controller) return;
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to search this category right now.');
+			}
+			serverSearchResults = Array.isArray(payload?.articles) ? payload.articles : [];
+			activeQuery = payload?.query ?? trimmedQuery;
+		} catch (err) {
+			if (err?.name === 'AbortError') return;
+			if (activeController === controller) {
+				searchError = err?.message || 'Unable to search this category right now.';
+			}
+		} finally {
+			if (activeController === controller) {
+				searching = false;
+				activeController = null;
+			}
+		}
+	}
+
+	/**
+	 * @param {string} nextValue
+	 */
+	function handleCategorySearchInput(nextValue) {
+		searchQuery = nextValue;
+		clearPendingSearch();
+
+		const trimmed = nextValue.trim();
+		if (!trimmed) {
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverSearchResults = null;
+			syncCategoryQueryUrl('');
+			return;
+		}
+
+		if (isReordering) {
+			isReordering = false;
+		}
+
+		searching = true;
+		searchError = '';
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			void runCategorySearch(trimmed);
+		}, 250);
+	}
+
+	function clearCategorySearch() {
+		clearPendingSearch();
+		searchQuery = '';
+		searching = false;
+		searchError = '';
+		activeQuery = '';
+		serverSearchResults = null;
+		syncCategoryQueryUrl('');
+	}
+
+	onMount(() => {
+		routerReady = true;
+	});
+
+	afterNavigate(() => {
+		routerReady = true;
+		const urlQuery = page.url.searchParams.get('q') ?? '';
+		if (urlQuery !== searchQuery) {
+			searchQuery = urlQuery;
+			if (!urlQuery.trim()) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = '';
+				serverSearchResults = null;
+			} else if (data?.initialQuery === urlQuery && data?.initialSearchResults) {
+				clearPendingSearch();
+				searching = false;
+				searchError = '';
+				activeQuery = urlQuery;
+				serverSearchResults = data.initialSearchResults;
+			} else {
+				handleCategorySearchInput(urlQuery);
+			}
+		}
+	});
+
+	/** @type {any[]} */
+	const filteredArticles = $derived.by(() => {
+		if (!hasSearchFilter) return articles;
+		if (serverSearchResults !== null) return serverSearchResults;
+		return articles;
+	});
+
+	const searchStatusText = $derived.by(() => {
+		if (!hasSearchFilter) return '';
+		if (searching) return `Searching ${data.category.name}…`;
+		if (searchError) return searchError;
+		const count = filteredArticles.length;
+		return `${count} ${count === 1 ? 'result' : 'results'} in ${data.category.name}${activeQuery ? ` for “${activeQuery}”` : ''}`;
+	});
 
 	/** @type {any} */
 	const groups = $derived.by(() => {
@@ -131,7 +299,7 @@
 	}
 
 	function enterReorderMode() {
-		searchQuery = '';
+		if (hasSearchFilter) return;
 		activeSubcategory = 'all';
 		isReordering = true;
 		reorderAnnouncement =
@@ -144,6 +312,7 @@
 	}
 
 	function moveSubcategory(slug, targetIndex, focusKey = '') {
+		if (hasSearchFilter) return;
 		const fromIndex = subcategories.findIndex((sub) => sub.slug === slug);
 		if (fromIndex === -1) return;
 		const nextOrder = reorderListItem(subcategories, fromIndex, targetIndex).map((sub, idx) => ({
@@ -168,12 +337,14 @@
 	}
 
 	function moveArticleInSection(articleId, targetIndex, focusKey = '') {
-		const result = reassignAndOrderLearnArticles(articles, subcategories, {
+		if (hasSearchFilter) return;
+		const fallbackArticles = articles.filter((a) => a.id === FALLBACK_REPORT_ID);
+		const result = reassignAndOrderLearnArticles(reorderableArticles, subcategories, {
 			articleId,
 			targetIndex
 		});
 		if (!result.movedArticle) return;
-		articles = result.articles;
+		articles = [...fallbackArticles, ...result.articles];
 		reorderAnnouncement = `Moved ${result.movedArticle.title} to position ${result.position} of ${result.sectionCount}.`;
 		const articlesPayloadEl = document.getElementById('reorder-articles-payload');
 		if (articlesPayloadEl instanceof HTMLInputElement) {
@@ -185,12 +356,14 @@
 	}
 
 	function assignSubcategory(articleId, subcategorySlug, focusKey = '') {
-		const result = reassignAndOrderLearnArticles(articles, subcategories, {
+		if (hasSearchFilter) return;
+		const fallbackArticles = articles.filter((a) => a.id === FALLBACK_REPORT_ID);
+		const result = reassignAndOrderLearnArticles(reorderableArticles, subcategories, {
 			articleId,
 			targetSubcategorySlug: subcategorySlug
 		});
 		if (!result.movedArticle) return;
-		articles = result.articles;
+		articles = [...fallbackArticles, ...result.articles];
 		const sectionLabel = result.sectionSlug
 			? subcategories.find((sub) => sub.slug === result.sectionSlug)?.name || result.sectionSlug
 			: 'General';
@@ -309,11 +482,26 @@
 					>
 						{article.title}
 					</h3>
-					<p
-						class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
-					>
-						{article.summary || 'Open the article to read the full guide.'}
-					</p>
+					{#if hasSearchFilter && serverSearchResults !== null && article.matched_snippet}
+						{#if article.matched_heading && article.matched_heading.toLowerCase() !== 'overview'}
+							<p
+								class="text-tertiary-500 group-hover:text-surface-950 m-0 text-xs font-bold tracking-[0.18em] uppercase"
+							>
+								Section · {article.matched_heading}
+							</p>
+						{/if}
+						<p
+							class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
+						>
+							{article.matched_snippet}
+						</p>
+					{:else}
+						<p
+							class="text-surface-300 group-hover:text-surface-950 m-0 line-clamp-3 text-sm leading-relaxed"
+						>
+							{buildLearnCardExcerpt(article)}
+						</p>
+					{/if}
 				</div>
 				<div
 					class="border-surface-800 group-hover:border-surface-950/30 flex items-center justify-between gap-3 border-t pt-4 text-xs font-bold tracking-wider uppercase"
@@ -331,7 +519,7 @@
 		</a>
 
 		<!-- Reorder controls (Position, Section, Move up / Move down) -->
-		{#if isReordering}
+		{#if isReordering && article.id !== FALLBACK_REPORT_ID}
 			<div class="border-surface-800 bg-surface-900 text-surface-50 border-t-2 p-3">
 				<PositionAssignmentBar
 					itemLabel={article.title}
@@ -404,14 +592,21 @@
 				{#if data.canEdit}
 					<button
 						type="button"
+						disabled={hasSearchFilter}
+						aria-disabled={hasSearchFilter}
 						aria-pressed={isReordering}
-						class="focus-visible:outline-surface-950 inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 {isReordering
+						title={hasSearchFilter ? 'Clear search filter before reordering content' : undefined}
+						class="focus-visible:outline-surface-950 inline-flex items-center justify-center gap-2 border-[3px] px-7 py-4 text-sm font-black tracking-wide uppercase transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 {isReordering
 							? 'bg-tertiary-500 border-surface-950 text-surface-950'
-							: 'border-surface-950 text-surface-950 hover:bg-surface-950 hover:text-primary-500'}"
+							: 'border-surface-950 text-surface-950 enabled:hover:bg-surface-950 enabled:hover:text-primary-500'}"
 						onclick={isReordering ? exitReorderMode : enterReorderMode}
 					>
 						<IconArrowUpDown class="h-4 w-4" aria-hidden="true" />
-						{isReordering ? 'Done reordering' : 'Reorder content'}
+						{hasSearchFilter
+							? 'Clear search to reorder'
+							: isReordering
+								? 'Done reordering'
+								: 'Reorder content'}
 					</button>
 				{/if}
 			</div>
@@ -447,24 +642,39 @@
 			<IconSearch class="h-4 w-4" />
 			Search this category
 		</div>
-		<div class="relative">
-			<IconSearch
-				class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
-			/>
-			<input
-				bind:value={searchQuery}
-				class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
-				type="search"
-				placeholder="Find an article…"
-				aria-label="Search this category"
-			/>
+		<div class="flex items-center gap-2">
+			<div class="relative flex-1">
+				<IconSearch
+					class="text-surface-950 pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
+				/>
+				<input
+					value={searchQuery}
+					oninput={(event) => handleCategorySearchInput(event.currentTarget.value)}
+					class="bg-surface-50 text-surface-950 placeholder:text-surface-950/60 border-surface-950 focus-visible:outline-primary-500 h-11 w-full border-[3px] pr-4 pl-12 text-base font-bold focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+					type="search"
+					placeholder="Find an article…"
+					aria-label="Search this category"
+				/>
+			</div>
+			{#if hasSearchFilter}
+				<button
+					type="button"
+					class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 h-11 shrink-0 px-4 text-xs font-black tracking-wide uppercase transition"
+					onclick={clearCategorySearch}
+				>
+					Reset
+				</button>
+			{/if}
 		</div>
-		{#if searchQuery.trim()}
-			<p class="m-0 text-xs font-black tracking-wider uppercase">
-				{filteredArticles.length}
-				{filteredArticles.length === 1 ? 'result' : 'results'} in {data.category.name}
-			</p>
-		{/if}
+		<p
+			class="m-0 text-xs font-black tracking-wider uppercase {hasSearchFilter ? '' : 'sr-only'}"
+			role="status"
+			aria-live="polite"
+			aria-busy={searching}
+		>
+			{searchStatusText ||
+				`${totalArticles} ${totalArticles === 1 ? 'article' : 'articles'} in ${data.category.name}`}
+		</p>
 	</div>
 
 	<!-- ═══════════════════════════════════════════════
@@ -517,7 +727,8 @@
 				<div class="flex flex-wrap items-center gap-2">
 					<button
 						type="button"
-						class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+						aria-pressed={activeSubcategory === 'all'}
+						class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 						'all'
 							? 'bg-primary-500 text-surface-950'
 							: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -528,7 +739,8 @@
 					{#if groups.some((g) => !g.subcategory && g.articles.length > 0)}
 						<button
 							type="button"
-							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							aria-pressed={activeSubcategory === 'uncategorized'}
+							class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 							'uncategorized'
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -540,7 +752,8 @@
 					{#each subcategories as sub}
 						<button
 							type="button"
-							class="px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
+							aria-pressed={activeSubcategory === sub.slug}
+							class="min-h-9 px-4 py-2 text-xs font-black tracking-[0.18em] uppercase transition {activeSubcategory ===
 							sub.slug
 								? 'bg-primary-500 text-surface-950'
 								: 'bg-surface-950 text-surface-50 hover:bg-primary-500 hover:text-surface-950'}"
@@ -578,8 +791,8 @@
 	     ARTICLE GROUPS
 	═══════════════════════════════════════════════ -->
 	<div class="bg-surface-950 flex flex-col gap-16 px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-		{#if isReordering && activeSubcategory === 'all'}
-			{@const generalArticles = articles.filter((a) => !a.subcategory_slug)}
+		{#if isReordering && !hasSearchFilter && activeSubcategory === 'all'}
+			{@const generalArticles = reorderableArticles.filter((a) => !a.subcategory_slug)}
 			<section class="flex flex-col gap-6" aria-labelledby="reorder-section-general">
 				<div class="border-surface-50 flex items-center gap-4 border-b-2 pb-4">
 					<span class="bg-primary-500 h-4 w-4 shrink-0" aria-hidden="true"></span>
@@ -613,7 +826,7 @@
 			{#if subcategories.length > 0}
 				<div class="flex flex-col gap-16">
 					{#each subcategories as sub, subIndex (sub.slug)}
-						{@const artItems = articles.filter((a) => a.subcategory_slug === sub.slug)}
+						{@const artItems = reorderableArticles.filter((a) => a.subcategory_slug === sub.slug)}
 						{@const isEmpty = artItems.length === 0}
 						<section class="flex flex-col gap-6" aria-labelledby={`reorder-section-${sub.slug}`}>
 							<div
@@ -749,7 +962,7 @@
 						<button
 							type="button"
 							class="border-surface-50 text-surface-50 hover:bg-surface-50 hover:text-surface-950 border-2 px-6 py-3 text-sm font-black uppercase transition"
-							onclick={() => (searchQuery = '')}
+							onclick={clearCategorySearch}
 						>
 							Clear search
 						</button>
@@ -776,11 +989,13 @@
 	class="hidden"
 >
 	<input type="hidden" name="type" value="subcategory" />
+	<input type="hidden" name="searchActive" value={hasSearchFilter ? 'true' : 'false'} />
 	<input type="hidden" name="items" id="reorder-subcategories-payload" />
 </form>
 
 <form id="reorder-articles-form" method="POST" action="?/updateOrder" use:enhance class="hidden">
 	<input type="hidden" name="type" value="article" />
+	<input type="hidden" name="searchActive" value={hasSearchFilter ? 'true' : 'false'} />
 	<input type="hidden" name="items" id="reorder-articles-payload" />
 </form>
 

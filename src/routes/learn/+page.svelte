@@ -1,18 +1,18 @@
 <script>
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import { browser } from '$app/env';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import LearnNavigator from '#lib/components/learn/LearnNavigator.svelte';
-
+	import { buildLearnCardExcerpt } from '#lib/learn/readingAid';
+	import { optimizedImageUrl } from '#lib/media/optimized';
+	import { applyLearnUrlState, parseLearnUrlState } from '#lib/url/directoryUrlState';
 	import IconArrowRight from '@lucide/svelte/icons/arrow-right';
 	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconBookOpen from '@lucide/svelte/icons/book-open';
 	import IconClock3 from '@lucide/svelte/icons/clock-3';
 	import IconPlus from '@lucide/svelte/icons/plus';
 	import IconSearch from '@lucide/svelte/icons/search';
-	import { browser } from '$app/env';
-	import { afterNavigate, replaceState } from '$app/navigation';
-	import { optimizedImageUrl } from '#lib/media/optimized';
-	import { applyLearnUrlState, parseLearnUrlState } from '#lib/url/directoryUrlState';
-	import { page } from '$app/state';
-	import { onMount, untrack } from 'svelte';
 
 	const { data } = $props();
 	const authRequired = $derived(
@@ -59,22 +59,81 @@
 
 	const initialSearchQuery = untrack(() => page.url.search);
 	const initialUrlState = untrack(() => readUrlState(page.url.searchParams));
-	let search = $state(initialUrlState.search);
+	let search = $state(untrack(() => initialUrlState.search || data?.initialQuery || ''));
 	let category = $state(initialUrlState.category);
 	let visibleCount = $state(initialUrlState.visibleCount);
+	let activeQuery = $state(untrack(() => data?.initialQuery ?? ''));
+	let serverResults = $state(untrack(() => data?.initialSearchResults ?? null));
+	let searching = $state(false);
+	let searchError = $state('');
 	let routerReady = false;
+	let debounceTimer = null;
+	let activeController = null;
 
-	function syncUrlToState() {
+	function clearPendingSearch() {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		if (activeController) {
+			activeController.abort();
+			activeController = null;
+		}
+	}
+
+	onDestroy(() => {
+		clearPendingSearch();
+	});
+
+	function syncUrlToState(
+		nextSearch = search,
+		nextCategory = category,
+		nextVisibleCount = visibleCount
+	) {
 		if (!browser || !routerReady) return;
 		const currentUrl = new URL(window.location.href);
 		const nextUrl = applyLearnUrlState(currentUrl, {
-			search,
-			category,
-			visibleCount,
+			search: nextSearch,
+			category: nextCategory,
+			visibleCount: nextVisibleCount,
 			pageSize
 		});
 		if (nextUrl.href !== currentUrl.href) {
 			replaceState(nextUrl, { ...page.state });
+		}
+	}
+
+	async function runServerSearch(trimmedQuery, { syncUrl = true } = {}) {
+		if (syncUrl) {
+			syncUrlToState(trimmedQuery, category, visibleCount);
+		}
+		const controller = new AbortController();
+		activeController = controller;
+		searching = true;
+		searchError = '';
+
+		try {
+			const params = new URLSearchParams({ q: trimmedQuery });
+			const response = await fetch(`/api/learn/search?${params.toString()}`, {
+				signal: controller.signal
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (activeController !== controller) return;
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Unable to search the Learn library right now.');
+			}
+			serverResults = Array.isArray(payload?.articles) ? payload.articles : [];
+			activeQuery = payload?.query ?? trimmedQuery;
+		} catch (err) {
+			if (err?.name === 'AbortError') return;
+			if (activeController === controller) {
+				searchError = err?.message || 'Unable to search the Learn library right now.';
+			}
+		} finally {
+			if (activeController === controller) {
+				searching = false;
+				activeController = null;
+			}
 		}
 	}
 
@@ -83,28 +142,78 @@
 		search = restored.search;
 		category = restored.category;
 		visibleCount = restored.visibleCount;
+
+		const trimmed = restored.search.trim();
+		if (!trimmed) {
+			clearPendingSearch();
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverResults = null;
+			return;
+		}
+
+		if (data?.initialQuery === trimmed && data?.initialSearchResults) {
+			clearPendingSearch();
+			searching = false;
+			searchError = '';
+			activeQuery = data.initialQuery;
+			serverResults = data.initialSearchResults;
+			return;
+		}
+
+		if (activeQuery === trimmed && serverResults !== null) {
+			return;
+		}
+
+		clearPendingSearch();
+		void runServerSearch(trimmed, { syncUrl: false });
 	}
 
-	function handleSearchInput() {
+	function handleSearchChange(nextValue) {
+		search = nextValue;
 		visibleCount = pageSize;
-		syncUrlToState();
+		clearPendingSearch();
+
+		const trimmed = nextValue.trim();
+		if (!trimmed) {
+			searching = false;
+			searchError = '';
+			activeQuery = '';
+			serverResults = null;
+			syncUrlToState('', category, pageSize);
+			return;
+		}
+
+		searching = true;
+		searchError = '';
+		debounceTimer = setTimeout(() => {
+			debounceTimer = null;
+			void runServerSearch(trimmed);
+		}, 250);
 	}
 
-	function handleCategoryChange() {
+	function handleCategoryChange(nextCategory) {
+		category = nextCategory;
 		visibleCount = pageSize;
-		syncUrlToState();
+		syncUrlToState(search, nextCategory, pageSize);
 	}
 
 	function clearLearnFilters() {
+		clearPendingSearch();
 		search = '';
 		category = 'all';
 		visibleCount = pageSize;
-		syncUrlToState();
+		searching = false;
+		searchError = '';
+		activeQuery = '';
+		serverResults = null;
+		syncUrlToState('', 'all', pageSize);
 	}
 
 	function showMoreArticles() {
 		visibleCount += pageSize;
-		syncUrlToState();
+		syncUrlToState(search, category, visibleCount);
 	}
 
 	afterNavigate(({ type }) => {
@@ -132,18 +241,24 @@
 		};
 	});
 
-	const filteredArticles = $derived(
-		articles.filter((article) => {
-			const query = search.trim().toLowerCase();
-			const matchesCategory =
-				category === 'all' ||
-				(article.category_name ?? '').toLowerCase() === category.toLowerCase();
-			const haystack = [article.title, article.summary, article.category_name]
-				.filter(Boolean)
-				.join(' ');
-			return matchesCategory && (!query || haystack.toLowerCase().includes(query));
-		})
-	);
+	const hasActiveSearch = $derived(Boolean(search.trim()));
+	const filteredArticles = $derived.by(() => {
+		const source = hasActiveSearch && serverResults !== null ? serverResults : articles;
+		return source.filter(
+			(article) =>
+				category === 'all' || (article.category_name ?? '').toLowerCase() === category.toLowerCase()
+		);
+	});
+	const statusAnnouncement = $derived.by(() => {
+		if (searching) return 'Searching guides…';
+		if (searchError) return searchError;
+		const count = filteredArticles.length;
+		const noun = count === 1 ? 'article' : 'articles';
+		if (hasActiveSearch && activeQuery) {
+			return `${count} matching ${noun} for “${activeQuery}”`;
+		}
+		return `${count} ${noun}`;
+	});
 
 	function formatDate(value) {
 		if (!value) return 'Recently updated';
@@ -282,18 +397,18 @@
 						<IconSearch class="h-4 w-4" />
 					</span>
 					<input
-						bind:value={search}
-						oninput={handleSearchInput}
-						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+						value={search}
+						oninput={(event) => handleSearchChange(event.currentTarget.value)}
+						class="bg-surface-950 text-surface-50 placeholder:text-surface-400 border-surface-500 focus:border-primary-500 focus-visible:outline-primary-500 h-11 w-full border-2 pr-4 pl-10 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 						type="search"
 						aria-label="Search articles"
 						placeholder="Search the field guide…"
 					/>
 				</label>
 				<select
-					bind:value={category}
-					onchange={handleCategoryChange}
-					class="bg-surface-950 text-surface-50 border-surface-700 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+					value={category}
+					onchange={(event) => handleCategoryChange(event.currentTarget.value)}
+					class="bg-surface-950 text-surface-50 border-surface-500 focus:border-primary-500 focus-visible:outline-primary-500 h-11 min-w-0 border-2 px-3.5 text-xs font-black tracking-wide uppercase focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
 					aria-label="Filter by category"
 				>
 					<option value="all">All topics</option>
@@ -309,6 +424,11 @@
 					</button>
 				{/if}
 			</div>
+			{#if searchError}
+				<p class="bg-tertiary-500 text-surface-950 m-0 px-4 py-2 text-xs font-bold" role="alert">
+					{searchError}
+				</p>
+			{/if}
 		</div>
 	</div>
 	<div class="bg-surface-900 px-6 py-5 sm:px-10 lg:px-12">
@@ -341,10 +461,11 @@
 			</div>
 			<p
 				class="text-tertiary-500 m-0 text-sm font-black tracking-wide uppercase italic tabular-nums"
+				role="status"
 				aria-live="polite"
+				aria-busy={searching}
 			>
-				{filteredArticles.length}
-				{filteredArticles.length === 1 ? 'article' : 'articles'}
+				{statusAnnouncement}
 			</p>
 		</div>
 
@@ -406,9 +527,20 @@
 								>
 									{article.title}
 								</h3>
-								<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
-									{article.summary || 'Open the article to read the full guide and discussion.'}
-								</p>
+								{#if hasActiveSearch && serverResults !== null && article.matched_snippet}
+									{#if article.matched_heading && article.matched_heading.toLowerCase() !== 'overview'}
+										<p class="text-tertiary-500 m-0 text-xs font-bold tracking-[0.18em] uppercase">
+											Section · {article.matched_heading}
+										</p>
+									{/if}
+									<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
+										{article.matched_snippet}
+									</p>
+								{:else}
+									<p class="text-surface-300 m-0 line-clamp-3 text-sm leading-relaxed">
+										{buildLearnCardExcerpt(article)}
+									</p>
+								{/if}
 							</div>
 							<div
 								class="border-surface-800 flex items-center justify-between gap-3 border-t pt-4 text-xs font-bold tracking-wider uppercase"

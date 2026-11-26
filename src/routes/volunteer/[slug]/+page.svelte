@@ -1035,12 +1035,22 @@
 			assign('emergency_contact_phone', details.emergency_contact_phone);
 
 		if (!changed) return;
-		// Keep the conflict key out of the UPDATE statement. The profiles grants
-		// intentionally protect user_id from client updates, while PostgREST
-		// includes every upsert payload column in its ON CONFLICT update clause.
+
 		const mutablePayload = { ...payload };
 		delete mutablePayload.user_id;
 
+		const syncResponse = await fetch('/api/profile', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(mutablePayload)
+		});
+		if (syncResponse.ok) {
+			const syncedPayload = await syncResponse.json().catch(() => ({}));
+			profile = syncedPayload?.profile ?? { ...current, user_id: user.id, ...mutablePayload };
+			return;
+		}
+
+		// Fallback to direct client update if endpoint is unavailable
 		let profileResult = await supabase
 			.from('profiles')
 			.update(mutablePayload)
@@ -1048,8 +1058,6 @@
 			.select()
 			.maybeSingle();
 
-		// Auth normally creates this row through the database trigger, but keep the
-		// signup flow self-healing if that row is missing for an older account.
 		if (!profileResult.error && !profileResult.data) {
 			profileResult = await supabase
 				.from('profiles')
