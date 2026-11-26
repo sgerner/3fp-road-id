@@ -38,7 +38,7 @@ export function tokenizeLearnText(value) {
 		.normalize('NFKD')
 		.replace(/[^a-z0-9\s-]/g, ' ')
 		.split(/\s+/)
-		.filter((token) => token.length > 1 && !STOP_WORDS.has(token));
+		.filter((token) => (token.length > 1 || /^\d+$/.test(token)) && !STOP_WORDS.has(token));
 }
 
 function hashToken(token) {
@@ -127,14 +127,48 @@ function classifyRideType(text) {
 	return 'mixed';
 }
 
-function classifyContentType({ title = '', summary = '', bodyMarkdown = '', categoryName = '' }) {
-	const haystack = `${title} ${summary} ${categoryName} ${bodyMarkdown}`.toLowerCase();
-	if (/\b(policy|ordinance|resolution|council|legislation)\b/.test(haystack)) return 'policy';
+export function classifyContentType({
+	title = '',
+	summary = '',
+	bodyMarkdown = '',
+	categoryName = '',
+	subcategoryName = ''
+}) {
+	const headerText = `${title} ${summary} ${categoryName} ${subcategoryName}`.toLowerCase();
+	const haystack = `${headerText} ${bodyMarkdown}`.toLowerCase();
+
+	const hasExplicitSafetyHeader =
+		/\b(crash|emergenc(?:y|ies)|cyclists?\s+safety|rider\s+safety|bike\s+safety|road\s+safety|street\s+safety|safer\s+cycling|road\s+share|ride\s+safety|safety\s+and\s+logistics|first\s+aid|traged(?:y|ies)|emotional\s+support|family\s+outreach|victim\s+resources?|ghost\s+bikes?|memorial\s*(?:&|and)?\s*vigil)\b/.test(
+			headerText
+		);
+	if (hasExplicitSafetyHeader) return 'safety';
+
+	const hasPolicyOrElectionHeader =
+		/\b(policy|policies|ordinance|resolution|council|legislation|election|elections|candidate|ballot|voter|nonpart[ir]isan|advocacy\s+letter|op-ed|complete\s+streets|sarah'?s\s+law|elected\s+official|questionnaire)\b/.test(
+			headerText
+		);
+
+	if (
+		!hasPolicyOrElectionHeader &&
+		/\b(call\s+911|crash\s+response|emergency\s+protocols?|door\s+zone|dutch\s+reach|traffic\s+violence|minimum[- ]passing[- ]distance|medical\s+attention|assess\s+injur(?:y|ies))\b/.test(
+			haystack
+		)
+	) {
+		return 'safety';
+	}
+
+	if (
+		hasPolicyOrElectionHeader ||
+		/\b(policy|ordinance|resolution|council|legislation)\b/.test(haystack)
+	) {
+		return 'policy';
+	}
 	if (/\b(checklist|template|worksheet|tracker|spreadsheet)\b/.test(haystack)) return 'toolkit';
-	if (/\b(crash|safety|response|alert|waiver)\b/.test(haystack)) return 'safety';
+	if (/\b(crash|safety|hazard|helmet|waiver)\b/.test(headerText)) return 'safety';
 	if (/\b(story|case study|spotlight|interview)\b/.test(haystack)) return 'story';
 	if (/\b(how to|guide|playbook|manual|steps?)\b/.test(haystack)) return 'guide';
 	if (/\b(event|calendar|upcoming|meetup)\b/.test(haystack)) return 'event';
+	if (/\b(crash|safety|response|alert|waiver)\b/.test(haystack)) return 'safety';
 	return 'reference';
 }
 
@@ -224,7 +258,13 @@ export function inferLearnArticleSearchSignals({
 	const audience = extractAudience(contextText);
 	const difficulty = classifyDifficulty(contextText);
 	const rideType = classifyRideType(contextText);
-	const contentType = classifyContentType({ title, summary, bodyMarkdown, categoryName });
+	const contentType = classifyContentType({
+		title,
+		summary,
+		bodyMarkdown,
+		categoryName,
+		subcategoryName
+	});
 	const isEvergreen = inferEvergreen(contextText);
 	const embedding = buildDeterministicEmbedding(
 		[title, summary, categoryName, subcategoryName, tags.join(' '), bodyMarkdown].join('\n')
