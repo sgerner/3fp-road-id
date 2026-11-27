@@ -1,5 +1,7 @@
 <script>
 	import { untrack } from 'svelte';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
 	import IconSave from '@lucide/svelte/icons/save';
 	import IconPlus from '@lucide/svelte/icons/plus';
@@ -13,20 +15,25 @@
 	import IconSearch from '@lucide/svelte/icons/search';
 	import IconMail from '@lucide/svelte/icons/mail';
 	import IconPhone from '@lucide/svelte/icons/phone';
+	import IconFileText from '@lucide/svelte/icons/file-text';
 	import { slide } from 'svelte/transition';
+	import GroupStripePaymentCard from '#lib/components/groups/GroupStripePaymentCard.svelte';
 	import ManageActionRow from '#lib/components/groups/ManageActionRow.svelte';
 	import ManageCardHeader from '#lib/components/groups/ManageCardHeader.svelte';
+	import {
+		normalizeMembershipManageViewParam,
+		resolveInitialMembershipManageView
+	} from '#lib/groups/membershipHandoff';
 
 	/** @type {Record<string, any>} */
 	let { data } = $props();
 
 	/** @type {any} */
 	const slug = $derived(data?.slug || data?.program_data?.group?.slug || '');
+	const groupInfo = $derived(data?.program_data?.group || null);
 	const MAX_TIER_PRICE_CENTS = 2_147_483_647;
 	const TIER_PRICE_ERROR =
 		'Enter a non-negative amount with up to two decimals (maximum $21,474,836.47).';
-	/** @type {any} */
-	const stripeConnection = $derived(data?.program_data?.stripe_connection || null);
 	/** @type {any} */
 	const DEFAULT_PROGRAM = {
 		enabled: true,
@@ -38,21 +45,35 @@
 		policy_version: 1
 	};
 
-	// Panel states
-	/** @type {any} */
-	let settingsOpen = $state(false);
-	/** @type {any} */
-	let tiersOpen = $state(true);
-	/** @type {any} */
-	let policyOpen = $state(false);
-	/** @type {any} */
-	let formFieldsOpen = $state(false);
-	/** @type {any} */
-	let billingOpen = $state(false);
+	/**
+	 * @param {any} rawProgram
+	 * @param {any} rawTiers
+	 */
+	function syncInitialProgramAndTiers(rawProgram, rawTiers) {
+		/** @type {any} */
+		const nextProgram = structuredClone(rawProgram || DEFAULT_PROGRAM);
+		/** @type {any[]} */
+		const nextTiers = Array.isArray(rawTiers) ? structuredClone(rawTiers) : [];
+		const activeDefaultId =
+			(nextProgram.default_tier_id &&
+				nextTiers.find((t) => t.id === nextProgram.default_tier_id && t.is_active !== false)?.id) ||
+			nextTiers.find((t) => t.is_default === true && t.is_active !== false)?.id ||
+			null;
+		nextProgram.default_tier_id = activeDefaultId;
+		for (const tier of nextTiers) {
+			tier.is_default = Boolean(activeDefaultId && tier.id === activeDefaultId);
+		}
+		return { nextProgram, nextTiers };
+	}
+
+	const initialSynced = untrack(() =>
+		syncInitialProgramAndTiers(data?.program_data?.program, data?.program_data?.tiers)
+	);
 
 	// Notification states
 	/** @type {any} */
 	let busy = $state(false);
+	let savingProgram = $state(false);
 	/** @type {any} */
 	let notice = $state('');
 	/** @type {any} */
@@ -60,14 +81,15 @@
 
 	// Data
 	/** @type {any} */
-	let program = $state(
-		untrack(() => structuredClone(data?.program_data?.program || DEFAULT_PROGRAM))
-	);
-
+	let program = $state(initialSynced.nextProgram);
+	/** @type {any[]} */
+	let tiers = $state(initialSynced.nextTiers);
 	/** @type {any} */
-	let tiers = $state(
+	let stripeConnectionState = $state(
 		untrack(() =>
-			Array.isArray(data?.program_data?.tiers) ? structuredClone(data.program_data.tiers) : []
+			data?.program_data?.stripe_connection
+				? structuredClone(data.program_data.stripe_connection)
+				: null
 		)
 	);
 	/** @type {any} */
@@ -88,6 +110,57 @@
 	let members = $state(
 		untrack(() => (Array.isArray(data?.members) ? structuredClone(data.members) : []))
 	);
+
+	// Split Management View ('members' | 'program')
+	let activeView = $state(
+		untrack(() =>
+			resolveInitialMembershipManageView({
+				requestedView: data?.initial_view,
+				tiers: initialSynced.nextTiers
+			})
+		)
+	);
+
+	$effect(() => {
+		const urlView = normalizeMembershipManageViewParam(
+			page.url.searchParams.get('view') || page.url.searchParams.get('tab')
+		);
+		if (urlView && urlView !== untrack(() => activeView)) {
+			activeView = urlView;
+		}
+	});
+
+	/**
+	 * @param {'members' | 'program' | string} view
+	 */
+	function setActiveView(view) {
+		const next = view === 'program' ? 'program' : 'members';
+		activeView = next;
+		if (typeof window !== 'undefined') {
+			const nextUrl = new URL(window.location.href);
+			nextUrl.searchParams.set('view', next);
+			nextUrl.searchParams.delete('tab');
+			try {
+				replaceState(`${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`, page.state);
+			} catch {
+				window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+			}
+		}
+	}
+
+	/**
+	 * @param {KeyboardEvent} event
+	 */
+	function handleViewTabKeydown(event) {
+		if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+		event.preventDefault();
+		const nextView = activeView === 'members' ? 'program' : 'members';
+		setActiveView(nextView);
+		const targetId = nextView === 'program' ? 'membership-tab-program' : 'membership-tab-members';
+		if (typeof document !== 'undefined') {
+			document.getElementById(targetId)?.focus();
+		}
+	}
 
 	// Filters
 	const STATUS_OPTIONS = ['active', 'past_due', 'cancelled'];
@@ -135,6 +208,7 @@
 	// Computed
 	/** @type {any} */
 	const publicMembershipUrl = $derived(`/groups/${slug}/membership`);
+	const activeTiers = $derived(tiers.filter((tier) => tier.is_active !== false));
 	/** @type {any} */
 	const pendingApplications = $derived(
 		applications.filter((a) => ['submitted', 'under_review', 'payment_pending'].includes(a.status))
@@ -148,6 +222,7 @@
 			return (
 				(m.profile?.full_name || '').toLowerCase().includes(query) ||
 				(m.profile?.email || '').toLowerCase().includes(query) ||
+				(m.profile?.phone || '').toLowerCase().includes(query) ||
 				(m.tier?.name || '').toLowerCase().includes(query)
 			);
 		})
@@ -156,12 +231,48 @@
 	const activeCount = $derived(members.filter((m) => m.status === 'active').length);
 	/** @type {any} */
 	const pastDueCount = $derived(members.filter((m) => m.status === 'past_due').length);
-	/** @type {any} */
-	const hasPaidTiers = $derived(
-		tiers.some((t) => (t.monthly_amount_cents || 0) > 0 || (t.annual_amount_cents || 0) > 0)
+	const liveActivePaidTierCount = $derived(
+		activeTiers.filter(
+			(t) =>
+				(t.monthly_amount_cents || 0) > 0 ||
+				(t.annual_amount_cents || 0) > 0 ||
+				(t.amount_cents || 0) > 0 ||
+				(t.allow_custom_amount === true && program.contribution_mode === 'paid')
+		).length
 	);
-	/** @type {any} */
-	const stripeReady = $derived(stripeConnection?.connected && stripeConnection?.charges_enabled);
+	const liveActiveSubscriptionCount = $derived(
+		members.filter(
+			(/** @type {any} */ m) =>
+				['active', 'past_due', 'paused'].includes(m.status) &&
+				Boolean(m.billing?.stripe_subscription_id)
+		).length
+	);
+	const hasPaidTiers = $derived(liveActivePaidTierCount > 0);
+	const stripeReady = $derived(
+		Boolean(stripeConnectionState?.connected && stripeConnectionState?.charges_enabled)
+	);
+	const effectiveBillingGuard = $derived({
+		active_tier_count: activeTiers.length,
+		active_paid_tier_count: Math.max(
+			Number(stripeConnectionState?.active_paid_tier_count || 0),
+			liveActivePaidTierCount
+		),
+		active_subscription_count: Math.max(
+			Number(stripeConnectionState?.active_subscription_count || 0),
+			liveActiveSubscriptionCount
+		),
+		past_due_count: Math.max(Number(stripeConnectionState?.past_due_count || 0), pastDueCount),
+		manage_url: `/groups/${encodeURIComponent(slug)}/manage/membership?view=program`
+	});
+
+	const hasValidManualEmail = $derived(
+		/^\S+@\S+\.\S+$/.test((manualMembership.user_email || '').trim())
+	);
+	const hasValidManualTier = $derived(
+		Boolean(manualMembership.tier_id) &&
+			activeTiers.some((tier) => tier.id === manualMembership.tier_id)
+	);
+	const canSubmitManualMember = $derived(!busy && hasValidManualEmail && hasValidManualTier);
 
 	// Helpers
 	/**
@@ -172,6 +283,40 @@
 		notice = nextNotice;
 		error = nextError;
 		if (nextNotice) setTimeout(() => (notice = ''), 4000);
+	}
+
+	/**
+	 * @param {string | null | undefined} nextTierId
+	 */
+	function selectDefaultTier(nextTierId) {
+		const normalized = nextTierId || null;
+		program = {
+			...program,
+			default_tier_id: normalized
+		};
+		tiers = tiers.map((tier) => ({
+			...tier,
+			is_default: Boolean(normalized && tier.id === normalized)
+		}));
+	}
+
+	/**
+	 * @param {any} bundle
+	 */
+	function applyProgramBundle(bundle) {
+		if (!bundle) return;
+		const { nextProgram, nextTiers } = syncInitialProgramAndTiers(
+			bundle.program || bundle,
+			bundle.tiers ?? tiers
+		);
+		program = nextProgram;
+		tiers = nextTiers;
+		if (Array.isArray(bundle.form_fields)) {
+			formFields = bundle.form_fields;
+		}
+		if (bundle.stripe_connection) {
+			stripeConnectionState = bundle.stripe_connection;
+		}
 	}
 
 	/**
@@ -249,14 +394,6 @@
 	}
 
 	/**
-	 * @param {any} cents
-	 */
-	function formatCurrency(cents) {
-		if (!cents) return 'Free';
-		return `$${(cents / 100).toFixed(2)}`;
-	}
-
-	/**
 	 * @param {any} path
 	 * @param {any} [options]
 	 */
@@ -268,6 +405,11 @@
 		const payload = await response.json().catch(() => ({}));
 		if (!response.ok) throw new Error(payload?.error || 'Request failed');
 		return payload?.data;
+	}
+
+	async function refreshProgramBundle() {
+		const bundle = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
+		applyProgramBundle(bundle);
 	}
 
 	async function copyJoinLink() {
@@ -347,8 +489,12 @@
 	}
 
 	async function addManualMembership() {
-		if (!manualMembership.user_email) {
-			setMessage('', 'Email is required');
+		if (!hasValidManualEmail) {
+			setMessage('', 'Enter a valid email address.');
+			return;
+		}
+		if (!hasValidManualTier) {
+			setMessage('', 'Select a valid membership tier before adding a member.');
 			return;
 		}
 		try {
@@ -358,7 +504,12 @@
 				body: JSON.stringify(manualMembership)
 			});
 			setMessage('Member added successfully');
-			manualMembership = { user_email: '', full_name: '', tier_id: '', status: 'active' };
+			manualMembership = {
+				user_email: '',
+				full_name: '',
+				tier_id: activeTiers.length === 1 ? activeTiers[0].id : '',
+				status: 'active'
+			};
 			manualLookupState = { checking: false, found: null, full_name: '' };
 			await refreshMembers();
 		} catch (e) {
@@ -395,44 +546,57 @@
 		}, 350);
 	}
 
-	async function saveProgramSettings() {
+	async function saveProgramAndTiers() {
+		for (const tier of tiers) {
+			if (!commitTierPriceDrafts(tier.id, tier)) {
+				setMessage('', TIER_PRICE_ERROR);
+				return;
+			}
+			if (!(tier.name || '').trim()) {
+				setMessage('', 'Every tier must have a name before saving.');
+				return;
+			}
+		}
+
 		try {
 			busy = true;
-			await api(`/api/groups/${slug}/membership/program`, {
+			savingProgram = true;
+			const updated = await api(`/api/groups/${slug}/membership/program`, {
 				method: 'PUT',
 				body: JSON.stringify({
-					enabled: program.enabled,
+					enabled: program.enabled !== false,
 					access_mode: program.access_mode,
 					cta_label: program.cta_label,
 					contribution_mode: program.contribution_mode,
-					default_tier_id: program.default_tier_id
+					default_tier_id: program.default_tier_id || null,
+					policy_markdown: program.policy_markdown ?? '',
+					tiers: tiers.map((tier, index) => ({
+						id: tier.id,
+						name: tier.name,
+						description: tier.description,
+						monthly_amount_cents: tier.monthly_amount_cents,
+						annual_amount_cents: tier.annual_amount_cents,
+						currency: tier.currency || 'usd',
+						is_default: Boolean(program.default_tier_id && program.default_tier_id === tier.id),
+						is_active: tier.is_active !== false,
+						allow_custom_amount: tier.allow_custom_amount === true,
+						min_amount_cents: tier.min_amount_cents,
+						sort_order: tier.sort_order ?? index
+					}))
 				})
 			});
-			setMessage('Settings saved');
+			applyProgramBundle(updated);
+			setMessage('Program and tiers saved');
 		} catch (e) {
-			setMessage('', e?.message || 'Unable to save settings');
+			setMessage('', e?.message || 'Unable to save program and tiers');
 		} finally {
 			busy = false;
-		}
-	}
-
-	async function savePolicy() {
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/policy`, {
-				method: 'PUT',
-				body: JSON.stringify({ policy_markdown: program.policy_markdown, bump_version: true })
-			});
-			setMessage('Policy saved');
-		} catch (e) {
-			setMessage('', e?.message || 'Unable to save policy');
-		} finally {
-			busy = false;
+			savingProgram = false;
 		}
 	}
 
 	async function createTier() {
-		if (!newTier.name) {
+		if (!(newTier.name || '').trim()) {
 			setMessage('', 'Tier name is required');
 			return;
 		}
@@ -444,7 +608,10 @@
 			busy = true;
 			await api(`/api/groups/${slug}/membership/tiers`, {
 				method: 'POST',
-				body: JSON.stringify(newTier)
+				body: JSON.stringify({
+					...newTier,
+					is_default: newTier.is_default || activeTiers.length === 0
+				})
 			});
 			setMessage('Tier created');
 			newTier = {
@@ -455,34 +622,9 @@
 				is_default: false,
 				is_active: true
 			};
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			tiers = data?.tiers || [];
+			await refreshProgramBundle();
 		} catch (e) {
 			setMessage('', e?.message || 'Unable to create tier');
-		} finally {
-			busy = false;
-		}
-	}
-
-	/**
-	 * @param {any} tier
-	 */
-	async function updateTier(tier) {
-		if (!commitTierPriceDrafts(tier.id, tier)) {
-			setMessage('', TIER_PRICE_ERROR);
-			return;
-		}
-		try {
-			busy = true;
-			await api(`/api/groups/${slug}/membership/tiers`, {
-				method: 'PUT',
-				body: JSON.stringify(tier)
-			});
-			setMessage('Tier updated');
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			tiers = data?.tiers || [];
-		} catch (e) {
-			setMessage('', e?.message || 'Unable to update tier');
 		} finally {
 			busy = false;
 		}
@@ -505,8 +647,7 @@
 				body: JSON.stringify({ id: tierId })
 			});
 			setMessage('Tier deleted');
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			tiers = data?.tiers || [];
+			await refreshProgramBundle();
 		} catch (e) {
 			setMessage('', e?.message || 'Unable to delete tier');
 		} finally {
@@ -537,8 +678,7 @@
 				required: false,
 				options_text: ''
 			};
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			formFields = data?.form_fields || [];
+			await refreshProgramBundle();
 		} catch (e) {
 			setMessage('', e?.message || 'Unable to add field');
 		} finally {
@@ -558,8 +698,7 @@
 				body: JSON.stringify({ id: fieldId })
 			});
 			setMessage('Field deleted');
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			formFields = data?.form_fields || [];
+			await refreshProgramBundle();
 		} catch (e) {
 			setMessage('', e?.message || 'Unable to delete field');
 		} finally {
@@ -569,6 +708,7 @@
 
 	async function installDefaultTiers() {
 		if (
+			tiers.length > 0 &&
 			!confirm(
 				'Install the recommended tier catalog? Existing matching tiers will be updated and missing tiers will be created.'
 			)
@@ -583,8 +723,7 @@
 			setMessage(
 				`Tier catalog ready. Created ${result?.created_count || 0}, updated ${result?.updated_count || 0}.`
 			);
-			const data = await api(`/api/groups/${slug}/membership/program?include_inactive=true`);
-			tiers = data?.tiers || [];
+			await refreshProgramBundle();
 		} catch (e) {
 			setMessage('', e?.message || 'Unable to install default tier catalog.');
 		} finally {
@@ -615,10 +754,15 @@
 			.slice(0, 2);
 	}
 
-	// Auto-select tier if only one exists
+	// Auto-select tier in manual add when exactly one active tier exists, and clear stale selection
 	$effect(() => {
-		if (tiers.length === 1 && !manualMembership.tier_id) {
-			manualMembership.tier_id = tiers[0].id;
+		if (
+			manualMembership.tier_id &&
+			!activeTiers.some((tier) => tier.id === manualMembership.tier_id)
+		) {
+			manualMembership.tier_id = activeTiers.length === 1 ? activeTiers[0].id : '';
+		} else if (activeTiers.length === 1 && !manualMembership.tier_id) {
+			manualMembership.tier_id = activeTiers[0].id;
 		}
 	});
 </script>
@@ -644,6 +788,75 @@
 {/snippet}
 
 <div class="membership-manage">
+	<!-- View Switcher Header -->
+	<div class="view-header">
+		<div
+			class="view-tabs"
+			role="tablist"
+			aria-label="Membership management views"
+			tabindex="-1"
+			onkeydown={handleViewTabKeydown}
+		>
+			<button
+				id="membership-tab-members"
+				type="button"
+				role="tab"
+				class="view-tab"
+				class:active={activeView === 'members'}
+				aria-selected={activeView === 'members'}
+				aria-controls="membership-panel-members"
+				tabindex={activeView === 'members' ? 0 : -1}
+				onclick={() => setActiveView('members')}
+			>
+				<IconUsers class="h-4 w-4" />
+				<span>Members</span>
+				<span class="tab-pill">{members.length}</span>
+				{#if pendingApplications.length > 0}
+					<span class="tab-pill warning">{pendingApplications.length} pending</span>
+				{/if}
+			</button>
+			<button
+				id="membership-tab-program"
+				type="button"
+				role="tab"
+				class="view-tab"
+				class:active={activeView === 'program'}
+				aria-selected={activeView === 'program'}
+				aria-controls="membership-panel-program"
+				tabindex={activeView === 'program' ? 0 : -1}
+				onclick={() => setActiveView('program')}
+			>
+				<IconSettings class="h-4 w-4" />
+				<span>Program and Tiers</span>
+				<span class="tab-pill">{activeTiers.length}</span>
+			</button>
+		</div>
+
+		<ManageActionRow class="view-header-actions">
+			<button type="button" class="btn preset-tonal-surface" onclick={copyJoinLink}>
+				<IconLink class="h-4 w-4" />
+				<span>Copy Join Link</span>
+			</button>
+			{#if activeView === 'program'}
+				<button
+					type="button"
+					class="btn preset-filled-primary-500"
+					disabled={busy || savingProgram}
+					onclick={saveProgramAndTiers}
+					data-testid="save-program-and-tiers-top"
+				>
+					{#if savingProgram}
+						<IconLoader class="h-4 w-4 animate-spin" />
+						<span>Saving…</span>
+					{:else}
+						<IconSave class="h-4 w-4" />
+						<span>Save Program and Tiers</span>
+					{/if}
+				</button>
+			{/if}
+		</ManageActionRow>
+	</div>
+
 	<!-- Notifications -->
 	{#if notice}
 		<div class="banner success" role="status">
@@ -685,7 +898,9 @@
 				</div>
 				<a
 					class="btn preset-filled-primary-500 stripe-connect-action"
-					href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(slug)}"
+					href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(
+						slug
+					)}&return_to={encodeURIComponent(`/groups/${slug}/manage/membership?view=program`)}"
 				>
 					<IconCreditCard class="h-4 w-4" />
 					Connect Stripe
@@ -694,372 +909,431 @@
 		</div>
 	{/if}
 
-	<!-- Stats Row -->
-	<div class="stats-grid">
-		<div class="stat-card">
-			<div class="stat-label">Total Members</div>
-			<div class="stat-value">{members.length}</div>
-		</div>
-		<div class="stat-card">
-			<div class="stat-label">Active</div>
-			<div class="stat-value success">{activeCount}</div>
-		</div>
-		<div class="stat-card">
-			<div class="stat-label">Past Due</div>
-			<div class="stat-value warning">{pastDueCount}</div>
-		</div>
-		<div class="stat-card">
-			<div class="stat-label">Pending Applications</div>
-			<div class="stat-value">{pendingApplications.length}</div>
-		</div>
-	</div>
-
-	<!-- Member Roster -->
-	<section class="card">
-		<div class="card-accent" aria-hidden="true"></div>
-		<ManageCardHeader
-			title="Member Roster"
-			titleClass="text-[0.9375rem] font-semibold tracking-tight"
-			icon={IconUsers}
-			tone="primary"
-			iconVariant="tile"
-			padded
-			divider
+	{#if activeView === 'members'}
+		<div
+			id="membership-panel-members"
+			role="tabpanel"
+			aria-labelledby="membership-tab-members"
+			class="view-panel"
 		>
-			{#snippet badges()}
-				{#if pendingApplications.length > 0}
-					<span class="badge warning">{pendingApplications.length} pending</span>
-				{/if}
-			{/snippet}
-			{#snippet actions()}
-				<button class="btn preset-tonal-surface" onclick={copyJoinLink}>
-					<IconLink class="h-4 w-4" />
-					<span>Copy Join Link</span>
-				</button>
-			{/snippet}
-		</ManageCardHeader>
-
-		<div class="card-body">
-			<div class="filters-row">
-				<div class="search-input">
-					<IconSearch class="search-icon h-4 w-4" />
-					<input
-						type="text"
-						placeholder="Search members..."
-						bind:value={memberFilterQuery}
-						oninput={refreshMembers}
-					/>
+			<!-- Stats Row -->
+			<div class="stats-grid">
+				<div class="stat-card">
+					<div class="stat-label">Total Members</div>
+					<div class="stat-value">{members.length}</div>
 				</div>
-				<select class="select" bind:value={memberFilterStatus} onchange={refreshMembers}>
-					<option value="all">All statuses</option>
-					{#each STATUS_OPTIONS as status}
-						<option value={status}>{status}</option>
-					{/each}
-				</select>
-			</div>
-
-			{#if filteredMembers.length === 0}
-				<div class="empty-state">
-					<div class="empty-icon">
-						<IconUsers class="h-8 w-8" />
-					</div>
-					<p class="empty-title">No members found</p>
-					<p class="empty-subtitle">
-						{memberFilterQuery || memberFilterStatus !== 'all'
-							? 'Try adjusting your filters'
-							: 'Add members manually or share your join link'}
-					</p>
+				<div class="stat-card">
+					<div class="stat-label">Active</div>
+					<div class="stat-value success">{activeCount}</div>
 				</div>
-			{:else}
-				<div class="member-list">
-					{#each filteredMembers as member (member.id)}
-						<div class="member-row" class:expanded={expandedMemberId === member.id}>
-							<button
-								class="member-row-header"
-								onclick={() =>
-									(expandedMemberId = expandedMemberId === member.id ? null : member.id)}
-								aria-expanded={expandedMemberId === member.id}
-							>
-								{#if member.profile?.avatar_url}
-									<img
-										src={member.profile.avatar_url}
-										alt={`${member.profile?.full_name || 'Member'} avatar`}
-										class="member-avatar"
-									/>
-								{:else}
-									<div class="member-avatar-fallback">
-										{getInitials(member.profile?.full_name)}
-									</div>
-								{/if}
-								<div class="member-info">
-									<div class="member-name">
-										{member.profile?.full_name || member.profile?.email || 'Unknown'}
-									</div>
-									<div class="member-meta">
-										<span class="tier-badge">{member.tier?.name || 'No tier'}</span>
-										<span class="dot">·</span>
-										<span class="source">{member.source}</span>
-									</div>
-								</div>
-								<div class="member-status">
-									<span
-										class="status-badge"
-										class:success={member.status === 'active'}
-										class:warning={member.status === 'past_due'}
-										class:error={member.status === 'cancelled'}
-									>
-										{member.status}
-									</span>
-								</div>
-								<IconChevronDown
-									class="chevron h-4 w-4 {expandedMemberId === member.id ? 'rotate' : ''}"
-								/>
-							</button>
-
-							{#if expandedMemberId === member.id}
-								<div class="member-details" transition:slide={{ duration: 180 }}>
-									<div class="details-grid">
-										{#if member.profile?.email}
-											<div class="detail-item">
-												<IconMail class="h-4 w-4" />
-												<a href="mailto:{member.profile.email}">{member.profile.email}</a>
-											</div>
-										{/if}
-										{#if member.profile?.phone}
-											<div class="detail-item">
-												<IconPhone class="h-4 w-4" />
-												<a href="tel:{member.profile.phone}">{member.profile.phone}</a>
-											</div>
-										{/if}
-										<div class="detail-item">
-											<span class="detail-label">Joined:</span>
-											<span>{formatDate(member.created_at)}</span>
-										</div>
-									</div>
-
-									<div class="status-actions">
-										<span class="action-label">Change status:</span>
-										<ManageActionRow>
-											{#each STATUS_OPTIONS as status}
-												{@const isActive = member.status === status}
-												{@const statusPreset =
-													status === 'active'
-														? 'preset-filled-success-500'
-														: status === 'past_due'
-															? 'preset-filled-warning-500'
-															: status === 'cancelled'
-																? 'preset-filled-error-500'
-																: 'preset-filled-surface'}
-												{@const inactivePreset =
-													status === 'active'
-														? 'preset-outlined-success-500'
-														: status === 'past_due'
-															? 'preset-outlined-warning-500'
-															: status === 'cancelled'
-																? 'preset-outlined-error-500'
-																: 'preset-outlined-surface'}
-												<button
-													class="btn btn-sm {isActive ? statusPreset : inactivePreset}"
-													disabled={isActive || busy}
-													onclick={() => updateMemberStatus(member, status)}
-												>
-													{status}
-												</button>
-											{/each}
-										</ManageActionRow>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/each}
+				<div class="stat-card">
+					<div class="stat-label">Past Due</div>
+					<div class="stat-value warning">{pastDueCount}</div>
 				</div>
-			{/if}
-		</div>
-	</section>
-
-	<!-- Applications Queue -->
-	{#if applications.length > 0}
-		<section class="card">
-			<div class="card-accent warning" aria-hidden="true"></div>
-			<ManageCardHeader
-				title="Applications"
-				titleClass="text-[0.9375rem] font-semibold tracking-tight"
-				icon={IconUsers}
-				tone="warning"
-				iconVariant="tile"
-				padded
-				divider
-			>
-				{#snippet badges()}
-					<span class="badge warning">{pendingApplications.length} pending</span>
-				{/snippet}
-			</ManageCardHeader>
-
-			<div class="card-body">
-				<div class="application-list">
-					{#each applications as app (app.id)}
-						<div class="application-row">
-							<div class="application-info">
-								<div class="application-name">
-									{app.applicant_profile?.full_name || app.applicant_profile?.email || 'Unknown'}
-								</div>
-								<div class="application-meta">
-									<span class="tier-badge">{app.selected_tier?.name || 'No tier'}</span>
-									<span class="dot">·</span>
-									<span>{formatDate(app.submitted_at)}</span>
-								</div>
-							</div>
-							<div class="application-status">
-								<span
-									class="status-badge"
-									class:success={app.status === 'approved'}
-									class:warning={['submitted', 'under_review', 'payment_pending'].includes(
-										app.status
-									)}
-									class:error={app.status === 'rejected'}
-								>
-									{app.status}
-								</span>
-							</div>
-							{#if ['submitted', 'under_review', 'payment_pending'].includes(app.status)}
-								<ManageActionRow>
-									<button
-										class="btn preset-tonal-success"
-										disabled={busy}
-										onclick={() => approveApplication(app.id)}
-									>
-										<IconCheck class="h-4 w-4" />
-										Approve
-									</button>
-									<button
-										class="btn preset-tonal-error"
-										disabled={busy}
-										onclick={() => rejectApplication(app.id)}
-									>
-										<IconTrash class="h-4 w-4" />
-										Reject
-									</button>
-								</ManageActionRow>
-							{/if}
-						</div>
-					{/each}
+				<div class="stat-card">
+					<div class="stat-label">Pending Applications</div>
+					<div class="stat-value">{pendingApplications.length}</div>
 				</div>
 			</div>
-		</section>
-	{/if}
 
-	<!-- Add Member (Manual) -->
-	<section class="card">
-		<div class="card-accent success" aria-hidden="true"></div>
-		<ManageCardHeader
-			title="Add Member"
-			titleClass="text-[0.9375rem] font-semibold tracking-tight"
-			icon={IconPlus}
-			tone="success"
-			iconVariant="tile"
-			padded
-			divider
-		/>
-
-		<div class="card-body">
-			<p class="card-description">
-				Enter an email to add a member manually. If no account exists, we'll create one and send an
-				invite.
-			</p>
-			<div class="manual-form">
-				<div class="form-row">
-					<div class="form-field">
-						<label for="manual-email">Email address</label>
-						<input
-							id="manual-email"
-							type="email"
-							bind:value={manualMembership.user_email}
-							oninput={queueEmailLookup}
-							placeholder="member@example.com"
-						/>
-						{#if manualLookupState.checking}
-							<span class="field-hint">Checking...</span>
-						{:else if manualLookupState.found === true}
-							<span class="field-hint success">Existing user found</span>
-						{:else if manualLookupState.found === false}
-							<span class="field-hint">New account will be created</span>
+			<!-- Member Roster -->
+			<section class="card">
+				<div class="card-accent" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Member Roster"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconUsers}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						{#if pendingApplications.length > 0}
+							<span class="badge warning">{pendingApplications.length} pending</span>
 						{/if}
-					</div>
-					<div class="form-field">
-						<label for="manual-name">Full name</label>
-						<input
-							id="manual-name"
-							type="text"
-							bind:value={manualMembership.full_name}
-							placeholder={manualLookupState.full_name || 'Full name'}
-							disabled={manualLookupState.found === true}
-						/>
-					</div>
-				</div>
-				<div class="form-row three-col">
-					<div class="form-field">
-						<label for="manual-tier">Tier</label>
-						<select id="manual-tier" bind:value={manualMembership.tier_id}>
-							<option value="">Select tier</option>
-							{#each tiers as tier}
-								<option value={tier.id}>{tier.name}</option>
-							{/each}
-						</select>
-					</div>
-					<div class="form-field">
-						<label for="manual-status">Status</label>
-						<select id="manual-status" bind:value={manualMembership.status}>
+					{/snippet}
+					{#snippet actions()}
+						<button type="button" class="btn preset-tonal-surface" onclick={copyJoinLink}>
+							<IconLink class="h-4 w-4" />
+							<span>Copy Join Link</span>
+						</button>
+					{/snippet}
+				</ManageCardHeader>
+
+				<div class="card-body">
+					<div class="filters-row">
+						<div class="search-input">
+							<IconSearch class="search-icon h-4 w-4" />
+							<input
+								type="text"
+								placeholder="Search members..."
+								bind:value={memberFilterQuery}
+								oninput={refreshMembers}
+							/>
+						</div>
+						<select class="select" bind:value={memberFilterStatus} onchange={refreshMembers}>
+							<option value="all">All statuses</option>
 							{#each STATUS_OPTIONS as status}
 								<option value={status}>{status}</option>
 							{/each}
 						</select>
 					</div>
-					<div class="form-field submit-field">
-						<div class="submit-label-spacer" aria-hidden="true"></div>
-						<button
-							id="manual-add-member"
-							class="btn preset-filled-primary-500"
-							disabled={busy || !manualMembership.user_email}
-							onclick={addManualMembership}
-						>
-							<IconPlus class="h-4 w-4" />
-							Add Member
-						</button>
+
+					{#if filteredMembers.length === 0}
+						<div class="empty-state">
+							<div class="empty-icon">
+								<IconUsers class="h-8 w-8" />
+							</div>
+							<p class="empty-title">No members found</p>
+							<p class="empty-subtitle">
+								{memberFilterQuery || memberFilterStatus !== 'all'
+									? 'Try adjusting your filters'
+									: activeTiers.length === 0
+										? 'Set up your membership tiers first, then invite or add members.'
+										: 'Add members manually below or share your join link'}
+							</p>
+							{#if activeTiers.length === 0}
+								<button
+									type="button"
+									class="btn preset-filled-primary-500 mt-4"
+									onclick={() => setActiveView('program')}
+								>
+									Open Program and Tiers
+								</button>
+							{/if}
+						</div>
+					{:else}
+						<div class="member-list">
+							{#each filteredMembers as member (member.id)}
+								<div class="member-row" class:expanded={expandedMemberId === member.id}>
+									<button
+										type="button"
+										class="member-row-header"
+										onclick={() =>
+											(expandedMemberId = expandedMemberId === member.id ? null : member.id)}
+										aria-expanded={expandedMemberId === member.id}
+									>
+										{#if member.profile?.avatar_url}
+											<img
+												src={member.profile.avatar_url}
+												alt={`${member.profile?.full_name || 'Member'} avatar`}
+												class="member-avatar"
+											/>
+										{:else}
+											<div class="member-avatar-fallback">
+												{getInitials(member.profile?.full_name)}
+											</div>
+										{/if}
+										<div class="member-info">
+											<div class="member-name">
+												{member.profile?.full_name || member.profile?.email || 'Unknown'}
+											</div>
+											<div class="member-meta">
+												<span class="tier-badge">{member.tier?.name || 'No tier'}</span>
+												<span class="dot">·</span>
+												<span class="source">{member.source}</span>
+											</div>
+										</div>
+										<div class="member-status">
+											<span
+												class="status-badge"
+												class:success={member.status === 'active'}
+												class:warning={member.status === 'past_due'}
+												class:error={member.status === 'cancelled'}
+											>
+												{member.status}
+											</span>
+										</div>
+										<IconChevronDown
+											class="chevron h-4 w-4 {expandedMemberId === member.id ? 'rotate' : ''}"
+										/>
+									</button>
+
+									{#if expandedMemberId === member.id}
+										<div class="member-details" transition:slide={{ duration: 180 }}>
+											<div class="details-grid">
+												{#if member.profile?.email}
+													<div class="detail-item">
+														<IconMail class="h-4 w-4" />
+														<a href="mailto:{member.profile.email}">{member.profile.email}</a>
+													</div>
+												{/if}
+												{#if member.profile?.phone}
+													<div class="detail-item">
+														<IconPhone class="h-4 w-4" />
+														<a href="tel:{member.profile.phone}">{member.profile.phone}</a>
+													</div>
+												{/if}
+												<div class="detail-item">
+													<span class="detail-label">Joined:</span>
+													<span>{formatDate(member.created_at)}</span>
+												</div>
+											</div>
+
+											<div class="status-actions">
+												<span class="action-label">Change status:</span>
+												<ManageActionRow>
+													{#each STATUS_OPTIONS as status}
+														{@const isActive = member.status === status}
+														{@const statusPreset =
+															status === 'active'
+																? 'preset-filled-success-500'
+																: status === 'past_due'
+																	? 'preset-filled-warning-500'
+																	: status === 'cancelled'
+																		? 'preset-filled-error-500'
+																		: 'preset-filled-surface'}
+														{@const inactivePreset =
+															status === 'active'
+																? 'preset-outlined-success-500'
+																: status === 'past_due'
+																	? 'preset-outlined-warning-500'
+																	: status === 'cancelled'
+																		? 'preset-outlined-error-500'
+																		: 'preset-outlined-surface'}
+														<button
+															type="button"
+															class="btn btn-sm {isActive ? statusPreset : inactivePreset}"
+															disabled={isActive || busy}
+															onclick={() => updateMemberStatus(member, status)}
+														>
+															{status}
+														</button>
+													{/each}
+												</ManageActionRow>
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</section>
+
+			<!-- Applications Queue -->
+			{#if applications.length > 0}
+				<section class="card">
+					<div class="card-accent warning" aria-hidden="true"></div>
+					<ManageCardHeader
+						title="Applications"
+						titleClass="text-[0.9375rem] font-semibold tracking-tight"
+						icon={IconUsers}
+						tone="warning"
+						iconVariant="tile"
+						padded
+						divider
+					>
+						{#snippet badges()}
+							<span class="badge warning">{pendingApplications.length} pending</span>
+						{/snippet}
+					</ManageCardHeader>
+
+					<div class="card-body">
+						<div class="application-list">
+							{#each applications as app (app.id)}
+								<div class="application-row">
+									<div class="application-info">
+										<div class="application-name">
+											{app.applicant_profile?.full_name ||
+												app.applicant_profile?.email ||
+												'Unknown'}
+										</div>
+										<div class="application-meta">
+											<span class="tier-badge">{app.selected_tier?.name || 'No tier'}</span>
+											<span class="dot">·</span>
+											<span>{formatDate(app.submitted_at)}</span>
+											{#if app.applicant_profile?.phone}
+												<span class="dot">·</span>
+												<span>{app.applicant_profile.phone}</span>
+											{/if}
+										</div>
+									</div>
+									<div class="application-status">
+										<span
+											class="status-badge"
+											class:success={app.status === 'approved'}
+											class:warning={['submitted', 'under_review', 'payment_pending'].includes(
+												app.status
+											)}
+											class:error={app.status === 'rejected'}
+										>
+											{app.status}
+										</span>
+									</div>
+									{#if ['submitted', 'under_review', 'payment_pending'].includes(app.status)}
+										<ManageActionRow>
+											<button
+												type="button"
+												class="btn preset-tonal-success"
+												disabled={busy}
+												onclick={() => approveApplication(app.id)}
+											>
+												<IconCheck class="h-4 w-4" />
+												Approve
+											</button>
+											<button
+												type="button"
+												class="btn preset-tonal-error"
+												disabled={busy}
+												onclick={() => rejectApplication(app.id)}
+											>
+												<IconTrash class="h-4 w-4" />
+												Reject
+											</button>
+										</ManageActionRow>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</div>
+				</section>
+			{/if}
+
+			<!-- Add Member (Manual — Members view only) -->
+			<section class="card" data-testid="manual-add-member-section">
+				<div class="card-accent success" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Add Member"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconPlus}
+					tone="success"
+					iconVariant="tile"
+					padded
+					divider
+				/>
+
+				<div class="card-body">
+					<p class="card-description">
+						Enter an email and select a membership tier to add a member manually. If no account
+						exists, we'll create one and send an invite.
+					</p>
+					{#if activeTiers.length === 0}
+						<div class="notes-callout mb-4">
+							<div class="notes-callout-body">
+								<p class="font-medium">No active membership tiers yet</p>
+								<p class="text-xs opacity-80">
+									Create at least one tier in Program and Tiers before adding members manually.
+								</p>
+							</div>
+							<button
+								type="button"
+								class="btn btn-sm preset-filled-primary-500"
+								onclick={() => setActiveView('program')}
+							>
+								Set up Program and Tiers
+							</button>
+						</div>
+					{/if}
+					<div class="manual-form">
+						<div class="form-row">
+							<div class="form-field">
+								<label for="manual-email">Email address</label>
+								<input
+									id="manual-email"
+									type="email"
+									bind:value={manualMembership.user_email}
+									oninput={queueEmailLookup}
+									placeholder="member@example.com"
+								/>
+								{#if manualLookupState.checking}
+									<span class="field-hint">Checking...</span>
+								{:else if manualLookupState.found === true}
+									<span class="field-hint success">Existing user found</span>
+								{:else if manualLookupState.found === false}
+									<span class="field-hint">New account will be created</span>
+								{/if}
+							</div>
+							<div class="form-field">
+								<label for="manual-name">Full name</label>
+								<input
+									id="manual-name"
+									type="text"
+									bind:value={manualMembership.full_name}
+									placeholder={manualLookupState.full_name || 'Full name'}
+									disabled={manualLookupState.found === true}
+								/>
+							</div>
+						</div>
+						<div class="form-row three-col">
+							<div class="form-field">
+								<label for="manual-tier">Tier *</label>
+								<select id="manual-tier" bind:value={manualMembership.tier_id}>
+									<option value="">Select tier</option>
+									{#each activeTiers as tier (tier.id)}
+										<option value={tier.id}>{tier.name}</option>
+									{/each}
+								</select>
+								{#if manualMembership.user_email && !hasValidManualTier && activeTiers.length > 0}
+									<span class="field-hint warning">Select a tier to enable adding this member</span>
+								{/if}
+							</div>
+							<div class="form-field">
+								<label for="manual-status">Status</label>
+								<select id="manual-status" bind:value={manualMembership.status}>
+									{#each STATUS_OPTIONS as status}
+										<option value={status}>{status}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-field submit-field">
+								<div class="submit-label-spacer" aria-hidden="true"></div>
+								<button
+									id="manual-add-member"
+									type="button"
+									class="btn preset-filled-primary-500"
+									disabled={!canSubmitManualMember}
+									onclick={addManualMembership}
+								>
+									<IconPlus class="h-4 w-4" />
+									Add Member
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
-			</div>
+			</section>
 		</div>
-	</section>
-
-	<!-- Settings -->
-	<section class="card settings-card">
+	{:else}
 		<div
-			class="card-accent"
-			aria-hidden="true"
-			style="background: linear-gradient(90deg, var(--color-surface-500), var(--color-surface-400));"
-		></div>
-		<button
-			class="settings-header"
-			onclick={() => (settingsOpen = !settingsOpen)}
-			aria-expanded={settingsOpen}
+			id="membership-panel-program"
+			role="tabpanel"
+			aria-labelledby="membership-tab-program"
+			class="view-panel"
 		>
-			<div class="flex min-w-0 items-center gap-3">
-				<span
-					class="bg-surface-500/15 text-surface-400 flex h-9 w-9 shrink-0 items-center justify-center"
-					aria-hidden="true"
-				>
-					<IconSettings class="h-5 w-5" />
-				</span>
-				<h2 class="m-0 min-w-0 text-[0.9375rem] font-semibold tracking-tight">Settings</h2>
-			</div>
-			<IconChevronDown class="chevron h-5 w-5 {settingsOpen ? 'rotate' : ''}" />
-		</button>
+			{#if activeTiers.length === 0 && (groupInfo?.membership_info || '').trim()}
+				<section class="card" data-testid="membership-notes-reference">
+					<div class="card-accent" aria-hidden="true"></div>
+					<ManageCardHeader
+						title="Saved Membership Notes from Group Profile"
+						titleClass="text-[0.9375rem] font-semibold tracking-tight"
+						subtitle="Use your existing notes as a reference when setting up structured tiers below, or import starter tiers to get started quickly."
+						icon={IconFileText}
+						tone="primary"
+						iconVariant="tile"
+						padded
+						divider
+					/>
+					<div class="card-body">
+						<div class="reference-notes-box">{groupInfo.membership_info}</div>
+					</div>
+				</section>
+			{/if}
 
-		{#if settingsOpen}
-			<div class="card-body" transition:slide={{ duration: 200 }}>
-				<!-- Program Settings -->
-				<div class="settings-section">
-					<h3 class="section-title">Program Settings</h3>
+			<!-- Program Options (Flat Card) -->
+			<section class="card">
+				<div class="card-accent" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Program Options"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconSettings}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				/>
+				<div class="card-body">
 					<div class="settings-grid">
 						<div class="setting-item">
 							<label class="setting-label" for="setting-enabled">Membership enabled</label>
@@ -1099,10 +1373,11 @@
 							<select
 								id="setting-default-tier"
 								class="setting-select"
-								bind:value={program.default_tier_id}
+								value={program.default_tier_id ?? ''}
+								onchange={(e) => selectDefaultTier(e.currentTarget.value || null)}
 							>
-								<option value={null}>No default</option>
-								{#each tiers as tier}
+								<option value="">No default</option>
+								{#each activeTiers as tier (tier.id)}
 									<option value={tier.id}>{tier.name}</option>
 								{/each}
 							</select>
@@ -1118,375 +1393,393 @@
 							/>
 						</div>
 					</div>
-					<div class="section-actions">
+				</div>
+			</section>
+
+			<!-- Tiers Setup (Flat Card) -->
+			<section class="card">
+				<div class="card-accent success" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Membership Tiers"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconPlus}
+					tone="success"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						<span class="badge">{activeTiers.length} active</span>
+					{/snippet}
+					{#snippet actions()}
 						<button
-							class="btn preset-filled-primary-500"
+							type="button"
+							class="btn btn-sm preset-tonal-tertiary"
 							disabled={busy}
-							onclick={saveProgramSettings}
+							onclick={installDefaultTiers}
 						>
-							<IconSave class="h-4 w-4" />
-							Save Settings
+							Import Starter Tiers
 						</button>
+					{/snippet}
+				</ManageCardHeader>
+
+				<div class="card-body">
+					{#if tiers.length === 0}
+						<div class="quick-start">
+							<div class="quick-start-content">
+								<div class="quick-start-icon">
+									<IconPlus class="h-5 w-5" />
+								</div>
+								<div>
+									<p class="quick-start-title">Create your first membership tier</p>
+									<p class="quick-start-desc">
+										Start with recommended free and supporter tiers in one click, or define a custom
+										tier below.
+									</p>
+								</div>
+							</div>
+							<button
+								type="button"
+								class="btn preset-filled-primary-500"
+								disabled={busy}
+								onclick={installDefaultTiers}
+							>
+								Import Starter Tiers
+							</button>
+						</div>
+					{:else}
+						<div class="tier-list">
+							{#each tiers as tier (tier.id)}
+								<div class="tier-row">
+									<div class="tier-fields">
+										<input
+											class="tier-input"
+											aria-label={`Tier name for ${tier.name || 'tier'}`}
+											placeholder="Tier name"
+											bind:value={tier.name}
+										/>
+										<input
+											class="tier-input"
+											aria-label={`Description for ${tier.name || 'tier'}`}
+											placeholder="Description"
+											bind:value={tier.description}
+										/>
+										<div class="price-inputs">
+											<div class="price-field">
+												<span class="price-prefix">$</span>
+												{@render tierPriceInput(
+													tier,
+													tier.id,
+													'monthly',
+													`Monthly contribution for ${tier.name || 'tier'}`,
+													`tier-${tier.id}-monthly-price`
+												)}
+											</div>
+											<div class="price-field">
+												<span class="price-prefix">$</span>
+												{@render tierPriceInput(
+													tier,
+													tier.id,
+													'annual',
+													`Annual contribution for ${tier.name || 'tier'}`,
+													`tier-${tier.id}-annual-price`
+												)}
+											</div>
+										</div>
+									</div>
+									<ManageActionRow>
+										{#snippet lead()}
+											<div class="flex flex-wrap items-center gap-4">
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={program.default_tier_id === tier.id}
+														disabled={tier.is_active === false}
+														onchange={(e) =>
+															selectDefaultTier(e.currentTarget.checked ? tier.id : null)}
+													/>
+													<span>Default tier</span>
+												</label>
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={tier.is_active !== false}
+														onchange={(e) => {
+															const checked = e.currentTarget.checked;
+															tier.is_active = checked;
+															if (!checked && program.default_tier_id === tier.id) {
+																selectDefaultTier(null);
+															}
+														}}
+													/>
+													<span>Active</span>
+												</label>
+												<label class="checkbox-label">
+													<input
+														type="checkbox"
+														checked={tier.allow_custom_amount === true}
+														onchange={(e) => (tier.allow_custom_amount = e.currentTarget.checked)}
+													/>
+													<span>Allow custom amount</span>
+												</label>
+											</div>
+										{/snippet}
+										<button
+											type="button"
+											class="btn-text danger"
+											aria-label={`Delete ${tier.name || 'tier'}`}
+											disabled={busy}
+											onclick={() => deleteTier(tier.id)}
+										>
+											<IconTrash class="h-4 w-4" />
+										</button>
+									</ManageActionRow>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					<!-- New Tier Form -->
+					<div class="new-tier-form">
+						<h3 class="form-subtitle">Add New Tier</h3>
+						<div class="tier-fields">
+							<input
+								class="tier-input"
+								aria-label="New tier name"
+								placeholder="Tier name"
+								bind:value={newTier.name}
+							/>
+							<input
+								class="tier-input"
+								aria-label="New tier description"
+								placeholder="Description"
+								bind:value={newTier.description}
+							/>
+							<div class="price-inputs">
+								<div class="price-field">
+									<span class="price-prefix">$</span>
+									{@render tierPriceInput(
+										newTier,
+										null,
+										'monthly',
+										'New tier monthly contribution',
+										'new-tier-monthly-price'
+									)}
+								</div>
+								<div class="price-field">
+									<span class="price-prefix">$</span>
+									{@render tierPriceInput(
+										newTier,
+										null,
+										'annual',
+										'New tier annual contribution',
+										'new-tier-annual-price'
+									)}
+								</div>
+							</div>
+						</div>
+						<ManageActionRow>
+							{#snippet lead()}
+								<label class="checkbox-label">
+									<input type="checkbox" bind:checked={newTier.is_default} />
+									<span>Set as default</span>
+								</label>
+							{/snippet}
+							<button
+								type="button"
+								class="btn preset-tonal-primary"
+								disabled={busy || !(newTier.name || '').trim()}
+								onclick={createTier}
+							>
+								<IconPlus class="h-4 w-4" />
+								Add Tier
+							</button>
+						</ManageActionRow>
 					</div>
 				</div>
+			</section>
 
-				<!-- Policy -->
-				<div class="settings-section">
-					<button
-						class="section-toggle"
-						onclick={() => (policyOpen = !policyOpen)}
-						aria-expanded={policyOpen}
-					>
-						<h3 class="section-title">Membership Policy</h3>
-						<IconChevronDown class="h-4 w-4 {policyOpen ? 'rotate' : ''}" />
-					</button>
-					{#if policyOpen}
-						<div class="policy-content" transition:slide={{ duration: 180 }}>
-							<div class="version-badge">Version {program.policy_version || 1}</div>
+			<!-- Membership Policy (Flat Card) -->
+			<section class="card">
+				<div class="card-accent" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Membership Policy"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconFileText}
+					tone="primary"
+					iconVariant="tile"
+					padded
+					divider
+				>
+					{#snippet badges()}
+						<span class="version-badge">Version {program.policy_version || 1}</span>
+					{/snippet}
+				</ManageCardHeader>
+				<div class="card-body">
+					<p class="card-description">
+						Shown to prospective members during signup. Editing policy text increments the policy
+						version when you save Program and Tiers.
+					</p>
+					<textarea
+						class="policy-textarea"
+						aria-label="Membership policy"
+						bind:value={program.policy_markdown}
+						rows="8"
+						placeholder="Enter your membership policy..."></textarea>
+				</div>
+			</section>
+
+			<!-- Custom Application Questions (Flat Card) -->
+			<section class="card">
+				<div class="card-accent warning" aria-hidden="true"></div>
+				<ManageCardHeader
+					title="Custom Questions"
+					titleClass="text-[0.9375rem] font-semibold tracking-tight"
+					icon={IconUsers}
+					tone="warning"
+					iconVariant="tile"
+					padded
+					divider
+				/>
+				<div class="card-body">
+					<p class="card-description">
+						Custom fields asked when access mode is set to Private (review required).
+					</p>
+					{#if formFields.length === 0}
+						<p class="empty-text">No custom questions yet.</p>
+					{:else}
+						<div class="field-list">
+							{#each formFields as field (field.id)}
+								<div class="field-row">
+									<div class="field-info">
+										<span class="field-label">{field.label}</span>
+										<span class="field-type">{field.field_type}</span>
+										{#if field.required}
+											<span class="field-required">Required</span>
+										{/if}
+									</div>
+									<button
+										type="button"
+										class="btn-text danger"
+										aria-label={`Delete question ${field.label}`}
+										disabled={busy}
+										onclick={() => deleteField(field.id)}
+									>
+										<IconTrash class="h-4 w-4" />
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					<div class="new-field-form">
+						<h3 class="form-subtitle">Add Custom Question</h3>
+						<div class="field-row-inputs">
+							<input
+								class="setting-input"
+								aria-label="Application field label"
+								placeholder="Question label"
+								bind:value={newField.label}
+							/>
+							<select
+								class="setting-select"
+								aria-label="Application field type"
+								bind:value={newField.field_type}
+							>
+								<option value="text">Text</option>
+								<option value="textarea">Textarea</option>
+								<option value="email">Email</option>
+								<option value="phone">Phone</option>
+								<option value="number">Number</option>
+								<option value="select">Select</option>
+								<option value="multiselect">Multiselect</option>
+								<option value="checkbox">Checkbox</option>
+								<option value="date">Date</option>
+							</select>
+						</div>
+						{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
 							<textarea
-								class="policy-textarea"
-								aria-label="Membership policy"
-								bind:value={program.policy_markdown}
-								rows="8"
-								placeholder="Enter your membership policy..."></textarea>
-							<div class="section-actions">
-								<button class="btn preset-filled-primary-500" disabled={busy} onclick={savePolicy}>
-									<IconSave class="h-4 w-4" />
-									Save Policy
-								</button>
-							</div>
-						</div>
-					{/if}
+								class="setting-input mb-3 w-full"
+								aria-label="Application field options"
+								placeholder="Options (one per line)"
+								bind:value={newField.options_text}
+								rows="3"></textarea>
+						{/if}
+						<ManageActionRow>
+							{#snippet lead()}
+								<label class="checkbox-label">
+									<input type="checkbox" bind:checked={newField.required} />
+									<span>Required</span>
+								</label>
+							{/snippet}
+							<button
+								type="button"
+								class="btn preset-tonal-primary"
+								disabled={busy || !newField.label}
+								onclick={createField}
+							>
+								<IconPlus class="h-4 w-4" />
+								Add Question
+							</button>
+						</ManageActionRow>
+					</div>
 				</div>
+			</section>
 
-				<!-- Tiers -->
-				<div class="settings-section">
-					<button
-						class="section-toggle"
-						onclick={() => (tiersOpen = !tiersOpen)}
-						aria-expanded={tiersOpen}
-					>
-						<h3 class="section-title">Tiers</h3>
-						<IconChevronDown class="h-4 w-4 {tiersOpen ? 'rotate' : ''}" />
-					</button>
-					{#if tiersOpen}
-						<div class="tiers-content" transition:slide={{ duration: 180 }}>
-							{#if tiers.length === 0}
-								<p class="empty-text">No tiers yet. Create your first tier below.</p>
-							{:else}
-								<div class="tier-list">
-									{#each tiers as tier (tier.id)}
-										<div class="tier-row">
-											<div class="tier-fields">
-												<input
-													class="tier-input"
-													aria-label={`Tier name for ${tier.name || 'tier'}`}
-													placeholder="Tier name"
-													bind:value={tier.name}
-												/>
-												<input
-													class="tier-input"
-													aria-label={`Description for ${tier.name || 'tier'}`}
-													placeholder="Description"
-													bind:value={tier.description}
-												/>
-												<div class="price-inputs">
-													<div class="price-field">
-														<span class="price-prefix">$</span>
-														{@render tierPriceInput(
-															tier,
-															tier.id,
-															'monthly',
-															`Monthly contribution for ${tier.name || 'tier'}`,
-															`tier-${tier.id}-monthly-price`
-														)}
-													</div>
-													<div class="price-field">
-														<span class="price-prefix">$</span>
-														{@render tierPriceInput(
-															tier,
-															tier.id,
-															'annual',
-															`Annual contribution for ${tier.name || 'tier'}`,
-															`tier-${tier.id}-annual-price`
-														)}
-													</div>
-												</div>
-											</div>
-											<ManageActionRow>
-												{#snippet lead()}
-													<label class="checkbox-label">
-														<input
-															type="checkbox"
-															checked={tier.is_default}
-															onchange={() => {
-																tiers = tiers.map((t) => ({ ...t, is_default: t.id === tier.id }));
-															}}
-														/>
-														<span>Default</span>
-													</label>
-												{/snippet}
-												<button
-													class="btn btn-sm preset-tonal-secondary"
-													disabled={busy}
-													onclick={() => updateTier(tier)}
-												>
-													Save
-												</button>
-												<button
-													class="btn-text danger"
-													aria-label={`Delete ${tier.name || 'tier'}`}
-													disabled={busy}
-													onclick={() => deleteTier(tier.id)}
-												>
-													<IconTrash class="h-4 w-4" />
-												</button>
-											</ManageActionRow>
-										</div>
-									{/each}
-								</div>
-							{/if}
-
-							<!-- New Tier Form -->
-							<div class="new-tier-form">
-								<ManageCardHeader
-									as="h4"
-									title="Create New Tier"
-									titleClass="text-[0.8125rem] font-semibold opacity-80"
-									class="mb-3"
-								>
-									{#snippet actions()}
-										<button
-											class="btn btn-sm preset-tonal-tertiary"
-											disabled={busy}
-											onclick={installDefaultTiers}
-										>
-											Import Starter Tiers
-										</button>
-									{/snippet}
-								</ManageCardHeader>
-								<div class="tier-fields">
-									<input
-										class="tier-input"
-										aria-label="New tier name"
-										placeholder="Tier name"
-										bind:value={newTier.name}
-									/>
-									<input
-										class="tier-input"
-										aria-label="New tier description"
-										placeholder="Description"
-										bind:value={newTier.description}
-									/>
-									<div class="price-inputs">
-										<div class="price-field">
-											<span class="price-prefix">$</span>
-											{@render tierPriceInput(
-												newTier,
-												null,
-												'monthly',
-												'New tier monthly contribution',
-												'new-tier-monthly-price'
-											)}
-										</div>
-										<div class="price-field">
-											<span class="price-prefix">$</span>
-											{@render tierPriceInput(
-												newTier,
-												null,
-												'annual',
-												'New tier annual contribution',
-												'new-tier-annual-price'
-											)}
-										</div>
-									</div>
-								</div>
-								<ManageActionRow>
-									{#snippet lead()}
-										<label class="checkbox-label">
-											<input type="checkbox" bind:checked={newTier.is_default} />
-											<span>Set as default</span>
-										</label>
-									{/snippet}
-									<button
-										class="btn preset-filled-primary-500"
-										disabled={busy || !newTier.name}
-										onclick={createTier}
-									>
-										<IconPlus class="h-4 w-4" />
-										Create Tier
-									</button>
-								</ManageActionRow>
-							</div>
-						</div>
-					{/if}
+			<!-- Shared Payment Status Card -->
+			<section class="card">
+				<div class="card-accent" aria-hidden="true"></div>
+				<div class="card-body">
+					<GroupStripePaymentCard
+						{slug}
+						stripeConnection={stripeConnectionState}
+						billingGuard={effectiveBillingGuard}
+						title="Payment Status & Stripe"
+						description="Used across both paid membership tiers and group donations."
+						returnTo={`/groups/${slug}/manage/membership?view=program`}
+						stripeStatus={data?.stripe_status || ''}
+						stripeReason={data?.stripe_reason || ''}
+						onOpenProgramAndTiers={() => setActiveView('program')}
+						onDisconnected={() => {
+							stripeConnectionState = {
+								...(stripeConnectionState || {}),
+								connected: false,
+								charges_enabled: false,
+								payouts_enabled: false,
+								stripe_account_id: null,
+								stripe_account_email: null
+							};
+						}}
+					/>
 				</div>
+			</section>
 
-				<!-- Form Fields -->
-				<div class="settings-section">
-					<button
-						class="section-toggle"
-						onclick={() => (formFieldsOpen = !formFieldsOpen)}
-						aria-expanded={formFieldsOpen}
-					>
-						<h3 class="section-title">Application Form Fields</h3>
-						<IconChevronDown class="h-4 w-4 {formFieldsOpen ? 'rotate' : ''}" />
-					</button>
-					{#if formFieldsOpen}
-						<div class="form-fields-content" transition:slide={{ duration: 180 }}>
-							{#if formFields.length === 0}
-								<p class="empty-text">No custom fields yet.</p>
-							{:else}
-								<div class="field-list">
-									{#each formFields as field (field.id)}
-										<div class="field-row">
-											<div class="field-info">
-												<span class="field-label">{field.label}</span>
-												<span class="field-type">{field.field_type}</span>
-												{#if field.required}
-													<span class="field-required">Required</span>
-												{/if}
-											</div>
-											<button
-												class="btn-text danger"
-												disabled={busy}
-												onclick={() => deleteField(field.id)}
-											>
-												<IconTrash class="h-4 w-4" />
-											</button>
-										</div>
-									{/each}
-								</div>
-							{/if}
-
-							<div class="new-field-form">
-								<h4 class="form-subtitle">Add Custom Field</h4>
-								<div class="field-row-inputs">
-									<input
-										class="setting-input"
-										aria-label="Application field label"
-										placeholder="Field label"
-										bind:value={newField.label}
-									/>
-									<select
-										class="setting-select"
-										aria-label="Application field type"
-										bind:value={newField.field_type}
-									>
-										<option value="text">Text</option>
-										<option value="textarea">Textarea</option>
-										<option value="email">Email</option>
-										<option value="phone">Phone</option>
-										<option value="number">Number</option>
-										<option value="select">Select</option>
-										<option value="multiselect">Multiselect</option>
-										<option value="checkbox">Checkbox</option>
-										<option value="date">Date</option>
-									</select>
-								</div>
-								{#if newField.field_type === 'select' || newField.field_type === 'multiselect'}
-									<textarea
-										class="setting-input"
-										aria-label="Application field options"
-										placeholder="Options (one per line)"
-										bind:value={newField.options_text}
-										rows="3"></textarea>
-								{/if}
-								<ManageActionRow>
-									{#snippet lead()}
-										<label class="checkbox-label">
-											<input type="checkbox" bind:checked={newField.required} />
-											<span>Required</span>
-										</label>
-									{/snippet}
-									<button
-										class="btn preset-filled-primary-500"
-										disabled={busy || !newField.label}
-										onclick={createField}
-									>
-										<IconPlus class="h-4 w-4" />
-										Add Field
-									</button>
-								</ManageActionRow>
-							</div>
-						</div>
-					{/if}
+			<!-- Unified Save Footer -->
+			<div class="unified-save-bar">
+				<div class="unified-save-copy">
+					<span class="font-medium">Unified setup save</span>
+					<span class="text-xs opacity-75">
+						Saves program options, policy text, tier edits, and default tier selection together.
+					</span>
 				</div>
-
-				<!-- Billing -->
-				<div class="settings-section">
-					<button
-						class="section-toggle"
-						onclick={() => (billingOpen = !billingOpen)}
-						aria-expanded={billingOpen}
-					>
-						<h3 class="section-title">Billing & Stripe</h3>
-						<IconChevronDown class="h-4 w-4 {billingOpen ? 'rotate' : ''}" />
-					</button>
-					{#if billingOpen}
-						<div class="billing-content" transition:slide={{ duration: 180 }}>
-							<div class="stripe-status">
-								{#if stripeReady}
-									<div class="status-message success">
-										<IconCheck class="h-5 w-5" />
-										<div>
-											<p class="status-title">Stripe Connected</p>
-											<p class="status-desc">Your group is ready to accept payments.</p>
-										</div>
-									</div>
-								{:else if hasPaidTiers}
-									<div class="status-message warning">
-										<IconCreditCard class="h-5 w-5" />
-										<div>
-											<p class="status-title">Stripe Not Connected</p>
-											<p class="status-desc">
-												You have paid tiers but Stripe is not connected. Connect Stripe to accept
-												payments.
-											</p>
-										</div>
-									</div>
-								{:else}
-									<div class="status-message">
-										<IconCreditCard class="h-5 w-5" />
-										<div>
-											<p class="status-title">Connect Stripe</p>
-											<p class="status-desc">
-												Connect Stripe to accept payments for paid memberships.
-											</p>
-										</div>
-									</div>
-								{/if}
-								<a
-									class="btn preset-filled-primary-500"
-									href="/api/donations/connect/start?recipient=group&group={encodeURIComponent(
-										slug
-									)}"
-								>
-									<IconCreditCard class="h-4 w-4" />
-									{stripeReady ? 'Manage Stripe' : 'Connect Stripe'}
-								</a>
-							</div>
-
-							{#if members.some((m) => m.billing)}
-								<div class="billing-stats">
-									<div class="billing-stat">
-										<span class="stat-label-sm">With billing</span>
-										<span class="stat-value-sm">
-											{members.filter((m) => m.billing).length}
-										</span>
-									</div>
-									<div class="billing-stat">
-										<span class="stat-label-sm">Past due</span>
-										<span class="stat-value-sm warning">{pastDueCount}</span>
-									</div>
-								</div>
-							{/if}
-						</div>
+				<button
+					type="button"
+					class="btn preset-filled-primary-500"
+					disabled={busy || savingProgram}
+					onclick={saveProgramAndTiers}
+					data-testid="save-program-and-tiers"
+				>
+					{#if savingProgram}
+						<IconLoader class="h-4 w-4 animate-spin" />
+						<span>Saving…</span>
+					{:else}
+						<IconSave class="h-4 w-4" />
+						<span>Save Program and Tiers</span>
 					{/if}
-				</div>
+				</button>
 			</div>
-		{/if}
-	</section>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -1513,6 +1806,71 @@
 		}
 	}
 
+	.view-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.view-tabs {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+		padding: 0.3125rem;
+		border-radius: 0.875rem;
+		background: var(--card-bg);
+		border: 1px solid var(--card-border);
+	}
+
+	.view-tab {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		border-radius: 0.625rem;
+		border: 1px solid transparent;
+		background: transparent;
+		color: inherit;
+		font-size: 0.875rem;
+		font-weight: 600;
+		cursor: pointer;
+		opacity: 0.72;
+		transition: all 160ms ease;
+	}
+
+	.view-tab:hover {
+		opacity: 1;
+		background: var(--hover-bg);
+	}
+
+	.view-tab.active {
+		opacity: 1;
+		background: var(--active-bg);
+		border-color: var(--active-border);
+		color: var(--color-primary-300);
+	}
+
+	.tab-pill {
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.0625rem 0.45rem;
+		border-radius: 9999px;
+		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
+	}
+
+	.tab-pill.warning {
+		background: color-mix(in oklab, var(--color-warning-500) 20%, transparent);
+		color: var(--color-warning-300);
+	}
+
+	.view-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+
 	/* Banners */
 	.banner {
 		border-radius: 1rem;
@@ -1528,11 +1886,6 @@
 	.banner.error {
 		background: color-mix(in oklab, var(--color-error-500) 8%, var(--color-surface-950) 92%);
 		border: 1px solid color-mix(in oklab, var(--color-error-500) 20%, transparent);
-	}
-
-	.banner.warning {
-		background: color-mix(in oklab, var(--color-warning-500) 10%, var(--color-surface-950) 90%);
-		border: 1px solid color-mix(in oklab, var(--color-warning-500) 28%, transparent);
 	}
 
 	.banner-content {
@@ -1670,157 +2023,54 @@
 	}
 
 	.card-body {
-		padding: 1rem 1.25rem;
-	}
-
-	@media (max-width: 480px) {
-		.card-body {
-			padding: 0.875rem 1rem;
-		}
+		padding: 1.25rem;
 	}
 
 	.card-description {
-		font-size: 0.8125rem;
-		opacity: 0.7;
+		font-size: 0.875rem;
+		opacity: 0.75;
 		margin-bottom: 1rem;
-		line-height: 1.5;
 	}
 
-	/* Badges */
 	.badge {
 		font-size: 0.6875rem;
 		font-weight: 600;
 		padding: 0.25rem 0.5rem;
 		border-radius: 9999px;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
+		background: color-mix(in oklab, var(--color-surface-500) 18%, transparent);
 	}
 
 	.badge.warning {
-		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		background: color-mix(in oklab, var(--color-warning-500) 16%, transparent);
 		color: var(--color-warning-400);
 	}
 
-	/* Buttons */
-	.btn-primary {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.875rem;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		border-radius: 0.625rem;
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		cursor: pointer;
-		transition: all 150ms ease;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-primary-600);
-		transform: translateY(-1px);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.btn-secondary {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.875rem;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		border-radius: 0.625rem;
-		background: color-mix(in oklab, var(--color-surface-500) 12%, transparent);
-		color: inherit;
-		border: none;
-		cursor: pointer;
-		transition: all 150ms ease;
-	}
-
-	.btn-secondary:hover {
-		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
-	}
-
-	.btn-success {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.375rem 0.75rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-		border-radius: 0.5rem;
-		background: color-mix(in oklab, var(--color-success-500) 15%, transparent);
-		color: var(--color-success-300);
-		border: none;
-		cursor: pointer;
-		transition: all 120ms ease;
-	}
-
-	.btn-success:hover:not(:disabled) {
-		background: color-mix(in oklab, var(--color-success-500) 25%, transparent);
-	}
-
-	.btn-danger {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.375rem 0.75rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-		border-radius: 0.5rem;
-		background: color-mix(in oklab, var(--color-error-500) 15%, transparent);
-		color: var(--color-error-300);
-		border: none;
-		cursor: pointer;
-		transition: all 120ms ease;
-	}
-
-	.btn-danger:hover:not(:disabled) {
-		background: color-mix(in oklab, var(--color-error-500) 25%, transparent);
-	}
-
-	.btn-text {
-		padding: 0.375rem 0.625rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-		border-radius: 0.375rem;
-		background: transparent;
-		border: none;
-		color: var(--color-primary-400);
-		cursor: pointer;
-		transition: all 120ms ease;
-	}
-
-	.btn-text:hover:not(:disabled) {
-		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-	}
-
-	.btn-text.danger {
-		color: var(--color-error-400);
-	}
-
-	/* Filters */
+	/* Roster Filters & Rows */
 	.filters-row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.75rem;
 		margin-bottom: 1rem;
-		flex-wrap: wrap;
 	}
 
 	.search-input {
+		position: relative;
 		flex: 1;
 		min-width: min(100%, 200px);
-		position: relative;
+	}
+
+	.search-input :global(.search-icon) {
+		position: absolute;
+		left: 0.875rem;
+		top: 50%;
+		transform: translateY(-50%);
+		opacity: 0.5;
+		pointer-events: none;
 	}
 
 	.search-input input {
 		width: 100%;
-		padding: 0.625rem 0.875rem 0.625rem 2.25rem;
+		padding: 0.625rem 0.875rem 0.625rem 2.5rem;
 		font-size: 0.875rem;
 		border-radius: 0.625rem;
 		background: var(--input-bg);
@@ -1828,28 +2078,15 @@
 		color: inherit;
 	}
 
-	.search-input input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-	}
-
-	.search-icon {
-		position: absolute;
-		left: 0.75rem;
-		top: 50%;
-		transform: translateY(-50%);
-		opacity: 0.5;
-	}
-
-	.select {
-		padding: 0.625rem 0.875rem;
+	.filters-row .select {
+		min-width: min(100%, 140px);
+		padding: 0.625rem 2rem 0.625rem 0.875rem;
 		font-size: 0.875rem;
 		border-radius: 0.625rem;
 		background: var(--input-bg);
 		border: 1px solid var(--input-border);
 		color: inherit;
 		cursor: pointer;
-		min-width: min(100%, 140px);
 	}
 
 	.select:focus {
@@ -1857,107 +2094,83 @@
 		border-color: var(--color-primary-500);
 	}
 
-	/* Member List */
-	.member-list {
+	.member-list,
+	.application-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.375rem;
+		gap: 0.5rem;
 	}
 
 	.member-row {
-		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
-		border-radius: 0.875rem;
-		border: 1px solid transparent;
-		transition: all 180ms ease;
+		border: 1px solid var(--card-border);
+		border-radius: 0.75rem;
+		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
 		overflow: hidden;
 	}
 
-	.member-row:hover {
-		background: var(--hover-bg);
-		border-color: color-mix(in oklab, var(--color-surface-400) 18%, transparent);
-	}
-
 	.member-row.expanded {
-		background: var(--active-bg);
 		border-color: var(--active-border);
 	}
 
 	.member-row-header {
+		width: 100%;
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		padding: 0.875rem 1rem;
-		width: 100%;
+		padding: 0.75rem 1rem;
 		background: none;
 		border: none;
 		color: inherit;
-		cursor: pointer;
 		text-align: left;
+		cursor: pointer;
 	}
 
-	@media (max-width: 480px) {
-		.member-row-header {
-			padding: 0.75rem;
-			gap: 0.625rem;
-		}
+	.member-row-header:hover {
+		background: var(--hover-bg);
 	}
 
 	.member-avatar,
 	.member-avatar-fallback {
-		flex-shrink: 0;
-		width: 2.5rem;
-		height: 2.5rem;
+		width: 2.25rem;
+		height: 2.25rem;
 		border-radius: 9999px;
-	}
-
-	.member-avatar {
+		flex-shrink: 0;
 		object-fit: cover;
 	}
 
 	.member-avatar-fallback {
-		background: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: white;
+		font-size: 0.75rem;
+		font-weight: 700;
+		background: color-mix(in oklab, var(--color-primary-500) 20%, transparent);
+		color: var(--color-primary-300);
 	}
 
-	@media (max-width: 480px) {
-		.member-avatar,
-		.member-avatar-fallback {
-			width: 2.25rem;
-			height: 2.25rem;
-			font-size: 0.75rem;
-		}
-	}
-
-	.member-info {
+	.member-info,
+	.application-info {
 		flex: 1;
 		min-width: 0;
 	}
 
-	.member-name {
+	.member-name,
+	.application-name {
 		font-size: 0.9375rem;
 		font-weight: 600;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	@media (max-width: 480px) {
-		.member-name {
-			font-size: 0.875rem;
-		}
-	}
-
-	.member-meta {
+	.member-meta,
+	.application-meta {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 0.375rem;
 		font-size: 0.75rem;
-		opacity: 0.6;
+		opacity: 0.7;
 		margin-top: 0.125rem;
 	}
 
@@ -1978,182 +2191,101 @@
 	}
 
 	.status-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.1875rem 0.5rem;
+		border-radius: 9999px;
 		font-size: 0.6875rem;
 		font-weight: 600;
-		padding: 0.25rem 0.5rem;
-		border-radius: 9999px;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
+		text-transform: capitalize;
+		background: color-mix(in oklab, var(--color-surface-500) 20%, transparent);
 	}
 
 	.status-badge.success {
-		background: color-mix(in oklab, var(--color-success-500) 12%, transparent);
+		background: color-mix(in oklab, var(--color-success-500) 16%, transparent);
 		color: var(--color-success-400);
 	}
 
 	.status-badge.warning {
-		background: color-mix(in oklab, var(--color-warning-500) 12%, transparent);
+		background: color-mix(in oklab, var(--color-warning-500) 16%, transparent);
 		color: var(--color-warning-400);
 	}
 
 	.status-badge.error {
-		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		background: color-mix(in oklab, var(--color-error-500) 16%, transparent);
 		color: var(--color-error-400);
 	}
 
-	.chevron {
-		flex-shrink: 0;
-		opacity: 0.5;
-		transition: transform 200ms ease;
+	:global(.chevron) {
+		transition: transform 180ms ease;
+		opacity: 0.6;
 	}
 
-	.chevron.rotate {
+	:global(.chevron.rotate) {
 		transform: rotate(180deg);
 	}
 
-	/* Member Details */
 	.member-details {
-		padding: 0 1rem 1rem 1rem;
+		padding: 0.875rem 1rem 1rem;
 		border-top: 1px solid var(--card-border);
-		animation: slide-down 200ms ease;
+		display: flex;
+		flex-direction: column;
+		gap: 0.875rem;
 	}
 
 	.details-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 		gap: 0.75rem;
-		padding: 1rem 0;
+		font-size: 0.8125rem;
 	}
 
 	.detail-item {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.8125rem;
-		opacity: 0.8;
+		gap: 0.375rem;
+		min-width: 0;
 	}
 
 	.detail-item a {
 		color: inherit;
 		text-decoration: underline;
+		overflow-wrap: anywhere;
 	}
 
 	.detail-label {
-		opacity: 0.6;
+		opacity: 0.65;
 	}
 
 	.status-actions {
 		display: flex;
-		align-items: center;
-		gap: 0.75rem;
 		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.625rem;
 	}
 
 	.action-label {
 		font-size: 0.75rem;
-		opacity: 0.6;
-	}
-
-	.status-btn {
-		padding: 0.375rem 0.75rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-		border-radius: 0.5rem;
-		border: 1px solid color-mix(in oklab, var(--color-surface-500) 25%, transparent);
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-		transition: all 120ms ease;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-	}
-
-	.status-btn:hover:not(:disabled) {
-		background: color-mix(in oklab, var(--color-surface-500) 10%, transparent);
-	}
-
-	.status-btn.active {
-		background: var(--color-surface-500);
-		color: var(--color-surface-100);
-	}
-
-	.status-btn.success.active {
-		background: color-mix(in oklab, var(--color-success-500) 20%, transparent);
-		color: var(--color-success-300);
-		border-color: var(--color-success-500);
-	}
-
-	.status-btn.warning.active {
-		background: color-mix(in oklab, var(--color-warning-500) 20%, transparent);
-		color: var(--color-warning-300);
-		border-color: var(--color-warning-500);
-	}
-
-	.status-btn.error.active {
-		background: color-mix(in oklab, var(--color-error-500) 20%, transparent);
-		color: var(--color-error-300);
-		border-color: var(--color-error-500);
-	}
-
-	.status-btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	/* Application List */
-	.application-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+		opacity: 0.7;
 	}
 
 	.application-row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: space-between;
 		gap: 0.75rem;
 		padding: 0.75rem 1rem;
-		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
+		border: 1px solid var(--card-border);
 		border-radius: 0.75rem;
-		flex-wrap: wrap;
+		background: color-mix(in oklab, var(--color-surface-950) 40%, transparent);
 	}
 
-	@media (max-width: 640px) {
-		.application-row {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.5rem;
-		}
-	}
-
-	.application-info {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.application-name {
-		font-size: 0.9375rem;
-		font-weight: 500;
-	}
-
-	.application-meta {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		font-size: 0.75rem;
-		opacity: 0.6;
-		margin-top: 0.125rem;
-	}
-
-	.application-status {
-		flex-shrink: 0;
-	}
-
-	/* Manual Form */
+	/* Manual Add Member Form */
 	.manual-form {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 0.875rem;
 	}
 
 	.form-row {
@@ -2163,10 +2295,10 @@
 	}
 
 	.form-row.three-col {
-		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, auto);
 	}
 
-	@media (max-width: 768px) {
+	@media (max-width: 640px) {
 		.form-row,
 		.form-row.three-col {
 			grid-template-columns: minmax(0, 1fr);
@@ -2179,22 +2311,10 @@
 		gap: 0.375rem;
 	}
 
-	.form-field.submit-field {
-		justify-content: flex-end;
-	}
-
-	.submit-label-spacer {
-		min-height: 0.875rem;
-	}
-
-	.submit-label-spacer {
-		min-height: 0.875rem;
-	}
-
 	.form-field label {
-		font-size: 0.75rem;
+		font-size: 0.8125rem;
 		font-weight: 500;
-		opacity: 0.7;
+		opacity: 0.85;
 	}
 
 	.form-field input,
@@ -2207,84 +2327,62 @@
 		color: inherit;
 	}
 
-	.form-field input:focus,
-	.form-field select:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
+	.submit-field {
+		justify-content: flex-end;
 	}
 
-	.form-field input:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+	.submit-label-spacer {
+		height: 1.25rem;
+	}
+
+	@media (max-width: 640px) {
+		.submit-label-spacer {
+			display: none;
+		}
 	}
 
 	.field-hint {
 		font-size: 0.75rem;
-		opacity: 0.6;
+		opacity: 0.7;
 	}
 
 	.field-hint.success {
 		color: var(--color-success-400);
+		opacity: 1;
 	}
 
-	.form-actions {
+	.field-hint.warning {
+		color: var(--color-warning-400);
+		opacity: 1;
+	}
+
+	.notes-callout {
 		display: flex;
-		justify-content: flex-end;
-	}
-
-	/* Settings */
-	.settings-card {
-		background: color-mix(in oklab, var(--color-surface-900) 95%, var(--color-surface-500) 5%);
-	}
-
-	.settings-header {
-		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		width: 100%;
-		padding: 1rem 1.25rem;
-		background: none;
-		border: none;
-		color: inherit;
-		cursor: pointer;
+		gap: 0.75rem;
+		padding: 0.875rem 1rem;
+		border-radius: 0.75rem;
+		background: color-mix(in oklab, var(--color-primary-500) 10%, transparent);
+		border: 1px solid color-mix(in oklab, var(--color-primary-500) 30%, transparent);
 	}
 
-	.settings-header:hover {
-		background: color-mix(in oklab, var(--color-surface-800) 30%, transparent);
+	.reference-notes-box {
+		white-space: pre-wrap;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		padding: 0.875rem 1rem;
+		border-radius: 0.75rem;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
 	}
 
-	.settings-section {
-		padding: 1rem 0;
-		border-bottom: 1px solid var(--card-border);
-	}
-
-	.settings-section:last-child {
-		border-bottom: none;
-		padding-bottom: 0;
-	}
-
-	.section-toggle {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		width: 100%;
-		padding: 0.5rem 0;
-		background: none;
-		border: none;
-		color: inherit;
-		cursor: pointer;
-	}
-
-	.section-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-	}
-
+	/* Program Settings & Tiers */
 	.settings-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
 		gap: 1rem;
-		padding: 1rem 0;
 	}
 
 	.setting-item {
@@ -2383,18 +2481,6 @@
 		transform: translateX(1.25rem);
 	}
 
-	.section-actions {
-		display: flex;
-		justify-content: flex-end;
-		padding-top: 1rem;
-		border-top: 1px solid var(--card-border);
-	}
-
-	/* Policy */
-	.policy-content {
-		padding-top: 1rem;
-	}
-
 	.version-badge {
 		display: inline-block;
 		font-size: 0.6875rem;
@@ -2402,7 +2488,6 @@
 		padding: 0.25rem 0.5rem;
 		background: color-mix(in oklab, var(--color-surface-500) 15%, transparent);
 		border-radius: 0.25rem;
-		margin-bottom: 0.75rem;
 	}
 
 	.policy-textarea {
@@ -2421,11 +2506,6 @@
 	.policy-textarea:focus {
 		outline: none;
 		border-color: var(--color-primary-500);
-	}
-
-	/* Tiers */
-	.tiers-content {
-		padding-top: 1rem;
 	}
 
 	.tier-list {
@@ -2499,7 +2579,8 @@
 		overflow-wrap: anywhere;
 	}
 
-	.new-tier-form {
+	.new-tier-form,
+	.new-field-form {
 		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
 		border-radius: 0.75rem;
 		padding: 1rem;
@@ -2510,10 +2591,9 @@
 		font-size: 0.8125rem;
 		font-weight: 600;
 		margin-bottom: 0.75rem;
-		opacity: 0.8;
+		opacity: 0.85;
 	}
 
-	/* Checkbox */
 	.checkbox-label {
 		display: flex;
 		align-items: center;
@@ -2528,9 +2608,20 @@
 		accent-color: var(--color-primary-500);
 	}
 
-	/* Form Fields */
-	.form-fields-content {
-		padding-top: 1rem;
+	.btn-text {
+		background: none;
+		border: none;
+		padding: 0.375rem;
+		border-radius: 0.5rem;
+		cursor: pointer;
+		color: inherit;
+		opacity: 0.75;
+	}
+
+	.btn-text.danger:hover {
+		color: var(--color-error-400);
+		background: color-mix(in oklab, var(--color-error-500) 12%, transparent);
+		opacity: 1;
 	}
 
 	.field-list {
@@ -2578,13 +2669,6 @@
 		border-radius: 0.25rem;
 	}
 
-	.new-field-form {
-		background: color-mix(in oklab, var(--color-surface-950) 30%, transparent);
-		border-radius: 0.75rem;
-		padding: 1rem;
-		border: 1px dashed var(--card-border);
-	}
-
 	.field-row-inputs {
 		display: grid;
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -2601,11 +2685,9 @@
 	.empty-text {
 		font-size: 0.875rem;
 		opacity: 0.6;
-		padding: 1rem 0;
-		text-align: center;
+		padding: 0.5rem 0 1rem;
 	}
 
-	/* Quick Start */
 	.quick-start {
 		background: color-mix(in oklab, var(--color-primary-500) 8%, var(--color-surface-950) 92%);
 		border: 1px dashed color-mix(in oklab, var(--color-primary-500) 40%, transparent);
@@ -2646,79 +2728,24 @@
 		line-height: 1.4;
 	}
 
-	/* Billing */
-	.billing-content {
-		padding-top: 1rem;
-	}
-
-	.stripe-status {
+	.unified-save-bar {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
-		flex-wrap: wrap;
-		padding: 1rem;
-		background: color-mix(in oklab, var(--color-surface-950) 50%, transparent);
-		border-radius: 0.75rem;
-		border: 1px solid var(--card-border);
+		padding: 1rem 1.25rem;
+		border-radius: 1rem;
+		background: var(--card-bg);
+		border: 1px solid var(--active-border);
 	}
 
-	.status-message {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex: 1;
-	}
-
-	.status-message.success {
-		color: var(--color-success-400);
-	}
-
-	.status-message.warning {
-		color: var(--color-warning-400);
-	}
-
-	.status-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-	}
-
-	.status-desc {
-		font-size: 0.8125rem;
-		opacity: 0.8;
-	}
-
-	.billing-stats {
-		display: flex;
-		gap: 1rem;
-		margin-top: 1rem;
-		padding-top: 1rem;
-		border-top: 1px solid var(--card-border);
-	}
-
-	.billing-stat {
+	.unified-save-copy {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.125rem;
 	}
 
-	.stat-label-sm {
-		font-size: 0.6875rem;
-		opacity: 0.6;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.stat-value-sm {
-		font-size: 1.25rem;
-		font-weight: 600;
-	}
-
-	.stat-value-sm.warning {
-		color: var(--color-warning-400);
-	}
-
-	/* Empty State */
 	.empty-state {
 		display: flex;
 		flex-direction: column;
@@ -2751,7 +2778,6 @@
 		opacity: 0.6;
 	}
 
-	/* Animations */
 	@keyframes card-in {
 		from {
 			opacity: 0;
@@ -2767,17 +2793,6 @@
 		from {
 			opacity: 0;
 			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes slide-down {
-		from {
-			opacity: 0;
-			transform: translateY(-6px);
 		}
 		to {
 			opacity: 1;

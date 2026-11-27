@@ -19,13 +19,33 @@ import {
 } from '#lib/server/emailCampaignState';
 import { PUBLIC_URL_BASE } from '$app/env/public';
 import { MAX_EMAIL_HTML_LENGTH } from '#lib/groups/emailEditor';
+import { getGroupStripeBillingGuard } from '#lib/server/groupStripeConnection';
 import {
+	buildViewerStripeConnection,
 	getPublicMembershipProgram,
 	resolveMembershipProgramForViewer
 } from '#lib/server/groupMembershipPublic';
+import {
+	buildTierUpdatePayload,
+	computeGlobalProfileBackfill,
+	ensureUserGlobalProfileDefaults,
+	executeUnifiedProgramAndTiersSave,
+	extractScopedContactColumns,
+	insertWithScopedContactFallback,
+	isMissingScopedContactColumnError,
+	mergeScopedMemberContact,
+	stripScopedContactColumns,
+	syncProgramDefaultTier,
+	updateExistingMembershipContactWithFallback
+} from '#lib/server/membershipProgramAndContacts.js';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 
-export { getPublicMembershipProgram };
+export {
+	computeGlobalProfileBackfill,
+	extractScopedContactColumns,
+	getPublicMembershipProgram,
+	mergeScopedMemberContact
+};
 
 const MANAGER_ROLES = ['owner', 'admin'];
 const DEFAULT_POLICY_MARKDOWN = `By joining, you agree to this membership policy.
@@ -437,7 +457,7 @@ async function loadGroupBySlug(supabase, groupSlug) {
 	if (!slug) return null;
 	const { data, error } = await supabase
 		.from('groups')
-		.select('id,slug,name,website_url,social_links,public_contact_email')
+		.select('id,slug,name,website_url,social_links,public_contact_email,membership_info')
 		.eq('slug', slug)
 		.maybeSingle();
 	if (error) throw new Error(error.message);
@@ -588,9 +608,12 @@ async function sendMembershipPaymentSuccessNotifications({
 	const tierId = cleanNullableText(metadata?.membership_tier_id, 64) || membership?.tier_id || null;
 	const tier = tierId ? await loadTierById(serviceSupabase, tierId) : null;
 	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [userId]);
-	const memberProfile = profileMap.get(userId) || null;
-	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
-	const memberEmail = sanitizeEmail(memberProfile?.email || '');
+	const memberProfile = mergeScopedMemberContact(membership, profileMap.get(userId) || null);
+	const memberName =
+		cleanText(metadata?.membership_contact_name || memberProfile?.full_name || '', 120) || 'Member';
+	const memberEmail = sanitizeEmail(
+		metadata?.membership_contact_email || memberProfile?.email || ''
+	);
 	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
 	const paidAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
 	const billingInterval =
@@ -653,8 +676,11 @@ async function sendMembershipPaymentFailureNotifications({
 	const tier = tierId ? await loadTierById(serviceSupabase, tierId) : null;
 	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [userId]);
 	const memberProfile = profileMap.get(userId) || null;
-	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
-	const memberEmail = sanitizeEmail(memberProfile?.email || '');
+	const memberName =
+		cleanText(metadata?.membership_contact_name || memberProfile?.full_name || '', 120) || 'Member';
+	const memberEmail = sanitizeEmail(
+		metadata?.membership_contact_email || memberProfile?.email || ''
+	);
 	const amountCents = normalizeAmountCents(metadata?.membership_amount_cents, 0);
 	const billedAmount = formatMoneyFromCents(amountCents, tier?.currency || 'usd');
 	const billingInterval = cleanNullableText(metadata?.membership_interval_unit, 16) || null;
@@ -842,11 +868,32 @@ async function loadTierById(serviceSupabase, tierId) {
 async function loadDonationAccountForGroup(serviceSupabase, groupId) {
 	const { data, error } = await serviceSupabase
 		.from('donation_accounts')
-		.select('id,stripe_account_id,charges_enabled')
+		.select(
+			'id,stripe_account_id,stripe_account_email,charges_enabled,payouts_enabled,connected_at'
+		)
 		.eq('group_id', groupId)
 		.maybeSingle();
 	if (error) throw new Error(error.message);
 	return data ?? null;
+}
+
+async function buildGroupStripeConnection(serviceSupabase, group, { canManage = false } = {}) {
+	if (!canManage) {
+		const donationAccount = await loadDonationAccountForGroup(serviceSupabase, group.id);
+		return buildViewerStripeConnection(donationAccount, { canManage: false });
+	}
+
+	const [donationAccount, billingGuard] = await Promise.all([
+		loadDonationAccountForGroup(serviceSupabase, group.id),
+		getGroupStripeBillingGuard(serviceSupabase, group.id, group.slug)
+	]);
+	return {
+		...buildViewerStripeConnection(donationAccount, { canManage: true }),
+		payouts_enabled: donationAccount?.payouts_enabled === true,
+		stripe_account_email: donationAccount?.stripe_account_email || null,
+		connected_at: donationAccount?.connected_at || null,
+		...(billingGuard ? billingGuard : {})
+	};
 }
 
 async function stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, stripeAccountId) {
@@ -887,6 +934,7 @@ async function loadCurrentMembershipSubscriptionId(serviceSupabase, groupId, use
  *   billingInterval?: string | null,
  *   userId: string,
  *   userEmail?: string | null,
+ *   contactProfile?: any,
  *   applicationId?: string | null,
  *   requestUrl: any,
  *   customAmountCents?: number | null
@@ -901,6 +949,7 @@ async function createCheckoutSession({
 	billingInterval = 'month',
 	userId,
 	userEmail,
+	contactProfile = null,
 	applicationId = null,
 	requestUrl,
 	customAmountCents = null
@@ -949,6 +998,7 @@ async function createCheckoutSession({
 		group.id,
 		userId
 	);
+	const scopedContact = extractScopedContactColumns(contactProfile, contactProfile);
 	/** @type {Record<string, string>} */
 	const metadata = {
 		membership_flow: 'group_membership',
@@ -961,7 +1011,10 @@ async function createCheckoutSession({
 		membership_contribution_mode: program.contribution_mode,
 		membership_billing_type: mode === 'subscription' ? 'recurring' : 'one_time',
 		membership_interval_unit: billingInterval || '',
-		membership_amount_cents: String(amountCents)
+		membership_amount_cents: String(amountCents),
+		membership_contact_name: cleanText(scopedContact.contact_full_name || '', 120),
+		membership_contact_email: sanitizeEmail(scopedContact.contact_email || ''),
+		membership_contact_phone: cleanText(scopedContact.contact_phone || '', 40)
 	};
 	if (supersedesSubscriptionId) {
 		metadata.membership_supersedes_sub_id = supersedesSubscriptionId;
@@ -975,7 +1028,7 @@ async function createCheckoutSession({
 		checkoutSession = await stripe.checkout.sessions.create(
 			{
 				mode,
-				customer_email: userEmail || undefined,
+				customer_email: scopedContact.contact_email || userEmail || undefined,
 				success_url: successUrl,
 				cancel_url: cancelUrl,
 				line_items: [
@@ -1029,6 +1082,7 @@ async function createCheckoutSession({
  *   billingInterval?: string | null,
  *   contributionAmountCents?: number | null,
  *   applicationId?: string | null,
+ *   contactProfile?: any,
  *   source?: string,
  *   createdByOwnerId?: string | null,
  *   status?: string
@@ -1042,10 +1096,12 @@ async function findOrCreateMembership({
 	billingInterval = null,
 	contributionAmountCents = null,
 	applicationId = null,
+	contactProfile = null,
 	source = 'online',
 	createdByOwnerId = null,
 	status = 'active'
 }) {
+	const contactColumns = extractScopedContactColumns(contactProfile, contactProfile);
 	const { data: existingRows, error: existingError } = await serviceSupabase
 		.from('group_memberships')
 		.select('*')
@@ -1055,7 +1111,40 @@ async function findOrCreateMembership({
 		.order('created_at', { ascending: false })
 		.limit(1);
 	if (existingError) throw new Error(existingError.message);
-	if (existingRows?.length) return existingRows[0];
+	if (existingRows?.length) {
+		const existingRow = existingRows[0];
+		const contactUpdates = {};
+		if (
+			contactColumns.contact_full_name &&
+			contactColumns.contact_full_name !== existingRow.contact_full_name
+		) {
+			contactUpdates.contact_full_name = contactColumns.contact_full_name;
+		}
+		if (
+			contactColumns.contact_email &&
+			contactColumns.contact_email !== existingRow.contact_email
+		) {
+			contactUpdates.contact_email = contactColumns.contact_email;
+		}
+		if (
+			contactColumns.contact_phone &&
+			contactColumns.contact_phone !== existingRow.contact_phone
+		) {
+			contactUpdates.contact_phone = contactColumns.contact_phone;
+		}
+		if (Object.keys(contactUpdates).length > 0) {
+			const { data: updatedExisting, error: updateExistingError } =
+				await updateExistingMembershipContactWithFallback(
+					serviceSupabase,
+					existingRow,
+					contactUpdates,
+					toIsoNow()
+				);
+			if (updateExistingError) throw new Error(updateExistingError.message);
+			return updatedExisting;
+		}
+		return existingRow;
+	}
 
 	const tier = await loadTierById(serviceSupabase, tierId);
 	const isOneTime = tier?.billing_type === 'one_time';
@@ -1072,9 +1161,10 @@ async function findOrCreateMembership({
 			? plusInterval(now, normalizedInterval, 1).toISOString()
 			: calculateRenewalDate(tier, now);
 
-	const { data, error } = await serviceSupabase
-		.from('group_memberships')
-		.insert({
+	const { data, error } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_memberships',
+		{
 			group_id: groupId,
 			user_id: userId,
 			tier_id: tierId,
@@ -1084,13 +1174,15 @@ async function findOrCreateMembership({
 			renews_at: renewsAt,
 			interval_unit: normalizedInterval,
 			contribution_amount_cents: resolvedAmountCents,
+			contact_full_name: contactColumns.contact_full_name,
+			contact_email: contactColumns.contact_email,
+			contact_phone: contactColumns.contact_phone,
 			created_by_owner_id: createdByOwnerId,
 			created_from_application_id: applicationId,
 			created_at: now.toISOString(),
 			updated_at: now.toISOString()
-		})
-		.select('*')
-		.single();
+		}
+	);
 	if (error) throw new Error(error.message);
 	return data;
 }
@@ -1188,6 +1280,7 @@ async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAc
  *   tier: any,
  *   billingInterval?: string | null,
  *   applicationId?: string | null,
+ *   contactProfile?: any,
  *   source?: string,
  *   status?: string
  * }} options
@@ -1199,12 +1292,14 @@ export async function applyZeroPaymentMembership({
 	tier,
 	billingInterval = null,
 	applicationId = null,
+	contactProfile = null,
 	source = 'online',
 	status = 'active'
 }) {
 	if (!tier?.id) {
 		return { ok: false, status: 400, error: 'Select a membership tier.' };
 	}
+	const contactColumns = extractScopedContactColumns(contactProfile, contactProfile);
 	const { data: existingRows, error: existingError } = await serviceSupabase
 		.from('group_memberships')
 		.select('*')
@@ -1233,9 +1328,10 @@ export async function applyZeroPaymentMembership({
 			: normalizedInterval
 				? plusInterval(now, normalizedInterval, 1).toISOString()
 				: calculateRenewalDate(tier, now);
-		const { data: inserted, error: insertError } = await serviceSupabase
-			.from('group_memberships')
-			.insert({
+		const { data: inserted, error: insertError } = await insertWithScopedContactFallback(
+			serviceSupabase,
+			'group_memberships',
+			{
 				group_id: groupId,
 				user_id: userId,
 				tier_id: tier.id,
@@ -1245,13 +1341,15 @@ export async function applyZeroPaymentMembership({
 				renews_at: renewsAt,
 				interval_unit: normalizedInterval,
 				contribution_amount_cents: 0,
+				contact_full_name: contactColumns.contact_full_name,
+				contact_email: contactColumns.contact_email,
+				contact_phone: contactColumns.contact_phone,
 				created_by_owner_id: null,
 				created_from_application_id: applicationId,
 				created_at: nowIso,
 				updated_at: nowIso
-			})
-			.select('*')
-			.single();
+			}
+		);
 		if (insertError) throw new Error(insertError.message);
 
 		if (applicationId) {
@@ -1357,7 +1455,22 @@ export async function applyZeroPaymentMembership({
 			: existing.renews_at;
 
 	const nextStatus = existing.status === 'active' ? targetStatus : existing.status;
+	/** @type {Record<string, any>} */
+	const contactUpdates = {};
+	if (
+		contactColumns.contact_full_name &&
+		contactColumns.contact_full_name !== existing.contact_full_name
+	) {
+		contactUpdates.contact_full_name = contactColumns.contact_full_name;
+	}
+	if (contactColumns.contact_email && contactColumns.contact_email !== existing.contact_email) {
+		contactUpdates.contact_email = contactColumns.contact_email;
+	}
+	if (contactColumns.contact_phone && contactColumns.contact_phone !== existing.contact_phone) {
+		contactUpdates.contact_phone = contactColumns.contact_phone;
+	}
 	const membershipUpdates = {
+		...contactUpdates,
 		tier_id: tier.id,
 		status: nextStatus,
 		contribution_amount_cents: 0,
@@ -1368,16 +1481,26 @@ export async function applyZeroPaymentMembership({
 		updated_at: nowIso
 	};
 
-	const { data: updatedRows, error: updateError } = await serviceSupabase
+	/** @type {Record<string, any>} */
+	let appliedUpdates = membershipUpdates;
+	let { data: updatedRows, error: updateError } = await serviceSupabase
 		.from('group_memberships')
 		.update(membershipUpdates)
 		.eq('id', existing.id)
 		.select('*');
+	if (updateError && isMissingScopedContactColumnError(updateError)) {
+		appliedUpdates = stripScopedContactColumns(membershipUpdates) || {};
+		({ data: updatedRows, error: updateError } = await serviceSupabase
+			.from('group_memberships')
+			.update(appliedUpdates)
+			.eq('id', existing.id)
+			.select('*'));
+	}
 	if (updateError) throw new Error(updateError.message);
 
 	const updatedMembership = Array.isArray(updatedRows)
-		? updatedRows[0] || { ...existing, ...membershipUpdates }
-		: updatedRows || { ...existing, ...membershipUpdates };
+		? updatedRows[0] || { ...existing, ...appliedUpdates }
+		: updatedRows || { ...existing, ...appliedUpdates };
 
 	if (applicationId) {
 		await serviceSupabase
@@ -1400,55 +1523,10 @@ async function resolveProfileMapByUserIds(serviceSupabase, userIds) {
 	if (!ids.length) return new Map();
 	const { data, error } = await serviceSupabase
 		.from('profiles')
-		.select('user_id,email,full_name')
+		.select('user_id,email,full_name,phone,avatar_url')
 		.in('user_id', ids);
 	if (error) throw new Error(error.message);
 	return new Map((data || []).map((row) => [row.user_id, row]));
-}
-
-/**
- * @param {{
- *   serviceSupabase: any,
- *   userId: string,
- *   currentEmail?: string | null,
- *   profilePayload?: any
- * }} options
- */
-async function upsertMembershipUserProfile({
-	serviceSupabase,
-	userId,
-	currentEmail = null,
-	profilePayload
-}) {
-	if (!userId) return;
-	const normalized = normalizeProfilePayload(profilePayload);
-	if (!normalized) return;
-
-	const { data: existing, error: existingError } = await serviceSupabase
-		.from('profiles')
-		.select('user_id,email,full_name,phone,avatar_url,bio,metadata')
-		.eq('user_id', userId)
-		.maybeSingle();
-	if (existingError) throw new Error(existingError.message);
-
-	const email = normalized.email || sanitizeEmail(existing?.email || currentEmail || '') || null;
-	const fullName = normalized.full_name ?? existing?.full_name ?? null;
-	const phone = normalized.phone ?? existing?.phone ?? null;
-
-	const payload = {
-		user_id: userId,
-		email,
-		full_name: fullName,
-		phone,
-		avatar_url: existing?.avatar_url ?? null,
-		bio: existing?.bio ?? null,
-		metadata: existing?.metadata ?? {}
-	};
-
-	const { error: upsertError } = await serviceSupabase
-		.from('profiles')
-		.upsert(payload, { onConflict: 'user_id' });
-	if (upsertError) throw new Error(upsertError.message);
 }
 
 /**
@@ -1943,7 +2021,10 @@ async function resolveEmailAudience({ serviceSupabase, groupId, audienceFilters 
 
 	const recipients = memberRows
 		.map((membership) => {
-			const profile = profileMap.get(membership.user_id) || null;
+			const profile = mergeScopedMemberContact(
+				membership,
+				profileMap.get(membership.user_id) || null
+			);
 			const recipientEmail = sanitizeEmail(profile?.email);
 			if (!recipientEmail) return null;
 			return {
@@ -2235,6 +2316,7 @@ export async function getMembershipProgramForViewer({
 		loadGroupBySlugFn: loadGroupBySlug,
 		isGroupManagerFn: isGroupManager,
 		loadDonationAccountFn: loadDonationAccountForGroup,
+		buildStripeConnectionFn: buildGroupStripeConnection,
 		ensureProgramFn: ensureProgram,
 		loadProgramFn: loadProgram,
 		ensureDefaultApplicationFieldsFn: ensureDefaultApplicationFields,
@@ -2248,56 +2330,78 @@ export async function updateMembershipProgram({ cookies, groupSlug, payload }) {
 
 	const serviceSupabase = auth.serviceSupabase;
 	const before = await ensureProgram(serviceSupabase, auth.group.id);
+	const now = toIsoNow();
+	const { tiers: existingTiers } = await loadProgramBundle(serviceSupabase, before.id, {
+		includeInactive: true
+	});
 
-	const accessMode = PROGRAM_ACCESS_MODES.has(cleanText(payload?.access_mode, 32))
-		? cleanText(payload?.access_mode, 32)
-		: before.access_mode || 'public';
-	const contributionMode = normalizeContributionMode(
-		payload?.contribution_mode,
-		normalizeContributionMode(before.contribution_mode, 'donation')
-	);
-	const defaultTierId = cleanNullableText(payload?.default_tier_id, 64);
-
-	if (defaultTierId) {
-		const tier = await loadTierById(serviceSupabase, defaultTierId);
-		if (!tier || tier.program_id !== before.id) {
-			return {
-				ok: false,
-				status: 400,
-				error: 'Default tier must belong to this membership program.'
-			};
+	const saveResult = await executeUnifiedProgramAndTiersSave({
+		serviceSupabase,
+		before,
+		existingTiers,
+		payload,
+		now,
+		onTierUpdated: async (beforeTier, updatedTier) => {
+			await writeAuditLog(serviceSupabase, {
+				group_id: auth.group.id,
+				actor_user_id: auth.userId,
+				action: 'tier.updated',
+				entity_type: 'group_membership_tier',
+				entity_id: updatedTier.id,
+				before_snapshot: beforeTier,
+				after_snapshot: updatedTier
+			});
 		}
-	}
-
-	const updates = {
-		enabled: normalizeBoolean(payload?.enabled, before.enabled !== false),
-		access_mode: accessMode,
-		cta_label: cleanText(payload?.cta_label || before.cta_label || 'Follow', 80),
-		contribution_mode: contributionMode,
-		default_tier_id: defaultTierId,
-		updated_at: toIsoNow()
-	};
-
-	const { data, error } = await serviceSupabase
-		.from('group_membership_programs')
-		.update(updates)
-		.eq('id', before.id)
-		.select('*')
-		.single();
-	if (error) return { ok: false, status: 400, error: error.message };
+	});
+	if (!saveResult.ok) return saveResult;
+	const finalProgram = saveResult.program;
+	const { hasPolicyMarkdown, policyChanged, shouldBumpPolicyVersion } = saveResult;
 
 	await writeAuditLog(serviceSupabase, {
 		group_id: auth.group.id,
 		actor_user_id: auth.userId,
 		action: 'program.updated',
 		entity_type: 'group_membership_program',
-		entity_id: data.id,
+		entity_id: finalProgram.id,
 		before_snapshot: before,
-		after_snapshot: data
+		after_snapshot: finalProgram
 	});
 
+	if (hasPolicyMarkdown && (policyChanged || shouldBumpPolicyVersion)) {
+		await writeAuditLog(serviceSupabase, {
+			group_id: auth.group.id,
+			actor_user_id: auth.userId,
+			action: 'policy.updated',
+			entity_type: 'group_membership_program',
+			entity_id: finalProgram.id,
+			before_snapshot: {
+				policy_markdown: before.policy_markdown,
+				policy_version: before.policy_version
+			},
+			after_snapshot: {
+				policy_markdown: finalProgram.policy_markdown,
+				policy_version: finalProgram.policy_version
+			}
+		});
+	}
+
+	const [{ tiers, fields }, stripeConnection] = await Promise.all([
+		loadProgramBundle(serviceSupabase, before.id, { includeInactive: true }),
+		buildGroupStripeConnection(serviceSupabase, auth.group, { canManage: true })
+	]);
+
 	invalidateGroupSnapshotCache({ groupId: auth.group.id, slug: auth.group.slug || groupSlug });
-	return { ok: true, data };
+
+	return {
+		ok: true,
+		data: {
+			...finalProgram,
+			program: finalProgram,
+			tiers,
+			form_fields: fields,
+			stripe_connection: stripeConnection
+		}
+	};
 }
 
 export async function updateMembershipPolicy({ cookies, groupSlug, payload }) {
@@ -2467,25 +2571,13 @@ export async function seedDefaultMembershipTiers({ cookies, groupSlug }) {
 	}
 
 	if (desiredDefaultTierId) {
-		const { error: unsetDefaultError } = await serviceSupabase
-			.from('group_membership_tiers')
-			.update({ is_default: false, updated_at: now })
-			.eq('program_id', program.id)
-			.eq('is_default', true);
-		if (unsetDefaultError) return { ok: false, status: 400, error: unsetDefaultError.message };
-
-		const { error: setDefaultError } = await serviceSupabase
-			.from('group_membership_tiers')
-			.update({ is_default: true, updated_at: now })
-			.eq('id', desiredDefaultTierId)
-			.eq('program_id', program.id);
-		if (setDefaultError) return { ok: false, status: 400, error: setDefaultError.message };
-
-		const { error: updateProgramError } = await serviceSupabase
-			.from('group_membership_programs')
-			.update({ default_tier_id: desiredDefaultTierId, updated_at: now })
-			.eq('id', program.id);
-		if (updateProgramError) return { ok: false, status: 400, error: updateProgramError.message };
+		const syncResult = await syncProgramDefaultTier(
+			serviceSupabase,
+			program.id,
+			desiredDefaultTierId,
+			now
+		);
+		if (!syncResult.ok) return syncResult;
 	}
 
 	await writeAuditLog(serviceSupabase, {
@@ -2562,26 +2654,26 @@ export async function createMembershipTier({ cookies, groupSlug, payload }) {
 		return { ok: false, status: 400, error: 'Tier name is required.' };
 	}
 
-	if (isDefault) {
-		await serviceSupabase
-			.from('group_membership_tiers')
-			.update({ is_default: false, updated_at: toIsoNow() })
-			.eq('program_id', program.id)
-			.eq('is_default', true);
-	}
-
-	const { data, error } = await serviceSupabase
+	const { data: insertedTier, error } = await serviceSupabase
 		.from('group_membership_tiers')
-		.insert(insertPayload)
+		.insert({
+			...insertPayload,
+			is_default: false
+		})
 		.select('*')
 		.single();
 	if (error) return { ok: false, status: 400, error: error.message };
 
-	if (isDefault) {
-		await serviceSupabase
-			.from('group_membership_programs')
-			.update({ default_tier_id: data.id, updated_at: toIsoNow() })
-			.eq('id', program.id);
+	let data = insertedTier;
+	if (isDefault && insertPayload.is_active !== false) {
+		const syncResult = await syncProgramDefaultTier(
+			serviceSupabase,
+			program.id,
+			insertedTier.id,
+			insertPayload.updated_at
+		);
+		if (!syncResult.ok) return syncResult;
+		data = { ...insertedTier, is_default: true };
 	}
 
 	await writeAuditLog(serviceSupabase, {
@@ -2610,112 +2702,44 @@ export async function updateMembershipTier({ cookies, groupSlug, tierId, payload
 		return { ok: false, status: 403, error: 'Tier does not belong to this group.' };
 	}
 
-	const nextMonthlyAmount =
-		payload?.monthly_amount_cents !== undefined || payload?.amount_cents !== undefined
-			? normalizeNullableAmountCents(payload?.monthly_amount_cents ?? payload?.amount_cents)
-			: normalizeNullableAmountCents(before.amount_cents);
-	const nextAnnualAmount =
-		payload?.annual_amount_cents !== undefined
-			? normalizeNullableAmountCents(payload.annual_amount_cents)
-			: normalizeNullableAmountCents(before.annual_amount_cents);
-	const nextAllowCustom =
-		payload?.allow_custom_amount !== undefined
-			? normalizeBoolean(payload.allow_custom_amount, before.allow_custom_amount === true)
-			: before.allow_custom_amount === true;
-	const nextBillingType =
-		nextMonthlyAmount !== null || nextAnnualAmount !== null || nextAllowCustom
-			? 'recurring'
-			: 'one_time';
-	const pricingChanged =
-		nextMonthlyAmount !==
-			normalizeNullableAmountCents(before.monthly_amount_cents ?? before.amount_cents) ||
-		nextAnnualAmount !== normalizeNullableAmountCents(before.annual_amount_cents) ||
-		nextBillingType !== before.billing_type ||
-		nextAllowCustom !== (before.allow_custom_amount === true) ||
-		(payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency) !==
-			before.currency;
-
-	const updates = {
-		name: payload?.name !== undefined ? cleanText(payload?.name, 80) : before.name,
-		description:
-			payload?.description !== undefined
-				? cleanNullableText(payload?.description, 1000)
-				: before.description,
-		amount_cents: nextMonthlyAmount ?? 0,
-		monthly_amount_cents: nextMonthlyAmount,
-		annual_amount_cents: nextAnnualAmount,
-		currency:
-			payload?.currency !== undefined ? normalizeCurrency(payload.currency) : before.currency,
-		billing_type: nextBillingType,
-		interval_unit: nextBillingType === 'recurring' ? 'month' : null,
-		interval_count: nextBillingType === 'recurring' ? 1 : null,
-		is_default:
-			payload?.is_default !== undefined
-				? normalizeBoolean(payload.is_default, false)
-				: before.is_default,
-		is_active:
-			payload?.is_active !== undefined
-				? normalizeBoolean(payload.is_active, before.is_active !== false)
-				: before.is_active,
-		sort_order:
-			payload?.sort_order !== undefined
-				? normalizeInteger(payload.sort_order, before.sort_order || 0)
-				: before.sort_order,
-		allow_custom_amount:
-			payload?.allow_custom_amount !== undefined
-				? normalizeBoolean(payload.allow_custom_amount, before.allow_custom_amount === true)
-				: before.allow_custom_amount,
-		min_amount_cents:
-			payload?.min_amount_cents !== undefined
-				? normalizeInteger(payload.min_amount_cents, before.min_amount_cents)
-				: before.min_amount_cents,
-		stripe_price_id: pricingChanged
-			? null
-			: payload?.stripe_price_id !== undefined
-				? cleanNullableText(payload.stripe_price_id, 255)
-				: before.stripe_price_id,
-		stripe_product_id:
-			payload?.stripe_product_id !== undefined
-				? cleanNullableText(payload.stripe_product_id, 255)
-				: before.stripe_product_id,
-		stripe_monthly_price_id: pricingChanged
-			? null
-			: payload?.stripe_monthly_price_id !== undefined
-				? cleanNullableText(payload.stripe_monthly_price_id, 255)
-				: before.stripe_monthly_price_id,
-		stripe_annual_price_id: pricingChanged
-			? null
-			: payload?.stripe_annual_price_id !== undefined
-				? cleanNullableText(payload.stripe_annual_price_id, 255)
-				: before.stripe_annual_price_id,
-		stripe_account_id: pricingChanged ? null : before.stripe_account_id,
-		updated_at: toIsoNow()
-	};
+	const updates = buildTierUpdatePayload(before, payload);
 
 	if (!updates.name) return { ok: false, status: 400, error: 'Tier name is required.' };
 
-	if (updates.is_default) {
-		await serviceSupabase
-			.from('group_membership_tiers')
-			.update({ is_default: false, updated_at: toIsoNow() })
-			.eq('program_id', before.program_id)
-			.neq('id', before.id)
-			.eq('is_default', true);
-	}
-
-	const { data, error } = await serviceSupabase
+	const wantsDefault = updates.is_default === true && updates.is_active !== false;
+	const { data: updatedTier, error } = await serviceSupabase
 		.from('group_membership_tiers')
-		.update(updates)
+		.update({
+			...updates,
+			is_default: before.is_default
+		})
 		.eq('id', before.id)
 		.select('*')
 		.single();
 	if (error) return { ok: false, status: 400, error: error.message };
 
-	if (updates.is_default) {
-		await serviceSupabase
-			.from('group_membership_programs')
-			.update({ default_tier_id: data.id, updated_at: toIsoNow() })
-			.eq('id', program.id);
+	let data = updatedTier;
+	if (wantsDefault) {
+		const syncResult = await syncProgramDefaultTier(
+			serviceSupabase,
+			program.id,
+			before.id,
+			updates.updated_at
+		);
+		if (!syncResult.ok) return syncResult;
+		data = { ...updatedTier, is_default: true };
+	} else if (
+		(before.is_default === true || program.default_tier_id === before.id) &&
+		(updates.is_default === false || updates.is_active === false)
+	) {
+		const syncResult = await syncProgramDefaultTier(
+			serviceSupabase,
+			program.id,
+			null,
+			updates.updated_at
+		);
+		if (!syncResult.ok) return syncResult;
+		data = { ...updatedTier, is_default: false };
 	}
 
 	await writeAuditLog(serviceSupabase, {
@@ -2748,11 +2772,8 @@ export async function deleteMembershipTier({ cookies, groupSlug, tierId }) {
 	const { error } = await serviceSupabase.from('group_membership_tiers').delete().eq('id', tierId);
 	if (error) return { ok: false, status: 400, error: error.message };
 
-	if (program.default_tier_id === tierId) {
-		await serviceSupabase
-			.from('group_membership_programs')
-			.update({ default_tier_id: null, updated_at: toIsoNow() })
-			.eq('id', program.id);
+	if (program.default_tier_id === tierId || before.is_default === true) {
+		await syncProgramDefaultTier(serviceSupabase, program.id, null);
 	}
 
 	await writeAuditLog(serviceSupabase, {
@@ -2960,11 +2981,15 @@ export async function applyForMembership({ cookies, groupSlug, payload, fetchImp
 	if (!auth.ok) return auth;
 
 	const serviceSupabase = auth.serviceSupabase;
-	await upsertMembershipUserProfile({
+	await ensureUserGlobalProfileDefaults({
 		serviceSupabase,
 		userId: auth.userId,
 		currentEmail: auth.userEmail,
 		profilePayload: payload?.profile
+	});
+	const scopedContact = extractScopedContactColumns(payload?.profile, {
+		contact_full_name: auth.userName,
+		contact_email: auth.userEmail
 	});
 	const { program, tier, fields } = await resolveGroupProgramAndTier(
 		serviceSupabase,
@@ -3012,16 +3037,19 @@ export async function applyForMembership({ cookies, groupSlug, payload, fetchImp
 		status: 'submitted',
 		selected_tier_id: selectedTierId,
 		policy_version_accepted: normalizeInteger(program.policy_version, 1) || 1,
+		contact_full_name: scopedContact.contact_full_name,
+		contact_email: scopedContact.contact_email,
+		contact_phone: scopedContact.contact_phone,
 		submitted_at: submittedAt,
 		created_at: submittedAt,
 		updated_at: submittedAt
 	};
 
-	const { data: application, error: appError } = await serviceSupabase
-		.from('group_membership_applications')
-		.insert(applicationPayload)
-		.select('*')
-		.single();
+	const { data: application, error: appError } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_membership_applications',
+		applicationPayload
+	);
 	if (appError) return { ok: false, status: 400, error: appError.message };
 
 	if (answers.length && fields.length) {
@@ -3069,11 +3097,15 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 	if (!auth.ok) return auth;
 
 	const serviceSupabase = auth.serviceSupabase;
-	await upsertMembershipUserProfile({
+	await ensureUserGlobalProfileDefaults({
 		serviceSupabase,
 		userId: auth.userId,
 		currentEmail: auth.userEmail,
 		profilePayload: payload?.profile
+	});
+	const scopedContact = extractScopedContactColumns(payload?.profile, {
+		contact_full_name: auth.userName,
+		contact_email: auth.userEmail
 	});
 	const requestedTierId = cleanNullableText(payload?.tier_id, 64);
 	const requestedInterval = cleanNullableText(payload?.billing_interval, 16);
@@ -3135,6 +3167,7 @@ export async function joinMembership({ cookies, groupSlug, payload }) {
 		userId: auth.userId,
 		tier,
 		billingInterval: tier.billing_type === 'one_time' ? null : billingInterval,
+		contactProfile: scopedContact,
 		source: 'online',
 		status: 'active'
 	});
@@ -3158,7 +3191,7 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	if (!auth.ok) return auth;
 
 	const serviceSupabase = auth.serviceSupabase;
-	await upsertMembershipUserProfile({
+	await ensureUserGlobalProfileDefaults({
 		serviceSupabase,
 		userId: auth.userId,
 		currentEmail: auth.userEmail,
@@ -3246,6 +3279,12 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	}
 	const finalAmount = customAmountCents ?? tierAmount;
 
+	const scopedContact = extractScopedContactColumns(payload?.profile, {
+		contact_full_name: application?.contact_full_name || auth.userName,
+		contact_email: application?.contact_email || auth.userEmail,
+		contact_phone: application?.contact_phone || null
+	});
+
 	if (contributionMode === 'donation' && finalAmount <= 0) {
 		const freeResult = await applyZeroPaymentMembership({
 			serviceSupabase,
@@ -3253,6 +3292,7 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 			userId: auth.userId,
 			tier,
 			billingInterval: tier.billing_type === 'one_time' ? null : billingInterval,
+			contactProfile: scopedContact,
 			applicationId: application?.id || null,
 			source: 'online',
 			status: 'active'
@@ -3282,7 +3322,8 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 		tier,
 		billingInterval,
 		userId: auth.userId,
-		userEmail: auth.userEmail,
+		userEmail: scopedContact.contact_email || auth.userEmail,
+		contactProfile: scopedContact,
 		applicationId: application?.id || null,
 		requestUrl,
 		customAmountCents: customAmountCents ?? null
@@ -3316,7 +3357,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	if (!auth.ok) return auth;
 
 	const serviceSupabase = auth.serviceSupabase;
-	await upsertMembershipUserProfile({
+	await ensureUserGlobalProfileDefaults({
 		serviceSupabase,
 		userId: auth.userId,
 		currentEmail: auth.userEmail,
@@ -3405,6 +3446,12 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	}
 	const finalAmount = customAmountCents ?? tierAmount;
 
+	const scopedContact = extractScopedContactColumns(payload?.profile, {
+		contact_full_name: application?.contact_full_name || auth.userName,
+		contact_email: application?.contact_email || auth.userEmail,
+		contact_phone: application?.contact_phone || null
+	});
+
 	if (contributionMode === 'donation' && finalAmount <= 0) {
 		const freeResult = await applyZeroPaymentMembership({
 			serviceSupabase,
@@ -3412,6 +3459,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 			userId: auth.userId,
 			tier,
 			billingInterval: tier.billing_type === 'one_time' ? null : billingInterval,
+			contactProfile: scopedContact,
 			applicationId: application?.id || null,
 			source: 'online',
 			status: 'active'
@@ -3469,7 +3517,10 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 		membership_contribution_mode: contributionMode,
 		membership_billing_type: billingType,
 		membership_interval_unit: billingType === 'one_time' ? '' : billingInterval || '',
-		membership_amount_cents: String(finalAmount)
+		membership_amount_cents: String(finalAmount),
+		membership_contact_name: cleanText(scopedContact.contact_full_name || '', 120),
+		membership_contact_email: sanitizeEmail(scopedContact.contact_email || ''),
+		membership_contact_phone: cleanText(scopedContact.contact_phone || '', 40)
 	};
 	if (supersedesSubscriptionId) {
 		metadata.membership_supersedes_sub_id = supersedesSubscriptionId;
@@ -3487,7 +3538,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 					amount: finalAmount,
 					currency,
 					automatic_payment_methods: { enabled: true },
-					receipt_email: auth.userEmail || undefined,
+					receipt_email: scopedContact.contact_email || auth.userEmail || undefined,
 					description: `${auth.group.name} Membership: ${tier.name}`,
 					metadata
 				},
@@ -3498,7 +3549,8 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 		} else {
 			const customer = await stripe.customers.create(
 				{
-					email: auth.userEmail || undefined,
+					email: scopedContact.contact_email || auth.userEmail || undefined,
+					name: scopedContact.contact_full_name || undefined,
 					metadata: {
 						membership_group_id: auth.group.id,
 						membership_user_id: auth.userId
@@ -4204,7 +4256,10 @@ export async function cancelMembership({ cookies, groupSlug, payload, fetchImpl 
 	});
 
 	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [membership.user_id]);
-	const memberProfile = profileMap.get(membership.user_id) || null;
+	const memberProfile = mergeScopedMemberContact(
+		data || membership,
+		profileMap.get(membership.user_id) || null
+	);
 	const tier = membership.tier_id ? await loadTierById(serviceSupabase, membership.tier_id) : null;
 	const memberName = cleanText(memberProfile?.full_name || '', 120) || 'Member';
 	const memberEmail = sanitizeEmail(memberProfile?.email || '');
@@ -4321,7 +4376,10 @@ export async function listMembershipApplications({ cookies, groupSlug, status = 
 	const tierMap = new Map((tierRowsRes.data || []).map((tier) => [tier.id, tier]));
 	const merged = rows.map((application) => ({
 		...application,
-		applicant_profile: profileMap.get(application.user_id) || null,
+		applicant_profile: mergeScopedMemberContact(
+			application,
+			profileMap.get(application.user_id) || null
+		),
 		selected_tier: tierMap.get(application.selected_tier_id) || null,
 		answers: answersByApp.get(application.id) || []
 	}));
@@ -4381,7 +4439,8 @@ export async function approveMembershipApplication({
 			tier,
 			billingInterval: defaultInterval || 'month',
 			userId: application.user_id,
-			userEmail: null,
+			userEmail: application.contact_email || null,
+			contactProfile: application,
 			applicationId: application.id,
 			requestUrl,
 			customAmountCents: null
@@ -4402,6 +4461,7 @@ export async function approveMembershipApplication({
 			tier,
 			billingInterval: tier.billing_type === 'one_time' ? null : defaultInterval,
 			applicationId: application.id,
+			contactProfile: application,
 			source: 'online',
 			status: 'active'
 		});
@@ -4438,7 +4498,10 @@ export async function approveMembershipApplication({
 	});
 
 	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [application.user_id]);
-	const applicantProfile = profileMap.get(application.user_id) || null;
+	const applicantProfile = mergeScopedMemberContact(
+		application,
+		profileMap.get(application.user_id) || null
+	);
 	if (needsPayment) {
 		await sendUserNotification({
 			to: applicantProfile?.email,
@@ -4517,7 +4580,10 @@ export async function rejectMembershipApplication({
 	});
 
 	const profileMap = await resolveProfileMapByUserIds(serviceSupabase, [application.user_id]);
-	const applicantProfile = profileMap.get(application.user_id) || null;
+	const applicantProfile = mergeScopedMemberContact(
+		application,
+		profileMap.get(application.user_id) || null
+	);
 	await sendUserNotification({
 		to: applicantProfile?.email,
 		subject: `Application update: ${auth.group.name}`,
@@ -4585,7 +4651,10 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 	const queryText = cleanText(filters?.query || '', 120).toLowerCase();
 	const mapped = latestRows
 		.map((membership) => {
-			const profile = profileMap.get(membership.user_id) || null;
+			const profile = mergeScopedMemberContact(
+				membership,
+				profileMap.get(membership.user_id) || null
+			);
 			const tier = tierMap.get(membership.tier_id) || null;
 			const billing = billingMap.get(membership.id) || null;
 			return {
@@ -4601,6 +4670,7 @@ export async function listMembershipMembers({ cookies, groupSlug, filters = {} }
 			const haystack = [
 				row.profile?.full_name || '',
 				row.profile?.email || '',
+				row.profile?.phone || '',
 				row.tier?.name || ''
 			]
 				.join(' ')
@@ -4742,12 +4812,12 @@ export async function createManualMembership({
 		}
 	}
 
-	await upsertMembershipUserProfile({
+	await ensureUserGlobalProfileDefaults({
 		serviceSupabase,
 		userId,
 		currentEmail: email,
 		profilePayload: {
-			full_name: requestedFullName || existingProfile?.full_name || '',
+			full_name: requestedFullName || '',
 			email
 		}
 	});
@@ -4760,6 +4830,7 @@ export async function createManualMembership({
 	);
 	const endsAt = normalizeTimestamp(payload?.ends_at, null);
 	const manualPaymentNotes = cleanNullableText(payload?.manual_payment_notes, 5000);
+	const manualContactPhone = cleanNullableText(payload?.phone, 40);
 	const manualIntervalUnit =
 		tier?.billing_type === 'recurring' && INTERVAL_UNITS.has(tier?.interval_unit || '')
 			? tier.interval_unit
@@ -4771,9 +4842,10 @@ export async function createManualMembership({
 		0
 	);
 
-	const { data, error } = await serviceSupabase
-		.from('group_memberships')
-		.insert({
+	const { data, error } = await insertWithScopedContactFallback(
+		serviceSupabase,
+		'group_memberships',
+		{
 			group_id: auth.group.id,
 			user_id: userId,
 			tier_id: tier.id,
@@ -4784,14 +4856,16 @@ export async function createManualMembership({
 			ends_at: endsAt,
 			interval_unit: manualIntervalUnit,
 			contribution_amount_cents: manualContributionAmount,
+			contact_full_name: requestedFullName || existingProfile?.full_name || null,
+			contact_email: email,
+			contact_phone: manualContactPhone,
 			cancel_at_period_end: false,
 			manual_payment_notes: manualPaymentNotes,
 			created_by_owner_id: auth.userId,
 			created_at: toIsoNow(),
 			updated_at: toIsoNow()
-		})
-		.select('*')
-		.single();
+		}
+	);
 	if (error) return { ok: false, status: 400, error: error.message };
 
 	await writeAuditLog(serviceSupabase, {
@@ -5674,6 +5748,18 @@ async function activateMembershipFromMetadata({
 				? tier.interval_unit
 				: null;
 
+	const linkedApplication = applicationId
+		? await resolveApplicationContext(serviceSupabase, applicationId)
+		: null;
+	const metadataContact = extractScopedContactColumns(
+		{
+			full_name: metadata.membership_contact_name,
+			email: metadata.membership_contact_email,
+			phone: metadata.membership_contact_phone
+		},
+		linkedApplication
+	);
+
 	const subscriptionId = isOneTime
 		? null
 		: typeof stripeSession?.subscription === 'string'
@@ -5798,6 +5884,7 @@ async function activateMembershipFromMetadata({
 			tierId,
 			billingInterval: normalizedInterval,
 			applicationId,
+			contactProfile: metadataContact,
 			source: 'online',
 			status: 'active'
 		}));
@@ -5870,7 +5957,23 @@ async function activateMembershipFromMetadata({
 				: calculateRenewalDate(tier, new Date())
 			: membership.renews_at;
 
+	/** @type {Record<string, any>} */
+	const contactUpdates = {};
+	if (
+		metadataContact.contact_full_name &&
+		metadataContact.contact_full_name !== membership.contact_full_name
+	) {
+		contactUpdates.contact_full_name = metadataContact.contact_full_name;
+	}
+	if (metadataContact.contact_email && metadataContact.contact_email !== membership.contact_email) {
+		contactUpdates.contact_email = metadataContact.contact_email;
+	}
+	if (metadataContact.contact_phone && metadataContact.contact_phone !== membership.contact_phone) {
+		contactUpdates.contact_phone = metadataContact.contact_phone;
+	}
+
 	const membershipUpdates = {
+		...contactUpdates,
 		tier_id: tierId,
 		status: 'active',
 		renews_at: nextRenewsAt,
@@ -5881,15 +5984,24 @@ async function activateMembershipFromMetadata({
 		updated_at: nowIso
 	};
 
-	const { error: membershipUpdateError } = await serviceSupabase
+	/** @type {Record<string, any>} */
+	let appliedMembershipUpdates = membershipUpdates;
+	let { error: membershipUpdateError } = await serviceSupabase
 		.from('group_memberships')
 		.update(membershipUpdates)
 		.eq('id', membership.id);
+	if (membershipUpdateError && isMissingScopedContactColumnError(membershipUpdateError)) {
+		appliedMembershipUpdates = stripScopedContactColumns(membershipUpdates) || {};
+		({ error: membershipUpdateError } = await serviceSupabase
+			.from('group_memberships')
+			.update(appliedMembershipUpdates)
+			.eq('id', membership.id));
+	}
 	if (membershipUpdateError) throw new Error(membershipUpdateError.message);
 
 	const updatedMembership = {
 		...membership,
-		...membershipUpdates
+		...appliedMembershipUpdates
 	};
 
 	if (isTierChange || supersededSubscriptionId || isOneTime || isContributionOrIntervalChange) {

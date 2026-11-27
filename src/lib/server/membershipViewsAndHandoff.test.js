@@ -1,0 +1,880 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+	buildMembershipReturnPath,
+	consumeMembershipContactHandoff,
+	MEMBERSHIP_CONTACT_HANDOFF_TTL_MS,
+	normalizeMembershipManageViewParam,
+	parseMembershipHandoffParams,
+	resolveInitialMembershipManageView,
+	stashMembershipContactHandoff
+} from '../groups/membershipHandoff.js';
+import {
+	isSafeInternalPath,
+	registerLoginReturnPathBuilder,
+	resolveRegisteredLoginReturnPath
+} from '../security/navigation.js';
+import {
+	appendConnectStatusParams,
+	buildConnectReturnPath,
+	buildProgramAndTiersPath,
+	evaluateStripeBillingGuard,
+	getGroupStripeBillingGuard,
+	sanitizeGroupConnectReturnPath
+} from './groupStripeConnection.js';
+import {
+	buildViewerStripeConnection,
+	resolveMembershipProgramForViewer
+} from './groupMembershipPublic.js';
+import {
+	computeGlobalProfileBackfill,
+	ensureUserGlobalProfileDefaults,
+	executeUnifiedProgramAndTiersSave,
+	extractScopedContactColumns,
+	insertWithScopedContactFallback,
+	isMissingScopedContactColumnError,
+	mergeScopedMemberContact,
+	stripScopedContactColumns,
+	updateExistingMembershipContactWithFallback
+} from './membershipProgramAndContacts.js';
+
+/**
+ * @param {{
+ *   programs?: Array<Record<string, any>>;
+ *   tiers?: Array<Record<string, any>>;
+ *   memberships?: Array<Record<string, any>>;
+ *   billings?: Array<Record<string, any>>;
+ *   profiles?: Array<Record<string, any>>;
+ * }} [seed]
+ */
+function createMembershipSupabaseMock({
+	programs = [],
+	tiers = [],
+	memberships = [],
+	billings = [],
+	profiles = []
+} = {}) {
+	/** @type {Record<string, Array<Record<string, any>>>} */
+	const tables = {
+		group_membership_programs: programs.map((row) => ({ ...row })),
+		group_membership_tiers: tiers.map((row) => ({ ...row })),
+		group_memberships: memberships.map((row) => ({ ...row })),
+		group_membership_billing: billings.map((row) => ({ ...row })),
+		profiles: profiles.map((row) => ({ ...row }))
+	};
+	/** @type {Array<Record<string, any>>} */
+	const profileUpserts = [];
+
+	/**
+	 * @param {Record<string, any>} row
+	 * @param {Array<Record<string, any>>} filters
+	 */
+	function matchesFilters(row, filters) {
+		return filters.every((filter) => {
+			if (filter.type === 'eq') return row[filter.key] === filter.value;
+			if (filter.type === 'neq') return row[filter.key] !== filter.value;
+			if (filter.type === 'in') return filter.values.includes(row[filter.key]);
+			return true;
+		});
+	}
+
+	return {
+		tables,
+		profileUpserts,
+		/**
+		 * @param {string} tableName
+		 */
+		from(tableName) {
+			const rows = tables[tableName];
+			assert.ok(rows, `Unexpected table ${tableName}`);
+			/** @type {Array<Record<string, any>>} */
+			const filters = [];
+			/** @type {Record<string, any> | null} */
+			let pendingUpdate = null;
+
+			const execute = () => {
+				const matched = rows.filter((row) => matchesFilters(row, filters));
+				if (pendingUpdate) {
+					for (const row of matched) {
+						Object.assign(row, pendingUpdate);
+					}
+				}
+				return {
+					data: matched.map((row) => ({ ...row })),
+					error: null
+				};
+			};
+
+			const builder = {
+				select() {
+					return builder;
+				},
+				update(values) {
+					pendingUpdate = { ...values };
+					return builder;
+				},
+				upsert(payload, options = {}) {
+					const conflictKey = options.onConflict || 'id';
+					if (tableName === 'profiles') {
+						profileUpserts.push({ ...payload });
+					}
+					const existing = rows.find((row) => row[conflictKey] === payload[conflictKey]);
+					if (existing) {
+						Object.assign(existing, payload);
+					} else {
+						rows.push({ ...payload });
+					}
+					return Promise.resolve({ data: { ...payload }, error: null });
+				},
+				eq(key, value) {
+					filters.push({ type: 'eq', key, value });
+					return builder;
+				},
+				neq(key, value) {
+					filters.push({ type: 'neq', key, value });
+					return builder;
+				},
+				in(key, values) {
+					filters.push({ type: 'in', key, values });
+					return builder;
+				},
+				async maybeSingle() {
+					const { data, error } = execute();
+					return { data: data[0] ?? null, error };
+				},
+				async single() {
+					const { data, error } = execute();
+					if (!data.length) {
+						return { data: null, error: { message: `No ${tableName} row matched` } };
+					}
+					return { data: data[0], error };
+				},
+				then(resolve, reject) {
+					return Promise.resolve(execute()).then(resolve, reject);
+				}
+			};
+
+			return builder;
+		}
+	};
+}
+
+test('split management views open Program and Tiers automatically when zero active tiers exist', () => {
+	assert.equal(resolveInitialMembershipManageView({ tiers: [] }), 'program');
+	assert.equal(
+		resolveInitialMembershipManageView({
+			tiers: [{ id: 'tier-archived', is_active: false }]
+		}),
+		'program'
+	);
+	assert.equal(
+		resolveInitialMembershipManageView({
+			tiers: [{ id: 'tier-1', is_active: true }]
+		}),
+		'members'
+	);
+	assert.equal(
+		resolveInitialMembershipManageView({
+			requestedView: 'program',
+			tiers: [{ id: 'tier-1', is_active: true }]
+		}),
+		'program'
+	);
+	assert.equal(
+		resolveInitialMembershipManageView({
+			requestedView: 'members',
+			tiers: []
+		}),
+		'members'
+	);
+	assert.equal(normalizeMembershipManageViewParam('program-and-tiers'), 'program');
+	assert.equal(normalizeMembershipManageViewParam('roster'), 'members');
+	assert.equal(normalizeMembershipManageViewParam('unknown'), '');
+});
+
+test('unified Program and Tiers save updates rules, policy_version, in-place tier edits, and synchronized default tier in one operation', async () => {
+	const store = createMembershipSupabaseMock({
+		programs: [
+			{
+				id: 'prog-1',
+				group_id: 'group-1',
+				enabled: true,
+				access_mode: 'public',
+				contribution_mode: 'donation',
+				cta_label: 'Follow',
+				policy_markdown: 'Original policy v1',
+				policy_version: 1,
+				policy_updated_at: null,
+				default_tier_id: 'tier-1'
+			}
+		],
+		tiers: [
+			{
+				id: 'tier-1',
+				program_id: 'prog-1',
+				name: 'Neighbor',
+				description: 'Free tier',
+				amount_cents: 0,
+				monthly_amount_cents: 0,
+				annual_amount_cents: null,
+				currency: 'usd',
+				billing_type: 'recurring',
+				interval_unit: 'month',
+				interval_count: 1,
+				is_default: true,
+				is_active: true,
+				sort_order: 0,
+				allow_custom_amount: false,
+				min_amount_cents: null,
+				stripe_price_id: null,
+				stripe_product_id: null,
+				stripe_monthly_price_id: null,
+				stripe_annual_price_id: null,
+				stripe_account_id: null
+			},
+			{
+				id: 'tier-2',
+				program_id: 'prog-1',
+				name: 'Supporter',
+				description: 'Monthly supporter',
+				amount_cents: 1000,
+				monthly_amount_cents: 1000,
+				annual_amount_cents: 10000,
+				currency: 'usd',
+				billing_type: 'recurring',
+				interval_unit: 'month',
+				interval_count: 1,
+				is_default: false,
+				is_active: true,
+				sort_order: 1,
+				allow_custom_amount: false,
+				min_amount_cents: null,
+				stripe_price_id: 'price_old_month',
+				stripe_product_id: 'prod_existing',
+				stripe_monthly_price_id: 'price_old_month',
+				stripe_annual_price_id: 'price_old_year',
+				stripe_account_id: 'acct_123'
+			}
+		]
+	});
+
+	const auditedTierIds = [];
+	const result = await executeUnifiedProgramAndTiersSave({
+		serviceSupabase: store,
+		before: store.tables.group_membership_programs[0],
+		existingTiers: store.tables.group_membership_tiers,
+		now: '2026-11-21T20:00:00.000Z',
+		payload: {
+			enabled: true,
+			access_mode: 'private_request',
+			contribution_mode: 'paid',
+			cta_label: 'Join the Club',
+			policy_markdown: 'Updated club policy v2 with annual terms.',
+			default_tier_id: 'tier-2',
+			tiers: [
+				{
+					id: 'tier-1',
+					name: 'Community Rider',
+					monthly_amount_cents: 500,
+					annual_amount_cents: 5000,
+					is_active: true
+				},
+				{
+					id: 'tier-2',
+					name: 'Advocate Plus',
+					monthly_amount_cents: 1500,
+					annual_amount_cents: 15000,
+					is_active: true
+				}
+			]
+		},
+		onTierUpdated: async (_before, updated) => {
+			auditedTierIds.push(updated.id);
+		}
+	});
+
+	assert.equal(result.ok, true);
+	assert.equal(result.policyChanged, true);
+	assert.equal(result.shouldBumpPolicyVersion, true);
+	assert.deepEqual(auditedTierIds, ['tier-1', 'tier-2']);
+
+	const savedProgram = store.tables.group_membership_programs[0];
+	assert.equal(savedProgram.access_mode, 'private_request');
+	assert.equal(savedProgram.contribution_mode, 'paid');
+	assert.equal(savedProgram.cta_label, 'Join the Club');
+	assert.equal(savedProgram.policy_markdown, 'Updated club policy v2 with annual terms.');
+	assert.equal(savedProgram.policy_version, 2);
+	assert.equal(savedProgram.policy_updated_at, '2026-11-21T20:00:00.000Z');
+	assert.equal(savedProgram.default_tier_id, 'tier-2');
+
+	const tier1 = store.tables.group_membership_tiers.find((row) => row.id === 'tier-1');
+	const tier2 = store.tables.group_membership_tiers.find((row) => row.id === 'tier-2');
+	assert.ok(tier1);
+	assert.ok(tier2);
+	assert.equal(tier1.name, 'Community Rider');
+	assert.equal(tier1.monthly_amount_cents, 500);
+	assert.equal(tier1.is_default, false);
+	assert.equal(tier2.name, 'Advocate Plus');
+	assert.equal(tier2.monthly_amount_cents, 1500);
+	assert.equal(tier2.annual_amount_cents, 15000);
+	assert.equal(tier2.is_default, true);
+	assert.equal(tier2.stripe_monthly_price_id, null);
+	assert.equal(tier2.stripe_annual_price_id, null);
+});
+
+test('Stripe disconnect guard blocks disconnects with a Program and Tiers link while active paid tiers or subscriptions exist', async () => {
+	const store = createMembershipSupabaseMock({
+		programs: [{ id: 'prog-1', group_id: 'group-1', enabled: true, contribution_mode: 'donation' }],
+		tiers: [
+			{
+				id: 'tier-paid',
+				program_id: 'prog-1',
+				is_active: true,
+				amount_cents: 1200,
+				monthly_amount_cents: 1200,
+				annual_amount_cents: 12000,
+				allow_custom_amount: false
+			}
+		],
+		memberships: [
+			{ id: 'mem-1', group_id: 'group-1', status: 'active' },
+			{ id: 'mem-2', group_id: 'group-1', status: 'past_due' }
+		],
+		billings: [{ membership_id: 'mem-1', stripe_subscription_id: 'sub_live_123' }]
+	});
+
+	const blocked = await getGroupStripeBillingGuard(store, 'group-1', 'metro-velo');
+	assert.equal(blocked.can_disconnect, false);
+	assert.equal(blocked.active_paid_tier_count, 1);
+	assert.equal(blocked.active_subscription_count, 1);
+	assert.equal(blocked.past_due_count, 1);
+	assert.equal(blocked.manage_url, '/groups/metro-velo/manage/membership?view=program');
+	assert.equal(blocked.manage_url, buildProgramAndTiersPath('metro-velo'));
+	assert.match(blocked.block_reason, /1 active paid tier/);
+	assert.match(blocked.block_reason, /1 active member subscription/);
+	assert.match(blocked.block_reason, /Program and Tiers/);
+
+	const allowed = evaluateStripeBillingGuard({
+		program: { id: 'prog-1', enabled: true, contribution_mode: 'donation' },
+		tiers: [{ id: 'tier-free', is_active: true, amount_cents: 0, monthly_amount_cents: 0 }],
+		memberships: [{ id: 'mem-free', status: 'active' }],
+		billings: [{ membership_id: 'mem-free', stripe_subscription_id: null }],
+		groupSlug: 'metro-velo'
+	});
+	assert.equal(allowed.can_disconnect, true);
+	assert.equal(allowed.block_reason, '');
+});
+
+test('guest magic-link return path omits PII from query string while short-lived sessionStorage carries contact details', () => {
+	const returnTo = buildMembershipReturnPath(
+		/** @type {any} */ ({
+			slug: 'metro-velo',
+			tierId: 'tier-pwyw',
+			billingInterval: 'year',
+			customAmount: '75.50',
+			fullName: 'Alex Rider',
+			email: 'Alex@Example.com',
+			phone: '(555) 019-2834'
+		})
+	);
+
+	assert.equal(isSafeInternalPath(returnTo), true);
+	assert.equal(returnTo.includes('Alex'), false);
+	assert.equal(returnTo.includes('Example.com'), false);
+	assert.equal(returnTo.includes('019-2834'), false);
+	assert.equal(returnTo, '/groups/metro-velo/membership?tier=tier-pwyw&interval=year&amount=75.50');
+
+	const restored = parseMembershipHandoffParams(returnTo);
+	assert.deepEqual(restored, {
+		tier: 'tier-pwyw',
+		interval: 'year',
+		amount: '75.50'
+	});
+
+	// Even if a stale URL includes name/email/phone query params, parseMembershipHandoffParams ignores them
+	const withLegacyPiiParams = parseMembershipHandoffParams(
+		'/groups/metro-velo/membership?tier=tier-supporter&interval=annual&custom_amount=40&name=Leak&email=leak@example.com&phone=555'
+	);
+	assert.deepEqual(withLegacyPiiParams, {
+		tier: 'tier-supporter',
+		interval: 'year',
+		amount: '40'
+	});
+
+	assert.equal(buildMembershipReturnPath({ slug: '' }), '/');
+	const sanitized = buildMembershipReturnPath({
+		slug: 'metro-velo',
+		customAmount: '-99'
+	});
+	assert.equal(isSafeInternalPath(sanitized), true);
+	assert.equal(parseMembershipHandoffParams(sanitized).amount, '');
+
+	// Short-lived sessionStorage contact handoff round-trip, consume-once, and TTL expiry
+	/** @type {Map<string, string>} */
+	const backing = new Map();
+	const mockSessionStorage = {
+		/** @param {string} k */
+		getItem: (k) => backing.get(k) ?? null,
+		/**
+		 * @param {string} k
+		 * @param {string} v
+		 */
+		setItem: (k, v) => {
+			backing.set(k, v);
+		},
+		/** @param {string} k */
+		removeItem: (k) => {
+			backing.delete(k);
+		}
+	};
+
+	const baseNow = 1_700_000_000_000;
+	assert.equal(
+		stashMembershipContactHandoff(
+			'metro-velo',
+			{
+				fullName: 'Alex\nRider\\Alias',
+				email: 'Alex@Example.com',
+				phone: '(555) 019-2834'
+			},
+			{ storage: mockSessionStorage, now: baseNow }
+		),
+		true
+	);
+	// Peek while logged out preserves entry
+	assert.deepEqual(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 5_000,
+			consume: false
+		}),
+		{
+			full_name: 'AlexRiderAlias',
+			email: 'alex@example.com',
+			phone: '(555) 019-2834'
+		}
+	);
+	// Consuming after sign-in returns entry and clears sessionStorage
+	assert.deepEqual(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 10_000,
+			consume: true
+		}),
+		{
+			full_name: 'AlexRiderAlias',
+			email: 'alex@example.com',
+			phone: '(555) 019-2834'
+		}
+	);
+	assert.equal(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + 11_000
+		}),
+		null
+	);
+
+	// Expired entry is discarded and removed
+	stashMembershipContactHandoff(
+		'metro-velo',
+		{ fullName: 'Expired User', email: 'expired@example.com' },
+		{ storage: mockSessionStorage, now: baseNow }
+	);
+	assert.equal(
+		consumeMembershipContactHandoff('metro-velo', {
+			storage: mockSessionStorage,
+			now: baseNow + MEMBERSHIP_CONTACT_HANDOFF_TTL_MS + 1
+		}),
+		null
+	);
+	assert.equal(backing.size, 0);
+});
+
+test('submitting a club join form with alternate display name or phone leaves an existing user global profile unchanged', async () => {
+	const store = createMembershipSupabaseMock({
+		profiles: [
+			{
+				user_id: 'user-existing',
+				email: 'casey@global.example',
+				full_name: 'Casey Global',
+				phone: '555-100-2000',
+				avatar_url: 'https://example.org/avatar.png',
+				bio: 'Road captain',
+				metadata: { club: 'main' }
+			},
+			{
+				user_id: 'user-new-magic-link',
+				email: null,
+				full_name: null,
+				phone: '555-222-3333',
+				avatar_url: null,
+				bio: null,
+				metadata: {}
+			}
+		]
+	});
+
+	const clubFormSubmission = {
+		full_name: 'Casey Track Alias',
+		email: 'alias@club.example',
+		phone: '555-999-8888'
+	};
+
+	const scopedColumns = extractScopedContactColumns(clubFormSubmission);
+	assert.deepEqual(scopedColumns, {
+		contact_full_name: 'Casey Track Alias',
+		contact_email: 'alias@club.example',
+		contact_phone: '555-999-8888'
+	});
+
+	const existingResult = await ensureUserGlobalProfileDefaults({
+		serviceSupabase: store,
+		userId: 'user-existing',
+		currentEmail: 'casey@global.example',
+		profilePayload: clubFormSubmission
+	});
+	assert.equal(existingResult.updated, false);
+	assert.equal(store.profileUpserts.length, 0);
+
+	const untouchedGlobal = store.tables.profiles.find((row) => row.user_id === 'user-existing');
+	assert.ok(untouchedGlobal);
+	assert.equal(untouchedGlobal.full_name, 'Casey Global');
+	assert.equal(untouchedGlobal.email, 'casey@global.example');
+	assert.equal(untouchedGlobal.phone, '555-100-2000');
+
+	const mergedForClubRoster = mergeScopedMemberContact(
+		{ user_id: 'user-existing', ...scopedColumns },
+		untouchedGlobal
+	);
+	assert.ok(mergedForClubRoster);
+	assert.equal(mergedForClubRoster.full_name, 'Casey Track Alias');
+	assert.equal(mergedForClubRoster.email, 'alias@club.example');
+	assert.equal(mergedForClubRoster.phone, '555-999-8888');
+
+	const newUserResult = await ensureUserGlobalProfileDefaults({
+		serviceSupabase: store,
+		userId: 'user-new-magic-link',
+		currentEmail: 'newrider@example.com',
+		profilePayload: {
+			full_name: 'New Rider',
+			email: 'newrider@example.com',
+			phone: '555-777-6666'
+		}
+	});
+	assert.equal(newUserResult.updated, true);
+	const backfilledProfile = store.tables.profiles.find(
+		(row) => row.user_id === 'user-new-magic-link'
+	);
+	assert.ok(backfilledProfile);
+	assert.equal(backfilledProfile.full_name, 'New Rider');
+	assert.equal(backfilledProfile.email, 'newrider@example.com');
+	assert.equal(backfilledProfile.phone, '555-222-3333');
+
+	const noRowBackfill = computeGlobalProfileBackfill(null, {
+		currentEmail: 'brandnew@example.com',
+		profilePayload: { full_name: 'Brand New', phone: '555-444-5555' }
+	});
+	assert.equal(noRowBackfill.shouldUpdate, true);
+	assert.deepEqual(noRowBackfill.updates, {
+		email: 'brandnew@example.com',
+		full_name: 'Brand New',
+		phone: null
+	});
+});
+
+test('resolveMembershipProgramForViewer enriches manager stripe_connection with billing guard while redacting non-managers', async () => {
+	const store = createMembershipSupabaseMock({
+		programs: [{ id: 'prog-1', group_id: 'group-1', enabled: true, contribution_mode: 'paid' }],
+		tiers: [
+			{
+				id: 'tier-paid',
+				program_id: 'prog-1',
+				name: 'Paid Member',
+				is_active: true,
+				amount_cents: 1500,
+				monthly_amount_cents: 1500,
+				stripe_account_id: 'acct_live_123'
+			}
+		],
+		memberships: [{ id: 'mem-1', group_id: 'group-1', status: 'active' }],
+		billings: [{ membership_id: 'mem-1', stripe_subscription_id: 'sub_live_123' }]
+	});
+
+	const donationAccount = {
+		id: 'acct-row-1',
+		stripe_account_id: 'acct_live_123',
+		stripe_account_email: 'treasurer@club.example',
+		charges_enabled: true,
+		payouts_enabled: true,
+		connected_at: '2026-10-01T00:00:00.000Z'
+	};
+
+	const buildStripeConnectionFn = async (serviceSupabase, group, { canManage = false } = {}) => {
+		if (!canManage) {
+			return buildViewerStripeConnection(donationAccount, { canManage: false });
+		}
+		const guard = await getGroupStripeBillingGuard(serviceSupabase, group.id, group.slug);
+		return {
+			...buildViewerStripeConnection(donationAccount, { canManage: true }),
+			payouts_enabled: donationAccount.payouts_enabled,
+			stripe_account_email: donationAccount.stripe_account_email,
+			connected_at: donationAccount.connected_at,
+			...guard
+		};
+	};
+
+	const managerResult = await resolveMembershipProgramForViewer({
+		viewer: { userId: 'owner-1', isAdmin: false, requestSupabase: {} },
+		serviceSupabase: store,
+		groupSlug: 'metro-velo',
+		includeInactive: true,
+		loadGroupBySlugFn: async () => ({
+			id: 'group-1',
+			slug: 'metro-velo',
+			name: 'Metro Velo',
+			membership_info: 'Legacy club notes'
+		}),
+		isGroupManagerFn: async () => true,
+		loadDonationAccountFn: async () => donationAccount,
+		buildStripeConnectionFn,
+		ensureProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramBundleFn: async () => ({
+			tiers: store.tables.group_membership_tiers,
+			fields: []
+		})
+	});
+
+	assert.equal(managerResult.ok, true);
+	assert.equal(managerResult.data.can_manage, true);
+	assert.equal(managerResult.data.stripe_connection.stripe_account_id, 'acct_live_123');
+	assert.equal(managerResult.data.stripe_connection.stripe_account_email, 'treasurer@club.example');
+	assert.equal(managerResult.data.stripe_connection.active_paid_tier_count, 1);
+	assert.equal(managerResult.data.stripe_connection.active_subscription_count, 1);
+	assert.equal(managerResult.data.stripe_connection.can_disconnect, false);
+	assert.equal(
+		managerResult.data.stripe_connection.manage_url,
+		'/groups/metro-velo/manage/membership?view=program'
+	);
+
+	const riderResult = await resolveMembershipProgramForViewer({
+		viewer: { userId: 'rider-1', isAdmin: false, requestSupabase: {} },
+		serviceSupabase: store,
+		groupSlug: 'metro-velo',
+		includeInactive: true,
+		loadGroupBySlugFn: async () => ({
+			id: 'group-1',
+			slug: 'metro-velo',
+			name: 'Metro Velo'
+		}),
+		isGroupManagerFn: async () => false,
+		loadDonationAccountFn: async () => donationAccount,
+		buildStripeConnectionFn,
+		ensureProgramFn: async () => store.tables.group_membership_programs[0],
+		loadProgramFn: async () => store.tables.group_membership_programs[0],
+		ensureDefaultApplicationFieldsFn: async () => {},
+		loadProgramBundleFn: async () => ({
+			tiers: store.tables.group_membership_tiers,
+			fields: []
+		})
+	});
+
+	assert.equal(riderResult.ok, true);
+	assert.equal(riderResult.data.can_manage, false);
+	assert.deepEqual(riderResult.data.stripe_connection, {
+		connected: true,
+		charges_enabled: true,
+		stripe_account_id: null
+	});
+	assert.equal('stripe_account_id' in riderResult.data.tiers[0], false);
+});
+
+test('pre-migration PostgREST missing-column fallback strips scoped contact columns on PGRST204/42703 while surfacing unrelated errors', async () => {
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: 'PGRST204',
+			message:
+				"Could not find the 'contact_full_name' column of 'group_memberships' in the schema cache"
+		}),
+		true
+	);
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: '42703',
+			message: 'column "contact_phone" of relation "group_membership_applications" does not exist'
+		}),
+		true
+	);
+	assert.equal(
+		isMissingScopedContactColumnError({
+			code: '23505',
+			message: 'duplicate key value violates unique constraint'
+		}),
+		false
+	);
+
+	const stripped = stripScopedContactColumns({
+		group_id: 'group-1',
+		user_id: 'user-1',
+		contact_full_name: 'Alex',
+		contact_email: 'alex@example.com',
+		contact_phone: '555-0100'
+	});
+	assert.deepEqual(stripped, {
+		group_id: 'group-1',
+		user_id: 'user-1'
+	});
+
+	const insertPayloads = [];
+	const preMigrationClient = {
+		from(tableName) {
+			return {
+				insert(payload) {
+					insertPayloads.push({ tableName, payload: { ...payload } });
+					return {
+						select() {
+							return {
+								async single() {
+									if ('contact_full_name' in payload) {
+										return {
+											data: null,
+											error: {
+												code: 'PGRST204',
+												message: `Could not find the 'contact_full_name' column of '${tableName}' in the schema cache`
+											}
+										};
+									}
+									return { data: { id: 'inserted-1', ...payload }, error: null };
+								}
+							};
+						}
+					};
+				},
+				update(payload) {
+					return {
+						eq() {
+							return {
+								select() {
+									return {
+										async single() {
+											if ('contact_email' in payload) {
+												return {
+													data: null,
+													error: {
+														code: '42703',
+														message:
+															'column "contact_email" of relation "group_memberships" does not exist'
+													}
+												};
+											}
+											return { data: payload, error: null };
+										}
+									};
+								}
+							};
+						}
+					};
+				}
+			};
+		}
+	};
+
+	const insertRes = await insertWithScopedContactFallback(preMigrationClient, 'group_memberships', {
+		group_id: 'group-1',
+		user_id: 'user-1',
+		tier_id: 'tier-1',
+		contact_full_name: 'Alex Rider',
+		contact_email: 'alex@example.com',
+		contact_phone: '555-0100'
+	});
+	assert.equal(insertRes.error, null);
+	assert.equal(insertRes.data.id, 'inserted-1');
+	assert.equal(insertPayloads.length, 2);
+	assert.equal('contact_full_name' in insertPayloads[0].payload, true);
+	assert.equal('contact_full_name' in insertPayloads[1].payload, false);
+
+	const existingRow = { id: 'mem-existing', group_id: 'group-1', user_id: 'user-1' };
+	const updateRes = await updateExistingMembershipContactWithFallback(
+		preMigrationClient,
+		existingRow,
+		{ contact_email: 'alex@example.com' },
+		'2026-11-23T00:00:00.000Z'
+	);
+	assert.equal(updateRes.error, null);
+	assert.equal(updateRes.skippedScopedContactColumns, true);
+	assert.deepEqual(updateRes.data, existingRow);
+});
+
+test('route-scoped login return path builder enriches only matching pathnames without mutating window', () => {
+	const unregister = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/groups/metro-velo/membership?tier=tier-1&interval=year&name=Alex+Rider'
+	);
+
+	assert.equal(
+		resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'),
+		'/groups/metro-velo/membership?tier=tier-1&interval=year&name=Alex+Rider'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/other-club/membership'), '');
+	assert.equal(resolveRegisteredLoginReturnPath('/ride'), '');
+	unregister();
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+
+	const unregisterSpoofed = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/admin/users?elevated=1'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+	unregisterSpoofed();
+
+	const unregisterTraversal = registerLoginReturnPathBuilder(
+		'/groups/metro-velo/membership',
+		() => '/groups/metro-velo/membership/../manage'
+	);
+	assert.equal(resolveRegisteredLoginReturnPath('/groups/metro-velo/membership'), '');
+	unregisterTraversal();
+});
+
+test('Stripe Connect return_to sanitization blocks traversal and cross-group redirects while preserving manage views', () => {
+	assert.equal(
+		sanitizeGroupConnectReturnPath(
+			'metro-velo',
+			'/groups/metro-velo/manage/membership?view=program&stripe=error&reason=old#billing'
+		),
+		'/groups/metro-velo/manage/membership?view=program#billing'
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/presence'),
+		'/groups/metro-velo/manage/presence'
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/../../donate'),
+		''
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/metro-velo/manage/%2e%2e/membership'),
+		''
+	);
+	assert.equal(
+		sanitizeGroupConnectReturnPath('metro-velo', '/groups/other-club/manage/membership'),
+		''
+	);
+	assert.equal(sanitizeGroupConnectReturnPath('metro-velo', 'https://evil.example/groups'), '');
+
+	assert.equal(
+		buildConnectReturnPath({
+			type: 'group',
+			slug: 'metro-velo',
+			returnTo: '/groups/metro-velo/manage/../../donate'
+		}),
+		'/groups/metro-velo/manage/presence'
+	);
+	assert.equal(
+		appendConnectStatusParams(
+			'/groups/metro-velo/manage/membership?view=program&stripe=error&reason=stale#stripe',
+			'connected'
+		),
+		'/groups/metro-velo/manage/membership?view=program&stripe=connected#stripe'
+	);
+});

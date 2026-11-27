@@ -17,6 +17,12 @@ import {
 	verifySignedConnectState
 } from '#lib/server/stripe';
 import { postDonationToGroupAccounting } from '#lib/server/groupAccounting';
+import {
+	appendConnectStatusParams,
+	buildConnectReturnPath,
+	getGroupStripeBillingGuard,
+	sanitizeGroupConnectReturnPath
+} from '#lib/server/groupStripeConnection.js';
 import { invalidateGroupSnapshotCache } from '#lib/server/groupSnapshots';
 import { timingSafeStringEqual } from '#lib/server/security';
 
@@ -141,16 +147,16 @@ export async function requireGroupDonationManager(cookies, groupSlug) {
 	return { ok: /** @type {const} */ (true), ...auth, group };
 }
 
-function buildConnectReturnPath(target) {
-	if (!target || target.type === 'main') return '/donate?manage=1';
-	if (target.type === 'group') return `/groups/${encodeURIComponent(target.slug)}/manage/presence`;
-	return '/donate';
-}
+export { appendConnectStatusParams, sanitizeGroupConnectReturnPath };
 
 export function createConnectStateToken(target, userId) {
+	const isGroup = target?.type === 'group';
+	const slug = isGroup ? target?.slug || null : null;
+	const returnTo = isGroup ? sanitizeGroupConnectReturnPath(slug, target?.returnTo) || null : null;
 	return createSignedConnectState({
-		type: target?.type === 'group' ? 'group' : 'main',
-		slug: target?.slug || null,
+		type: isGroup ? 'group' : 'main',
+		slug,
+		returnTo,
 		userId
 	});
 }
@@ -213,6 +219,11 @@ export async function upsertDonationAccountForGroup(group, stripeAccount) {
 	);
 	if (error) throw new Error(error.message);
 	invalidateGroupSnapshotCache({ groupId: group.id, slug: group.slug });
+}
+
+export async function checkGroupStripeDisconnectAllowed(group, supabaseOverride = null) {
+	const supabase = supabaseOverride || (await getServiceSupabase());
+	return getGroupStripeBillingGuard(supabase, group?.id, group?.slug || '');
 }
 
 export async function clearDonationAccountConnection(accountId) {

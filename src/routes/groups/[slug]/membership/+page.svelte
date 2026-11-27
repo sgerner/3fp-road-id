@@ -1,6 +1,6 @@
 <script>
 	import { loadStripe } from '@stripe/stripe-js';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { refreshPageData, replaceShallowState } from '#lib/client/navigation';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -23,10 +23,18 @@
 	import IconTrendingDown from '@lucide/svelte/icons/trending-down';
 	import IconWallet from '@lucide/svelte/icons/wallet';
 	import IconUser from '@lucide/svelte/icons/user';
+	import IconMail from '@lucide/svelte/icons/mail';
 	import IconRefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import { page } from '$app/state';
-	import { fade, fly, slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { fade, fly } from 'svelte/transition';
+	import TurnstileVerification from '#lib/components/security/TurnstileVerification.svelte';
+	import {
+		buildMembershipReturnPath,
+		consumeMembershipContactHandoff,
+		parseMembershipHandoffParams,
+		stashMembershipContactHandoff
+	} from '#lib/groups/membershipHandoff';
+	import { isSafeInternalPath, registerLoginReturnPathBuilder } from '#lib/security/navigation';
 
 	let { data } = $props();
 	const initialData = (() => data)();
@@ -42,6 +50,31 @@
 		null;
 	const initialCurrentUserProfile = initialData?.current_user_profile || null;
 	const initialPaymentRedirect = initialData?.payment_redirect || null;
+	const initialHandoff = parseMembershipHandoffParams(page?.url?.searchParams);
+	const initialHandoffTier =
+		(initialHandoff.tier && initialTiers.find((tier) => tier.id === initialHandoff.tier)) || null;
+	const initialMatchedTier =
+		initialHandoffTier ||
+		(initialCurrentMembership?.tier_id &&
+			initialTiers.find((tier) => tier.id === initialCurrentMembership.tier_id)) ||
+		initialTiers.find((tier) => tier.id === initialProgram?.default_tier_id) ||
+		initialTiers?.[0] ||
+		null;
+	const initialBillingInterval = (() => {
+		if (initialHandoff.interval === 'year') {
+			if (
+				!initialMatchedTier ||
+				(initialMatchedTier.annual_amount_cents !== null &&
+					initialMatchedTier.annual_amount_cents !== undefined) ||
+				initialMatchedTier.allow_custom_amount === true
+			) {
+				return 'year';
+			}
+		}
+		if (initialHandoff.interval === 'month') return 'month';
+		if (initialCurrentMembership?.interval_unit === 'year') return 'year';
+		return 'month';
+	})();
 
 	const group = $derived(data?.group || null);
 	const program = $derived(data?.program_data?.program || null);
@@ -60,14 +93,14 @@
 	const hasStripeSubscription = $derived(Boolean(data?.has_stripe_subscription));
 
 	let selectedTierId = $state(
-		initialCurrentMembership?.tier_id ||
+		initialHandoffTier?.id ||
+			initialCurrentMembership?.tier_id ||
+			initialMatchedTier?.id ||
 			initialProgram?.default_tier_id ||
 			initialTiers?.[0]?.id ||
 			''
 	);
-	let selectedBillingInterval = $state(
-		initialCurrentMembership?.interval_unit === 'year' ? 'year' : 'month'
-	);
+	let selectedBillingInterval = $state(initialBillingInterval);
 	let answers = $state({});
 	let memberProfile = $state({
 		full_name: initialCurrentUserProfile?.full_name || '',
@@ -75,6 +108,11 @@
 		phone: initialCurrentUserProfile?.phone || ''
 	});
 	let busy = $state(false);
+	let guestMagicLinkBusy = $state(false);
+	let guestHoneypot = $state('');
+	/** @type {any} */
+	let guestTurnstile = $state(null);
+	let magicLinkSentEmail = $state('');
 	let statusError = $state(
 		initialPaymentRedirect?.status === 'failed'
 			? initialPaymentRedirect.error ||
@@ -93,8 +131,12 @@
 	let redirectState = $state(initialPaymentRedirect?.status || '');
 	let redirectSuppressAutoPrepare = $state(Boolean(initialPaymentRedirect));
 	let redirectHandled = $state(false);
-	let customMonthlyInput = $state('');
-	let customAnnualInput = $state('');
+	let customMonthlyInput = $state(
+		initialHandoff.amount && initialBillingInterval !== 'year' ? initialHandoff.amount : ''
+	);
+	let customAnnualInput = $state(
+		initialHandoff.amount && initialBillingInterval === 'year' ? initialHandoff.amount : ''
+	);
 	let preparingPayment = $state(false);
 	let paymentFormReady = $state(false);
 	let paymentFormComplete = $state(false);
@@ -110,19 +152,10 @@
 	let paymentElement = null;
 	/** @type {HTMLDivElement | null} */
 	let paymentElementHost = $state(null);
-	let handoffPrefillApplied = $state(false);
+	let lastAppliedHandoffSearch = $state(page?.url?.search || '');
+	let restoredStashedContactKey = $state('');
 
-	const handoffPrefill = $derived.by(() => {
-		const params = page?.url?.searchParams;
-		return {
-			tier: String(params?.get('tier') || '').trim(),
-			interval: String(params?.get('interval') || '')
-				.trim()
-				.toLowerCase(),
-			name: String(params?.get('name') || '').trim(),
-			email: String(params?.get('email') || '').trim()
-		};
-	});
+	const handoffPrefill = $derived.by(() => parseMembershipHandoffParams(page?.url?.searchParams));
 
 	const currentMembership = $derived(
 		myMemberships.find((entry) => ['active', 'past_due', 'paused'].includes(entry.status)) || null
@@ -283,39 +316,123 @@
 	const currentPrice = $derived(
 		selectedTierAllowsCustom
 			? Number(customAmountCents || 0)
-			: selectedBillingInterval === 'year' && selectedTierAnnualCents
+			: selectedBillingInterval === 'year' && selectedTierAnnualCents !== null
 				? selectedTierAnnualCents
 				: selectedTierMonthlyCents
 	);
 
-	$effect(() => {
-		if (handoffPrefillApplied) return;
+	function applyHandoffState(prefill) {
 		if (!tiers.length) return;
-
-		const tierMatch = tiers.find((tier) => tier.id === handoffPrefill.tier);
+		const tierMatch = tiers.find((tier) => tier.id === prefill.tier) || null;
+		const activeTier = tierMatch || tiers.find((tier) => tier.id === selectedTierId) || tiers[0];
 		if (tierMatch) {
 			selectedTierId = tierMatch.id;
-			if (
-				handoffPrefill.interval === 'year' &&
-				(tierMatch.annual_amount_cents === null || tierMatch.annual_amount_cents === undefined) &&
-				tierMatch.allow_custom_amount !== true
-			) {
-				selectedBillingInterval = 'month';
+		} else if (!selectedTierId && activeTier?.id) {
+			selectedTierId = activeTier.id;
+		}
+
+		let nextInterval = selectedBillingInterval;
+		if (prefill.interval === 'year') {
+			const supportsYear =
+				!activeTier ||
+				(activeTier.annual_amount_cents !== null && activeTier.annual_amount_cents !== undefined) ||
+				activeTier.allow_custom_amount === true;
+			nextInterval = supportsYear ? 'year' : 'month';
+			selectedBillingInterval = nextInterval;
+		} else if (prefill.interval === 'month') {
+			nextInterval = 'month';
+			selectedBillingInterval = 'month';
+		}
+
+		if (prefill.amount) {
+			if (nextInterval === 'year') {
+				customAnnualInput = prefill.amount;
+				customMonthlyInput = '';
+			} else {
+				customMonthlyInput = prefill.amount;
+				customAnnualInput = '';
 			}
 		}
+	}
 
-		if (handoffPrefill.interval === 'month' || handoffPrefill.interval === 'year') {
-			selectedBillingInterval = handoffPrefill.interval;
-		}
+	$effect(() => {
+		const slug = group?.slug || '';
+		const authScope = currentUserId ? `auth:${currentUserId}` : 'guest';
+		const nextKey = slug ? `${slug}:${authScope}` : '';
+		if (!nextKey || restoredStashedContactKey === nextKey) return;
+		restoredStashedContactKey = nextKey;
+		untrack(() => {
+			const stashed = consumeMembershipContactHandoff(slug, {
+				consume: Boolean(currentUserId)
+			});
+			if (!stashed) return;
+			memberProfile = {
+				full_name: stashed.full_name || memberProfile.full_name,
+				email: stashed.email || memberProfile.email,
+				phone: stashed.phone || memberProfile.phone
+			};
+		});
+	});
 
-		if (handoffPrefill.name) {
-			memberProfile = { ...memberProfile, full_name: handoffPrefill.name };
+	$effect(() => {
+		const currentSearch = page?.url?.search || '';
+		if (!tiers.length) return;
+		if (currentSearch !== lastAppliedHandoffSearch) {
+			lastAppliedHandoffSearch = currentSearch;
+			untrack(() => applyHandoffState(handoffPrefill));
 		}
-		if (handoffPrefill.email) {
-			memberProfile = { ...memberProfile, email: handoffPrefill.email };
-		}
+	});
 
-		handoffPrefillApplied = true;
+	$effect(() => {
+		const profile = currentUserProfile;
+		if (!profile) return;
+		untrack(() => {
+			const next = { ...memberProfile };
+			let changed = false;
+			if (!next.full_name && profile.full_name) {
+				next.full_name = profile.full_name;
+				changed = true;
+			}
+			if (!next.email && profile.email) {
+				next.email = profile.email;
+				changed = true;
+			}
+			if (!next.phone && profile.phone) {
+				next.phone = profile.phone;
+				changed = true;
+			}
+			if (changed) {
+				memberProfile = next;
+			}
+		});
+	});
+
+	function buildCurrentHandoffReturnPath({ stashContact = false } = {}) {
+		const slug = group?.slug || '';
+		if (stashContact && slug) {
+			stashMembershipContactHandoff(slug, {
+				fullName: memberProfile.full_name,
+				email: memberProfile.email,
+				phone: memberProfile.phone
+			});
+		}
+		const activeCustomAmount = selectedTierAllowsCustom
+			? String(selectedBillingInterval === 'year' ? customAnnualInput : customMonthlyInput).trim()
+			: '';
+		return buildMembershipReturnPath({
+			slug,
+			tierId: selectedTierId,
+			billingInterval: selectedBillingInterval,
+			customAmount: activeCustomAmount
+		});
+	}
+
+	$effect(() => {
+		const pathname = page?.url?.pathname || '';
+		if (!pathname) return;
+		return registerLoginReturnPathBuilder(pathname, () =>
+			buildCurrentHandoffReturnPath({ stashContact: true })
+		);
 	});
 
 	function setFeedback(message = '', error = '') {
@@ -358,6 +475,7 @@
 			}
 		}
 		if (!changed) return;
+		lastAppliedHandoffSearch = url.search;
 		try {
 			void replaceShallowState(url, page.state);
 		} catch {
@@ -799,10 +917,101 @@
 		redirectSuppressAutoPrepare = false;
 	}
 
+	async function submitGuestMagicLink(event) {
+		event?.preventDefault?.();
+		if (guestMagicLinkBusy || !guestTurnstile) return;
+		let profilePayload = null;
+		let returnTo = '';
+		guestTurnstile.clearError();
+		await guestTurnstile.submit({
+			validate: () => {
+				if (!selectedTierId) {
+					setFeedback('', 'Select a membership tier first.');
+					return false;
+				}
+				if (guestHoneypot.trim()) {
+					setFeedback('', 'Invalid submission.');
+					return false;
+				}
+				profilePayload = buildProfilePayload();
+				const profileError = validateProfilePayload(profilePayload);
+				if (profileError) {
+					setFeedback('', profileError);
+					return false;
+				}
+				if (
+					selectedTierAllowsCustom &&
+					contributionMode === 'paid' &&
+					Number(customAmountCents || 0) < Math.max(1, selectedTierMinAmountCents)
+				) {
+					setFeedback(
+						'',
+						`Enter an amount of at least ${formatMembershipPrice(Math.max(1, selectedTierMinAmountCents))}.`
+					);
+					return false;
+				}
+
+				returnTo = buildCurrentHandoffReturnPath({ stashContact: true });
+				if (!isSafeInternalPath(returnTo)) {
+					setFeedback('', 'Unable to prepare return link. Please reload and try again.');
+					return false;
+				}
+				setFeedback();
+				return true;
+			},
+			onSubmit: async (turnstileToken) => {
+				try {
+					const response = await fetch('/api/v1/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							email: profilePayload.email.toLowerCase(),
+							createProfile: true,
+							returnTo,
+							honeypot: guestHoneypot,
+							turnstileToken
+						})
+					});
+					const payload = await response.json().catch(() => ({}));
+					if (!response.ok) {
+						throw new Error(payload?.error || 'Unable to send magic link.');
+					}
+
+					magicLinkSentEmail = profilePayload.email.toLowerCase();
+					guestHoneypot = '';
+					setFeedback(
+						`We sent a magic link to ${magicLinkSentEmail}. Open it to continue with your saved membership details.`
+					);
+				} catch (magicError) {
+					setFeedback('', magicError?.message || 'Unable to send magic link right now.');
+				}
+			}
+		});
+	}
+
+	function switchBillingInterval(nextInterval) {
+		forceUpgradeCheckout = false;
+		redirectSuppressAutoPrepare = false;
+		if (nextInterval === 'year') {
+			if (!customAnnualInput && customMonthlyInput) {
+				customAnnualInput = customMonthlyInput;
+			}
+			selectedBillingInterval = 'year';
+			return;
+		}
+		if (!customMonthlyInput && customAnnualInput) {
+			customMonthlyInput = customAnnualInput;
+		}
+		selectedBillingInterval = 'month';
+	}
+
 	function selectTier(tier) {
+		const isSameTier = selectedTierId === tier.id;
 		selectedTierId = tier.id;
-		customMonthlyInput = '';
-		customAnnualInput = '';
+		if (!isSameTier) {
+			customMonthlyInput = '';
+			customAnnualInput = '';
+		}
 		forceUpgradeCheckout = false;
 		redirectSuppressAutoPrepare = false;
 		// Preserve current interval when supported; otherwise auto-select an available interval
@@ -1598,13 +1807,13 @@
 						</div>
 					{:else}
 						<!-- Billing Toggle -->
-						{#if tiers.some((t) => t.annual_amount_cents)}
+						{#if tiers.some((t) => Number(t.annual_amount_cents || 0) > 0 || t.allow_custom_amount === true)}
 							<div class="billing-toggle">
 								<button
 									type="button"
 									class="billing-option"
 									class:active={selectedBillingInterval === 'month'}
-									onclick={() => (selectedBillingInterval = 'month')}
+									onclick={() => switchBillingInterval('month')}
 								>
 									<span class="billing-label">Monthly</span>
 									<span class="billing-description">Pay each month</span>
@@ -1613,7 +1822,7 @@
 									type="button"
 									class="billing-option relative"
 									class:active={selectedBillingInterval === 'year'}
-									onclick={() => (selectedBillingInterval = 'year')}
+									onclick={() => switchBillingInterval('year')}
 								>
 									<span class="billing-label">Annual</span>
 									<span class="billing-description">Pay once per year</span>
@@ -1684,6 +1893,11 @@
 												{:else}
 													<span class="tier-price">Enter amount</span>
 												{/if}
+											{:else if tier.allow_custom_amount === true && annualPrice === 'Free' && monthlyPrice === 'Free'}
+												<span class="tier-price">Custom</span>
+												<span class="tier-period"
+													>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
+												>
 											{:else}
 												<span class="tier-price"
 													>{selectedBillingInterval === 'year' && annualPrice !== 'Free'
@@ -1691,7 +1905,8 @@
 														: monthlyPrice}</span
 												>
 												<span class="tier-period"
-													>/{selectedBillingInterval === 'year' && annualPrice !== 'Free'
+													>/{selectedBillingInterval === 'year' &&
+													(annualPrice !== 'Free' || tier.allow_custom_amount === true)
 														? 'year'
 														: 'month'}</span
 												>
@@ -1749,96 +1964,219 @@
 				</section>
 			</div>
 
-			<!-- Right: Join Form -->
+			<!-- Right: Unified Checkout / Application / Guest Handoff Card -->
 			<div class="membership-column">
-				{#if currentUserId && tiers.length > 0}
-					{#if isPrivate && !canCompletePrivatePayment}
-						<!-- Application Form -->
-						<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
-							<div class="card-accent-bar private"></div>
+				{#if tiers.length > 0}
+					<section
+						class="join-card"
+						data-testid="membership-unified-card"
+						in:fade={{ duration: 400, delay: 200 }}
+					>
+						<div
+							class="card-accent-bar"
+							class:private={isPrivate && !canCompletePrivatePayment}
+						></div>
 
-							<div class="section-header">
-								<div class="section-icon-ring private">
+						<div class="section-header">
+							<div
+								class="section-icon-ring"
+								class:private={isPrivate && !canCompletePrivatePayment}
+							>
+								{#if isPrivate && !canCompletePrivatePayment}
 									<IconLock class="h-5 w-5 text-white" />
+								{:else if !currentUserId}
+									<IconMail class="h-5 w-5 text-white" />
+								{:else}
+									<IconUsers class="h-5 w-5 text-white" />
+								{/if}
+							</div>
+							<div class="section-header-text">
+								<h2 class="section-title">
+									{#if isPrivate && !canCompletePrivatePayment}
+										{currentUserId ? 'Membership Application' : 'Apply for Membership'}
+									{:else}
+										Complete Your Membership
+									{/if}
+								</h2>
+								<p class="section-subtitle">
+									{#if !currentUserId}
+										Enter your details and we will email a magic link to continue right here
+									{:else if isPrivate && !canCompletePrivatePayment}
+										Review your details and submit your request to join this group
+									{:else if requiresPayment}
+										Review your prefilled details and complete secure payment below
+									{:else}
+										Review your details to join this group for free
+									{/if}
+								</p>
+							</div>
+						</div>
+
+						<div class="join-content">
+							<!-- Selection Summary -->
+							<div class="summary-box" data-testid="membership-selection-summary">
+								<div class="summary-row">
+									<span class="summary-label">Selected Tier</span>
+									<span class="summary-value">{selectedTier?.name || '—'}</span>
 								</div>
-								<div class="section-header-text">
-									<h2 class="section-title">Membership Application</h2>
-									<p class="section-subtitle">Submit your request to join this group</p>
+								<div class="summary-row">
+									<span class="summary-label">Billing Interval</span>
+									<span class="summary-value">
+										{selectedBillingInterval === 'year' ? 'Annual' : 'Monthly'}
+									</span>
+								</div>
+								<div class="summary-row">
+									<span class="summary-label">Amount</span>
+									<span class="summary-value price"
+										>{selectedTierAllowsCustom && currentPrice <= 0
+											? 'Choose amount'
+											: formatMembershipPrice(currentPrice)}/{selectedBillingInterval === 'year'
+											? 'year'
+											: 'month'}</span
+									>
 								</div>
 							</div>
 
-							<div class="join-content">
-								<!-- Selection Summary -->
-								<div class="summary-box">
-									<div class="summary-row">
-										<span class="summary-label">Selected Tier</span>
-										<span class="summary-value">{selectedTier?.name || '—'}</span>
-									</div>
-									<div class="summary-row">
-										<span class="summary-label">Amount</span>
-										<span class="summary-value price"
-											>{selectedTierAllowsCustom && currentPrice <= 0
-												? 'Choose amount'
-												: formatMembershipPrice(currentPrice)}/{selectedBillingInterval === 'year'
-												? 'year'
-												: 'month'}</span
-										>
+							{#if selectedTierBlockedByStripe}
+								<div class="notice warning">
+									<IconAlertCircle class="h-5 w-5" />
+									<div>
+										<p class="notice-title">Payment Setup In Progress</p>
+										<p class="notice-text">
+											This group needs an active Stripe account before paid memberships can be
+											completed.
+										</p>
 									</div>
 								</div>
+							{/if}
 
-								{#if selectedTierBlockedByStripe}
-									<div class="notice warning">
-										<IconAlertCircle class="h-5 w-5" />
-										<div>
-											<p class="notice-title">Payments Temporarily Unavailable</p>
-											<p class="notice-text">
-												This group needs to connect Stripe before paid memberships can be activated.
-											</p>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Contact Fields -->
-								<div class="form-section">
-									<div class="form-section-header">
-										<IconUser class="h-4 w-4" />
-										<h3>Your Contact Details</h3>
-									</div>
-									<p class="form-hint">
-										Name, email, and phone come from your profile. Changes here update your profile.
-									</p>
-
-									<div class="form-fields">
-										<div class="form-field">
-											<label for="app-name">Full Name *</label>
-											<input
-												id="app-name"
-												type="text"
-												placeholder="Your full name"
-												bind:value={memberProfile.full_name}
-											/>
-										</div>
-										<div class="form-field">
-											<label for="app-email">Email Address *</label>
-											<input
-												id="app-email"
-												type="email"
-												placeholder="you@example.com"
-												bind:value={memberProfile.email}
-											/>
-										</div>
-										<div class="form-field">
-											<label for="app-phone">Phone Number</label>
-											<input
-												id="app-phone"
-												type="tel"
-												placeholder="(555) 123-4567"
-												bind:value={memberProfile.phone}
-											/>
-										</div>
+							{#if currentUserId && canCompletePrivatePayment}
+								<div class="notice">
+									<IconCheckCircle class="h-5 w-5" />
+									<div>
+										<p class="notice-title">Application Approved!</p>
+										<p class="notice-text">
+											{contributionMode === 'paid'
+												? 'Payment is required to activate your membership.'
+												: 'Complete checkout to activate with a contribution.'}
+										</p>
 									</div>
 								</div>
+							{/if}
 
+							<!-- Scoped Contact Fields (shared across guest handoff, application, and checkout) -->
+							<div class="form-section">
+								<div class="form-section-header">
+									<IconUser class="h-4 w-4" />
+									<h3>Your Contact Details</h3>
+								</div>
+								<p class="form-hint">
+									{#if currentUserId}
+										Saved for this group's membership only — using an alternate name or phone here
+										will not overwrite an existing global profile.
+									{:else}
+										We'll email a magic link to verify your address and restore your tier, interval,
+										amount, and contact details on this page.
+									{/if}
+								</p>
+
+								<div class="form-fields">
+									<div class="form-field">
+										<label for="membership-contact-name">Full Name *</label>
+										<input
+											id="membership-contact-name"
+											name="full_name"
+											type="text"
+											autocomplete="name"
+											placeholder="Your full name"
+											bind:value={memberProfile.full_name}
+										/>
+									</div>
+									<div class="form-field">
+										<label for="membership-contact-email">Email Address *</label>
+										<input
+											id="membership-contact-email"
+											name="email"
+											type="email"
+											autocomplete="email"
+											placeholder="you@example.com"
+											bind:value={memberProfile.email}
+										/>
+									</div>
+									<div class="form-field">
+										<label for="membership-contact-phone">Phone Number (Optional)</label>
+										<input
+											id="membership-contact-phone"
+											name="phone"
+											type="tel"
+											autocomplete="tel"
+											placeholder="(555) 123-4567"
+											bind:value={memberProfile.phone}
+										/>
+									</div>
+								</div>
+							</div>
+
+							{#if !currentUserId}
+								<form
+									class="guest-magic-form"
+									data-testid="guest-magic-link-form"
+									onsubmit={submitGuestMagicLink}
+									novalidate
+								>
+									<input
+										type="text"
+										name="website"
+										bind:value={guestHoneypot}
+										autocomplete="off"
+										tabindex="-1"
+										aria-hidden="true"
+										class="honeypot-field"
+									/>
+									<TurnstileVerification
+										bind:this={guestTurnstile}
+										bind:busy={guestMagicLinkBusy}
+										variant="modal"
+										enabled={data?.turnstile_enabled !== false}
+									/>
+
+									{#if magicLinkSentEmail}
+										<div class="notice" role="status" data-testid="guest-magic-link-sent">
+											<IconCheckCircle class="h-5 w-5" />
+											<div>
+												<p class="notice-title">Check your email to finish</p>
+												<p class="notice-text">
+													We sent a magic link to <strong>{magicLinkSentEmail}</strong>. Opening it
+													returns you straight to this checkout card with your selection and contact
+													details prefilled.
+												</p>
+											</div>
+										</div>
+									{/if}
+
+									<button
+										type="submit"
+										data-testid="guest-magic-link-submit"
+										class="btn preset-filled-primary-500 w-full"
+										disabled={guestMagicLinkBusy || !selectedTierId || customAmountInvalidForPaid}
+									>
+										{#if guestMagicLinkBusy}
+											<IconLoader class="h-5 w-5 animate-spin" />
+										{:else}
+											<IconMail class="h-5 w-5" />
+										{/if}
+										{#if magicLinkSentEmail}
+											Resend Magic Link
+										{:else if isPrivate}
+											Email Magic Link to Apply
+										{:else if requiresPayment}
+											Email Magic Link to Continue to Checkout
+										{:else}
+											Email Magic Link to Join
+										{/if}
+									</button>
+								</form>
+							{:else if isPrivate && !canCompletePrivatePayment}
 								{#if formFields.length > 0}
 									<div class="form-divider"></div>
 									<div class="form-section">
@@ -1983,6 +2321,7 @@
 								{/if}
 
 								<button
+									type="button"
 									class="btn preset-filled-primary-500 w-full"
 									onclick={submitApplication}
 									disabled={busy}
@@ -1994,101 +2333,11 @@
 									{/if}
 									Submit Application
 								</button>
-							</div>
-						</section>
-					{:else}
-						<!-- Join Form -->
-						<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
-							<div class="card-accent-bar"></div>
-
-							<div class="section-header">
-								<div class="section-icon-ring">
-									<IconUsers class="h-5 w-5 text-white" />
-								</div>
-								<div class="section-header-text">
-									<h2 class="section-title">Complete Your Membership</h2>
-									<p class="section-subtitle">
-										{requiresPayment ? 'Payment required to activate' : 'Join this group for free'}
-									</p>
-								</div>
-							</div>
-
-							<div class="join-content">
-								<!-- Selection Summary -->
-								<div class="summary-box">
-									<div class="summary-row">
-										<span class="summary-label">Selected Tier</span>
-										<span class="summary-value">{selectedTier?.name || '—'}</span>
-									</div>
-									<div class="summary-row">
-										<span class="summary-label">Amount</span>
-										<span class="summary-value price"
-											>{selectedTierAllowsCustom && currentPrice <= 0
-												? 'Choose amount'
-												: formatMembershipPrice(currentPrice)}/{selectedBillingInterval === 'year'
-												? 'year'
-												: 'month'}</span
-										>
-									</div>
-								</div>
-
-								{#if selectedTierBlockedByStripe}
-									<div class="notice warning">
-										<IconAlertCircle class="h-5 w-5" />
-										<div>
-											<p class="notice-title">Payment Setup In Progress</p>
-											<p class="notice-text">
-												This group is still setting up their payment account.
-											</p>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Contact Fields -->
-								<div class="form-section">
-									<div class="form-section-header">
-										<IconUser class="h-4 w-4" />
-										<h3>Your Contact Details</h3>
-									</div>
-									<p class="form-hint">
-										Name and email come from your profile. Changes here update your profile.
-									</p>
-
-									<div class="form-fields">
-										<div class="form-field">
-											<label for="join-name">Full Name *</label>
-											<input
-												id="join-name"
-												type="text"
-												placeholder="Your full name"
-												bind:value={memberProfile.full_name}
-											/>
-										</div>
-										<div class="form-field">
-											<label for="join-email">Email Address *</label>
-											<input
-												id="join-email"
-												type="email"
-												placeholder="you@example.com"
-												bind:value={memberProfile.email}
-											/>
-										</div>
-										<div class="form-field">
-											<label for="join-phone">Phone Number</label>
-											<input
-												id="join-phone"
-												type="tel"
-												placeholder="(555) 123-4567"
-												bind:value={memberProfile.phone}
-											/>
-										</div>
-									</div>
-								</div>
-
-								<!-- Payment Section -->
+							{:else}
+								<!-- Active Stripe Payment Section -->
 								{#if requiresPayment}
 									<div class="form-divider"></div>
-									<div class="form-section">
+									<div class="form-section" data-testid="membership-stripe-payment-section">
 										<div class="form-section-header">
 											<IconCreditCard class="h-4 w-4" />
 											<h3>Secure Payment</h3>
@@ -2120,19 +2369,7 @@
 									</div>
 								{/if}
 
-								<!-- Submit Button -->
 								{#if canCompletePrivatePayment}
-									<div class="notice">
-										<IconCheckCircle class="h-5 w-5" />
-										<div>
-											<p class="notice-title">Application Approved!</p>
-											<p class="notice-text">
-												{contributionMode === 'paid'
-													? 'Payment is required to activate your membership.'
-													: 'Complete checkout to activate with a contribution.'}
-											</p>
-										</div>
-									</div>
 									<button
 										type="button"
 										class="btn preset-filled-primary-500 w-full"
@@ -2183,10 +2420,10 @@
 										{currentPrice <= 0 ? 'Join Free' : 'Join'}
 									</button>
 								{/if}
-							</div>
-						</section>
-					{/if}
-				{:else if currentUserId}
+							{/if}
+						</div>
+					</section>
+				{:else}
 					<section class="join-card" in:fade={{ duration: 400, delay: 200 }}>
 						<div class="card-accent-bar"></div>
 
@@ -2196,28 +2433,6 @@
 								<h2 class="section-title">Membership not available yet</h2>
 								<p>This group hasn't published a membership tier yet. Please check back later.</p>
 							</div>
-						</div>
-					</section>
-				{:else}
-					<!-- Logged Out -->
-					<section class="join-card login-card" in:fade={{ duration: 400, delay: 200 }}>
-						<div class="card-accent-bar private"></div>
-
-						<div class="login-content">
-							<div class="login-icon-ring">
-								<IconLock class="h-8 w-8 text-white" />
-							</div>
-							<h2 class="login-title">Sign in to Join</h2>
-							<p class="login-description">
-								Please log in to apply for membership or join this group. It only takes a moment.
-							</p>
-							<button
-								type="button"
-								onclick={() => window.dispatchEvent(new CustomEvent('open-login'))}
-								class="btn preset-filled-primary-500"
-							>
-								Sign In / Register
-							</button>
 						</div>
 					</section>
 				{/if}
@@ -3197,45 +3412,20 @@
 		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
 	}
 
-	/* ── Login Card ── */
-	.login-card {
-		min-height: 20rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.login-content {
+	/* ── Guest Magic-Link Form ── */
+	.guest-magic-form {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		text-align: center;
 		gap: 1rem;
-		padding: 2rem;
 	}
 
-	.login-icon-ring {
-		width: 4.5rem;
-		height: 4.5rem;
-		border-radius: 1.25rem;
-		background: linear-gradient(135deg, var(--color-tertiary-500), var(--color-primary-500));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--color-tertiary-500) 50%, transparent);
-	}
-
-	.login-title {
-		font-size: 1.25rem;
-		font-weight: 800;
-		color: white;
-	}
-
-	.login-description {
-		font-size: 0.875rem;
-		color: color-mix(in oklab, white 55%, transparent);
-		line-height: 1.5;
-		max-width: 280px;
+	.honeypot-field {
+		position: absolute;
+		left: -10000px;
+		width: 1px;
+		height: 1px;
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	/* ── History Section ── */

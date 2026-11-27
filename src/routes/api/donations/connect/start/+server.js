@@ -9,18 +9,19 @@ import { getStripeConnectClientId, resolvePublicBaseUrl } from '#lib/server/stri
 export const GET = async ({ url, cookies }) => {
 	const recipientType = (url.searchParams.get('recipient') || 'main').toLowerCase();
 	const groupSlug = (url.searchParams.get('group') || '').trim();
+	const returnTo = (url.searchParams.get('return_to') || '').trim();
 
 	let auth = null;
 	let target = null;
 	if (recipientType === 'group') {
 		auth = await requireGroupDonationManager(cookies, groupSlug);
-		target = { type: 'group', slug: groupSlug };
+		target = { type: 'group', slug: groupSlug, returnTo };
 	} else {
 		auth = await requireMainDonationManager(cookies);
 		target = { type: 'main' };
 	}
 
-	if (!auth?.ok) {
+	if (!auth?.ok || !('userId' in auth)) {
 		return json(
 			{ error: auth?.error || 'Authentication failed.' },
 			{ status: auth?.status || 401 }
@@ -37,7 +38,9 @@ export const GET = async ({ url, cookies }) => {
 		clientId = getStripeConnectClientId();
 	} catch (error) {
 		return json(
-			{ error: error?.message || 'Stripe Connect client id is missing.' },
+			{
+				error: error instanceof Error ? error.message : 'Stripe Connect client id is missing.'
+			},
 			{ status: 500 }
 		);
 	}
