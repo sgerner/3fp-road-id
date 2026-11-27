@@ -1,6 +1,7 @@
 <script>
 	import { loadStripe } from '@stripe/stripe-js';
 	import { tick, untrack } from 'svelte';
+	import { refreshPageData, replaceShallowState } from '#lib/client/navigation';
 	import IconArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import IconUsers from '@lucide/svelte/icons/users';
 	import IconLoader from '@lucide/svelte/icons/loader-circle';
@@ -41,10 +42,21 @@
 	const initialTiers = Array.isArray(initialData?.program_data?.tiers)
 		? initialData.program_data.tiers
 		: [];
+	const initialMemberships = Array.isArray(initialData?.my_memberships)
+		? initialData.my_memberships
+		: [];
+	const initialCurrentMembership =
+		initialMemberships.find((entry) => ['active', 'past_due', 'paused'].includes(entry?.status)) ||
+		null;
 	const initialCurrentUserProfile = initialData?.current_user_profile || null;
+	const initialPaymentRedirect = initialData?.payment_redirect || null;
 	const initialHandoff = parseMembershipHandoffParams(page?.url?.searchParams);
+	const initialHandoffTier =
+		(initialHandoff.tier && initialTiers.find((tier) => tier.id === initialHandoff.tier)) || null;
 	const initialMatchedTier =
-		initialTiers.find((tier) => tier.id === initialHandoff.tier) ||
+		initialHandoffTier ||
+		(initialCurrentMembership?.tier_id &&
+			initialTiers.find((tier) => tier.id === initialCurrentMembership.tier_id)) ||
 		initialTiers.find((tier) => tier.id === initialProgram?.default_tier_id) ||
 		initialTiers?.[0] ||
 		null;
@@ -60,6 +72,7 @@
 			}
 		}
 		if (initialHandoff.interval === 'month') return 'month';
+		if (initialCurrentMembership?.interval_unit === 'year') return 'year';
 		return 'month';
 	})();
 
@@ -77,9 +90,15 @@
 	);
 	const currentUserProfile = $derived(data?.current_user_profile || null);
 	const currentUserId = $derived(data?.current_user_id || null);
+	const hasStripeSubscription = $derived(Boolean(data?.has_stripe_subscription));
 
 	let selectedTierId = $state(
-		initialMatchedTier?.id || initialProgram?.default_tier_id || initialTiers?.[0]?.id || ''
+		initialHandoffTier?.id ||
+			initialCurrentMembership?.tier_id ||
+			initialMatchedTier?.id ||
+			initialProgram?.default_tier_id ||
+			initialTiers?.[0]?.id ||
+			''
 	);
 	let selectedBillingInterval = $state(initialBillingInterval);
 	let answers = $state({});
@@ -94,9 +113,24 @@
 	/** @type {any} */
 	let guestTurnstile = $state(null);
 	let magicLinkSentEmail = $state('');
-	let statusError = $state('');
-	let statusMessage = $state('');
+	let statusError = $state(
+		initialPaymentRedirect?.status === 'failed'
+			? initialPaymentRedirect.error ||
+					'Your payment was not completed. Please check your payment details and try again.'
+			: ''
+	);
+	let statusMessage = $state(
+		initialPaymentRedirect?.completed === true
+			? 'Membership activated.'
+			: initialPaymentRedirect?.status === 'processing'
+				? 'Confirming your payment with Stripe…'
+				: ''
+	);
 	let memberActionBusy = $state(false);
+	let forceUpgradeCheckout = $state(false);
+	let redirectState = $state(initialPaymentRedirect?.status || '');
+	let redirectSuppressAutoPrepare = $state(Boolean(initialPaymentRedirect));
+	let redirectHandled = $state(false);
 	let customMonthlyInput = $state(
 		initialHandoff.amount && initialBillingInterval !== 'year' ? initialHandoff.amount : ''
 	);
@@ -212,8 +246,71 @@
 		)
 	);
 	const isPrivate = $derived(accessMode === 'private_request');
+	const hasRedirectParams = $derived.by(() => {
+		const params = page?.url?.searchParams;
+		return Boolean(
+			params?.get('payment_intent') ||
+			params?.get('payment_intent_client_secret') ||
+			params?.get('subscription_id') ||
+			params?.get('redirect_status')
+		);
+	});
+	const currentMembershipInterval = $derived(
+		currentMembership?.interval_unit === 'year' ? 'year' : 'month'
+	);
+	const isDifferentTier = $derived(
+		Boolean(selectedTier && currentMembership && selectedTier.id !== currentMembership.tier_id)
+	);
+	const isIntervalUpgradeChange = $derived(
+		Boolean(
+			selectedTier &&
+			currentMembership &&
+			selectedTier.billing_type === 'recurring' &&
+			Boolean(currentMembership.interval_unit) &&
+			currentMembershipInterval !== selectedBillingInterval &&
+			(selectedBillingInterval === 'year' ? selectedTierHasAnnual : selectedTierHasMonthly)
+		)
+	);
+	const isCustomAmountUpgradeChange = $derived(
+		Boolean(
+			selectedTier &&
+			currentMembership &&
+			selectedTierAllowsCustom &&
+			customAmountCents > 0 &&
+			(customAmountCents !== Number(currentMembership.contribution_amount_cents || 0) ||
+				currentMembershipInterval !== selectedBillingInterval)
+		)
+	);
+	const hasSelectedMembershipChange = $derived(
+		isDifferentTier || isIntervalUpgradeChange || isCustomAmountUpgradeChange
+	);
+	const canScheduleTierChangeAtRenewal = $derived.by(() => {
+		if (!currentMembership || !selectedTier || !isDifferentTier) return false;
+		if (forceUpgradeCheckout || selectedTierAllowsCustom) return false;
+		if (!requiresPayment) return true;
+		const targetIntervalAmount =
+			selectedBillingInterval === 'year'
+				? Number(selectedTierAnnualCents || 0)
+				: Number(selectedTierMonthlyCents || 0);
+		return Boolean(
+			hasStripeSubscription &&
+			selectedTier.billing_type === 'recurring' &&
+			selectedBillingInterval === currentMembershipInterval &&
+			targetIntervalAmount > 0
+		);
+	});
+	const shouldShowUpgradeCheckout = $derived(
+		Boolean(
+			currentMembership &&
+			hasSelectedMembershipChange &&
+			!canScheduleTierChangeAtRenewal &&
+			(requiresPayment || selectedTierAllowsCustom)
+		)
+	);
 	const shouldShowInlinePayment = $derived(
-		Boolean(currentUserId && requiresPayment && (!isPrivate || canCompletePrivatePayment))
+		currentMembership
+			? Boolean(currentUserId && shouldShowUpgradeCheckout && requiresPayment)
+			: Boolean(currentUserId && requiresPayment && (!isPrivate || canCompletePrivatePayment))
 	);
 
 	const currentPrice = $derived(
@@ -353,9 +450,65 @@
 		});
 		const payload = await response.json().catch(() => ({}));
 		if (!response.ok) {
-			throw new Error(payload?.error || 'Request failed');
+			const requestError = /** @type {Error & { status?: number }} */ (
+				new Error(payload?.error || 'Request failed')
+			);
+			requestError.status = response.status;
+			throw requestError;
 		}
 		return payload?.data;
+	}
+
+	function stripRedirectQueryParams() {
+		if (typeof window === 'undefined') return;
+		const url = new URL(window.location.href);
+		let changed = false;
+		for (const key of [
+			'payment_intent',
+			'payment_intent_client_secret',
+			'subscription_id',
+			'redirect_status'
+		]) {
+			if (url.searchParams.has(key)) {
+				url.searchParams.delete(key);
+				changed = true;
+			}
+		}
+		if (!changed) return;
+		lastAppliedHandoffSearch = url.search;
+		try {
+			void replaceShallowState(url, page.state);
+		} catch {
+			window.history.replaceState(window.history.state, '', url);
+		}
+	}
+
+	function syncActivatedMembershipState(activatedMembership = null) {
+		customMonthlyInput = '';
+		customAnnualInput = '';
+		forceUpgradeCheckout = false;
+		teardownPaymentElement();
+		preparedPaymentSignature = '';
+		const target =
+			activatedMembership ||
+			(data?.my_memberships || []).find((entry) =>
+				['active', 'past_due', 'paused'].includes(entry?.status)
+			) ||
+			currentMembership;
+		if (target?.tier_id) {
+			selectedTierId = target.tier_id;
+		}
+		if (target?.interval_unit === 'year' || target?.interval_unit === 'month') {
+			selectedBillingInterval = target.interval_unit;
+		}
+	}
+
+	function resetRedirectCheckoutBlock() {
+		redirectSuppressAutoPrepare = false;
+		if (redirectState === 'failed') {
+			redirectState = '';
+		}
+		setFeedback();
 	}
 
 	function normalizeAnswerValue(field, value) {
@@ -422,10 +575,10 @@
 				await submitInlinePayment();
 				return;
 			}
+			syncActivatedMembershipState(result?.membership || null);
 			setFeedback('Membership activated.');
-			setTimeout(() => {
-				window.location.reload();
-			}, 600);
+			await refreshPageData();
+			syncActivatedMembershipState(result?.membership || null);
 		} catch (joinError) {
 			setFeedback('', joinError?.message || 'Unable to join right now.');
 		} finally {
@@ -495,8 +648,10 @@
 			});
 
 			if (result?.requires_payment === false && result?.membership) {
+				syncActivatedMembershipState(result.membership);
 				setFeedback('Membership activated.');
-				setTimeout(() => window.location.reload(), 550);
+				await refreshPageData();
+				syncActivatedMembershipState(result.membership);
 				return false;
 			}
 
@@ -566,12 +721,24 @@
 			})
 		});
 		if (result?.completed) {
+			syncActivatedMembershipState();
 			setFeedback('Membership activated.');
-			setTimeout(() => window.location.reload(), 550);
+			stripRedirectQueryParams();
+			await refreshPageData();
+			syncActivatedMembershipState();
 			return;
 		}
-		const pendingStatus = result?.payment_status || 'processing';
-		setFeedback('', `Payment status is ${pendingStatus}. Please try again in a few seconds.`);
+		const pendingStatus = String(result?.payment_status || 'processing')
+			.trim()
+			.toLowerCase();
+		if (['failed', 'requires_payment_method', 'canceled'].includes(pendingStatus)) {
+			setFeedback('', 'Your payment could not be completed. Please try another payment method.');
+			return;
+		}
+		redirectState = 'processing';
+		redirectSuppressAutoPrepare = true;
+		setFeedback('Confirming your payment with Stripe…');
+		void pollRedirectPaymentStatus(paymentIntentIdToFinalize, paymentSubscriptionId || null);
 	}
 
 	async function submitInlinePayment() {
@@ -744,6 +911,12 @@
 		return savings > 0 ? savings : 0;
 	}
 
+	function selectBillingInterval(interval) {
+		selectedBillingInterval = interval;
+		forceUpgradeCheckout = false;
+		redirectSuppressAutoPrepare = false;
+	}
+
 	async function submitGuestMagicLink(event) {
 		event?.preventDefault?.();
 		if (guestMagicLinkBusy || !guestTurnstile) return;
@@ -817,6 +990,8 @@
 	}
 
 	function switchBillingInterval(nextInterval) {
+		forceUpgradeCheckout = false;
+		redirectSuppressAutoPrepare = false;
 		if (nextInterval === 'year') {
 			if (!customAnnualInput && customMonthlyInput) {
 				customAnnualInput = customMonthlyInput;
@@ -837,6 +1012,9 @@
 			customMonthlyInput = '';
 			customAnnualInput = '';
 		}
+		forceUpgradeCheckout = false;
+		redirectSuppressAutoPrepare = false;
+		// Preserve current interval when supported; otherwise auto-select an available interval
 		const hasMonthly =
 			tier.monthly_amount_cents !== null && tier.monthly_amount_cents !== undefined;
 		const hasAnnual = tier.annual_amount_cents !== null && tier.annual_amount_cents !== undefined;
@@ -845,6 +1023,11 @@
 
 		if (selectedBillingInterval === 'year' && (hasAnnual || canCustom)) {
 			selectedBillingInterval = 'year';
+		} else if (
+			selectedBillingInterval === 'month' &&
+			(hasMonthly || (hasAmount && !hasAnnual) || canCustom)
+		) {
+			selectedBillingInterval = 'month';
 		} else if (hasMonthly || (hasAmount && !hasAnnual)) {
 			selectedBillingInterval = 'month';
 		} else if (hasAnnual) {
@@ -856,6 +1039,7 @@
 
 	function handleCustomAmountTyping(interval, event) {
 		const value = event?.currentTarget?.value ?? '';
+		redirectSuppressAutoPrepare = false;
 		if (interval === 'year') {
 			customAnnualInput = value;
 			if (String(value).trim()) customMonthlyInput = '';
@@ -869,19 +1053,24 @@
 
 	function getMembershipTierSummary(tier, membership) {
 		if (!tier) return 'Tier unavailable';
+		const isOneTime = tier.billing_type === 'one_time';
 		const interval = membership?.interval_unit || 'month';
 		const persistedAmount = Number(membership?.contribution_amount_cents ?? NaN);
 		if (Number.isFinite(persistedAmount) && persistedAmount > 0) {
-			return `${formatMembershipPrice(persistedAmount)}/${interval === 'year' ? 'year' : 'month'}`;
+			return isOneTime
+				? `${formatMembershipPrice(persistedAmount)} one-time`
+				: `${formatMembershipPrice(persistedAmount)}/${interval === 'year' ? 'year' : 'month'}`;
 		}
-		if (interval === 'year' && tier.annual_amount_cents) {
+		if (!isOneTime && interval === 'year' && tier.annual_amount_cents) {
 			return `${formatMembershipPrice(tier.annual_amount_cents)}/year`;
 		}
-		if (tier.monthly_amount_cents) {
+		if (!isOneTime && tier.monthly_amount_cents) {
 			return `${formatMembershipPrice(tier.monthly_amount_cents)}/month`;
 		}
 		if (tier.amount_cents) {
-			return `${formatMembershipPrice(tier.amount_cents)}/${interval === 'year' ? 'year' : 'month'}`;
+			return isOneTime
+				? `${formatMembershipPrice(tier.amount_cents)} one-time`
+				: `${formatMembershipPrice(tier.amount_cents)}/${interval === 'year' ? 'year' : 'month'}`;
 		}
 		return tier.allow_custom_amount ? 'Custom contribution' : 'Free';
 	}
@@ -909,6 +1098,12 @@
 			setFeedback('Tier change requested. It will apply at your next renewal.');
 			setTimeout(() => window.location.reload(), 700);
 		} catch (requestError) {
+			if (requestError?.status === 409) {
+				forceUpgradeCheckout = true;
+				redirectSuppressAutoPrepare = false;
+				setFeedback('Complete checkout below to activate this tier.');
+				return;
+			}
 			setFeedback('', requestError?.message || 'Unable to request a tier change right now.');
 		} finally {
 			memberActionBusy = false;
@@ -960,7 +1155,112 @@
 		}
 	}
 
+	let redirectPollCancelled = false;
+
+	async function pollRedirectPaymentStatus(intentId, subId) {
+		if (!group?.slug || (!intentId && !subId)) return;
+		const maxAttempts = 15;
+		for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+			if (redirectPollCancelled) return;
+			try {
+				const result = await api(`/api/groups/${group.slug}/membership/finalize-payment-intent`, {
+					method: 'POST',
+					body: JSON.stringify({
+						payment_intent_id: intentId || null,
+						subscription_id: subId || null
+					})
+				});
+				if (redirectPollCancelled) return;
+				if (result?.completed === true) {
+					redirectState = 'succeeded';
+					redirectSuppressAutoPrepare = false;
+					syncActivatedMembershipState();
+					setFeedback('Membership activated.');
+					await refreshPageData();
+					syncActivatedMembershipState();
+					return;
+				}
+				const nextStatus = String(result?.payment_status || 'processing')
+					.trim()
+					.toLowerCase();
+				if (['failed', 'requires_payment_method', 'canceled'].includes(nextStatus)) {
+					redirectState = 'failed';
+					setFeedback(
+						'',
+						'Your payment could not be completed. Please try another payment method.'
+					);
+					return;
+				}
+			} catch (pollError) {
+				if (redirectPollCancelled) return;
+				if (pollError?.status && pollError.status >= 400 && pollError.status < 500) {
+					redirectState = 'failed';
+					setFeedback('', pollError.message || 'Unable to verify membership payment.');
+					return;
+				}
+			}
+		}
+		if (!redirectPollCancelled) {
+			setFeedback(
+				'Your payment is still processing with Stripe. Your membership will update automatically once confirmed.'
+			);
+		}
+	}
+
 	$effect(() => {
+		if (redirectHandled) return;
+		const params = page?.url?.searchParams;
+		const urlPaymentIntent = String(params?.get('payment_intent') || '').trim();
+		const urlSubscriptionId = String(params?.get('subscription_id') || '').trim();
+		const urlRedirectStatus = String(params?.get('redirect_status') || '')
+			.trim()
+			.toLowerCase();
+		const redirectInfo = data?.payment_redirect || null;
+
+		if (!redirectInfo && !urlPaymentIntent && !urlSubscriptionId && !urlRedirectStatus) {
+			return;
+		}
+
+		redirectHandled = true;
+		redirectSuppressAutoPrepare = true;
+
+		void tick().then(() => {
+			stripRedirectQueryParams();
+		});
+
+		if (redirectInfo?.completed === true) {
+			redirectState = 'succeeded';
+			syncActivatedMembershipState(currentMembership);
+			setFeedback('Membership activated.');
+			return;
+		}
+
+		if (redirectInfo?.status === 'failed' || urlRedirectStatus === 'failed') {
+			redirectState = 'failed';
+			setFeedback(
+				'',
+				redirectInfo?.error ||
+					'Your payment was not completed. Please check your payment details and try again.'
+			);
+			return;
+		}
+
+		const intentToPoll = redirectInfo?.payment_intent_id || urlPaymentIntent;
+		const subToPoll = redirectInfo?.subscription_id || urlSubscriptionId;
+		if (intentToPoll || subToPoll) {
+			redirectState = 'processing';
+			setFeedback('Confirming your payment with Stripe…');
+			void pollRedirectPaymentStatus(intentToPoll, subToPoll);
+		}
+	});
+
+	$effect(() => {
+		if (hasRedirectParams || redirectState === 'processing' || redirectSuppressAutoPrepare) {
+			teardownPaymentElement();
+			preparedPaymentSignature = '';
+			return;
+		}
 		if (!shouldShowInlinePayment || !paymentElementHost) {
 			teardownPaymentElement();
 			preparedPaymentSignature = '';
@@ -977,6 +1277,10 @@
 			preparedPaymentSignature = '';
 			return;
 		}
+		const targetSignature = buildPaymentSignature();
+		if (paymentFormReady && preparedPaymentSignature === targetSignature) {
+			return;
+		}
 		const timeoutId = setTimeout(() => {
 			void prepareInlinePaymentElement({ quiet: true });
 		}, 150);
@@ -985,6 +1289,7 @@
 
 	$effect(() => {
 		return () => {
+			redirectPollCancelled = true;
 			teardownPaymentElement();
 		};
 	});
@@ -1107,42 +1412,161 @@
 			{#if tiers.length > 0}
 				<div class="change-tiers-section">
 					<h3 class="h3">Change Tier</h3>
-					<p class="change-tiers-subtitle">Select a different tier for your next billing cycle</p>
+					<p class="change-tiers-subtitle">
+						{canScheduleTierChangeAtRenewal
+							? 'Select a different tier for your next billing cycle'
+							: 'Select a tier or billing interval to update your membership'}
+					</p>
+
+					{#if tiers.some((t) => (t.annual_amount_cents !== null && t.annual_amount_cents !== undefined) || t.allow_custom_amount === true)}
+						<div class="billing-toggle">
+							<button
+								type="button"
+								class="billing-option"
+								class:active={selectedBillingInterval === 'month'}
+								onclick={() => selectBillingInterval('month')}
+								disabled={memberActionBusy || busy}
+							>
+								<span class="billing-label">Monthly</span>
+								<span class="billing-description">Pay each month</span>
+							</button>
+							<button
+								type="button"
+								class="billing-option relative"
+								class:active={selectedBillingInterval === 'year'}
+								onclick={() => selectBillingInterval('year')}
+								disabled={memberActionBusy || busy}
+							>
+								<span class="billing-label">Annual</span>
+								<span class="billing-description">Pay once per year</span>
+								{#if selectedTierMonthlyCents && selectedTierAnnualCents}
+									{@const savings = calculateSavings(
+										selectedTierMonthlyCents,
+										selectedTierAnnualCents
+									)}
+									{#if savings > 0}
+										<span class="chip preset-filled-success-500 absolute -top-2 right-2"
+											>Save {savings}%</span
+										>
+									{/if}
+								{/if}
+							</button>
+						</div>
+					{/if}
+
 					<div class="tiers-grid">
 						{#each tiers as tier, i (tier.id)}
 							{@const isCurrent = currentMembership.tier_id === tier.id}
 							{@const isSelected = selectedTierId === tier.id}
 							{@const TierIcon = getTierIcon(i)}
+							{@const monthlyPrice = getTierPrice(tier, 'month')}
+							{@const annualPrice = getTierPrice(tier, 'year')}
+							{@const savings = calculateSavings(
+								tier.monthly_amount_cents || tier.amount_cents,
+								tier.annual_amount_cents
+							)}
 							<button
 								type="button"
 								class="tier-card"
 								class:current={isCurrent}
-								class:selected={isSelected && !isCurrent}
+								class:selected={isSelected && (!isCurrent || hasSelectedMembershipChange)}
 								onclick={() => selectTier(tier)}
-								disabled={memberActionBusy}
+								disabled={memberActionBusy || busy}
 							>
 								<div class="tier-card-header">
 									<div class="tier-icon bg-primary-500 text-surface-950">
 										<TierIcon class="h-4 w-4 text-white" />
 									</div>
-									<div class="tier-name">{tier.name}</div>
+									<div class="tier-info">
+										<div class="tier-name">{tier.name}</div>
+										{#if tier.description}
+											<div class="tier-description">{tier.description}</div>
+										{/if}
+									</div>
 								</div>
-								<div class="tier-price">
-									{#if tier.monthly_amount_cents}
-										{formatMembershipPrice(tier.monthly_amount_cents)}/month
-									{:else if tier.amount_cents}
-										{formatMembershipPrice(tier.amount_cents)}/month
-									{:else if tier.allow_custom_amount}
-										Custom amount
-									{:else}
-										Free
+
+								<div class="tier-pricing">
+									<div class="tier-price-row">
+										{#if isSelected && tier.allow_custom_amount}
+											{@const customValue =
+												selectedBillingInterval === 'year' ? customAnnualInput : customMonthlyInput}
+											{@const customCents = customValue
+												? Math.round(parseFloat(customValue) * 100)
+												: 0}
+											{#if customCents > 0}
+												<span class="tier-price">{formatMembershipPrice(customCents)}</span>
+												<span class="tier-period"
+													>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
+												>
+											{:else}
+												<span class="tier-price">Custom amount</span>
+											{/if}
+										{:else if tier.billing_type === 'one_time'}
+											<span class="tier-price">{monthlyPrice}</span>
+											{#if monthlyPrice !== 'Free'}
+												<span class="tier-period">one-time</span>
+											{/if}
+										{:else}
+											<span class="tier-price"
+												>{selectedBillingInterval === 'year' && annualPrice !== 'Free'
+													? annualPrice
+													: monthlyPrice}</span
+											>
+											{#if (selectedBillingInterval === 'year' && annualPrice !== 'Free') || monthlyPrice !== 'Free'}
+												<span class="tier-period"
+													>/{selectedBillingInterval === 'year' && annualPrice !== 'Free'
+														? 'year'
+														: 'month'}</span
+												>
+											{/if}
+										{/if}
+									</div>
+									{#if tier.billing_type !== 'one_time' && selectedBillingInterval === 'month' && annualPrice !== 'Free' && annualPrice !== monthlyPrice}
+										<div class="tier-annual-option">
+											or {annualPrice}/year
+											{#if savings > 0}
+												<span
+													class="chip preset-tonal-success border-success-500 border p-1 text-[0.65rem]"
+													>Save {savings}% annually</span
+												>
+											{/if}
+										</div>
 									{/if}
 								</div>
-								{#if tier.annual_amount_cents}
-									<div class="tier-annual">
-										{formatMembershipPrice(tier.annual_amount_cents)}/year
+
+								{#if isSelected && tier.allow_custom_amount}
+									<div class="custom-amount-wrapper">
+										<div class="custom-amount-input">
+											<span class="custom-prefix">$</span>
+											<input
+												class="custom-input"
+												type="number"
+												aria-label={`Your ${selectedBillingInterval === 'year' ? 'annual' : 'monthly'} contribution`}
+												min={(Math.max(0, selectedTierMinAmountCents) / 100).toFixed(2)}
+												step="0.01"
+												inputmode="decimal"
+												placeholder="0.00"
+												value={selectedBillingInterval === 'year'
+													? customAnnualInput
+													: customMonthlyInput}
+												onclick={(event) => event.stopPropagation()}
+												oninput={(event) =>
+													handleCustomAmountTyping(selectedBillingInterval, event)}
+											/>
+											<span class="custom-suffix"
+												>/{selectedBillingInterval === 'year' ? 'year' : 'month'}</span
+											>
+										</div>
+										{#if selectedTierMinAmountCents > 0}
+											<p class="custom-minimum">
+												Minimum {formatMembershipPrice(
+													selectedTierMinAmountCents
+												)}/{selectedBillingInterval === 'year' ? 'year' : 'month'}
+											</p>
+										{/if}
 									</div>
 								{/if}
+
 								{#if isCurrent}
 									<span class="current-badge">Current</span>
 								{/if}
@@ -1152,13 +1576,143 @@
 				</div>
 			{/if}
 
+			{#if shouldShowUpgradeCheckout}
+				<div class="upgrade-checkout-section">
+					<div class="summary-box">
+						<div class="summary-row">
+							<span class="summary-label">Selected Upgrade</span>
+							<span class="summary-value">{selectedTier?.name || '—'}</span>
+						</div>
+						<div class="summary-row">
+							<span class="summary-label">Amount</span>
+							<span class="summary-value price">
+								{#if selectedTierAllowsCustom && currentPrice <= 0}
+									Choose amount
+								{:else if selectedTier?.billing_type === 'one_time'}
+									{formatMembershipPrice(currentPrice)} one-time
+								{:else}
+									{formatMembershipPrice(currentPrice)}/{selectedBillingInterval === 'year'
+										? 'year'
+										: 'month'}
+								{/if}
+							</span>
+						</div>
+					</div>
+
+					{#if selectedTierBlockedByStripe}
+						<div class="notice warning">
+							<IconAlertCircle class="h-5 w-5" />
+							<div>
+								<p class="notice-title">Payment Setup In Progress</p>
+								<p class="notice-text">This group is still setting up their payment account.</p>
+							</div>
+						</div>
+					{/if}
+
+					<div class="form-section">
+						<div class="form-section-header">
+							<IconUser class="h-4 w-4" />
+							<h3>Your Contact Details</h3>
+						</div>
+						<p class="form-hint">
+							Name and email come from your profile. Changes here update your profile.
+						</p>
+
+						<div class="form-fields">
+							<div class="form-field">
+								<label for="upgrade-name">Full Name *</label>
+								<input
+									id="upgrade-name"
+									type="text"
+									placeholder="Your full name"
+									bind:value={memberProfile.full_name}
+								/>
+							</div>
+							<div class="form-field">
+								<label for="upgrade-email">Email Address *</label>
+								<input
+									id="upgrade-email"
+									type="email"
+									placeholder="you@example.com"
+									bind:value={memberProfile.email}
+								/>
+							</div>
+							<div class="form-field">
+								<label for="upgrade-phone">Phone Number</label>
+								<input
+									id="upgrade-phone"
+									type="tel"
+									placeholder="(555) 123-4567"
+									bind:value={memberProfile.phone}
+								/>
+							</div>
+						</div>
+					</div>
+
+					{#if requiresPayment}
+						<div class="form-divider"></div>
+						<div class="form-section">
+							<div class="form-section-header">
+								<IconCreditCard class="h-4 w-4" />
+								<h3>Secure Payment</h3>
+							</div>
+							<p class="form-hint">
+								Enter your card details below. Payment is securely processed by Stripe.
+							</p>
+							<div class="stripe-container">
+								{#if preparingPayment}
+									<p class="stripe-loading">Loading secure payment form…</p>
+								{/if}
+								<div class="stripe-element" bind:this={paymentElementHost}></div>
+								{#if redirectSuppressAutoPrepare && redirectState !== 'processing' && !preparingPayment && !paymentFormReady}
+									<div class="stripe-retry">
+										<button
+											type="button"
+											class="btn preset-tonal-surface"
+											onclick={resetRedirectCheckoutBlock}
+										>
+											Try Another Payment Method
+										</button>
+									</div>
+								{:else if !preparingPayment && !paymentFormReady}
+									<p class="stripe-loading">Payment form will appear once details are complete.</p>
+								{/if}
+							</div>
+						</div>
+					{:else if selectedTierAllowsCustom}
+						<p class="form-hint">
+							Enter a contribution amount above to load the secure payment form.
+						</p>
+					{/if}
+
+					<button
+						type="button"
+						class="btn preset-filled-primary-500 w-full"
+						onclick={submitInlinePayment}
+						disabled={busy ||
+							preparingPayment ||
+							!requiresPayment ||
+							selectedTierBlockedByStripe ||
+							customAmountInvalidForPaid ||
+							!paymentFormComplete}
+					>
+						{#if busy}
+							<IconLoader class="h-5 w-5 animate-spin" />
+						{:else}
+							<IconCreditCard class="h-5 w-5" />
+						{/if}
+						Pay & Upgrade
+					</button>
+				</div>
+			{/if}
+
 			<!-- Actions -->
 			<div class="active-actions">
-				{#if selectedTierId && selectedTierId !== currentMembership.tier_id}
+				{#if canScheduleTierChangeAtRenewal}
 					<button
 						class="btn preset-filled-primary-500"
 						onclick={requestTierChangeToSelectedTier}
-						disabled={memberActionBusy}
+						disabled={memberActionBusy || busy}
 					>
 						{#if memberActionBusy}
 							<IconLoader class="h-5 w-5 animate-spin" />
@@ -1172,7 +1726,7 @@
 					<button
 						class="btn preset-filled-primary-500"
 						onclick={renewCurrentMembership}
-						disabled={memberActionBusy}
+						disabled={memberActionBusy || busy}
 					>
 						Renew Membership
 					</button>
@@ -1180,7 +1734,7 @@
 					<button
 						class="btn preset-tonal-warning"
 						onclick={cancelCurrentMembership}
-						disabled={memberActionBusy}
+						disabled={memberActionBusy || busy}
 					>
 						Cancel Membership
 					</button>
@@ -1796,7 +2350,17 @@
 												<p class="stripe-loading">Loading secure payment form…</p>
 											{/if}
 											<div class="stripe-element" bind:this={paymentElementHost}></div>
-											{#if !preparingPayment && !paymentFormReady}
+											{#if redirectSuppressAutoPrepare && redirectState !== 'processing' && !preparingPayment && !paymentFormReady}
+												<div class="stripe-retry">
+													<button
+														type="button"
+														class="btn preset-tonal-surface"
+														onclick={resetRedirectCheckoutBlock}
+													>
+														Try Another Payment Method
+													</button>
+												</div>
+											{:else if !preparingPayment && !paymentFormReady}
 												<p class="stripe-loading">
 													Payment form will appear once details are complete.
 												</p>
@@ -2823,6 +3387,20 @@
 		font-size: 0.75rem;
 		color: color-mix(in oklab, white 50%, transparent);
 		margin-bottom: 0.75rem;
+	}
+
+	.upgrade-checkout-section {
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		padding-top: 1rem;
+		border-top: 1px solid color-mix(in oklab, var(--color-surface-500) 12%, transparent);
+	}
+
+	.stripe-retry {
+		display: flex;
+		justify-content: center;
+		padding: 0.75rem;
 	}
 
 	.active-actions {
