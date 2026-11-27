@@ -938,6 +938,39 @@ test('rideDirectory search and row normalization degrade gracefully before exter
 		external_event_url: null,
 		external_organizer_name: null
 	});
+
+	// Native rides (no source_event_id) and venue names not in address must not synthesize external metadata.
+	assert.deepEqual(
+		resolveExternalRideMetadata(
+			{
+				source_event_id: null,
+				slug: 'meetup-coffee-spin-native',
+				description: 'Bring lights.\n\nMore information:\n\nHost Club: https://hostclub.example.org'
+			},
+			{}
+		),
+		{
+			external_event_url: null,
+			external_organizer_name: null
+		}
+	);
+	assert.deepEqual(
+		resolveExternalRideMetadata(
+			{
+				source_event_id: 'https://calendar.example.org/rides/tempe-lake-loop',
+				slug: 'tempe-lake-loop',
+				title: 'Tempe Lake Loop',
+				description: 'Loop around Tempe Town Lake.',
+				start_location_name: 'Tempe Beach Park',
+				start_location_address: '80 W Rio Salado Pkwy, Tempe, AZ'
+			},
+			{}
+		),
+		{
+			external_event_url: 'https://calendar.example.org/rides/tempe-lake-loop',
+			external_organizer_name: null
+		}
+	);
 });
 
 test('insertRideDetailsCompat, updateRideDetailsCompat, and importRideSeedData retry cleanly when external columns do not exist yet', async () => {
@@ -1190,7 +1223,7 @@ test(
 			}).trim();
 
 		const migrationSql = fs.readFileSync(
-			'supabase/migrations/20261124043000_add_structured_external_ride_fields.sql',
+			'supabase/migrations/20261126231500_add_structured_external_ride_fields.sql',
 			'utf8'
 		);
 
@@ -1227,7 +1260,7 @@ test(
 				insert into public.activity_events (
 					id, activity_type, source_event_id, host_user_id, host_group_id, slug, title, summary, description, start_location_name, start_location_address, updated_at
 				) values
-					-- 1. Meetup ride with street-numbered venue and both event + group page URLs
+					-- 1. Meetup ride with street-numbered venue and both event + group page URLs (footer-only summary must not become NULL)
 					(
 						'00000000-0000-0000-0000-000000000001',
 						'ride',
@@ -1257,7 +1290,7 @@ test(
 						'80 W Rio Salado Pkwy, Tempe, AZ',
 						'2026-01-01T00:00:00Z'
 					),
-					-- 3. Imported ride with a real start_location_name ("Bike Tempe") that must NOT be overwritten
+					-- 3. Imported ride with a real start_location_name ("Bike Tempe") + explicit organizer label
 					(
 						'00000000-0000-0000-0000-000000000003',
 						'ride',
@@ -1272,7 +1305,7 @@ test(
 						'530 W Broadway Rd, Tempe, AZ 85282',
 						'2026-01-01T00:00:00Z'
 					),
-					-- 4. WeeklyRides ride with real venue/event name + both Event link and WeeklyRides listing URLs
+					-- 4. WeeklyRides ride with real venue/event name + saved Event link in summary + both URLs in description
 					(
 						'00000000-0000-0000-0000-000000000004',
 						'ride',
@@ -1302,7 +1335,7 @@ test(
 						'Albany, OR, US',
 						'2026-01-01T00:00:00Z'
 					),
-					-- 6. Ride whose footer line has an unextractable URL — footer must be kept and row left unchanged in activity_events
+					-- 6. Ride whose footer line has an unextractable URL — footer must be kept and row left unchanged
 					(
 						'00000000-0000-0000-0000-000000000006',
 						'ride',
@@ -1316,6 +1349,66 @@ test(
 						'Downtown Gilbert',
 						'50 E Civic Center Dr, Gilbert, AZ',
 						'2026-01-01T00:00:00Z'
+					),
+					-- 7. Long pace note with footer (must strip saved URL line while keeping real pace text and unsaved URL)
+					(
+						'00000000-0000-0000-0000-000000000007',
+						'ride',
+						'btw-tempo-train-7',
+						null,
+						null,
+						'east-valley-tempo-train',
+						'East Valley Tempo Train',
+						'Structured Tuesday morning paceline.',
+						E'Structured Tuesday morning paceline.\n\nMore information:\n\nDesert Velo: https://desertvelo.example.org/events/tempo-train',
+						'Papago Park Ramada',
+						'625 N Galvin Pkwy, Phoenix, AZ 85008',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 8. Summary with unique URL (summary must not be overwritten from description or stripped of its unique URL)
+					(
+						'00000000-0000-0000-0000-000000000008',
+						'ride',
+						'https://www.weeklyrides.com/index.php/rides-events/9908-series',
+						null,
+						null,
+						'weeklyrides-autumn-gravel-series',
+						'Autumn Gravel Series',
+						E'Custom host summary — see technical guide.\nEvent link: https://unique.example.org/tech-guide.pdf',
+						E'Full gravel series description that must never overwrite the summary.\nEvent link: https://gravelseries.example.org/register\nWeeklyRides listing: https://www.weeklyrides.com/index.php/rides-events/9908-series',
+						'Bent Creek Trailhead',
+						'1577 Brevard Rd, Asheville, NC',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 9. Venue not contained in address ("Tempe Beach Park") with no organizer label — must NOT become external_organizer_name
+					(
+						'00000000-0000-0000-0000-000000000009',
+						'ride',
+						'https://calendar.example.org/rides/tempe-lake-loop',
+						null,
+						null,
+						'tempe-lake-loop',
+						'Tempe Lake Loop',
+						'Loop around Tempe Town Lake.',
+						'Loop around Tempe Town Lake.',
+						'Tempe Beach Park',
+						'80 W Rio Salado Pkwy, Tempe, AZ',
+						'2026-01-01T00:00:00Z'
+					),
+					-- 10. Native host-created ride (source_event_id IS NULL) containing "More information:" — must remain completely untouched
+					(
+						'00000000-0000-0000-0000-000000000010',
+						'ride',
+						null,
+						'00000000-0000-0000-0000-0000000000bb',
+						null,
+						'meetup-coffee-spin-native',
+						'Host Coffee Spin',
+						E'Host ride summary.\nMore information: https://hostclub.example.org/coffee-spin',
+						E'Bring lights and cash for espresso.\n\nMore information:\n\nHost Club: https://hostclub.example.org/coffee-spin',
+						'',
+						'100 S Mill Ave, Tempe, AZ 85281',
+						'2026-01-01T00:00:00Z'
 					);
 
 				insert into public.ride_details (activity_event_id, pace_notes, updated_at) values
@@ -1324,7 +1417,19 @@ test(
 					('00000000-0000-0000-0000-000000000003', 'Easy social ride around Tempe.', '2026-01-01T00:00:00Z'),
 					('00000000-0000-0000-0000-000000000004', '16-18 mph race pace', '2026-01-01T00:00:00Z'),
 					('00000000-0000-0000-0000-000000000005', null, '2026-01-01T00:00:00Z'),
-					('00000000-0000-0000-0000-000000000006', '22+ mph crit pace', '2026-01-01T00:00:00Z');
+					('00000000-0000-0000-0000-000000000006', '22+ mph crit pace', '2026-01-01T00:00:00Z'),
+					(
+						'00000000-0000-0000-0000-000000000007',
+						E'A-group: 20-22 mph rotating paceline; B-group: 17-19 mph steady tempo with hilltop regroups; C-group: 14-16 mph no-drop.\n\nMore information:\n\nDesert Velo: https://desertvelo.example.org/events/tempo-train\nRoute GPX: https://ridewithgps.com/routes/424242',
+						'2026-01-01T00:00:00Z'
+					),
+					('00000000-0000-0000-0000-000000000008', '15-17 mph gravel tempo', '2026-01-01T00:00:00Z'),
+					('00000000-0000-0000-0000-000000000009', '14-16 mph casual spin', '2026-01-01T00:00:00Z'),
+					(
+						'00000000-0000-0000-0000-000000000010',
+						E'15-17 mph social roll.\nEvent link: https://hostclub.example.org/coffee-spin',
+						'2026-01-01T00:00:00Z'
+					);
 
 				${migrationSql}
 				`
@@ -1338,17 +1443,17 @@ test(
 			);
 			assert.equal(constraintsValidated, '2');
 
-			// Row 1: Meetup placeholder with street number -> Westgate Square; both event and group URLs saved.
+			// Row 1: Meetup placeholder with street number -> Westgate Square; footer-only summary kept (never NULL); exact-duplicate pace_notes nulled.
 			const importedMeetupRow = run(
 				testDbUrl,
-				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.summary, '') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '') || '|' || coalesce(rd.external_organizer_name, '')
+				`select coalesce(ae.start_location_name, '') || '|' || coalesce(ae.summary, '<null>') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '') || '|' || coalesce(rd.external_organizer_name, '')
 				 from public.activity_events ae
 				 join public.ride_details rd on rd.activity_event_id = ae.id
 				 where ae.id = '00000000-0000-0000-0000-000000000001';`
 			);
 			assert.equal(
 				importedMeetupRow,
-				'Westgate Square|Roll out at 7am sharp.|Roll out at 7am sharp.|<null>|https://www.meetup.com/one-love-cycling/events/123/|https://www.meetup.com/one-love-cycling/|One Love Cycling'
+				'Westgate Square|Meetup group: One Love Cycling|Roll out at 7am sharp.|<null>|https://www.meetup.com/one-love-cycling/events/123/|https://www.meetup.com/one-love-cycling/|One Love Cycling'
 			);
 
 			// Row 2: Clean local ride must not be touched by the backfill at all.
@@ -1374,17 +1479,17 @@ test(
 				'Bike Tempe|Easy social ride around Tempe.|<null>|https://www.biketempe.org/events/roll|Bike Tempe'
 			);
 
-			// Row 4: WeeklyRides real start_location_name ("NCCX Pre-Season Race") is unchanged, and BOTH Event link and WeeklyRides listing URLs are saved.
+			// Row 4: WeeklyRides real start_location_name ("NCCX Pre-Season Race") is unchanged, saved Event link stripped from summary, and BOTH URLs saved.
 			const weeklyRidesRow = run(
 				testDbUrl,
-				`select coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.description, ''), E'\\n', ' / ') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '')
+				`select coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.summary, ''), E'\\n', ' / ') || '|' || replace(coalesce(ae.description, ''), E'\\n', ' / ') || '|' || coalesce(rd.pace_notes, '<null>') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '')
 				 from public.activity_events ae
 				 join public.ride_details rd on rd.activity_event_id = ae.id
 				 where ae.id = '00000000-0000-0000-0000-000000000004';`
 			);
 			assert.equal(
 				weeklyRidesRow,
-				'NCCX Pre-Season Race|Location: Zirconia, NC / Category: Gravel/Mtb|16-18 mph race pace|https://www.nccyclocross.com/|https://www.weeklyrides.com/index.php/rides-events/9343-nccx'
+				'NCCX Pre-Season Race|Location: Zirconia, NC / Category: Gravel/Mtb|Location: Zirconia, NC / Category: Gravel/Mtb|16-18 mph race pace|https://www.nccyclocross.com/|https://www.weeklyrides.com/index.php/rides-events/9343-nccx'
 			);
 
 			// Row 5: "Meetup event" placeholder with city/state/country-only address (no street number) stays unchanged.
@@ -1394,44 +1499,129 @@ test(
 			);
 			assert.equal(cityOnlyPlaceholderName, 'Meetup event');
 
-			// Row 6: Footer line with an unextractable URL is kept intact.
+			// Row 6: Footer line with an unextractable URL is kept intact, and venue is not saved as organizer.
 			const unextractableFooterRow = run(
 				testDbUrl,
-				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.description, ''), E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '<null>')
+				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.description, ''), E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '<null>') || '|' || coalesce(rd.external_organizer_name, '<null>')
 				 from public.activity_events ae
 				 join public.ride_details rd on rd.activity_event_id = ae.id
 				 where ae.id = '00000000-0000-0000-0000-000000000006';`
 			);
 			assert.equal(
 				unextractableFooterRow,
-				'true|Downtown Gilbert|Fast evening criterium.\\n\\nEvent link: www.example.com/register (opens next week)|<null>'
+				'true|true|Downtown Gilbert|Fast evening criterium.\\n\\nEvent link: www.example.com/register (opens next week)|<null>|<null>'
 			);
 
-			// Backup table row counts equal updated row counts.
+			// Row 7: Long pace_notes with footer keeps full pace text + unsaved GPX URL while stripping saved external_event_url line.
+			const longPaceNotesRow = run(
+				testDbUrl,
+				`select replace(coalesce(rd.pace_notes, '<null>'), E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_organizer_name, '')
+				 from public.ride_details rd
+				 where rd.activity_event_id = '00000000-0000-0000-0000-000000000007';`
+			);
+			assert.equal(
+				longPaceNotesRow,
+				'A-group: 20-22 mph rotating paceline; B-group: 17-19 mph steady tempo with hilltop regroups; C-group: 14-16 mph no-drop.\\n\\nMore information:\\n\\nRoute GPX: https://ridewithgps.com/routes/424242|https://desertvelo.example.org/events/tempo-train|Desert Velo'
+			);
+
+			// Row 8: Summary with unique URL is preserved intact (never replaced by description and never stripped of unsaved URL).
+			const uniqueSummaryUrlRow = run(
+				testDbUrl,
+				`select replace(coalesce(ae.summary, '<null>'), E'\\n', '\\n') || '|' || coalesce(ae.description, '') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_group_url, '')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000008';`
+			);
+			assert.equal(
+				uniqueSummaryUrlRow,
+				'Custom host summary — see technical guide.\\nEvent link: https://unique.example.org/tech-guide.pdf|Full gravel series description that must never overwrite the summary.|https://gravelseries.example.org/register|https://www.weeklyrides.com/index.php/rides-events/9908-series'
+			);
+
+			// Row 9: Venue not contained in address ("Tempe Beach Park") is NOT saved as external_organizer_name.
+			const venueNotInAddressRow = run(
+				testDbUrl,
+				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(ae.start_location_name, '') || '|' || coalesce(rd.external_event_url, '') || '|' || coalesce(rd.external_organizer_name, '<null>')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000009';`
+			);
+			assert.equal(
+				venueNotInAddressRow,
+				'true|Tempe Beach Park|https://calendar.example.org/rides/tempe-lake-loop|<null>'
+			);
+
+			// Row 10: Native host-created ride (source_event_id IS NULL) with "More information:" / "Event link:" is completely untouched.
+			const nativeFooterRideRow = run(
+				testDbUrl,
+				`select (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-01-01T00:00:00Z')::text || '|' || coalesce(ae.start_location_name, '') || '|' || replace(coalesce(ae.summary, ''), E'\\n', '\\n') || '|' || replace(coalesce(ae.description, ''), E'\\n', '\\n') || '|' || replace(coalesce(rd.pace_notes, ''), E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '<null>') || '|' || coalesce(rd.external_organizer_name, '<null>')
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000010';`
+			);
+			assert.equal(
+				nativeFooterRideRow,
+				'true|true||Host ride summary.\\nMore information: https://hostclub.example.org/coffee-spin|Bring lights and cash for espresso.\\n\\nMore information:\\n\\nHost Club: https://hostclub.example.org/coffee-spin|15-17 mph social roll.\\nEvent link: https://hostclub.example.org/coffee-spin|<null>|<null>'
+			);
+
+			// Backup table row counts equal updated row counts on initial run (6 activity_events: 1,3,4,5,7,8; 7 ride_details: 1,3,4,5,7,8,9).
 			const activityCounts = run(
 				testDbUrl,
 				`select (select count(*) from public.activity_events_backfill_20261124)::text || '|' || (select count(*) from public.activity_events where updated_at > '2026-01-01T00:00:00Z')::text;`
 			);
-			assert.equal(activityCounts, '4|4');
+			assert.equal(activityCounts, '6|6');
 
-			const paceBackupCounts = run(
+			const rideDetailsBackupCounts = run(
 				testDbUrl,
-				`select (select count(*) from public.ride_details_backfill_20261124)::text || '|' || (select count(*) from public.ride_details where pace_notes is null and activity_event_id <> '00000000-0000-0000-0000-000000000005')::text;`
+				`select (select count(*) from public.ride_details_backfill_20261124)::text || '|' || (select count(*) from public.ride_details where updated_at > '2026-01-01T00:00:00Z')::text;`
 			);
-			assert.equal(paceBackupCounts, '2|2');
+			assert.equal(rideDetailsBackupCounts, '7|7');
 
-			// Re-running the migration must be idempotent and preserve backup tables.
+			// Re-run after inserting a new legacy imported row (Row 11): existing rows stay untouched, and Row 11 is appended to both backup tables before update.
 			const beforeRerunStamp = run(
 				testDbUrl,
 				`select rd.updated_at::text from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
 			);
-			run(testDbUrl, migrationSql);
-			const afterRerunStamp = run(
+			run(
 				testDbUrl,
-				`select rd.updated_at::text || '|' || (select count(*) from public.activity_events_backfill_20261124)::text || '|' || (select count(*) from public.ride_details_backfill_20261124)::text
-				 from public.ride_details rd where rd.activity_event_id = '00000000-0000-0000-0000-000000000001';`
+				`
+				insert into public.activity_events (
+					id, activity_type, source_event_id, host_user_id, host_group_id, slug, title, summary, description, start_location_name, start_location_address, updated_at
+				) values (
+					'00000000-0000-0000-0000-000000000011',
+					'ride',
+					'meetup:late-sync:11',
+					null,
+					null,
+					'meetup-late-sync-ride',
+					'Late Sync Ride',
+					E'Evening recovery spin.\nMeetup event: https://www.meetup.com/late-sync/events/111/',
+					E'Evening recovery spin.\n\nMeetup group: Late Sync Riders\n\nMeetup event: https://www.meetup.com/late-sync/events/111/\n\nMeetup group page: https://www.meetup.com/late-sync/',
+					'Meetup event',
+					'Central Plaza, 420 N Central Ave, Phoenix, AZ, US',
+					'2026-02-01T00:00:00Z'
+				);
+				insert into public.ride_details (activity_event_id, pace_notes, updated_at) values (
+					'00000000-0000-0000-0000-000000000011',
+					E'13-15 mph conversational pace; regroup at coffee stop.\nMeetup event: https://www.meetup.com/late-sync/events/111/',
+					'2026-02-01T00:00:00Z'
+				);
+				`
 			);
-			assert.equal(afterRerunStamp, `${beforeRerunStamp}|4|2`);
+			run(testDbUrl, migrationSql);
+
+			const afterRerunCheck = run(
+				testDbUrl,
+				`select rd1.updated_at::text || '|' || (select count(*) from public.activity_events_backfill_20261124)::text || '|' || (select count(*) from public.ride_details_backfill_20261124)::text || '|' || coalesce(ae11.start_location_name, '') || '|' || coalesce(ae11.summary, '') || '|' || coalesce(rd11.pace_notes, '') || '|' || coalesce(rd11.external_event_url, '') || '|' || (select b.updated_at = '2026-02-01T00:00:00Z' from public.activity_events_backfill_20261124 b where b.id = '00000000-0000-0000-0000-000000000011')::text
+				 from public.ride_details rd1
+				 cross join public.activity_events ae11
+				 join public.ride_details rd11 on rd11.activity_event_id = ae11.id
+				 where rd1.activity_event_id = '00000000-0000-0000-0000-000000000001'
+				   and ae11.id = '00000000-0000-0000-0000-000000000011';`
+			);
+			assert.equal(
+				afterRerunCheck,
+				`${beforeRerunStamp}|7|8|Central Plaza|Evening recovery spin.|13-15 mph conversational pace; regroup at coffee stop.|https://www.meetup.com/late-sync/events/111/|true`
+			);
 
 			assert.throws(() =>
 				run(
@@ -1446,7 +1636,7 @@ test(
 				)
 			);
 
-			// Uncomment and execute the rollback block from the bottom of the migration and verify restoration.
+			// Uncomment and execute the rollback block from the bottom of the migration and verify restoration across BOTH Run 1 and Run 2 rows.
 			const rollbackMarker = '-- Rollback (manual):';
 			const markerIndex = migrationSql.indexOf(rollbackMarker);
 			assert.ok(markerIndex !== -1, 'Expected commented rollback block at bottom of migration');
@@ -1460,14 +1650,26 @@ test(
 
 			const restoredMeetupRow = run(
 				testDbUrl,
-				`select ae.start_location_name || '|' || ae.summary || '|' || rd.pace_notes
+				`select ae.start_location_name || '|' || ae.summary || '|' || rd.pace_notes || '|' || coalesce(rd.external_event_url, '<null>') || '|' || coalesce(rd.external_group_url, '<null>') || '|' || coalesce(rd.external_organizer_name, '<null>') || '|' || (ae.updated_at = '2026-01-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-01-01T00:00:00Z')::text
 				 from public.activity_events ae
 				 join public.ride_details rd on rd.activity_event_id = ae.id
 				 where ae.id = '00000000-0000-0000-0000-000000000001';`
 			);
 			assert.equal(
 				restoredMeetupRow,
-				'Meetup event|Meetup group: One Love Cycling|Meetup group: One Love Cycling'
+				'Meetup event|Meetup group: One Love Cycling|Meetup group: One Love Cycling|<null>|<null>|<null>|true|true'
+			);
+
+			const restoredLateSyncRow = run(
+				testDbUrl,
+				`select ae.start_location_name || '|' || replace(ae.summary, E'\\n', '\\n') || '|' || replace(rd.pace_notes, E'\\n', '\\n') || '|' || coalesce(rd.external_event_url, '<null>') || '|' || (ae.updated_at = '2026-02-01T00:00:00Z')::text || '|' || (rd.updated_at = '2026-02-01T00:00:00Z')::text
+				 from public.activity_events ae
+				 join public.ride_details rd on rd.activity_event_id = ae.id
+				 where ae.id = '00000000-0000-0000-0000-000000000011';`
+			);
+			assert.equal(
+				restoredLateSyncRow,
+				'Meetup event|Evening recovery spin.\\nMeetup event: https://www.meetup.com/late-sync/events/111/|13-15 mph conversational pace; regroup at coffee stop.\\nMeetup event: https://www.meetup.com/late-sync/events/111/|<null>|true|true'
 			);
 		} finally {
 			run(databaseUrl, `drop database ${dbName} with (force)`);

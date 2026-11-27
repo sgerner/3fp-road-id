@@ -165,13 +165,12 @@ export function extractLegacyExternalRideMetadata(activity) {
 	}
 
 	const sourceEventId = safeTrim(activity.source_event_id ?? activity.sourceEventId);
+	if (!sourceEventId) {
+		return { external_event_url: null, external_organizer_name: null };
+	}
+
 	const slug = safeTrim(activity.slug);
 	const description = String(activity.description ?? '');
-	const startLocationName = safeTrim(activity.start_location_name ?? activity.startLocationName);
-	const startLocationAddress = safeTrim(
-		activity.start_location_address ?? activity.startLocationAddress
-	);
-	const title = safeTrim(activity.title);
 	const isUnclaimed =
 		!(activity.host_user_id ?? activity.hostUserId) &&
 		!(activity.host_group_id ?? activity.hostGroupId);
@@ -236,8 +235,23 @@ export function extractLegacyExternalRideMetadata(activity) {
 			description
 		);
 		rawUrl = labeledMatch?.[2] || unlabeledMatch?.[1] || null;
-		organizerName = safeTrim(labeledMatch?.[1]) || null;
-	} else if (sourceEventId) {
+		const candidateLabel = safeTrim(labeledMatch?.[1]);
+		const genericLabels = new Set([
+			'meetup event',
+			'meetup group',
+			'meetup group page',
+			'weeklyrides listing',
+			'reference link',
+			'event link',
+			'more info',
+			'more information',
+			'website',
+			'register',
+			'click here'
+		]);
+		organizerName =
+			candidateLabel && !genericLabels.has(candidateLabel.toLowerCase()) ? candidateLabel : null;
+	} else {
 		if (isUnclaimed) {
 			const trailingUrlMatch = /(https?:\/\/\S+)\s*$/i.exec(description);
 			if (trailingUrlMatch?.[1]) {
@@ -246,15 +260,6 @@ export function extractLegacyExternalRideMetadata(activity) {
 		}
 		if (!rawUrl && /^https?:\/\/\S+$/i.test(sourceEventId)) {
 			rawUrl = sourceEventId;
-		}
-		if (
-			isUnclaimed &&
-			startLocationName &&
-			startLocationName.toLowerCase() !== 'meetup event' &&
-			startLocationName.toLowerCase() !== title.toLowerCase() &&
-			!startLocationAddress.toLowerCase().includes(startLocationName.toLowerCase())
-		) {
-			organizerName = startLocationName;
 		}
 	}
 

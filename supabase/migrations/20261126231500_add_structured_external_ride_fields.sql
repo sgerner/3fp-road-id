@@ -1,6 +1,6 @@
 -- Add structured external registration URL, external group/listing URL, and external organizer name
--- fields to ride_details, create pre-update backup tables for overwritten columns, and safely backfill
--- imported rides without losing URLs or overwriting real start_location_name values.
+-- fields to ride_details, create re-run-safe pre-update backup tables for overwritten columns, and
+-- safely backfill imported rides without destroying content or touching native rides.
 
 alter table public.ride_details
 	add column if not exists external_event_url text null,
@@ -107,6 +107,16 @@ begin
 	for v_idx in 1..coalesce(array_length(v_lines, 1), 0) loop
 		if v_lines[v_idx] ~* '^[[:space:]]*More information:[[:space:]]*$' then
 			v_more_idx := v_idx;
+		elsif v_lines[v_idx] ~* '^[[:space:]]*More information:[[:space:]]*(https?://.+)$' then
+			v_match := regexp_match(v_lines[v_idx], '^[[:space:]]*More information:[[:space:]]*(https?://.+)$', 'i');
+			v_url := pg_temp.clean_external_http_url(v_match[1]);
+			if v_url is not null then
+				if first_url is null then
+					first_url := v_url;
+				elsif second_url is null and lower(v_url) <> lower(first_url) then
+					second_url := v_url;
+				end if;
+			end if;
 		end if;
 	end loop;
 
@@ -234,7 +244,33 @@ begin
 		end if;
 	end if;
 
-	-- Pass 2: Contiguous trailing Meetup / WeeklyRides labeled footer lines.
+	-- Pass 2a: Explicit labeled footer URL lines whose exact URL was saved to a column.
+	for v_idx in 1..v_len loop
+		if not v_keep[v_idx] then
+			continue;
+		end if;
+		v_line := btrim(v_lines[v_idx]);
+		if v_line = '' then
+			continue;
+		end if;
+
+		if v_line ~* '^(Meetup event|Meetup group page|Event link|WeeklyRides listing|More information):[[:space:]]*(https?://.+)$' then
+			v_match := regexp_match(
+				v_line,
+				'^(?:Meetup event|Meetup group page|Event link|WeeklyRides listing|More information):[[:space:]]*(https?://.+)$',
+				'i'
+			);
+			v_candidate_url := pg_temp.clean_external_http_url(v_match[1]);
+			if v_candidate_url is not null
+				and (lower(v_candidate_url) = v_event_url or lower(v_candidate_url) = v_group_url)
+			then
+				v_keep[v_idx] := false;
+				v_any_stripped := true;
+			end if;
+		end if;
+	end loop;
+
+	-- Pass 2b: Contiguous trailing Meetup group organizer lines when organizer + URL were saved.
 	v_suffix_start := v_len + 1;
 	for v_idx in reverse v_len..1 loop
 		if not v_keep[v_idx] then
@@ -243,7 +279,7 @@ begin
 		end if;
 		v_line := btrim(v_lines[v_idx]);
 		if v_line = ''
-			or v_line ~* '^(Meetup group|Meetup event|Meetup group page|Event link|WeeklyRides listing):'
+			or v_line ~* '^(Meetup group|Meetup event|Meetup group page|Event link|WeeklyRides listing|More information):'
 		then
 			v_suffix_start := v_idx;
 		else
@@ -257,24 +293,7 @@ begin
 				continue;
 			end if;
 			v_line := btrim(v_lines[v_idx]);
-			if v_line = '' then
-				continue;
-			end if;
-
-			if v_line ~* '^(Meetup event|Meetup group page|Event link|WeeklyRides listing):[[:space:]]*(.*)$' then
-				v_match := regexp_match(
-					v_line,
-					'^(?:Meetup event|Meetup group page|Event link|WeeklyRides listing):[[:space:]]*(.*)$',
-					'i'
-				);
-				v_candidate_url := pg_temp.clean_external_http_url(v_match[1]);
-				if v_candidate_url is not null
-					and (lower(v_candidate_url) = v_event_url or lower(v_candidate_url) = v_group_url)
-				then
-					v_keep[v_idx] := false;
-					v_any_stripped := true;
-				end if;
-			elsif v_line ~* '^Meetup group:[[:space:]]*(.*)$' then
+			if v_line ~* '^Meetup group:[[:space:]]*(.*)$' then
 				v_match := regexp_match(v_line, '^Meetup group:[[:space:]]*(.*)$', 'i');
 				if v_organizer is not null
 					and lower(btrim(v_match[1])) = v_organizer
@@ -316,7 +335,7 @@ begin
 		end if;
 	end if;
 
-	-- Preserve untouched descriptions byte-for-byte if no saved footer line was stripped.
+	-- Preserve untouched text byte-for-byte if no saved footer line was stripped.
 	if not v_any_stripped then
 		return p_description;
 	end if;
@@ -436,7 +455,7 @@ end;
 $$;
 
 -- Precompute exact backfill plans in pg_temp BEFORE any UPDATE runs so backup tables capture
--- the exact rows that will be modified (backup row count == updated row count).
+-- the exact rows that will be modified (scoped strictly to imported rides with source_event_id).
 
 drop table if exists pg_temp.ride_external_backfill_plan;
 create temp table ride_external_backfill_plan as
@@ -452,8 +471,6 @@ with candidates as (
 		ae.description,
 		ae.host_user_id,
 		ae.host_group_id,
-		ae.start_location_name,
-		ae.start_location_address,
 		pg_temp.clean_external_http_url(ae.source_event_id) as source_url,
 		pg_temp.clean_external_http_url(
 			(regexp_match(coalesce(ae.description, ''), '(?:^|\n)[[:space:]]*Meetup event:[[:space:]]*([^\r\n]+)', 'i'))[1]
@@ -478,12 +495,8 @@ with candidates as (
 	join public.activity_events ae on ae.id = rd.activity_event_id
 	left join lateral pg_temp.extract_more_info_links(ae.description) mi on true
 	where ae.activity_type = 'ride'
-		and (
-			ae.source_event_id is not null
-			or ae.slug like 'meetup-%'
-			or ae.slug like 'weeklyrides-%'
-			or coalesce(ae.description, '') ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
-		)
+		and ae.source_event_id is not null
+		and btrim(ae.source_event_id) <> ''
 ),
 extracted as (
 	select
@@ -498,12 +511,13 @@ extracted as (
 			then coalesce(c.meetup_event_url, c.source_url, c.more_info_first_url)
 			when coalesce(c.source_event_id, '') ~* 'weeklyrides\.com'
 				or c.slug like 'weeklyrides-%'
-				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*(Event link:|WeeklyRides listing:)'
+				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*WeeklyRides listing:'
 			then coalesce(c.wr_event_url, c.wr_listing_url, c.source_url, c.more_info_first_url)
+			when c.wr_event_url is not null
+			then c.wr_event_url
 			when c.more_info_first_url is not null
 			then c.more_info_first_url
-			when c.source_event_id is not null
-				and c.host_user_id is null
+			when c.host_user_id is null
 				and c.host_group_id is null
 				and coalesce(c.description, '') ~* '(?:^|\n)[[:space:]]*(https?://[^[:space:]]+)[[:space:]]*$'
 			then coalesce(
@@ -521,7 +535,7 @@ extracted as (
 			then coalesce(c.meetup_group_url, c.more_info_second_url)
 			when coalesce(c.source_event_id, '') ~* 'weeklyrides\.com'
 				or c.slug like 'weeklyrides-%'
-				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*(Event link:|WeeklyRides listing:)'
+				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*WeeklyRides listing:'
 			then coalesce(
 				case
 					when c.wr_listing_url is not null
@@ -542,7 +556,7 @@ extracted as (
 			then c.meetup_group_name
 			when coalesce(c.source_event_id, '') ~* 'weeklyrides\.com'
 				or c.slug like 'weeklyrides-%'
-				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*(Event link:|WeeklyRides listing:)'
+				or coalesce(c.description, '') ~* '(^|\n)[[:space:]]*WeeklyRides listing:'
 			then (
 				case
 					when c.wr_event_url ~* '^https?://(?:www\.)?meetup\.com/([^/?#]+)'
@@ -557,6 +571,7 @@ extracted as (
 				and lower(c.more_info_first_label) not in (
 					'meetup event',
 					'meetup group',
+					'meetup group page',
 					'weeklyrides listing',
 					'reference link',
 					'event link',
@@ -567,14 +582,6 @@ extracted as (
 					'click here'
 				)
 			then c.more_info_first_label
-			when c.source_event_id is not null
-				and c.host_user_id is null
-				and c.host_group_id is null
-				and btrim(coalesce(c.start_location_name, '')) <> ''
-				and lower(btrim(c.start_location_name)) <> 'meetup event'
-				and lower(btrim(c.start_location_name)) <> lower(btrim(coalesce(c.title, '')))
-				and position(lower(btrim(c.start_location_name)) in lower(coalesce(c.start_location_address, ''))) = 0
-			then btrim(c.start_location_name)
 			else null
 		end as extracted_organizer_name
 	from candidates c
@@ -616,27 +623,21 @@ with candidate_activities as (
 			coalesce(ep.final_event_url, rd.external_event_url),
 			coalesce(ep.final_group_url, rd.external_group_url),
 			coalesce(ep.final_organizer_name, rd.external_organizer_name),
-			(ae.source_event_id is not null and ae.host_user_id is null and ae.host_group_id is null)
+			(ae.host_user_id is null and ae.host_group_id is null)
 		) as next_description,
 		pg_temp.resolve_placeholder_venue_name(
 			ae.start_location_name,
 			ae.start_location_address
 		) as next_location_name,
 		coalesce(ep.final_event_url, rd.external_event_url) as saved_event_url,
-		coalesce(ep.final_group_url, rd.external_group_url) as saved_group_url
+		coalesce(ep.final_group_url, rd.external_group_url) as saved_group_url,
+		coalesce(ep.final_organizer_name, rd.external_organizer_name) as saved_organizer_name
 	from public.activity_events ae
 	left join public.ride_details rd on rd.activity_event_id = ae.id
 	left join pg_temp.ride_external_backfill_plan ep on ep.activity_event_id = ae.id
 	where ae.activity_type = 'ride'
-		and (
-			ae.source_event_id is not null
-			or ae.slug like 'meetup-%'
-			or ae.slug like 'weeklyrides-%'
-			or btrim(coalesce(ae.start_location_name, '')) = ''
-			or lower(btrim(coalesce(ae.start_location_name, ''))) = 'meetup event'
-			or coalesce(ae.description, '') ~* '(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
-			or coalesce(ae.summary, '') ~* '(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
-		)
+		and ae.source_event_id is not null
+		and btrim(ae.source_event_id) <> ''
 ),
 resolved_activities as (
 	select
@@ -646,26 +647,17 @@ resolved_activities as (
 		ca.current_location_name,
 		ca.next_description,
 		case
-			when coalesce(ca.current_summary, '') ~* '(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
-				and (
-					ca.next_description is distinct from ca.current_description
-					or ca.saved_event_url is not null
-					or ca.saved_group_url is not null
-				)
-			then (
-				with first_para as (
-					select nullif(
-						btrim((regexp_split_to_array(coalesce(ca.next_description, ''), '\r?\n[[:space:]]*\r?\n'))[1]),
-						''
-					) as para
-				)
-				select
-					case
-						when para is null then null
-						when char_length(para) > 180 then btrim(left(para, 177)) || '...'
-						else para
-					end
-				from first_para
+			when ca.current_summary is not null
+				and ca.current_summary ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
+			then coalesce(
+				pg_temp.strip_saved_external_footers(
+					ca.current_summary,
+					ca.saved_event_url,
+					ca.saved_group_url,
+					ca.saved_organizer_name,
+					false
+				),
+				ca.current_summary
 			)
 			else ca.current_summary
 		end as next_summary,
@@ -685,26 +677,85 @@ where ra.current_description is distinct from ra.next_description
 	or ra.current_summary is distinct from ra.next_summary
 	or ra.current_location_name is distinct from ra.next_location_name;
 
-drop table if exists pg_temp.ride_details_pace_backfill_plan;
-create temp table ride_details_pace_backfill_plan as
+drop table if exists pg_temp.ride_details_backfill_plan;
+create temp table ride_details_backfill_plan as
+with candidate_details as (
+	select
+		rd.activity_event_id,
+		rd.pace_notes as current_pace_notes,
+		rd.external_event_url as current_event_url,
+		rd.external_group_url as current_group_url,
+		rd.external_organizer_name as current_organizer_name,
+		ae.summary as current_summary,
+		ae.description as current_description,
+		ap.next_summary,
+		ap.next_description,
+		coalesce(ep.final_event_url, rd.external_event_url) as next_event_url,
+		coalesce(ep.final_group_url, rd.external_group_url) as next_group_url,
+		coalesce(ep.final_organizer_name, rd.external_organizer_name) as next_organizer_name,
+		case
+			when rd.pace_notes is not null
+				and rd.pace_notes ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
+			then pg_temp.strip_saved_external_footers(
+				rd.pace_notes,
+				coalesce(ep.final_event_url, rd.external_event_url),
+				coalesce(ep.final_group_url, rd.external_group_url),
+				coalesce(ep.final_organizer_name, rd.external_organizer_name),
+				false
+			)
+			else rd.pace_notes
+		end as stripped_pace_notes
+	from public.ride_details rd
+	join public.activity_events ae on ae.id = rd.activity_event_id
+	left join pg_temp.ride_external_backfill_plan ep on ep.activity_event_id = ae.id
+	left join pg_temp.activity_events_backfill_plan ap on ap.id = ae.id
+	where ae.activity_type = 'ride'
+		and ae.source_event_id is not null
+		and btrim(ae.source_event_id) <> ''
+),
+resolved_details as (
+	select
+		cd.activity_event_id,
+		cd.current_pace_notes,
+		cd.current_event_url,
+		cd.current_group_url,
+		cd.current_organizer_name,
+		case
+			when cd.current_pace_notes is null then null
+			when btrim(cd.current_pace_notes) = '' then null
+			when lower(btrim(cd.current_pace_notes)) = lower(btrim(coalesce(cd.current_summary, '')))
+				or lower(btrim(cd.current_pace_notes)) = lower(btrim(coalesce(cd.current_description, '')))
+				or lower(btrim(cd.current_pace_notes)) = lower(btrim(coalesce(cd.next_summary, cd.current_summary, '')))
+				or lower(btrim(cd.current_pace_notes)) = lower(btrim(coalesce(cd.next_description, cd.current_description, '')))
+			then null
+			when cd.stripped_pace_notes is null or btrim(cd.stripped_pace_notes) = '' then null
+			when lower(btrim(cd.stripped_pace_notes)) = lower(btrim(coalesce(cd.current_summary, '')))
+				or lower(btrim(cd.stripped_pace_notes)) = lower(btrim(coalesce(cd.current_description, '')))
+				or lower(btrim(cd.stripped_pace_notes)) = lower(btrim(coalesce(cd.next_summary, cd.current_summary, '')))
+				or lower(btrim(cd.stripped_pace_notes)) = lower(btrim(coalesce(cd.next_description, cd.current_description, '')))
+			then null
+			else cd.stripped_pace_notes
+		end as next_pace_notes,
+		cd.next_event_url,
+		cd.next_group_url,
+		cd.next_organizer_name
+	from candidate_details cd
+)
 select
-	rd.activity_event_id,
-	rd.pace_notes
-from public.ride_details rd
-join public.activity_events ae on ae.id = rd.activity_event_id
-left join pg_temp.activity_events_backfill_plan ap on ap.id = ae.id
-where ae.activity_type = 'ride'
-	and rd.pace_notes is not null
-	and (
-		btrim(rd.pace_notes) = ''
-		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ae.summary, '')))
-		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ae.description, '')))
-		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ap.next_summary, ae.summary, '')))
-		or lower(btrim(rd.pace_notes)) = lower(btrim(coalesce(ap.next_description, ae.description, '')))
-		or rd.pace_notes ~* '(^|\n)[[:space:]]*(Meetup group:|Meetup event:|Meetup group page:|Event link:|WeeklyRides listing:|More information:)'
-	);
+	r.activity_event_id,
+	r.current_pace_notes,
+	r.next_pace_notes,
+	r.next_event_url,
+	r.next_group_url,
+	r.next_organizer_name
+from resolved_details r
+where r.current_pace_notes is distinct from r.next_pace_notes
+	or r.current_event_url is distinct from r.next_event_url
+	or r.current_group_url is distinct from r.next_group_url
+	or r.current_organizer_name is distinct from r.next_organizer_name;
 
--- 0. Create pre-update backup tables before any UPDATE executes (preserving initial snapshot on re-runs).
+-- 0. Create pre-update backup tables before any UPDATE executes, and append snapshots for any
+--    newly affected rows when re-run so no row is ever modified without a backup snapshot.
 do $$
 begin
 	if to_regclass('public.activity_events_backfill_20261124') is null then
@@ -713,20 +764,80 @@ begin
 			ae.id,
 			ae.description,
 			ae.summary,
-			ae.start_location_name
+			ae.start_location_name,
+			ae.updated_at
 		from public.activity_events ae
 		where ae.id in (select ap.id from pg_temp.activity_events_backfill_plan ap);
+	else
+		alter table public.activity_events_backfill_20261124
+			add column if not exists updated_at timestamptz;
+
+		insert into public.activity_events_backfill_20261124 (
+			id,
+			description,
+			summary,
+			start_location_name,
+			updated_at
+		)
+		select
+			ae.id,
+			ae.description,
+			ae.summary,
+			ae.start_location_name,
+			ae.updated_at
+		from public.activity_events ae
+		where ae.id in (select ap.id from pg_temp.activity_events_backfill_plan ap)
+			and ae.id not in (
+				select b.id
+				from public.activity_events_backfill_20261124 b
+				where b.id is not null
+			);
 	end if;
 
 	if to_regclass('public.ride_details_backfill_20261124') is null then
 		create table public.ride_details_backfill_20261124 as
 		select
 			rd.activity_event_id,
-			rd.pace_notes
+			rd.pace_notes,
+			rd.external_event_url,
+			rd.external_group_url,
+			rd.external_organizer_name,
+			rd.updated_at
 		from public.ride_details rd
 		where rd.activity_event_id in (
-			select pp.activity_event_id from pg_temp.ride_details_pace_backfill_plan pp
+			select rp.activity_event_id from pg_temp.ride_details_backfill_plan rp
 		);
+	else
+		alter table public.ride_details_backfill_20261124
+			add column if not exists external_event_url text,
+			add column if not exists external_group_url text,
+			add column if not exists external_organizer_name text,
+			add column if not exists updated_at timestamptz;
+
+		insert into public.ride_details_backfill_20261124 (
+			activity_event_id,
+			pace_notes,
+			external_event_url,
+			external_group_url,
+			external_organizer_name,
+			updated_at
+		)
+		select
+			rd.activity_event_id,
+			rd.pace_notes,
+			rd.external_event_url,
+			rd.external_group_url,
+			rd.external_organizer_name,
+			rd.updated_at
+		from public.ride_details rd
+		where rd.activity_event_id in (
+			select rp.activity_event_id from pg_temp.ride_details_backfill_plan rp
+		)
+			and rd.activity_event_id not in (
+				select b.activity_event_id
+				from public.ride_details_backfill_20261124 b
+				where b.activity_event_id is not null
+			);
 	end if;
 end
 $$;
@@ -739,28 +850,25 @@ revoke all on table
 	public.ride_details_backfill_20261124
 from public, anon, authenticated;
 
--- 1. Clear pace_notes values that duplicate summary/description or contain legacy link footers
---    on ride rows (backed up in public.ride_details_backfill_20261124).
+-- 1. Apply verified pace_notes and external_* updates on imported ride_details rows
+--    (backed up in public.ride_details_backfill_20261124).
 update public.ride_details rd
 set
-	pace_notes = null,
+	pace_notes = rp.next_pace_notes,
+	external_event_url = rp.next_event_url,
+	external_group_url = rp.next_group_url,
+	external_organizer_name = rp.next_organizer_name,
 	updated_at = timezone('utc', now())
-from pg_temp.ride_details_pace_backfill_plan pp
-where rd.activity_event_id = pp.activity_event_id
-	and rd.pace_notes is not null;
+from pg_temp.ride_details_backfill_plan rp
+where rd.activity_event_id = rp.activity_event_id
+	and (
+		rd.pace_notes is distinct from rp.next_pace_notes
+		or rd.external_event_url is distinct from rp.next_event_url
+		or rd.external_group_url is distinct from rp.next_group_url
+		or rd.external_organizer_name is distinct from rp.next_organizer_name
+	);
 
--- 2. Backfill external_event_url, external_group_url, and external_organizer_name on imported ride rows.
-update public.ride_details rd
-set
-	external_event_url = ep.final_event_url,
-	external_group_url = ep.final_group_url,
-	external_organizer_name = ep.final_organizer_name,
-	updated_at = timezone('utc', now())
-from pg_temp.ride_external_backfill_plan ep
-where rd.activity_event_id = ep.activity_event_id
-	and ep.needs_external_update;
-
--- 3. Apply verified description, summary, and placeholder start_location_name updates
+-- 2. Apply verified description, summary, and placeholder start_location_name updates on imported rides
 --    (backed up in public.activity_events_backfill_20261124).
 update public.activity_events ae
 set
@@ -776,7 +884,7 @@ where ae.id = ap.id
 		or ae.start_location_name is distinct from ap.next_location_name
 	);
 
-drop table if exists pg_temp.ride_details_pace_backfill_plan;
+drop table if exists pg_temp.ride_details_backfill_plan;
 drop table if exists pg_temp.activity_events_backfill_plan;
 drop table if exists pg_temp.ride_external_backfill_plan;
 drop function if exists pg_temp.resolve_placeholder_venue_name(text, text);
@@ -792,14 +900,22 @@ drop function if exists pg_temp.clean_external_http_url(text);
 -- 	description = b.description,
 -- 	summary = b.summary,
 -- 	start_location_name = b.start_location_name,
--- 	updated_at = timezone('utc', now())
+-- 	updated_at = coalesce(b.updated_at, ae.updated_at)
 -- from public.activity_events_backfill_20261124 b
 -- where ae.id = b.id;
 --
 -- update public.ride_details rd
 -- set
 -- 	pace_notes = b.pace_notes,
--- 	updated_at = timezone('utc', now())
+-- 	external_event_url = b.external_event_url,
+-- 	external_group_url = b.external_group_url,
+-- 	external_organizer_name = b.external_organizer_name,
+-- 	updated_at = coalesce(b.updated_at, rd.updated_at)
 -- from public.ride_details_backfill_20261124 b
 -- where rd.activity_event_id = b.activity_event_id;
+-- -- Optional schema rollback (if dropping the structured columns completely):
+-- -- alter table public.ride_details
+-- -- 	drop column if exists external_event_url,
+-- -- 	drop column if exists external_group_url,
+-- -- 	drop column if exists external_organizer_name;
 -- commit;
