@@ -5,10 +5,12 @@ import {
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
+	isValidExternalEventUrlInput,
 	loadRideBySlug,
 	normalizeRidePayload,
 	refreshActivityNextOccurrence,
 	syncActivityOccurrences,
+	updateRideDetailsCompat,
 	upsertActivityRelations
 } from '#lib/server/activities';
 import { UNAUTHORIZED_HOST_GROUP_MESSAGE } from '#lib/server/apiV1Errors';
@@ -67,6 +69,9 @@ export async function PUT(event) {
 
 	const rawPayload = await request.json().catch(() => null);
 	if (!rawPayload) return invalid('Invalid request body.');
+	if (!isValidExternalEventUrlInput(rawPayload.externalEventUrl ?? rawPayload.external_event_url)) {
+		return invalid('External registration link must be a valid http:// or https:// URL.');
+	}
 
 	const sponsorshipGroupId = String(rawPayload?.sponsorshipGroupId ?? '').trim() || null;
 	const sponsorshipMessage = String(rawPayload?.sponsorshipMessage ?? '').trim();
@@ -182,13 +187,10 @@ export async function PUT(event) {
 		return invalid(activityError.message, 400);
 	}
 
-	const { error: rideError } = await supabase
-		.from('ride_details')
-		.update({
-			...payload.ride,
-			updated_at: nowIso
-		})
-		.eq('activity_event_id', rideId);
+	const { error: rideError } = await updateRideDetailsCompat(supabase, rideId, {
+		...payload.ride,
+		updated_at: nowIso
+	});
 	if (rideError) {
 		console.error('Unable to update ride details', rideError);
 		return invalid(rideError.message, 400);

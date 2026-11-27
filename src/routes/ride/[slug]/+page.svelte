@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import { navigateAfterMutation, refreshPageData } from '#lib/client/navigation';
 	import IconBadgeInfo from '@lucide/svelte/icons/badge-info';
+	import IconArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import IconCalendarClock from '@lucide/svelte/icons/calendar-clock';
 	import IconMapPin from '@lucide/svelte/icons/map-pin';
 	import IconUsers from '@lucide/svelte/icons/users';
@@ -71,6 +72,58 @@
 	const canClaim = $derived(
 		Boolean(currentUser?.id) && !activity?.host_user_id && !activity?.host_group_id
 	);
+	const isUnclaimed = $derived(!activity?.host_user_id && !activity?.host_group_id);
+	const externalEventUrl = $derived.by(() => {
+		const raw = String(rideDetails?.external_event_url ?? ride?.external_event_url ?? '').trim();
+		if (!raw || /\s/.test(raw)) return '';
+		try {
+			const parsed = new URL(raw);
+			return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : '';
+		} catch {
+			return '';
+		}
+	});
+	const externalOrganizerName = $derived(
+		String(rideDetails?.external_organizer_name ?? ride?.external_organizer_name ?? '').trim()
+	);
+	const externalRegistrationLabel = $derived.by(() => {
+		if (!externalEventUrl) return '';
+		try {
+			const host = new URL(externalEventUrl).hostname.replace(/^www\./i, '').toLowerCase();
+			if (host === 'meetup.com' || host.endsWith('.meetup.com')) return 'Register on Meetup';
+			if (host === 'bikereg.com' || host.endsWith('.bikereg.com')) return 'Register on BikeReg';
+			if (host === 'eventbrite.com' || host.endsWith('.eventbrite.com')) {
+				return 'Register on Eventbrite';
+			}
+		} catch {
+			// Fall back to generic external registration label.
+		}
+		return 'View event & register';
+	});
+	const showLocalRsvp = $derived(!isUnclaimed && !externalEventUrl);
+	const distinctPaceNotes = $derived.by(() => {
+		const pace = String(rideDetails?.pace_notes ?? '').trim();
+		if (!pace) return '';
+		const summary = String(activity?.summary ?? '').trim();
+		const description = String(activity?.description ?? '').trim();
+		if (summary && pace.toLowerCase() === summary.toLowerCase()) return '';
+		if (description && pace.toLowerCase() === description.toLowerCase()) return '';
+		return pace;
+	});
+	const heroLocationLabel = $derived.by(() => {
+		const rawName = String(
+			selectedOccurrence?.start_location_name || activity?.start_location_name || ''
+		).trim();
+		if (rawName && rawName.toLowerCase() !== 'meetup event') return rawName;
+		const rawAddress = String(activity?.start_location_address ?? '').trim();
+		if (!rawAddress) return '';
+		return (
+			rawAddress
+				.split(',')
+				.map((part) => part.trim())
+				.find(Boolean) || ''
+		);
+	});
 	const claimLabel = $derived(ride?.recurrenceRule ? 'Claim Ride Series' : 'Claim Ride');
 	const selectedCalendarLinks = $derived(selectedOccurrenceCalendarLinks());
 	const seoTitle = $derived.by(() => cleanSeoText(activity?.title || 'Ride'));
@@ -435,7 +488,9 @@
 
 <div
 	class={`bg-surface-950 text-surface-50 -m-4 flex flex-col overflow-hidden ${
-		selectedOccurrence ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0' : ''
+		selectedOccurrence && (externalEventUrl || showLocalRsvp)
+			? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0'
+			: ''
 	}`}
 >
 	<!-- HERO -->
@@ -453,7 +508,7 @@
 				>
 					<span class="bg-tertiary-500 h-3 w-3" aria-hidden="true"></span>
 					<a
-						class="border-surface-950 hover:border-tertiary-600 border-b-2 hover:no-underline"
+						class="border-surface-950 hover:border-tertiary-600 inline-flex min-h-8 items-center border-b-2 hover:no-underline"
 						href="/ride"
 					>
 						Rides
@@ -494,15 +549,21 @@
 						{@html renderLinkifiedText(activity.summary)}
 					</p>
 				{/if}
-				{#if selectedOccurrence}
-					{@const heroOccBadge = occurrenceTimezoneBadge(selectedOccurrence)}
+				{#if selectedOccurrence || heroLocationLabel || (!activity?.host_group_id && externalOrganizerName)}
+					{@const heroOccBadge = selectedOccurrence
+						? occurrenceTimezoneBadge(selectedOccurrence)
+						: ''}
 					<p
 						class="border-surface-950 m-0 inline-flex flex-wrap items-center gap-2 border-l-[4px] pl-3 text-sm font-black tracking-wide uppercase"
 					>
 						<span
-							>{activity?.start_location_name
-								? `${activity.start_location_name} · `
-								: ''}{occurrenceLabel(selectedOccurrence)}</span
+							>{[
+								!activity?.host_group_id && externalOrganizerName ? externalOrganizerName : '',
+								heroLocationLabel,
+								selectedOccurrence ? occurrenceLabel(selectedOccurrence) : ''
+							]
+								.filter(Boolean)
+								.join(' · ')}</span
 						>
 						{#if heroOccBadge}
 							<span
@@ -517,7 +578,17 @@
 
 			<div class="flex flex-col gap-6">
 				<div bind:this={heroRsvpEl} class="flex flex-wrap items-center gap-3">
-					{#if selectedOccurrence && currentUser}
+					{#if externalEventUrl}
+						<a
+							href={externalEventUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
+						>
+							{externalRegistrationLabel}
+							<IconArrowUpRight class="h-5 w-5 shrink-0" />
+						</a>
+					{:else if showLocalRsvp && selectedOccurrence && currentUser}
 						<button
 							type="button"
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition"
@@ -533,7 +604,7 @@
 								RSVP
 							{/if}
 						</button>
-					{:else if selectedOccurrence}
+					{:else if showLocalRsvp && selectedOccurrence}
 						<button
 							type="button"
 							class="bg-surface-950 text-primary-500 hover:bg-secondary-500 hover:text-surface-50 inline-flex items-center justify-center gap-2 px-7 py-4 text-base font-black tracking-wide uppercase transition hover:no-underline"
@@ -668,7 +739,7 @@
 		</div>
 	</section>
 
-	{#if currentUser}
+	{#if showLocalRsvp && currentUser}
 		{#key currentUser.id}
 			<SmsPreferencesSheet />
 		{/key}
@@ -810,16 +881,14 @@
 						</div>
 					</div>
 
-					<div class="border-surface-800 border-b py-5 sm:col-span-2">
-						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Pace</div>
-						{#if rideDetails?.pace_notes}
+					{#if distinctPaceNotes}
+						<div class="border-surface-800 border-b py-5 sm:col-span-2">
+							<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">Pace</div>
 							<div class="text-surface-50 mt-1.5 text-base leading-relaxed font-medium">
-								{@html renderLinkifiedText(rideDetails.pace_notes)}
+								{@html renderLinkifiedText(distinctPaceNotes)}
 							</div>
-						{:else}
-							<div class="text-surface-300 mt-1.5 text-base">Not specified</div>
-						{/if}
-					</div>
+						</div>
+					{/if}
 
 					<div class="border-surface-800 border-b py-5 sm:col-span-2">
 						<div class="text-primary-500 text-xs font-bold tracking-[0.22em] uppercase">
@@ -900,13 +969,34 @@
 							{#if activity?.host_group_id}
 								{#if activity?.group?.slug && activity?.group?.name}
 									<a
-										class="text-primary-500 hover:text-surface-50 underline decoration-2 underline-offset-4"
+										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
 										href={`/groups/${encodeURIComponent(activity.group.slug)}`}
 									>
 										{activity.group.name}
 									</a>
 								{:else}
 									Organization-hosted ride
+								{/if}
+								{#if externalOrganizerName && externalOrganizerName.toLowerCase() !== String(activity?.group?.name ?? '')
+											.trim()
+											.toLowerCase()}
+									<div class="text-surface-300 mt-1 text-xs font-bold tracking-wide">
+										External host: {externalOrganizerName}
+									</div>
+								{/if}
+							{:else if externalOrganizerName}
+								{#if externalEventUrl}
+									<a
+										class="text-primary-500 hover:text-surface-50 inline-flex min-h-8 items-center gap-1.5 underline decoration-2 underline-offset-4 pointer-coarse:min-h-11"
+										href={externalEventUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+									>
+										<span>{externalOrganizerName}</span>
+										<IconArrowUpRight class="h-4 w-4 shrink-0" />
+									</a>
+								{:else}
+									{externalOrganizerName}
 								{/if}
 							{:else if activity?.host_user_id}
 								Hosted by a rider on 3FP
@@ -1014,7 +1104,7 @@
 		</div>
 
 		<!-- SIDEBAR: MAP + PARTICIPANTS -->
-		<aside class="bg-secondary-500 text-surface-50 flex min-w-0 flex-col justify-between">
+		<div class="bg-secondary-500 text-surface-50 flex min-w-0 flex-col justify-between">
 			<div class="flex flex-col">
 				<section class="px-6 pt-12 pb-8 sm:px-10" aria-labelledby="map-heading">
 					<div class="mb-4 flex flex-col gap-1">
@@ -1085,9 +1175,19 @@
 									There is no upcoming occurrence to show participants for.
 								</p>
 							{:else if !selectedOccurrence.rsvps?.some((entry) => entry.status === 'going')}
-								<p class="m-0 pt-4 text-sm font-medium opacity-85">
-									No RSVPs yet for the selected occurrence.
-								</p>
+								{#if externalEventUrl}
+									<p class="m-0 pt-4 text-sm font-medium opacity-90">
+										Registration for this ride is hosted externally.
+									</p>
+								{:else if isUnclaimed}
+									<p class="m-0 pt-4 text-sm font-medium opacity-90">
+										This ride is unclaimed and does not collect RSVPs on 3FP yet.
+									</p>
+								{:else}
+									<p class="m-0 pt-4 text-sm font-medium opacity-85">
+										No RSVPs yet for the selected occurrence.
+									</p>
+								{/if}
 							{/if}
 						</div>
 					{:else}
@@ -1115,7 +1215,7 @@
 					</div>
 				{/each}
 			</div>
-		</aside>
+		</div>
 	</div>
 
 	<!-- PHOTO GALLERY -->
@@ -1174,7 +1274,7 @@
 		</section>
 	{/if}
 
-	{#if selectedOccurrence && showStickyRsvpBar}
+	{#if selectedOccurrence && showStickyRsvpBar && (externalEventUrl || showLocalRsvp)}
 		{@const stickyOccBadge = occurrenceTimezoneBadge(selectedOccurrence)}
 		<div
 			role="region"
@@ -1196,7 +1296,7 @@
 							</span>
 						{/if}
 					</p>
-					{#if currentUserRsvp(selectedOccurrence)?.status === 'going'}
+					{#if showLocalRsvp && currentUserRsvp(selectedOccurrence)?.status === 'going'}
 						<span
 							class="bg-success-300 text-surface-950 shrink-0 px-2 py-0.5 text-[0.65rem] font-black tracking-[0.14em] uppercase"
 						>
@@ -1210,7 +1310,17 @@
 				{/if}
 
 				<div class="flex items-center gap-2">
-					{#if currentUser}
+					{#if externalEventUrl}
+						<a
+							href={externalEventUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="bg-primary-400 text-surface-950 hover:bg-primary-300 inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition hover:no-underline"
+						>
+							<span>{externalRegistrationLabel}</span>
+							<IconArrowUpRight class="h-4 w-4 shrink-0" />
+						</a>
+					{:else if showLocalRsvp && currentUser}
 						<button
 							type="button"
 							class="bg-primary-400 text-surface-950 hover:bg-primary-300 inline-flex min-h-11 flex-1 items-center justify-center px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition disabled:cursor-not-allowed disabled:opacity-60"
@@ -1228,7 +1338,7 @@
 								RSVP
 							{/if}
 						</button>
-					{:else}
+					{:else if showLocalRsvp}
 						<button
 							type="button"
 							class="bg-primary-400 text-surface-950 hover:bg-primary-300 inline-flex min-h-11 flex-1 items-center justify-center px-4 py-2.5 text-xs font-black tracking-[0.14em] uppercase transition"

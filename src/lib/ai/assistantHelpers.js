@@ -368,6 +368,8 @@ export function rideDraftFingerprint(payload = {}) {
 		endsAt: String(source.endsAt ?? ''),
 		status: String(source.status ?? ''),
 		hostGroupId: String(source.hostGroupId ?? ''),
+		externalEventUrl: String(source.externalEventUrl ?? ''),
+		externalOrganizerName: String(source.externalOrganizerName ?? ''),
 		contactEmail: String(source.contactEmail ?? ''),
 		contactPhone: String(source.contactPhone ?? ''),
 		startLocationName: String(source.startLocationName ?? ''),

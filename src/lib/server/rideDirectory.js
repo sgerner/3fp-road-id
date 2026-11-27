@@ -1,3 +1,5 @@
+import { isMissingExternalRideColumnsError, resolveExternalRideMetadata } from './ridePayload.js';
+
 export const RIDES_CHUNK_SIZE = 500;
 export const RIDES_SAFETY_CEILING = 2000;
 export const RECURRENCE_LOOKUP_BATCH_SIZE = 150;
@@ -75,12 +77,29 @@ export function parseRideListParams(searchParamsInput) {
 }
 
 export function normalizeRideListRow(activity, recurringActivityIds) {
-	const rideDetails = Array.isArray(activity.ride_details)
+	const rawRideDetails = Array.isArray(activity.ride_details)
 		? (activity.ride_details[0] ?? null)
 		: (activity.ride_details ?? null);
+	const resolvedExternal = resolveExternalRideMetadata(activity, rawRideDetails);
+	const externalEventUrl = resolvedExternal.external_event_url;
+	const externalOrganizerName = resolvedExternal.external_organizer_name;
+	const rideDetails = rawRideDetails
+		? {
+				...rawRideDetails,
+				external_event_url: externalEventUrl,
+				external_organizer_name: externalOrganizerName
+			}
+		: null;
+	const sourceEventId = activity.source_event_id ?? null;
 
 	return {
 		id: activity.id,
+		source_event_id: sourceEventId,
+		sourceEventId,
+		external_event_url: externalEventUrl,
+		externalEventUrl,
+		external_organizer_name: externalOrganizerName,
+		externalOrganizerName,
 		title: activity.title,
 		slug: activity.slug,
 		summary: activity.summary,
@@ -110,6 +129,7 @@ export function normalizeRideListRow(activity, recurringActivityIds) {
 function buildSelectColumns({ filterByDifficulty = false } = {}) {
 	return `
 		id,
+		source_event_id,
 		title,
 		slug,
 		summary,
@@ -150,22 +170,38 @@ async function resolveDifficultyLevelIds(supabase, difficulty) {
 		.filter((id) => id !== null && id !== undefined);
 }
 
+async function queryRideDetailsSearchMatches(supabase, ilikePattern, quotedPattern, nowIso) {
+	const primary = await supabase
+		.from('ride_details')
+		.select('activity_event_id,activity_events!inner(id)')
+		.or(`pace_notes.ilike.${quotedPattern},external_organizer_name.ilike.${quotedPattern}`)
+		.eq('activity_events.activity_type', 'ride')
+		.eq('activity_events.status', 'published')
+		.gte('activity_events.next_occurrence_start', nowIso)
+		.limit(MAX_RELATED_SEARCH_IDS);
+	if (!primary?.error || !isMissingExternalRideColumnsError(primary.error)) {
+		return primary;
+	}
+	return supabase
+		.from('ride_details')
+		.select('activity_event_id,activity_events!inner(id)')
+		.ilike('pace_notes', ilikePattern)
+		.eq('activity_events.activity_type', 'ride')
+		.eq('activity_events.status', 'published')
+		.gte('activity_events.next_occurrence_start', nowIso)
+		.limit(MAX_RELATED_SEARCH_IDS);
+}
+
 async function resolveSearchRelatedFilters(supabase, search, nowIso) {
 	const needle = search.toLowerCase();
 	const ilikePattern = `%${sanitizeIlikeTerm(search)}%`;
+	const quotedPattern = buildPostgrestQuotedIlikePattern(search);
 
 	const [groupsRes, levelsRes, disciplinesRes, detailsRes] = await Promise.all([
 		supabase.from('groups').select('id').ilike('name', ilikePattern).limit(MAX_RELATED_SEARCH_IDS),
 		supabase.from('ride_difficulty_levels').select('id,name'),
 		supabase.from('riding_disciplines').select('id,name'),
-		supabase
-			.from('ride_details')
-			.select('activity_event_id,activity_events!inner(id)')
-			.ilike('pace_notes', ilikePattern)
-			.eq('activity_events.activity_type', 'ride')
-			.eq('activity_events.status', 'published')
-			.gte('activity_events.next_occurrence_start', nowIso)
-			.limit(MAX_RELATED_SEARCH_IDS)
+		queryRideDetailsSearchMatches(supabase, ilikePattern, quotedPattern, nowIso)
 	]);
 
 	const matchingGroupIds = Array.from(

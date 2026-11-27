@@ -4,6 +4,8 @@ import {
 	ensureUniqueActivitySlug,
 	getActivityClient,
 	getActivityServiceClient,
+	insertRideDetailsCompat,
+	isValidExternalEventUrlInput,
 	loadRideBySlug,
 	normalizeRidePayload,
 	refreshActivityNextOccurrence,
@@ -62,6 +64,9 @@ export async function POST(event) {
 
 	const rawPayload = await parseJson(request);
 	if (!rawPayload) return invalid('Invalid request body.');
+	if (!isValidExternalEventUrlInput(rawPayload.externalEventUrl ?? rawPayload.external_event_url)) {
+		return invalid('External registration link must be a valid http:// or https:// URL.');
+	}
 
 	const sponsorshipGroupId = String(rawPayload?.sponsorshipGroupId ?? '').trim() || null;
 	const sponsorshipMessage = String(rawPayload?.sponsorshipMessage ?? '').trim();
@@ -167,7 +172,7 @@ export async function POST(event) {
 		return invalid(activityError.message, 400);
 	}
 
-	const { error: rideError } = await writeSupabase.from('ride_details').insert({
+	const { error: rideError } = await insertRideDetailsCompat(writeSupabase, {
 		activity_event_id: activity.id,
 		updated_at: nowIso,
 		...payload.ride

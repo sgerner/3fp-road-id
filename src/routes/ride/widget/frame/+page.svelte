@@ -30,6 +30,7 @@
 	import {
 		extractRideCity,
 		extractRideState,
+		formatRideCardLocation,
 		formatRideWidgetTitle
 	} from '#lib/rides/widgetConfig';
 
@@ -103,7 +104,9 @@
 					ride.description,
 					ride.startLocationName,
 					ride.startLocationAddress,
-					ride.group?.name
+					ride.group?.name,
+					ride.externalOrganizerName,
+					ride.rideDetails?.external_organizer_name
 				]
 					.filter(Boolean)
 					.join(' ')
@@ -327,13 +330,17 @@
 			.map((ride) => {
 				const diff = primaryDifficulty(ride);
 				const tzBadge = rideTimezoneBadge(ride);
+				const organizerName =
+					ride.group?.name ||
+					ride.externalOrganizerName ||
+					ride.rideDetails?.external_organizer_name;
 				return {
 					id: ride.id ?? ride.slug,
 					lat: Number(ride.startLatitude),
 					lng: Number(ride.startLongitude),
 					title: rideTitle(ride),
 					subtitle: [formatNext(ride), tzBadge].filter(Boolean).join(' '),
-					meta: [ride.startLocationName, ride.group?.name].filter(Boolean).join(' · '),
+					meta: [formatRideCardLocation(ride), organizerName].filter(Boolean).join(' · '),
 					badge: config.difficultyColors ? diff : '',
 					href: `/ride/${ride.slug}`,
 					ctaLabel: 'View ride',
@@ -529,13 +536,17 @@
 								<div class="ride-card-meta">
 									<div class="ride-location">
 										<IconMapPin class="h-3.5 w-3.5" />
-										<span>{ride.startLocationName || 'Location coming soon'}</span>
+										<span>{formatRideCardLocation(ride)}</span>
 									</div>
 									{#if tzBadge}
 										<div class="chip tz-chip">{tzBadge}</div>
 									{/if}
-									{#if ride.group?.name}
-										<div class="chip">{ride.group.name}</div>
+									{#if ride.group?.name || ride.externalOrganizerName || ride.rideDetails?.external_organizer_name}
+										<div class="chip">
+											{ride.group?.name ||
+												ride.externalOrganizerName ||
+												ride.rideDetails?.external_organizer_name}
+										</div>
 									{/if}
 								</div>
 							</div>

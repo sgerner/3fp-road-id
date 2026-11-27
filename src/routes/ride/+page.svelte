@@ -17,6 +17,7 @@
 	import { page } from '$app/state';
 	import { isValidLatLng } from '#lib/map/leaflet';
 	import { getRideImage } from '#lib/rides/media';
+	import { formatRideCardLocation } from '#lib/rides/widgetConfig';
 	import { optimizedImageUrl } from '#lib/media/optimized';
 	import {
 		applyRideUrlState,
@@ -118,6 +119,8 @@
 					ride.startLocationName,
 					ride.startLocationAddress,
 					ride.group?.name,
+					ride.externalOrganizerName,
+					ride.rideDetails?.external_organizer_name,
 					ride.rideDetails?.pace_notes,
 					...(ride.difficultyLevels ?? []).map((item) => item?.name),
 					...(ride.ridingDisciplines ?? []).map((item) => item?.name)
@@ -411,13 +414,14 @@
 			.filter((r) => isValidLatLng(r?.startLatitude, r?.startLongitude))
 			.map((r) => {
 				const tzBadge = rideTimezoneBadge(r);
+				const hostName = r.group?.name || r.externalOrganizerName || '';
 				return {
 					id: r.id ?? r.slug,
 					lat: Number(r.startLatitude),
 					lng: Number(r.startLongitude),
 					title: r.title || 'Community ride',
 					subtitle: [formatNext(r), tzBadge].filter(Boolean).join(' '),
-					meta: [r.startLocationName, r.group?.name ? `Hosted by ${r.group.name}` : '']
+					meta: [formatRideCardLocation(r), hostName ? `Hosted by ${hostName}` : '']
 						.filter(Boolean)
 						.join(' · '),
 					badge: (r.difficultyLevels ?? [])[0]?.name || '',
@@ -879,9 +883,9 @@
 								<div class="text-surface-300 flex flex-col gap-1 text-sm">
 									<div class="flex items-center gap-2 font-medium">
 										<IconMapPin class="text-primary-500 h-4 w-4 shrink-0" />
-										<span class="truncate">{ride.startLocationName ?? 'Location coming soon'}</span>
+										<span class="truncate">{formatRideCardLocation(ride)}</span>
 									</div>
-									{#if ride.startLocationAddress}
+									{#if ride.startLocationAddress && ride.startLocationAddress !== formatRideCardLocation(ride)}
 										<div class="truncate pl-6 text-xs opacity-80">{ride.startLocationAddress}</div>
 									{/if}
 								</div>
@@ -915,13 +919,19 @@
 									class="border-surface-800 mt-auto flex items-center justify-between gap-3 border-t pt-4"
 								>
 									<div
-										class="text-surface-300 flex items-center gap-1.5 text-xs font-bold uppercase"
+										class="text-surface-300 flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase"
 									>
-										<IconUsers class="h-3.5 w-3.5" />
-										<span>
-											{ride.rideDetails?.participant_visibility === 'private'
-												? 'Private RSVP list'
-												: 'Public RSVP list'}
+										<IconUsers class="h-3.5 w-3.5 shrink-0" />
+										<span class="truncate">
+											{#if !ride.hostUserId && !ride.hostGroupId && (ride.externalOrganizerName || ride.rideDetails?.external_organizer_name)}
+												{ride.externalOrganizerName || ride.rideDetails?.external_organizer_name}
+											{:else if ride.externalEventUrl || ride.rideDetails?.external_event_url}
+												External registration
+											{:else}
+												{ride.rideDetails?.participant_visibility === 'private'
+													? 'Private RSVP list'
+													: 'Public RSVP list'}
+											{/if}
 										</span>
 									</div>
 									<span
