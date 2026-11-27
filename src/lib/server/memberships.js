@@ -855,6 +855,29 @@ async function stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, str
 	return account?.stripe_account_id === stripeAccountId;
 }
 
+async function loadCurrentMembershipSubscriptionId(serviceSupabase, groupId, userId) {
+	if (!groupId || !userId) return null;
+	const { data: rows, error: membershipError } = await serviceSupabase
+		.from('group_memberships')
+		.select('id')
+		.eq('group_id', groupId)
+		.eq('user_id', userId)
+		.in('status', ['active', 'past_due', 'paused'])
+		.order('created_at', { ascending: false })
+		.limit(1);
+	if (membershipError) throw new Error(membershipError.message);
+	const membershipId = rows?.[0]?.id;
+	if (!membershipId) return null;
+
+	const { data: billing, error: billingError } = await serviceSupabase
+		.from('group_membership_billing')
+		.select('stripe_subscription_id')
+		.eq('membership_id', membershipId)
+		.maybeSingle();
+	if (billingError) throw new Error(billingError.message);
+	return cleanNullableText(billing?.stripe_subscription_id, 255);
+}
+
 /**
  * @param {{
  *   serviceSupabase: any,
@@ -921,6 +944,12 @@ async function createCheckoutSession({
 		};
 	}
 
+	const supersedesSubscriptionId = await loadCurrentMembershipSubscriptionId(
+		serviceSupabase,
+		group.id,
+		userId
+	);
+	/** @type {Record<string, string>} */
 	const metadata = {
 		membership_flow: 'group_membership',
 		membership_group_id: group.id,
@@ -934,6 +963,9 @@ async function createCheckoutSession({
 		membership_interval_unit: billingInterval || '',
 		membership_amount_cents: String(amountCents)
 	};
+	if (supersedesSubscriptionId) {
+		metadata.membership_supersedes_sub_id = supersedesSubscriptionId;
+	}
 
 	const successUrl = `${baseUrl}/groups/${encodeURIComponent(group.slug)}?membership=success&session_id={CHECKOUT_SESSION_ID}`;
 	const cancelUrl = `${baseUrl}/groups/${encodeURIComponent(group.slug)}?membership=cancelled`;
@@ -1081,38 +1113,6 @@ async function upsertBillingForMembership({ serviceSupabase, membershipId, updat
 	return data;
 }
 
-/**
- * @param {{ serviceSupabase: any, membershipId: string, existingBilling: any }} options
- */
-async function restoreBillingSnapshot({ serviceSupabase, membershipId, existingBilling }) {
-	if (!membershipId || !existingBilling) return;
-	const { error } = await serviceSupabase
-		.from('group_membership_billing')
-		.update({
-			stripe_customer_id: existingBilling.stripe_customer_id ?? null,
-			stripe_subscription_id: existingBilling.stripe_subscription_id ?? null,
-			stripe_price_id: existingBilling.stripe_price_id ?? null,
-			last_invoice_id: existingBilling.last_invoice_id ?? null,
-			last_payment_status: existingBilling.last_payment_status ?? null,
-			next_billing_at: existingBilling.next_billing_at ?? null,
-			updated_at: toIsoNow()
-		})
-		.eq('membership_id', membershipId);
-	if (error) {
-		console.error(
-			'Failed to restore membership billing snapshot after Stripe cancellation failure',
-			{
-				membershipId,
-				stripeSubscriptionId: existingBilling.stripe_subscription_id ?? null,
-				error: error.message || error
-			}
-		);
-		throw new Error(
-			`Failed to restore membership billing snapshot: ${error.message || 'Unknown database error'}`
-		);
-	}
-}
-
 /** @type {Map<string, Promise<{ canceled: boolean, alreadyCanceled: boolean, resourceMissing: boolean }>>} */
 const inFlightSubscriptionCancels = new Map();
 
@@ -1120,35 +1120,24 @@ const inFlightSubscriptionCancels = new Map();
  * @param {{
  *   stripe: any,
  *   subscriptionId: string | null,
- *   stripeAccountId: string | null,
- *   idempotencyKey?: string | null
+ *   stripeAccountId: string | null
  * }} options
  */
-async function cancelStripeSubscriptionSafely({
-	stripe,
-	subscriptionId,
-	stripeAccountId,
-	idempotencyKey = null
-}) {
+async function cancelStripeSubscriptionSafely({ stripe, subscriptionId, stripeAccountId }) {
 	if (!subscriptionId) {
 		return { canceled: false, alreadyCanceled: false, resourceMissing: false };
 	}
 	if (!stripeAccountId) {
 		throw new Error('Stripe account is required to cancel an existing subscription.');
 	}
-	const inFlightKey = idempotencyKey ? `${stripeAccountId}:${idempotencyKey}` : null;
-	if (inFlightKey) {
-		const existingPromise = inFlightSubscriptionCancels.get(inFlightKey);
-		if (existingPromise) return existingPromise;
-	}
+	const inFlightKey = `${stripeAccountId}:${subscriptionId}`;
+	const existingPromise = inFlightSubscriptionCancels.get(inFlightKey);
+	if (existingPromise) return existingPromise;
 
 	const runCancel = async () => {
-		const cancelOptions = idempotencyKey
-			? { stripeAccount: stripeAccountId, idempotencyKey }
-			: { stripeAccount: stripeAccountId };
-		const retrieveOptions = { stripeAccount: stripeAccountId };
+		const stripeOptions = { stripeAccount: stripeAccountId };
 		try {
-			const canceledSub = await stripe.subscriptions.cancel(subscriptionId, {}, cancelOptions);
+			const canceledSub = await stripe.subscriptions.cancel(subscriptionId, {}, stripeOptions);
 			const status = cleanText(canceledSub?.status || '', 40);
 			if (status && status !== 'canceled') {
 				throw new Error(
@@ -1167,7 +1156,7 @@ async function cancelStripeSubscriptionSafely({
 					const existingSub = await stripe.subscriptions.retrieve(
 						subscriptionId,
 						{},
-						retrieveOptions
+						stripeOptions
 					);
 					if (['canceled', 'incomplete_expired'].includes(existingSub?.status)) {
 						return { canceled: false, alreadyCanceled: true, resourceMissing: false };
@@ -1184,7 +1173,6 @@ async function cancelStripeSubscriptionSafely({
 		}
 	};
 
-	if (!inFlightKey) return runCancel();
 	const cancelPromise = runCancel().finally(() => {
 		inFlightSubscriptionCancels.delete(inFlightKey);
 	});
@@ -1301,15 +1289,14 @@ export async function applyZeroPaymentMembership({
 			};
 		}
 
-		// Cancel in Stripe first so a crash or timeout never orphans a live subscription
-		// without its pointer in group_membership_billing.
+		// Cancel in Stripe first (without an idempotency key so Stripe never caches transient 5xxs)
+		// so a crash or timeout never orphans a live subscription without its pointer.
 		let cancelResult;
 		try {
 			cancelResult = await cancelStripeSubscriptionSafely({
 				stripe: getStripeClient(),
 				subscriptionId: previousSubscriptionId,
-				stripeAccountId: donationAccount.stripe_account_id,
-				idempotencyKey: `downgrade-cancel:${existing.id}:${previousSubscriptionId}`
+				stripeAccountId: donationAccount.stripe_account_id
 			});
 		} catch (cancelError) {
 			console.error(
@@ -1369,9 +1356,10 @@ export async function applyZeroPaymentMembership({
 				: calculateRenewalDate(tier, now)
 			: existing.renews_at;
 
+	const nextStatus = existing.status === 'active' ? targetStatus : existing.status;
 	const membershipUpdates = {
 		tier_id: tier.id,
-		status: targetStatus,
+		status: nextStatus,
 		contribution_amount_cents: 0,
 		renews_at: nextRenewsAt,
 		interval_unit: normalizedInterval,
@@ -3190,8 +3178,8 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 	}
 	if (!tier) return { ok: false, status: 400, error: 'Select a membership tier.' };
 
-	// Intentional: existing active, past_due, or paused members in private_request
-	// programs bypass the application gate because they were already admitted.
+	// Intentional: only existing active members in private_request programs bypass
+	// the application gate because they were already admitted and are in good standing.
 	let existingMembership = null;
 	if (program.access_mode === 'private_request') {
 		const { data: existingRows, error: existingMembershipError } = await serviceSupabase
@@ -3199,7 +3187,7 @@ export async function createMembershipCheckout({ cookies, groupSlug, payload, re
 			.select('id,status,tier_id')
 			.eq('group_id', auth.group.id)
 			.eq('user_id', auth.userId)
-			.in('status', ['active', 'past_due', 'paused'])
+			.eq('status', 'active')
 			.order('created_at', { ascending: false })
 			.limit(1);
 		if (existingMembershipError) throw new Error(existingMembershipError.message);
@@ -3348,8 +3336,8 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	}
 	if (!tier) return { ok: false, status: 400, error: 'Select a membership tier.' };
 
-	// Intentional: existing active, past_due, or paused members in private_request
-	// programs bypass the application gate because they were already admitted.
+	// Intentional: only existing active members in private_request programs bypass
+	// the application gate because they were already admitted and are in good standing.
 	let existingMembership = null;
 	if (program.access_mode === 'private_request') {
 		const { data: existingRows, error: existingMembershipError } = await serviceSupabase
@@ -3357,7 +3345,7 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 			.select('id,status,tier_id')
 			.eq('group_id', auth.group.id)
 			.eq('user_id', auth.userId)
-			.in('status', ['active', 'past_due', 'paused'])
+			.eq('status', 'active')
 			.order('created_at', { ascending: false })
 			.limit(1);
 		if (existingMembershipError) throw new Error(existingMembershipError.message);
@@ -3464,6 +3452,11 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 	const currency = normalizeCurrency(tier.currency);
 	const billingType = tier?.billing_type === 'one_time' ? 'one_time' : 'recurring';
 	const paymentMode = billingType === 'one_time' ? 'payment' : 'subscription';
+	const supersedesSubscriptionId = await loadCurrentMembershipSubscriptionId(
+		serviceSupabase,
+		auth.group.id,
+		auth.userId
+	);
 	/** @type {Record<string, string>} */
 	const metadata = {
 		membership_flow: 'group_membership',
@@ -3478,6 +3471,9 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 		membership_interval_unit: billingType === 'one_time' ? '' : billingInterval || '',
 		membership_amount_cents: String(finalAmount)
 	};
+	if (supersedesSubscriptionId) {
+		metadata.membership_supersedes_sub_id = supersedesSubscriptionId;
+	}
 
 	let paymentIntent = null;
 	let subscription = null;
@@ -3654,7 +3650,8 @@ export async function createMembershipPaymentIntent({ cookies, groupSlug, payloa
 					subscription: subscription.id
 				},
 				stripeAccountId: donationAccount.stripe_account_id,
-				fetchImpl: null
+				fetchImpl: null,
+				retrievedSubscription: subscription
 			});
 			if (activation?.ok) {
 				return {
@@ -3730,6 +3727,7 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 	let metadata;
 	let customerId;
 	let subscriptionId = subscriptionIdFromPayload;
+	let retrievedSubscription = null;
 	let paymentStatus;
 	try {
 		if (!subscriptionId) {
@@ -3769,6 +3767,7 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 				{ expand: ['latest_invoice'] },
 				stripeOptions
 			);
+			retrievedSubscription = subscription;
 			metadata = subscription.metadata;
 			customerId = extractStripeObjectId(subscription.customer);
 			let invoice = subscription.latest_invoice;
@@ -3787,7 +3786,7 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 				};
 			}
 			const subscriptionPaid =
-				subscription.status === 'active' &&
+				['active', 'trialing'].includes(subscription.status) &&
 				Boolean(invoice && (invoice.status === 'paid' || invoice.paid === true));
 			if (
 				!subscriptionPaid &&
@@ -3888,7 +3887,8 @@ export async function finalizeMembershipPaymentIntent({ cookies, groupSlug, payl
 			subscription: subscriptionId
 		},
 		stripeAccountId: donationAccount.stripe_account_id,
-		fetchImpl
+		fetchImpl,
+		retrievedSubscription
 	});
 
 	if (!activation?.ok) {
@@ -4392,12 +4392,16 @@ export async function approveMembershipApplication({
 
 	let membership = null;
 	if (!needsPayment) {
+		// Intentional: approving a free-tier application transitions any existing membership
+		// row in place via applyZeroPaymentMembership and cancels any prior paid Stripe
+		// subscription so the member is not double-billed on a zero-payment tier.
 		const freeResult = await applyZeroPaymentMembership({
 			serviceSupabase,
 			groupId: auth.group.id,
 			userId: application.user_id,
 			tier,
 			billingInterval: tier.billing_type === 'one_time' ? null : defaultInterval,
+			applicationId: application.id,
 			source: 'online',
 			status: 'active'
 		});
@@ -5588,16 +5592,20 @@ export async function processScheduledMembershipEmails({
  *   metadata: any,
  *   stripeSession: any,
  *   stripeAccountId?: string | null,
- *   fetchImpl?: any
+ *   fetchImpl?: any,
+ *   retrievedSubscription?: any,
+ *   fromBootstrapOrReplay?: boolean
  * }} options
- * @returns {Promise<{ ok: false, matched: boolean, retryable?: boolean, error: string } | { ok: true, matched: true, membership_id: string }>}
+ * @returns {Promise<{ ok: false, matched: boolean, retryable?: boolean, error: string } | { ok: true, matched: boolean, skipped?: boolean, membership_id?: string }>}
  */
 async function activateMembershipFromMetadata({
 	serviceSupabase,
 	metadata,
 	stripeSession,
 	stripeAccountId = null,
-	fetchImpl
+	fetchImpl,
+	retrievedSubscription = null,
+	fromBootstrapOrReplay = false
 }) {
 	if (!isMembershipMetadata(metadata)) {
 		return { ok: false, matched: false, error: 'Not a membership payment metadata payload.' };
@@ -5609,18 +5617,51 @@ async function activateMembershipFromMetadata({
 	const applicationId = cleanNullableText(metadata.membership_application_id, 64);
 	const billingInterval = cleanNullableText(metadata.membership_interval_unit, 16);
 	const membershipAmountCents = normalizeNullableAmountCents(metadata.membership_amount_cents);
+	const supersedesSubIdFromMetadata = cleanNullableText(
+		metadata.membership_supersedes_sub_id || metadata.membership_supersedes_subscription_id || '',
+		255
+	);
 
 	if (!groupId || !userId || !tierId) {
-		return { ok: false, matched: true, error: 'Missing required membership metadata fields.' };
+		return {
+			ok: false,
+			matched: true,
+			retryable: false,
+			error: 'Missing required membership metadata fields.'
+		};
 	}
 
-	if (!(await stripeAccountMatchesMembershipGroup(serviceSupabase, groupId, stripeAccountId))) {
+	if (!stripeAccountId) {
+		return {
+			ok: false,
+			matched: true,
+			retryable: true,
+			error: 'Missing connected Stripe account for membership activation.'
+		};
+	}
+
+	const donationAccount = await loadDonationAccountForGroup(serviceSupabase, groupId);
+	if (!donationAccount?.stripe_account_id) {
+		return {
+			ok: false,
+			matched: true,
+			retryable: true,
+			error: 'Group does not have a connected Stripe account configured.'
+		};
+	}
+	if (donationAccount.stripe_account_id !== stripeAccountId) {
 		return { ok: false, matched: false, error: 'Payment account does not match this group.' };
 	}
 
 	const group = await loadGroupById(serviceSupabase, groupId);
-	if (!group)
-		return { ok: false, matched: true, error: 'Group not found for membership metadata.' };
+	if (!group) {
+		return {
+			ok: false,
+			matched: true,
+			retryable: true,
+			error: 'Group not found for membership metadata.'
+		};
+	}
 
 	const tier = await loadTierById(serviceSupabase, tierId);
 	const isOneTime =
@@ -5633,39 +5674,142 @@ async function activateMembershipFromMetadata({
 				? tier.interval_unit
 				: null;
 
-	const membership = await findOrCreateMembership({
-		serviceSupabase,
-		groupId,
-		userId,
-		tierId,
-		billingInterval: normalizedInterval,
-		applicationId,
-		source: 'online',
-		status: 'active'
-	});
-
 	const subscriptionId = isOneTime
 		? null
 		: typeof stripeSession?.subscription === 'string'
 			? stripeSession.subscription
 			: stripeSession?.subscription?.id || null;
-	const customerId = extractStripeObjectId(stripeSession?.customer) || null;
-	const paymentStatus = cleanNullableText(
-		stripeSession?.payment_status || stripeSession?.status || 'paid',
-		120
-	);
 
-	const { data: existingBilling, error: existingBillingError } = await serviceSupabase
-		.from('group_membership_billing')
+	const stripe = getStripeClient();
+	let verifiedSubscription =
+		subscriptionId && retrievedSubscription?.id === subscriptionId ? retrievedSubscription : null;
+	if (subscriptionId && !verifiedSubscription) {
+		if (typeof stripe?.subscriptions?.retrieve !== 'function') {
+			if (fromBootstrapOrReplay) {
+				return { ok: true, matched: false, skipped: true };
+			}
+		} else {
+			try {
+				verifiedSubscription = await stripe.subscriptions.retrieve(
+					subscriptionId,
+					{},
+					{ stripeAccount: stripeAccountId }
+				);
+			} catch (retrieveErr) {
+				const err = /** @type {any} */ (retrieveErr);
+				const errCode = err?.code || err?.raw?.code;
+				if (errCode === 'resource_missing' || err?.statusCode === 404) {
+					return { ok: true, matched: false, skipped: true };
+				}
+				throw retrieveErr;
+			}
+		}
+	}
+
+	if (
+		subscriptionId &&
+		verifiedSubscription &&
+		!['active', 'trialing'].includes(cleanText(verifiedSubscription?.status, 40))
+	) {
+		return { ok: true, matched: false, skipped: true };
+	}
+
+	const { data: existingRows, error: existingMembershipError } = await serviceSupabase
+		.from('group_memberships')
 		.select('*')
-		.eq('membership_id', membership.id)
-		.maybeSingle();
-	if (existingBillingError) throw new Error(existingBillingError.message);
+		.eq('group_id', groupId)
+		.eq('user_id', userId)
+		.in('status', ['active', 'past_due', 'paused'])
+		.order('created_at', { ascending: false })
+		.limit(1);
+	if (existingMembershipError) throw new Error(existingMembershipError.message);
+	const existingMembership = existingRows?.[0] || null;
+
+	let existingBilling = null;
+	if (existingMembership?.id) {
+		const { data: billingRow, error: existingBillingError } = await serviceSupabase
+			.from('group_membership_billing')
+			.select('*')
+			.eq('membership_id', existingMembership.id)
+			.maybeSingle();
+		if (existingBillingError) throw new Error(existingBillingError.message);
+		existingBilling = billingRow || null;
+	}
+
 	const previousSubscriptionId = cleanNullableText(existingBilling?.stripe_subscription_id, 255);
 	const supersededSubscriptionId =
 		previousSubscriptionId && previousSubscriptionId !== subscriptionId
 			? previousSubscriptionId
 			: null;
+
+	if (supersededSubscriptionId) {
+		const explicitSupersedeMatch =
+			Boolean(supersedesSubIdFromMetadata) &&
+			supersedesSubIdFromMetadata === previousSubscriptionId;
+		const mustCheckDifferentLiveSub =
+			fromBootstrapOrReplay ||
+			(Boolean(supersedesSubIdFromMetadata) &&
+				supersedesSubIdFromMetadata !== previousSubscriptionId) ||
+			Boolean(verifiedSubscription?.created);
+
+		if (!explicitSupersedeMatch && mustCheckDifferentLiveSub) {
+			let previousSubscription = null;
+			if (typeof stripe?.subscriptions?.retrieve === 'function') {
+				try {
+					previousSubscription = await stripe.subscriptions.retrieve(
+						previousSubscriptionId,
+						{},
+						{ stripeAccount: stripeAccountId }
+					);
+				} catch (retrieveErr) {
+					const err = /** @type {any} */ (retrieveErr);
+					const errCode = err?.code || err?.raw?.code;
+					if (errCode !== 'resource_missing' && err?.statusCode !== 404) {
+						throw retrieveErr;
+					}
+				}
+			}
+			const previousIsLive =
+				previousSubscription !== null
+					? ['active', 'trialing'].includes(cleanText(previousSubscription?.status, 40))
+					: fromBootstrapOrReplay;
+			const incomingOlderThanPrevious =
+				Boolean(verifiedSubscription?.created) &&
+				Boolean(previousSubscription?.created) &&
+				Number(verifiedSubscription.created) < Number(previousSubscription.created);
+			if (
+				previousIsLive &&
+				(fromBootstrapOrReplay ||
+					incomingOlderThanPrevious ||
+					(Boolean(supersedesSubIdFromMetadata) &&
+						supersedesSubIdFromMetadata !== previousSubscriptionId))
+			) {
+				return { ok: true, matched: false, skipped: true };
+			}
+		}
+	}
+
+	const membership =
+		existingMembership ||
+		(await findOrCreateMembership({
+			serviceSupabase,
+			groupId,
+			userId,
+			tierId,
+			billingInterval: normalizedInterval,
+			applicationId,
+			source: 'online',
+			status: 'active'
+		}));
+
+	const customerId =
+		extractStripeObjectId(stripeSession?.customer) ||
+		extractStripeObjectId(verifiedSubscription?.customer) ||
+		null;
+	const paymentStatus = cleanNullableText(
+		stripeSession?.payment_status || stripeSession?.status || 'paid',
+		120
+	);
 
 	const billingUpdates = {
 		stripe_customer_id: customerId ?? existingBilling?.stripe_customer_id ?? null,
@@ -5678,33 +5822,15 @@ async function activateMembershipFromMetadata({
 	};
 
 	if (supersededSubscriptionId) {
-		if (!stripeAccountId) {
-			return {
-				ok: false,
-				matched: true,
-				error: 'Unable to cancel previous Stripe subscription without a connected Stripe account.'
-			};
-		}
-
-		await upsertBillingForMembership({
-			serviceSupabase,
-			membershipId: membership.id,
-			updates: billingUpdates
-		});
-
+		// Cancel the superseded subscription in Stripe first before writing the new pointer so a
+		// crash in between never orphans the old subscription or loses previousSubscriptionId.
 		try {
 			await cancelStripeSubscriptionSafely({
-				stripe: getStripeClient(),
+				stripe,
 				subscriptionId: supersededSubscriptionId,
-				stripeAccountId,
-				idempotencyKey: `supersede-cancel:${membership.id}:${supersededSubscriptionId}`
+				stripeAccountId
 			});
 		} catch (cancelError) {
-			await restoreBillingSnapshot({
-				serviceSupabase,
-				membershipId: membership.id,
-				existingBilling
-			});
 			console.error(
 				'Unable to cancel superseded membership Stripe subscription',
 				supersededSubscriptionId,
@@ -5719,14 +5845,26 @@ async function activateMembershipFromMetadata({
 		}
 	}
 
+	await upsertBillingForMembership({
+		serviceSupabase,
+		membershipId: membership.id,
+		updates: billingUpdates
+	});
+
+	const normalizedContributionAmountCents =
+		membershipAmountCents === null ? null : normalizeAmountCents(membershipAmountCents, 0);
 	const isTierChange = Boolean(membership?.tier_id && membership.tier_id !== tierId);
+	const isContributionOrIntervalChange =
+		membership.interval_unit !== normalizedInterval ||
+		(normalizedContributionAmountCents !== null &&
+			membership.contribution_amount_cents !== normalizedContributionAmountCents);
 	const nowIso = toIsoNow();
 	const nextRenewsAt = isOneTime
 		? null
 		: isTierChange ||
 			  supersededSubscriptionId ||
-			  !membership.renews_at ||
-			  membership.interval_unit !== normalizedInterval
+			  isContributionOrIntervalChange ||
+			  !membership.renews_at
 			? normalizedInterval
 				? plusInterval(new Date(), normalizedInterval, 1).toISOString()
 				: calculateRenewalDate(tier, new Date())
@@ -5739,8 +5877,7 @@ async function activateMembershipFromMetadata({
 		cancel_at_period_end: false,
 		ends_at: null,
 		interval_unit: normalizedInterval,
-		contribution_amount_cents:
-			membershipAmountCents === null ? null : normalizeAmountCents(membershipAmountCents, 0),
+		contribution_amount_cents: normalizedContributionAmountCents,
 		updated_at: nowIso
 	};
 
@@ -5755,20 +5892,12 @@ async function activateMembershipFromMetadata({
 		...membershipUpdates
 	};
 
-	if (isTierChange || supersededSubscriptionId || isOneTime) {
+	if (isTierChange || supersededSubscriptionId || isOneTime || isContributionOrIntervalChange) {
 		await serviceSupabase
 			.from('group_membership_tier_change_requests')
 			.update({ status: 'cancelled', updated_at: nowIso })
 			.eq('membership_id', membership.id)
 			.eq('status', 'pending');
-	}
-
-	if (!supersededSubscriptionId) {
-		await upsertBillingForMembership({
-			serviceSupabase,
-			membershipId: membership.id,
-			updates: billingUpdates
-		});
 	}
 
 	if (applicationId) {
@@ -5827,7 +5956,6 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		return { ok: false, matched: false, error: 'Invalid Stripe event payload.' };
 	}
 
-	const serviceSupabase = await getServiceSupabase();
 	const stripeAccountId = cleanNullableText(event.account, 255);
 	const eventType = event.type;
 	const dataObject = event?.data?.object || null;
@@ -5835,12 +5963,24 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 	if (
 		eventType === 'checkout.session.completed' ||
 		eventType === 'checkout.session.async_payment_succeeded' ||
+		eventType === 'checkout.session.expired' ||
+		eventType === 'payment_intent.succeeded' ||
+		eventType === 'payment_intent.payment_failed' ||
+		eventType === 'payment_intent.canceled'
+	) {
+		if (!isMembershipMetadata(dataObject?.metadata || {})) {
+			return { ok: true, matched: false };
+		}
+	}
+
+	const serviceSupabase = await getServiceSupabase();
+
+	if (
+		eventType === 'checkout.session.completed' ||
+		eventType === 'checkout.session.async_payment_succeeded' ||
 		eventType === 'checkout.session.expired'
 	) {
 		const metadata = dataObject?.metadata || {};
-		if (!isMembershipMetadata(metadata)) {
-			return { ok: true, matched: false };
-		}
 
 		if (eventType === 'checkout.session.expired' || dataObject?.payment_status === 'unpaid') {
 			if (metadata.membership_application_id) {
@@ -5871,13 +6011,13 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 			metadata,
 			stripeSession: dataObject,
 			stripeAccountId,
-			fetchImpl
+			fetchImpl,
+			fromBootstrapOrReplay: true
 		});
 	}
 
 	if (eventType === 'payment_intent.succeeded') {
 		const metadata = dataObject?.metadata || {};
-		if (!isMembershipMetadata(metadata)) return { ok: true, matched: false };
 		return activateMembershipFromMetadata({
 			serviceSupabase,
 			metadata,
@@ -5888,7 +6028,8 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 				subscription: null
 			},
 			stripeAccountId,
-			fetchImpl
+			fetchImpl,
+			fromBootstrapOrReplay: true
 		});
 	}
 
@@ -5931,55 +6072,98 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 			? await loadMembershipById(serviceSupabase, billing.membership_id)
 			: null;
 
-		if ((!billing || !membership) && stripeAccountId && eventType === 'invoice.paid') {
-			try {
-				const stripe = getStripeClient();
-				const subscription = await stripe.subscriptions.retrieve(
-					subscriptionId,
-					{},
-					stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
-				);
-				const metadata = subscription?.metadata || {};
-				if (isMembershipMetadata(metadata)) {
-					const activation = await activateMembershipFromMetadata({
-						serviceSupabase,
-						metadata,
-						stripeSession: {
-							payment_status: 'paid',
-							status: 'paid',
-							customer: subscription?.customer || null,
-							subscription: subscription.id
-						},
-						stripeAccountId,
-						fetchImpl
-					});
-					if (!activation?.ok && activation?.matched) {
-						return activation;
-					}
-					if (activation?.ok) {
-						billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
-						membership = billing
-							? await loadMembershipById(serviceSupabase, billing.membership_id)
-							: activation?.membership_id
-								? await loadMembershipById(serviceSupabase, activation.membership_id)
-								: null;
-					}
+		if ((!billing || !membership) && eventType === 'invoice.paid') {
+			if (!stripeAccountId) {
+				const invoiceSubMetadata =
+					dataObject?.parent?.subscription_details?.metadata ||
+					dataObject?.subscription_details?.metadata ||
+					dataObject?.metadata ||
+					{};
+				if (isMembershipMetadata(invoiceSubMetadata)) {
+					return {
+						ok: false,
+						matched: true,
+						retryable: true,
+						error: 'Missing connected Stripe account for membership invoice webhook.'
+					};
 				}
-			} catch (error) {
-				console.error('Unable to bootstrap membership from invoice event', error);
+			} else {
+				try {
+					const stripe = getStripeClient();
+					let subscription = null;
+					try {
+						subscription = await stripe.subscriptions.retrieve(
+							subscriptionId,
+							{},
+							{ stripeAccount: stripeAccountId }
+						);
+					} catch (retrieveErr) {
+						const err = /** @type {any} */ (retrieveErr);
+						const errCode = err?.code || err?.raw?.code;
+						if (errCode !== 'resource_missing' && err?.statusCode !== 404) {
+							throw retrieveErr;
+						}
+					}
+					const subscriptionStatus = cleanText(subscription?.status, 40);
+					const metadata = subscription?.metadata || {};
+					if (
+						subscription &&
+						isMembershipMetadata(metadata) &&
+						['active', 'trialing'].includes(subscriptionStatus)
+					) {
+						const activation = await activateMembershipFromMetadata({
+							serviceSupabase,
+							metadata,
+							stripeSession: {
+								payment_status: 'paid',
+								status: 'paid',
+								customer: subscription?.customer || null,
+								subscription: subscription.id
+							},
+							stripeAccountId,
+							fetchImpl,
+							retrievedSubscription: subscription,
+							fromBootstrapOrReplay: true
+						});
+						if (!activation?.ok && activation?.matched) {
+							return activation;
+						}
+						if (activation?.ok && !activation?.skipped) {
+							billing = await loadBillingBySubscriptionId(serviceSupabase, subscriptionId);
+							membership = billing
+								? await loadMembershipById(serviceSupabase, billing.membership_id)
+								: null;
+						}
+					}
+				} catch (error) {
+					console.error('Unable to bootstrap membership from invoice event', error);
+					throw error;
+				}
 			}
 		}
 
 		if (!billing) return { ok: true, matched: false };
 		if (!membership) return { ok: true, matched: false };
 
-		if (
-			!(await stripeAccountMatchesMembershipGroup(
-				serviceSupabase,
-				membership.group_id,
-				stripeAccountId
-			))
-		) {
+		if (!stripeAccountId) {
+			return {
+				ok: false,
+				matched: true,
+				retryable: true,
+				error: 'Missing connected Stripe account for membership invoice webhook.'
+			};
+		}
+
+		const donationAccount = await loadDonationAccountForGroup(serviceSupabase, membership.group_id);
+		if (!donationAccount?.stripe_account_id) {
+			return {
+				ok: false,
+				matched: true,
+				retryable: true,
+				error: 'Group does not have a connected Stripe account configured.'
+			};
+		}
+		if (donationAccount.stripe_account_id !== stripeAccountId) {
 			return { ok: true, matched: false };
 		}
 
@@ -5987,7 +6171,7 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		const isPaid = eventType === 'invoice.paid';
 		const paymentStatus = isPaid ? 'paid' : 'failed';
 
-		await serviceSupabase
+		const { error: invoiceBillingUpdateError } = await serviceSupabase
 			.from('group_membership_billing')
 			.update({
 				last_invoice_id: cleanNullableText(dataObject?.id, 255),
@@ -5996,8 +6180,9 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 				updated_at: toIsoNow()
 			})
 			.eq('membership_id', membership.id);
+		if (invoiceBillingUpdateError) throw new Error(invoiceBillingUpdateError.message);
 
-		await serviceSupabase
+		const { error: invoiceMembershipUpdateError } = await serviceSupabase
 			.from('group_memberships')
 			.update({
 				status: isPaid ? 'active' : 'past_due',
@@ -6005,6 +6190,7 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 				updated_at: toIsoNow()
 			})
 			.eq('id', membership.id);
+		if (invoiceMembershipUpdateError) throw new Error(invoiceMembershipUpdateError.message);
 
 		if (isPaid) {
 			const group = await loadGroupById(serviceSupabase, membership.group_id);
@@ -6114,21 +6300,47 @@ export async function handleMembershipStripeEvent(event, fetchImpl) {
 		if (billingUpdateError) throw new Error(billingUpdateError.message);
 		if (!updatedBillingRows?.length) return { ok: true, matched: false };
 
-		if (!(isDeleted && membership.contribution_amount_cents === 0)) {
-			const { error: membershipUpdateError } = await serviceSupabase
-				.from('group_memberships')
-				.update({
-					status: membershipStatus,
-					renews_at: isDeleted ? membership.renews_at : renewsAt,
-					ends_at:
-						membershipStatus === 'cancelled'
-							? normalizeTimestamp(dataObject?.ended_at, toIsoNow())
-							: membership.ends_at,
-					updated_at: toIsoNow()
-				})
-				.eq('id', membership.id);
-			if (membershipUpdateError) throw new Error(membershipUpdateError.message);
+		const { data: latestBilling, error: latestBillingError } = await serviceSupabase
+			.from('group_membership_billing')
+			.select('stripe_subscription_id')
+			.eq('membership_id', membership.id)
+			.maybeSingle();
+		if (latestBillingError) throw new Error(latestBillingError.message);
+		const expectedStoredSubscriptionId = isDeleted ? null : subscriptionId;
+		if ((latestBilling?.stripe_subscription_id ?? null) !== expectedStoredSubscriptionId) {
+			return { ok: true, matched: true };
 		}
+
+		let membershipUpdateQuery = serviceSupabase
+			.from('group_memberships')
+			.update({
+				status: membershipStatus,
+				renews_at: isDeleted ? membership.renews_at : renewsAt,
+				ends_at:
+					membershipStatus === 'cancelled'
+						? normalizeTimestamp(dataObject?.ended_at, toIsoNow())
+						: membership.ends_at,
+				updated_at: toIsoNow()
+			})
+			.eq('id', membership.id)
+			.eq('status', membership.status);
+		if (membership.tier_id) {
+			membershipUpdateQuery = membershipUpdateQuery.eq('tier_id', membership.tier_id);
+		}
+		if (
+			membership.contribution_amount_cents !== undefined &&
+			membership.contribution_amount_cents !== null
+		) {
+			membershipUpdateQuery = membershipUpdateQuery.eq(
+				'contribution_amount_cents',
+				membership.contribution_amount_cents
+			);
+		}
+		if (membership.updated_at) {
+			membershipUpdateQuery = membershipUpdateQuery.eq('updated_at', membership.updated_at);
+		}
+		const { error: membershipUpdateError } = await membershipUpdateQuery;
+		if (membershipUpdateError) throw new Error(membershipUpdateError.message);
 
 		return { ok: true, matched: true };
 	}

@@ -162,7 +162,7 @@ export const POST = async (requestEvent) => {
 					if (
 						membershipResult?.matched &&
 						membershipResult?.ok === false &&
-						membershipResult?.retryable
+						membershipResult?.retryable !== false
 					) {
 						return json(
 							{ error: membershipResult.error || 'Webhook processing failed.' },
@@ -177,6 +177,7 @@ export const POST = async (requestEvent) => {
 						account: event.account || null,
 						message: error?.message || 'Unknown error'
 					});
+					return json({ error: 'Webhook processing failed.' }, { status: 500 });
 				}
 
 				if (
@@ -214,7 +215,7 @@ export const POST = async (requestEvent) => {
 					if (
 						membershipResult?.matched &&
 						membershipResult?.ok === false &&
-						membershipResult?.retryable
+						membershipResult?.retryable !== false
 					) {
 						return json(
 							{ error: membershipResult.error || 'Webhook processing failed.' },
@@ -229,6 +230,7 @@ export const POST = async (requestEvent) => {
 						account: event.account || null,
 						message: error?.message || 'Unknown error'
 					});
+					return json({ error: 'Webhook processing failed.' }, { status: 500 });
 				}
 
 				if (
@@ -258,7 +260,7 @@ export const POST = async (requestEvent) => {
 				if (
 					membershipResult?.matched &&
 					membershipResult?.ok === false &&
-					membershipResult?.retryable
+					membershipResult?.retryable !== false
 				) {
 					return json(
 						{ error: membershipResult.error || 'Webhook processing failed.' },

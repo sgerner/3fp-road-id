@@ -47,10 +47,8 @@ export const POST = async ({ params, cookies, request }) => {
 		.maybeSingle();
 	if (membershipError) throw error(500, 'Unable to load the current membership.');
 
-	if (
-		program.access_mode === 'private_request' &&
-		!['active', 'past_due', 'paused'].includes(existing?.status)
-	) {
+	// Intentional: only existing active members bypass the private_request application gate.
+	if (program.access_mode === 'private_request' && existing?.status !== 'active') {
 		throw error(403, 'This group requires an approved application before joining.');
 	}
 
