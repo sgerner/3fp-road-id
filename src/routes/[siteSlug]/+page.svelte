@@ -482,24 +482,6 @@
 		);
 	});
 	/**
-	 * @param {any} value
-	 */
-	function formatDate(value) {
-		if (!value) return 'Soon';
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return 'Soon';
-		return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
-	}
-	/**
-	 * @param {any} value
-	 */
-	function formatTime(value) {
-		if (!value) return '';
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return '';
-		return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date);
-	}
-	/**
 	 * @param {any} link
 	 */
 	function contactLabel(link) {
@@ -508,17 +490,6 @@
 		if (link.key === 'email') return link.label || 'Email';
 		if (link.key === 'phone') return link.label || 'Phone';
 		return link.key.charAt(0).toUpperCase() + link.key.slice(1);
-	}
-	/**
-	 * @param {any} ride
-	 */
-	function rideLeadImage(ride) {
-		return (
-			(ride?.imageUrls || ride?.rideDetails?.image_urls)?.[0] ||
-			group?.cover_photo_url ||
-			site?.photoBucket?.image_assets?.[0]?.href ||
-			''
-		);
 	}
 	/**
 	 * @param {any} index

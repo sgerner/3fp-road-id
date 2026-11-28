@@ -207,24 +207,6 @@ export const GROUP_SITE_BLOCK_TYPES = Object.freeze({
 	}
 });
 
-export const GROUP_SITE_BLOCK_PALETTE = Object.freeze([
-	'story',
-	'events',
-	'gallery',
-	'ride_calendar',
-	'contact',
-	'sponsors',
-	'donation',
-	'email_signup',
-	'membership',
-	'volunteer',
-	'updates',
-	'resources',
-	'law_directory',
-	'text',
-	'call_to_action'
-]);
-
 const BLOCK_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,79}$/i;
 
 function cleanText(value, limit) {
@@ -369,18 +351,9 @@ export function normalizeGroupSiteBlocks(value, { sections = {}, rideWidgetEnabl
 /**
  * @param {any} blocks
  * @param {string} type
- * @returns {GroupSiteBlock | null}
- */
-export function groupSiteBlockAt(blocks, type) {
-	return (Array.isArray(blocks) ? blocks : []).find((block) => block?.type === type) || null;
-}
-
-/**
- * @param {any} blocks
- * @param {string} type
  * @param {number} [fallback]
  */
-export function groupSiteBlockOrder(blocks, type, fallback = 100) {
+function groupSiteBlockOrder(blocks, type, fallback = 100) {
 	const index = (Array.isArray(blocks) ? blocks : []).findIndex((block) => block?.type === type);
 	return index < 0 ? fallback : index;
 }
