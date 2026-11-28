@@ -60,7 +60,11 @@
 	/** @type {any} */
 	let preparingPayment = $state(false);
 	/** @type {any} */
+	let startingHostedCheckout = $state(false);
+	/** @type {any} */
 	let paymentFormReady = $state(false);
+	/** @type {any} */
+	let paymentSetupError = $state('');
 	/** @type {any} */
 	let paymentElementHost = $state(null);
 	/** @type {any} */
@@ -127,9 +131,9 @@
 	);
 	/** @type {any} */
 	const payButtonDisabled = $derived(
-		submitting || preparingPayment || !checkoutDetailsComplete || !paymentFormReady
+		submitting || preparingPayment || startingHostedCheckout || !checkoutDetailsComplete
 	);
-	const cartControlsDisabled = $derived(submitting || preparingPayment);
+	const cartControlsDisabled = $derived(submitting || preparingPayment || startingHostedCheckout);
 
 	/**
 	 * @param {any} raw
@@ -240,22 +244,10 @@
 		quoteLoading = false;
 		if (quote !== null) quote = null;
 		if (printfulShippingOptionId) printfulShippingOptionId = '';
+		if (paymentSetupError) paymentSetupError = '';
 		if (paymentElement || paymentFormReady || paymentIntentId || preparedSignature) {
 			teardownPaymentElement();
 		}
-	});
-
-	$effect(() => {
-		if (
-			!paymentElementHost ||
-			paymentFormReady ||
-			preparingPayment ||
-			paymentIntentId ||
-			!checkoutDetailsComplete
-		) {
-			return;
-		}
-		void preparePaymentElement({ quiet: true });
 	});
 
 	/**
@@ -360,6 +352,15 @@
 		}, 220);
 	}
 
+	async function retryShippingRates() {
+		if (quoteLoading || submitting || preparingPayment || startingHostedCheckout) return;
+		if (quoteTimer) {
+			clearTimeout(quoteTimer);
+			quoteTimer = 0;
+		}
+		await refreshQuote();
+	}
+
 	function clearStaleCheckoutFeedback() {
 		preparedSignature = '';
 		quoteError = '';
@@ -368,7 +369,7 @@
 	}
 
 	function setCartLineQuantity(variantId, nextQuantity) {
-		if (submitting || preparingPayment) return;
+		if (submitting || preparingPayment || startingHostedCheckout) return;
 		const clamped = Math.max(1, Math.min(20, Number(nextQuantity) || 1));
 		const existing = cartItems.find((line) => line.variantId === variantId);
 		if (!existing || Number(existing.quantity) === clamped) return;
@@ -378,7 +379,7 @@
 	}
 
 	function removeCartLine(variantId) {
-		if (submitting || preparingPayment) return;
+		if (submitting || preparingPayment || startingHostedCheckout) return;
 		if (!cartItems.some((line) => line.variantId === variantId)) return;
 
 		clearStaleCheckoutFeedback();
@@ -393,6 +394,7 @@
 			quoteLoading = false;
 			quote = null;
 			printfulShippingOptionId = '';
+			paymentSetupError = '';
 			teardownPaymentElement();
 			merchCart.remove(variantId);
 			return;
@@ -494,6 +496,8 @@
 	 */
 	async function preparePaymentElement(options = {}) {
 		const { quiet = false } = options;
+		if (preparingPayment || submitting || startingHostedCheckout) return false;
+		paymentSetupError = '';
 		if (!quiet) {
 			submitError = '';
 			submitSuccess = '';
@@ -502,6 +506,12 @@
 		const validationError = validateCheckoutForm();
 		if (validationError) {
 			if (!quiet) submitError = validationError;
+			return false;
+		}
+		if (!paymentElementHost) {
+			const hostError = 'Payment container is not ready yet.';
+			paymentSetupError = hostError;
+			submitError = hostError;
 			return false;
 		}
 
@@ -545,11 +555,11 @@
 					theme: 'night',
 					variables: {
 						colorPrimary: '#f4ff00',
-						colorBackground: 'rgba(10, 15, 20, 0.55)',
+						colorBackground: '#09090b',
 						colorText: '#f8f5dd',
 						colorDanger: '#ff6b6b',
 						fontFamily: 'inherit',
-						borderRadius: '16px'
+						borderRadius: '0px'
 					}
 				}
 			});
@@ -561,11 +571,14 @@
 			});
 			paymentElement.mount(paymentElementHost);
 			paymentFormReady = true;
+			paymentSetupError = '';
 			if (!quiet) submitSuccess = 'Secure payment form loaded below.';
 			return true;
 		} catch (error) {
+			const message = error?.message || 'Unable to prepare payment form.';
 			teardownPaymentElement();
-			if (!quiet) submitError = error?.message || 'Unable to prepare payment form.';
+			paymentSetupError = message;
+			submitError = message;
 			return false;
 		} finally {
 			preparingPayment = false;
@@ -574,7 +587,7 @@
 
 	async function syncPaymentIntentDetails() {
 		if (!paymentIntentId) {
-			return preparePaymentElement({ quiet: true });
+			return preparePaymentElement({ quiet: false });
 		}
 
 		const response = await fetch('/api/merch/update-payment-intent', {
@@ -597,12 +610,49 @@
 		}
 	}
 
+	async function startHostedCheckout() {
+		if (submitting || preparingPayment || startingHostedCheckout) return;
+		submitError = '';
+		submitSuccess = '';
+
+		const validationError = validateCheckoutForm();
+		if (validationError) {
+			submitError = validationError;
+			return;
+		}
+		if (!checkoutDetailsComplete) {
+			submitError =
+				quoteError ||
+				(quoteLoading
+					? 'Please wait while your order total is updated.'
+					: 'Your order total is not ready yet.');
+			return;
+		}
+
+		startingHostedCheckout = true;
+		try {
+			const response = await fetch('/api/merch/create-checkout-session', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(buildCheckoutPayload())
+			});
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok || !payload?.url) {
+				throw new Error(payload?.error || 'Unable to start hosted checkout.');
+			}
+			window.location.assign(payload.url);
+		} catch (error) {
+			submitError = error?.message || 'Unable to start hosted checkout.';
+			startingHostedCheckout = false;
+		}
+	}
+
 	/**
 	 * @param {any} event
 	 */
 	async function startCheckout(event) {
 		event?.preventDefault?.();
-		if (submitting || preparingPayment) return;
+		if (submitting || preparingPayment || startingHostedCheckout) return;
 		submitError = '';
 		submitSuccess = '';
 
@@ -622,8 +672,8 @@
 
 		if (!paymentFormReady) {
 			await preparePaymentElement({ quiet: false });
+			return;
 		}
-		if (!paymentFormReady) return;
 
 		if (preparedSignature !== buildPaymentSignature()) {
 			try {
@@ -771,7 +821,20 @@
 				</a>
 			</div>
 			{#if quoteError}
-				<p class="text-error-500 m-0 text-xs font-bold" role="alert">{quoteError}</p>
+				<div
+					class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-2 p-3 text-xs font-black uppercase"
+					role="alert"
+				>
+					<span class="min-w-0 flex-1">{quoteError}</span>
+					<button
+						type="button"
+						class="border-surface-950 bg-surface-950 text-primary-500 hover:bg-surface-50 hover:text-surface-950 shrink-0 cursor-pointer border-2 px-3 py-1.5 text-xs font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:min-h-11"
+						disabled={quoteLoading || cartControlsDisabled}
+						onclick={retryShippingRates}
+					>
+						Retry shipping rates
+					</button>
+				</div>
 			{/if}
 		</div>
 		<!-- ═══ MAIN SPLIT GRID ════════════════════════════════════════ -->
@@ -1194,6 +1257,16 @@
 									</label>
 								{/each}
 							</div>
+						{:else if quoteError && line1 && city && stateRegion && postalCode}
+							<div
+								class="border-tertiary-500 bg-surface-900 text-surface-50 flex items-center gap-3 border-2 p-4 text-sm"
+							>
+								<IconTruck class="text-tertiary-500 h-5 w-5 shrink-0" />
+								<span>
+									Live carrier rates could not be loaded yet. Check the message in your order
+									summary to retry without re-entering your address.
+								</span>
+							</div>
 						{:else}
 							<div
 								class="border-surface-700 bg-surface-900 text-surface-300 flex items-center gap-3 border-2 p-4 text-sm"
@@ -1422,12 +1495,26 @@
 						</div>
 					{/if}
 					{#if quoteError}
-						<div class="bg-tertiary-500 text-surface-950 p-4 text-xs font-black uppercase">
-							{quoteError}
+						<div
+							class="bg-tertiary-500 text-surface-950 flex flex-wrap items-center justify-between gap-3 p-4 text-xs font-black uppercase"
+							role="alert"
+						>
+							<span class="min-w-0 flex-1">{quoteError}</span>
+							<button
+								type="button"
+								class="border-surface-950 bg-surface-950 text-primary-500 hover:bg-surface-50 hover:text-surface-950 shrink-0 cursor-pointer border-2 px-3 py-2 text-xs font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:min-h-11"
+								disabled={quoteLoading || cartControlsDisabled}
+								onclick={retryShippingRates}
+							>
+								Retry shipping rates
+							</button>
 						</div>
 					{/if}
 					{#if submitError}
-						<div class="bg-tertiary-500 text-surface-950 p-4 text-xs font-black uppercase">
+						<div
+							class="bg-tertiary-500 text-surface-950 p-4 text-xs font-black uppercase"
+							role="alert"
+						>
 							{submitError}
 						</div>
 					{/if}
@@ -1502,8 +1589,18 @@
 						<div bind:this={paymentElementHost}></div>
 						{#if !paymentFormReady}
 							<p class="text-surface-300 m-0 text-xs leading-relaxed">
-								The secure payment form will appear here once all required checkout info is
-								complete.
+								{#if preparingPayment}
+									Loading secure card fields…
+								{:else if paymentSetupError}
+									Inline card fields could not be initialized. Retry payment setup below or continue
+									with hosted Stripe Checkout.
+								{:else if checkoutDetailsComplete}
+									Contact and shipping details are complete. Click Continue to payment below to load
+									secure card fields.
+								{:else}
+									Complete your contact and shipping details, then click Continue to payment to load
+									secure card fields.
+								{/if}
 							</p>
 						{/if}
 					</div>
@@ -1517,28 +1614,50 @@
 						</div>
 					{/if}
 
-					<!-- Pay Button -->
-					<button
-						type="submit"
-						form="merch-checkout-form"
-						class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 flex w-full cursor-pointer items-center justify-center gap-3 px-7 py-5 text-base font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
-						disabled={payButtonDisabled}
-					>
-						{#if preparingPayment}
-							<IconLoaderCircle class="h-5 w-5 animate-spin" />
-							<span>Setting up secure payment…</span>
-						{:else if submitting}
-							<IconLoaderCircle class="h-5 w-5 animate-spin" />
-							<span>Confirming your order…</span>
-						{:else}
-							<IconLock class="h-5 w-5" />
-							<span>
-								{quote
-									? `Pay ${formatCurrency(quote.totalCents)} — Ride Loud`
-									: 'Complete Purchase'}
-							</span>
+					<!-- Pay / Continue Button -->
+					<div class="flex flex-col gap-3">
+						<button
+							type="submit"
+							form="merch-checkout-form"
+							class="bg-primary-500 text-surface-950 hover:bg-tertiary-500 flex w-full cursor-pointer items-center justify-center gap-3 px-7 py-5 text-base font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
+							disabled={payButtonDisabled}
+						>
+							{#if preparingPayment}
+								<IconLoaderCircle class="h-5 w-5 animate-spin" />
+								<span>Setting up secure payment…</span>
+							{:else if submitting}
+								<IconLoaderCircle class="h-5 w-5 animate-spin" />
+								<span>Confirming your order…</span>
+							{:else if !paymentFormReady}
+								<IconCreditCard class="h-5 w-5" />
+								<span>{paymentSetupError ? 'Retry payment setup' : 'Continue to payment'}</span>
+							{:else}
+								<IconLock class="h-5 w-5" />
+								<span>
+									{quote
+										? `Pay ${formatCurrency(quote.totalCents)} — Ride Loud`
+										: 'Complete Purchase'}
+								</span>
+							{/if}
+						</button>
+
+						{#if paymentSetupError && !paymentFormReady}
+							<button
+								type="button"
+								class="border-primary-500 bg-surface-900 text-primary-500 hover:bg-primary-500 hover:text-surface-950 flex w-full cursor-pointer items-center justify-center gap-3 border-2 px-7 py-4 text-sm font-black tracking-wide uppercase transition disabled:cursor-not-allowed disabled:opacity-40"
+								disabled={payButtonDisabled}
+								onclick={startHostedCheckout}
+							>
+								{#if startingHostedCheckout}
+									<IconLoaderCircle class="h-4 w-4 animate-spin" />
+									<span>Redirecting to Stripe Checkout…</span>
+								{:else}
+									<IconLock class="h-4 w-4" />
+									<span>Continue with Stripe Checkout</span>
+								{/if}
+							</button>
 						{/if}
-					</button>
+					</div>
 
 					<!-- Trust row -->
 					<div

@@ -5,6 +5,7 @@ import {
 	listPrintfulProductsWithVariantsV2,
 	listPrintfulStoresV2,
 	refreshPrintfulAccessToken,
+	resolvePrintfulErrorMessage,
 	sendPrintfulRequest
 } from '#lib/server/printful';
 import { createServiceSupabaseClient } from '#lib/server/supabaseClient';
@@ -334,7 +335,9 @@ async function upsertPrintfulPartnerAccountRecord(
 		token_type: cleanText(tokenSet?.tokenType, 40) || 'Bearer',
 		scopes: Array.isArray(tokenSet?.scopes) ? tokenSet.scopes : [],
 		access_token_expires_at: tokenSet?.accessTokenExpiresAt || null,
-		refresh_token_expires_at: tokenSet?.refreshToken ? buildPrintfulRefreshExpiry() : null,
+		refresh_token_expires_at:
+			tokenSet?.refreshTokenExpiresAt ||
+			(tokenSet?.refreshToken ? buildPrintfulRefreshExpiry() : null),
 		connected_at: connectedAt || nowIso,
 		disconnected_at: disconnectedAt,
 		last_refreshed_at: nowIso,
@@ -1175,6 +1178,12 @@ function isUnitedStatesCountry(value) {
 	return country === 'US' || country === 'USA' || country === 'UNITED STATES';
 }
 
+function isPrintfulAuthenticationError(error) {
+	if (Number(error?.status) === 401) return true;
+	const message = cleanText(error?.message, 400);
+	return /\b401\b|unauthorized|invalid[_\s-]*token|expired[_\s-]*token/i.test(message);
+}
+
 function validateUsShippingAddress(address) {
 	return validateAddress(address) && isUnitedStatesCountry(address.country);
 }
@@ -1208,13 +1217,13 @@ function calculateManualFulfillmentFee(method, lines) {
 	};
 }
 
-/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, quote: any }>} */
+/** @returns {Promise<{ ok: false, status: number, error: string, code?: string, retryable?: boolean } | { ok: true, quote: any }>} */
 export async function calculateMerchQuote({
 	storeId,
 	items,
-	manualFulfillmentMethodId,
-	printfulShippingOptionId,
-	shippingAddress,
+	manualFulfillmentMethodId = null,
+	printfulShippingOptionId = null,
+	shippingAddress = {},
 	donationCents = 0
 }) {
 	const supabase = await getServiceSupabase();
@@ -1342,25 +1351,51 @@ export async function calculateMerchQuote({
 
 		if (shippingAddressReady) {
 			try {
-				const accessToken = await getValidPrintfulAccessToken(supabase, store);
 				const recipient = buildPrintfulRecipient(address);
-				const rates = await calculatePrintfulShippingRatesV2({
-					accessToken,
-					storeId: printfulStoreId,
-					recipient,
-					orderItems: printfulLines.map((line) =>
-						buildPrintfulShippingItemPayload({
-							partner_variant_ref: line.partnerVariantRef,
-							quantity: line.quantity
-						})
-					)
-				});
+				const orderItems = printfulLines.map((line) =>
+					buildPrintfulShippingItemPayload({
+						partner_variant_ref: line.partnerVariantRef,
+						quantity: line.quantity
+					})
+				);
+				let accessToken = await getValidPrintfulAccessToken(supabase, store);
+				let rates;
+				try {
+					rates = await calculatePrintfulShippingRatesV2({
+						accessToken,
+						storeId: printfulStoreId,
+						recipient,
+						orderItems
+					});
+				} catch (rateError) {
+					if (!isPrintfulAuthenticationError(rateError)) {
+						throw rateError;
+					}
+					accessToken = await getValidPrintfulAccessToken(supabase, store, {
+						forceRefresh: true
+					});
+					rates = await calculatePrintfulShippingRatesV2({
+						accessToken,
+						storeId: printfulStoreId,
+						recipient,
+						orderItems
+					});
+				}
 				printfulShippingOptions = rates.map(normalizePrintfulShippingOption).filter(Boolean);
 			} catch (error) {
+				await setPrintfulPartnerError(
+					supabase,
+					store.id,
+					error?.message || 'Unable to retrieve Printful shipping rates.'
+				).catch(() => {});
 				return {
 					ok: false,
-					status: 502,
-					error: error?.message || 'Unable to retrieve Printful shipping rates.'
+					status: 503,
+					code: 'service_unavailable',
+					retryable: true,
+					error:
+						cleanText(error?.message, 400) ||
+						'Live Printful shipping rates are temporarily unavailable. Please retry in a moment.'
 				};
 			}
 
@@ -1473,7 +1508,7 @@ export async function calculateMerchQuote({
 	};
 }
 
-/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, checkoutUrl: string, orderNumber: string }>} */
+/** @returns {Promise<{ ok: false, status: number, error: string, code?: string, retryable?: boolean } | { ok: true, checkoutUrl: string, orderNumber: string }>} */
 export async function createMerchCheckoutSession({
 	requestUrl,
 	storeSlug = MAIN_STORE_SLUG,
@@ -1704,7 +1739,13 @@ export async function createMerchCheckoutSession({
 			.from('merch_orders')
 			.update({ status: 'failed', payment_status: 'failed', updated_at: new Date().toISOString() })
 			.eq('id', order.id);
-		return { ok: false, status: 502, error: 'Unable to create Stripe checkout session.' };
+		return {
+			ok: false,
+			status: 503,
+			code: 'service_unavailable',
+			retryable: true,
+			error: 'Unable to create Stripe checkout session.'
+		};
 	}
 
 	const { error: orderUpdateError } = await supabase
@@ -1721,7 +1762,7 @@ export async function createMerchCheckoutSession({
 	return { ok: true, checkoutUrl: session.url, orderNumber: order.order_number };
 }
 
-/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, [key: string]: any }>} */
+/** @returns {Promise<{ ok: false, status: number, error: string, code?: string, retryable?: boolean } | { ok: true, [key: string]: any }>} */
 export async function createMerchPaymentIntent({
 	requestUrl,
 	storeSlug = MAIN_STORE_SLUG,
@@ -1883,13 +1924,21 @@ export async function createMerchPaymentIntent({
 			.eq('id', order.id);
 		return {
 			ok: false,
-			status: 502,
+			status: 503,
+			code: 'service_unavailable',
+			retryable: true,
 			error: error?.message || 'Unable to create Stripe payment intent.'
 		};
 	}
 
 	if (!paymentIntent?.id || !paymentIntent?.client_secret) {
-		return { ok: false, status: 502, error: 'Stripe did not return a payment intent.' };
+		return {
+			ok: false,
+			status: 503,
+			code: 'service_unavailable',
+			retryable: true,
+			error: 'Stripe did not return a payment intent.'
+		};
 	}
 
 	const { error: orderUpdateError } = await supabase
@@ -1913,7 +1962,7 @@ export async function createMerchPaymentIntent({
 	};
 }
 
-/** @returns {Promise<{ ok: false, status: number, error: string } | { ok: true, [key: string]: any }>} */
+/** @returns {Promise<{ ok: false, status: number, error: string, code?: string, retryable?: boolean } | { ok: true, [key: string]: any }>} */
 export async function updateMerchPaymentIntent({
 	paymentIntentId,
 	clientSecret,
@@ -2007,7 +2056,13 @@ export async function updateMerchPaymentIntent({
 			{ stripeAccount: order.stripe_connected_account_id }
 		);
 	} catch (error) {
-		return { ok: false, status: 502, error: error?.message || 'Unable to update Stripe payment.' };
+		return {
+			ok: false,
+			status: 503,
+			code: 'service_unavailable',
+			retryable: true,
+			error: error?.message || 'Unable to update Stripe payment.'
+		};
 	}
 
 	const orderUpdatePayload = {
@@ -2348,7 +2403,10 @@ async function dispatchPrintfulItems(supabase, order, items) {
 		};
 
 		if (!createOrderResult.ok) {
-			errorMessage = `Printful v2 order create failed (${createOrderResult.status})`;
+			errorMessage = resolvePrintfulErrorMessage(
+				createOrderResult.payload,
+				createOrderResult.status
+			);
 		} else {
 			const orderId = String(
 				createOrderResult?.payload?.result?.id ??
@@ -2378,7 +2436,10 @@ async function dispatchPrintfulItems(supabase, order, items) {
 				}
 				responsePayload.confirm_order = confirmOrderResult.payload;
 				if (!confirmOrderResult.ok) {
-					errorMessage = `Printful v2 order confirmation failed (${confirmOrderResult.status})`;
+					errorMessage = resolvePrintfulErrorMessage(
+						confirmOrderResult.payload,
+						confirmOrderResult.status
+					);
 				} else {
 					status = 'sent';
 					externalReference = orderId;
@@ -2469,7 +2530,7 @@ export async function finalizeMerchOrderBySessionId(sessionId, fetchImpl) {
 			{ stripeAccount: order.stripe_connected_account_id }
 		);
 	} catch {
-		return { ok: false, status: 502, error: 'Unable to verify Stripe session.' };
+		return { ok: false, status: 503, error: 'Unable to verify Stripe session.' };
 	}
 
 	const paymentIntentId =
@@ -2556,7 +2617,7 @@ export async function finalizeMerchOrderByPaymentIntentId(paymentIntentId, fetch
 			{ stripeAccount: order.stripe_connected_account_id }
 		);
 	} catch {
-		return { ok: false, status: 502, error: 'Unable to verify Stripe payment intent.' };
+		return { ok: false, status: 503, error: 'Unable to verify Stripe payment intent.' };
 	}
 
 	const paid = paymentIntent.status === 'succeeded';

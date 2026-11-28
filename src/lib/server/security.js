@@ -683,8 +683,17 @@ export async function fetchPublicHttp(
 	return null;
 }
 
-export async function readResponseBuffer(response, maxBytes, { timeoutMs = 15_000 } = {}) {
-	if (!response?.ok) return null;
+/**
+ * @param {any} response
+ * @param {number} maxBytes
+ * @param {{ timeoutMs?: number, allowErrorBody?: boolean }} [options]
+ */
+export async function readResponseBuffer(
+	response,
+	maxBytes,
+	{ timeoutMs = 15_000, allowErrorBody = false } = {}
+) {
+	if (!response || (!allowErrorBody && !response.ok)) return null;
 	const declaredLength = Number(response.headers.get('content-length'));
 	if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
 

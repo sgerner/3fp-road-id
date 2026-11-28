@@ -34,15 +34,29 @@ export const POST = async (event) => {
 		});
 
 		if (!result?.ok) {
+			const status = result?.status === 502 ? 503 : result?.status || 400;
 			return json(
-				{ error: result?.error || 'Unable to update payment intent.' },
-				{ status: result?.status || 400 }
+				{
+					ok: false,
+					code: result?.code || (status === 503 ? 'service_unavailable' : 'payment_update_error'),
+					retryable: result?.retryable ?? status === 503,
+					error: result?.error || 'Unable to update payment intent.'
+				},
+				{ status }
 			);
 		}
 
 		return json({ ok: true, amountCents: result.amountCents });
 	} catch (error) {
 		console.error('Merch payment intent update error', error);
-		return json({ error: 'Unable to update payment intent.' }, { status: 500 });
+		return json(
+			{
+				ok: false,
+				code: 'service_unavailable',
+				retryable: true,
+				error: 'Unable to update payment intent.'
+			},
+			{ status: 503 }
+		);
 	}
 };

@@ -5,6 +5,7 @@ import {
 	fetchPublicHttp,
 	isPublicHttpUrl,
 	readFormData,
+	readResponseBuffer,
 	verifyVercelWebhookRequest
 } from './security.js';
 
@@ -54,4 +55,28 @@ test('bounded form reader preserves multipart fields and rejects oversized bodie
 	);
 	assert.equal(oversized.ok, false);
 	assert.equal(oversized.status, 413);
+});
+
+test('readResponseBuffer returns null on non-OK responses unless allowErrorBody is enabled', async () => {
+	const payload = JSON.stringify({ error: { message: 'Upstream partner error' } });
+
+	const blockedByDefault = await readResponseBuffer(
+		new Response(payload, { status: 400, headers: { 'Content-Type': 'application/json' } }),
+		1024
+	);
+	assert.equal(blockedByDefault, null);
+
+	const allowedErrorBody = await readResponseBuffer(
+		new Response(payload, { status: 502, headers: { 'Content-Type': 'application/json' } }),
+		1024,
+		{ allowErrorBody: true }
+	);
+	assert.equal(allowedErrorBody?.toString('utf8'), payload);
+
+	const oversizedErrorBody = await readResponseBuffer(
+		new Response(payload, { status: 502, headers: { 'Content-Type': 'application/json' } }),
+		8,
+		{ allowErrorBody: true }
+	);
+	assert.equal(oversizedErrorBody, null);
 });

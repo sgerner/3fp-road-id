@@ -29,14 +29,28 @@ export const POST = async (event) => {
 			donationCents
 		});
 		if (!result?.ok) {
+			const status = result?.status === 502 ? 503 : result?.status || 400;
 			return json(
-				{ error: result?.error || 'Unable to generate quote.' },
-				{ status: result?.status || 400 }
+				{
+					ok: false,
+					code: result?.code || (status === 503 ? 'service_unavailable' : 'quote_error'),
+					retryable: result?.retryable ?? status === 503,
+					error: result?.error || 'Unable to generate quote.'
+				},
+				{ status }
 			);
 		}
 		return json({ ok: true, quote: result.quote });
 	} catch (error) {
 		console.error('Merch quote error', error);
-		return json({ error: 'Unable to generate quote.' }, { status: 500 });
+		return json(
+			{
+				ok: false,
+				code: 'service_unavailable',
+				retryable: true,
+				error: 'Live shipping rates are temporarily unavailable. Please retry in a moment.'
+			},
+			{ status: 503 }
+		);
 	}
 };
