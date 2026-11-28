@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import { resolve } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -166,23 +166,15 @@ async function launchChromiumOrSkip(t) {
 			headless: true,
 			args: launchArgs
 		});
-	} catch {
-		const candidates = [
-			'/usr/bin/google-chrome',
-			'/usr/bin/google-chrome-stable',
-			'/usr/bin/chromium',
-			'/usr/bin/chromium-browser'
-		];
-		const executablePath = candidates.find((candidate) => existsSync(candidate));
-		if (!executablePath) {
-			t.skip('No Chromium or Chrome executable available for Playwright rendering test');
-			return null;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error ?? '');
+		if (process.env.CI || !message.includes("Executable doesn't exist")) {
+			throw error;
 		}
-		return chromium.launch({
-			headless: true,
-			executablePath,
-			args: launchArgs
-		});
+		t.skip(
+			'Playwright chromium-headless-shell is not installed; run `npx playwright install chromium --only-shell` before `npm test`'
+		);
+		return null;
 	}
 }
 
