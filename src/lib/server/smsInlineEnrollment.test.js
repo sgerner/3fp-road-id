@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import {
-	RIDE_RSVP_SMS_CATEGORIES,
 	SMS_INLINE_DEFAULT_CONSENT_TEXT,
 	VOLUNTEER_MANAGE_SMS_CATEGORIES,
 	VOLUNTEER_SIGNUP_SMS_CATEGORIES,
@@ -13,7 +12,6 @@ import {
 	getSelectedNewCategoryKeys,
 	resolveInlineConsentSource,
 	saveInlineSmsPreferences,
-	submitRegistrationThenSms,
 	validateInlineSmsInput
 } from '../sms/inlineEnrollment.js';
 
@@ -47,8 +45,8 @@ test('inline default consent text matches SMS_CONSENT_TEXT verbatim and avoids r
 
 test('hides already active SMS categories and surfaces read-only compliance states', () => {
 	const unsubscribed = getInlineSmsMode(
-		{ ...emptySmsPreferences(), status: 'unsubscribed', ride_reminders: true },
-		RIDE_RSVP_SMS_CATEGORIES
+		{ ...emptySmsPreferences(), status: 'unsubscribed', volunteer_reminders: true },
+		VOLUNTEER_SIGNUP_SMS_CATEGORIES
 	);
 	assert.equal(unsubscribed.mode, 'unsubscribed');
 	assert.deepEqual(unsubscribed.availableCategories, []);
@@ -65,10 +63,10 @@ test('hides already active SMS categories and surfaces read-only compliance stat
 			...emptySmsPreferences(),
 			status: 'active',
 			phone: '+14805550123',
-			ride_reminders: true,
+			volunteer_reminders: true,
 			admin_messages: false
 		},
-		RIDE_RSVP_SMS_CATEGORIES
+		VOLUNTEER_SIGNUP_SMS_CATEGORIES
 	);
 	assert.equal(partialActive.mode, 'editable');
 	assert.deepEqual(
@@ -77,7 +75,7 @@ test('hides already active SMS categories and surfaces read-only compliance stat
 	);
 	assert.deepEqual(
 		partialActive.activeCategories.map((item) => item.key),
-		['ride_reminders']
+		['volunteer_reminders']
 	);
 
 	const allActive = getInlineSmsMode(
@@ -85,10 +83,10 @@ test('hides already active SMS categories and surfaces read-only compliance stat
 			...emptySmsPreferences(),
 			status: 'active',
 			phone: '+14805550123',
-			ride_reminders: true,
+			volunteer_reminders: true,
 			admin_messages: true
 		},
-		RIDE_RSVP_SMS_CATEGORIES
+		VOLUNTEER_SIGNUP_SMS_CATEGORIES
 	);
 	assert.equal(allActive.mode, 'all_active');
 	assert.deepEqual(allActive.availableCategories, []);
@@ -126,7 +124,7 @@ test('requires mobile phone and explicit consent only when new SMS categories ar
 	assert.ok(missingBoth.consentError);
 
 	const missingConsent = validateInlineSmsInput({
-		selectedKeys: ['ride_reminders'],
+		selectedKeys: ['volunteer_reminders'],
 		phone: '(480) 555-0123',
 		consentChecked: false
 	});
@@ -135,7 +133,7 @@ test('requires mobile phone and explicit consent only when new SMS categories ar
 	assert.ok(missingConsent.consentError);
 
 	const valid = validateInlineSmsInput({
-		selectedKeys: ['ride_reminders', 'admin_messages'],
+		selectedKeys: ['volunteer_reminders', 'admin_messages'],
 		phone: '(480) 555-0123',
 		consentChecked: true
 	});
@@ -199,53 +197,90 @@ test('keeps SMS preferences caches isolated by signed-in user', async () => {
 	assert.equal(loader.getCached({ cacheKey: 'user-b' })?.preferences.phone, '+14805550102');
 });
 
-test('saves registration first and keeps registration saved with retry message on 400 or 409 SMS errors', async () => {
-	const steps = [];
-	const conflictFetch = async (url, init) => {
-		steps.push(`sms:${init?.method}:${url}`);
-		return new Response(
-			JSON.stringify({ error: 'That mobile number is already associated with another account.' }),
-			{ status: 409, headers: { 'Content-Type': 'application/json' } }
-		);
-	};
+test('flags 400 and 409 phone errors and inactive categories with retry messages on volunteer SMS saves', async () => {
+	assert.equal(
+		resolveInlineConsentSource('volunteer-signup', ['volunteer_reminders', 'admin_messages']),
+		'volunteer-signup'
+	);
+	assert.equal(
+		resolveInlineConsentSource('volunteer-signup', ['admin_messages']),
+		'volunteer-signup-admin-messages'
+	);
+	assert.equal(
+		resolveInlineConsentSource('volunteer-management', ['admin_messages']),
+		'volunteer-management'
+	);
+	assert.equal(resolveInlineConsentSource('unknown-context', ['admin_messages']), 'profile');
 
-	const conflictOutcome = await submitRegistrationThenSms({
-		selectedKeys: ['ride_reminders', 'admin_messages'],
+	const conflictResult = await saveInlineSmsPreferences({
 		phone: '(480) 555-0123',
-		consentChecked: true,
-		source: resolveInlineConsentSource('ride-rsvp', ['ride_reminders', 'admin_messages']),
-		registrationLabel: 'RSVP',
-		fetchImpl: conflictFetch,
-		register: async () => {
-			steps.push('register:rsvp');
-			return { ok: true, id: 'rsvp-1' };
+		selectedKeys: ['admin_messages'],
+		source: resolveInlineConsentSource('volunteer-signup', ['admin_messages']),
+		registrationLabel: 'shift signup',
+		fetchImpl: async (url, init) => {
+			assert.equal(url, '/api/sms/preferences');
+			assert.equal(init?.method, 'PUT');
+			const parsed = JSON.parse(String(init?.body ?? '{}'));
+			assert.equal(parsed.source, 'volunteer-signup-admin-messages');
+			assert.equal(parsed.sms_consent, true);
+			assert.equal(parsed.admin_messages, true);
+			return new Response(
+				JSON.stringify({
+					error: 'That mobile number is already associated with another account.'
+				}),
+				{ status: 409, headers: { 'Content-Type': 'application/json' } }
+			);
 		}
 	});
 
-	assert.deepEqual(steps, ['register:rsvp', 'sms:PUT:/api/sms/preferences']);
-	assert.equal(conflictOutcome.registrationSaved, true);
-	assert.equal(conflictOutcome.smsSaved, false);
-	assert.equal(conflictOutcome.smsRetryNeeded, true);
-	assert.equal(conflictOutcome.smsResult.status, 409);
-	assert.equal(conflictOutcome.smsResult.phoneInvalid, true);
-	assert.match(conflictOutcome.smsResult.retryMessage, /Your RSVP is saved/i);
-	assert.match(conflictOutcome.smsResult.retryMessage, /retry SMS signup/i);
+	assert.equal(conflictResult.ok, false);
+	assert.equal(conflictResult.status, 409);
+	assert.equal(conflictResult.phoneInvalid, true);
+	assert.match(conflictResult.retryMessage, /Your shift signup is saved/i);
+	assert.match(conflictResult.retryMessage, /retry SMS signup/i);
 
 	const invalidPhoneResult = await saveInlineSmsPreferences({
 		phone: '123',
 		selectedKeys: ['volunteer_reminders'],
 		source: resolveInlineConsentSource('volunteer-signup', ['volunteer_reminders']),
 		registrationLabel: 'shift signup',
-		fetchImpl: async () =>
-			new Response(JSON.stringify({ error: 'Enter a valid mobile number.' }), {
+		fetchImpl: async (_url, init) => {
+			const parsed = JSON.parse(String(init?.body ?? '{}'));
+			assert.equal(parsed.source, 'volunteer-signup');
+			return new Response(JSON.stringify({ error: 'Enter a valid mobile number.' }), {
 				status: 400,
 				headers: { 'Content-Type': 'application/json' }
-			})
+			});
+		}
 	});
 	assert.equal(invalidPhoneResult.ok, false);
 	assert.equal(invalidPhoneResult.status, 400);
 	assert.equal(invalidPhoneResult.phoneInvalid, true);
 	assert.match(invalidPhoneResult.retryMessage, /Your shift signup is saved/i);
+
+	const inactiveResult = await saveInlineSmsPreferences({
+		phone: '(480) 555-0155',
+		selectedKeys: ['volunteer_reminders'],
+		source: resolveInlineConsentSource('volunteer-signup', ['volunteer_reminders']),
+		registrationLabel: 'shift signup',
+		fetchImpl: async () =>
+			new Response(
+				JSON.stringify({
+					preferences: {
+						phone: '+14805550155',
+						status: 'paused',
+						volunteer_reminders: false
+					},
+					consentText: SMS_INLINE_DEFAULT_CONSENT_TEXT
+				}),
+				{ status: 200, headers: { 'Content-Type': 'application/json' } }
+			)
+	});
+	assert.equal(inactiveResult.ok, false);
+	assert.equal(inactiveResult.status, 200);
+	assert.equal(inactiveResult.phoneInvalid, false);
+	assert.match(inactiveResult.retryMessage, /Your shift signup is saved/i);
+	assert.match(inactiveResult.retryMessage, /retry SMS signup/i);
 
 	const retrySuccess = await saveInlineSmsPreferences({
 		phone: '(480) 555-0188',

@@ -52,57 +52,9 @@
  * }} SaveInlineSmsResult
  */
 
-/**
- * @typedef {{
- *   ok: false,
- *   stage: 'sms_validation',
- *   registrationSaved: false,
- *   smsSaved: false,
- *   smsRetryNeeded: false,
- *   validation: InlineSmsValidationResult
- * } | {
- *   ok: false,
- *   stage: 'registration',
- *   registrationSaved: false,
- *   smsSaved: false,
- *   smsRetryNeeded: false,
- *   registrationResult: any
- * } | {
- *   ok: false,
- *   stage: 'sms_save',
- *   registrationSaved: true,
- *   smsSaved: false,
- *   smsRetryNeeded: true,
- *   registrationResult: any,
- *   smsResult: Extract<SaveInlineSmsResult, { ok: false }>
- * } | {
- *   ok: true,
- *   stage: 'complete',
- *   registrationSaved: true,
- *   smsSaved: boolean,
- *   smsRetryNeeded: false,
- *   registrationResult: any,
- *   smsResult?: Extract<SaveInlineSmsResult, { ok: true }>
- * }} SubmitRegistrationThenSmsOutcome
- */
-
 /** @type {string} */
 export const SMS_INLINE_DEFAULT_CONSENT_TEXT =
 	'By checking the SMS consent box or selecting “Agree & enable SMS,” I agree to receive recurring 3 Feet Please SMS messages about the categories I select. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, START to rejoin, or HELP for help.';
-
-export const RIDE_RSVP_SMS_CATEGORIES = Object.freeze([
-	{
-		key: 'ride_reminders',
-		label: 'Text me reminders for rides I RSVP for',
-		description:
-			'Get concise reminders for upcoming rides you choose to attend. Manage anytime in Profile.'
-	},
-	{
-		key: 'admin_messages',
-		label: 'Let ride organizers text me about my RSVP',
-		description: 'Receive and reply to messages from organizers about rides you attend.'
-	}
-]);
 
 export const VOLUNTEER_SIGNUP_SMS_CATEGORIES = Object.freeze([
 	{
@@ -146,7 +98,7 @@ export function emptySmsPreferences() {
  * @param {any} [payload]
  * @returns {LoadedSmsPreferences}
  */
-export function normalizeLoadedSmsPreferences(payload = {}) {
+function normalizeLoadedSmsPreferences(payload = {}) {
 	const raw =
 		payload?.preferences && typeof payload.preferences === 'object' ? payload.preferences : {};
 	return {
@@ -173,7 +125,7 @@ export function normalizeLoadedSmsPreferences(payload = {}) {
  * @param {string} key
  * @returns {boolean}
  */
-export function isSmsCategoryActive(preferences, key) {
+function isSmsCategoryActive(preferences, key) {
 	return preferences?.status === 'active' && preferences?.[key] === true;
 }
 
@@ -254,9 +206,6 @@ export function getSelectedNewCategoryKeys(availableCategories = [], selectedMap
  */
 export function resolveInlineConsentSource(context, selectedKeys = []) {
 	const selected = new Set(selectedKeys);
-	if (context === 'ride-rsvp') {
-		return selected.has('ride_reminders') ? 'ride-rsvp' : 'ride-rsvp-admin-messages';
-	}
 	if (context === 'volunteer-signup') {
 		return selected.has('volunteer_reminders')
 			? 'volunteer-signup'
@@ -478,96 +427,4 @@ export async function saveInlineSmsPreferences({
 			consentText: null
 		};
 	}
-}
-
-/**
- * @param {{
- *   register?: () => Promise<any>,
- *   selectedKeys?: readonly string[],
- *   phone?: string,
- *   consentChecked?: boolean,
- *   source?: string,
- *   registrationLabel?: string,
- *   fetchImpl?: (url: any, init?: any) => Promise<Response>
- * }} [options]
- * @returns {Promise<SubmitRegistrationThenSmsOutcome>}
- */
-export async function submitRegistrationThenSms({
-	register,
-	selectedKeys = [],
-	phone = '',
-	consentChecked = false,
-	source = 'profile',
-	registrationLabel = 'registration',
-	fetchImpl = fetch
-} = {}) {
-	const validation = validateInlineSmsInput({
-		selectedKeys,
-		phone,
-		consentChecked,
-		requireSelection: false
-	});
-	if (!validation.ok) {
-		return {
-			ok: false,
-			stage: 'sms_validation',
-			registrationSaved: false,
-			smsSaved: false,
-			smsRetryNeeded: false,
-			validation
-		};
-	}
-
-	const registrationResult = await register?.();
-	if (!registrationResult?.ok) {
-		return {
-			ok: false,
-			stage: 'registration',
-			registrationSaved: false,
-			smsSaved: false,
-			smsRetryNeeded: false,
-			registrationResult
-		};
-	}
-
-	if (!selectedKeys.length) {
-		return {
-			ok: true,
-			stage: 'complete',
-			registrationSaved: true,
-			smsSaved: false,
-			smsRetryNeeded: false,
-			registrationResult
-		};
-	}
-
-	const smsResult = await saveInlineSmsPreferences({
-		fetchImpl,
-		phone,
-		selectedKeys,
-		source,
-		registrationLabel
-	});
-
-	if (!smsResult.ok) {
-		return {
-			ok: false,
-			stage: 'sms_save',
-			registrationSaved: true,
-			smsSaved: false,
-			smsRetryNeeded: true,
-			registrationResult,
-			smsResult
-		};
-	}
-
-	return {
-		ok: true,
-		stage: 'complete',
-		registrationSaved: true,
-		smsSaved: true,
-		smsRetryNeeded: false,
-		registrationResult,
-		smsResult
-	};
 }
