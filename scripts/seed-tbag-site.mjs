@@ -1359,13 +1359,9 @@ async function main() {
 }
 
 export {
-	crawlPosts,
-	crawlSourcePageMedia,
 	extractSourcePageMedia,
 	mergeSourcePhotos,
 	parsePost,
-	seedFiles,
-	SOURCE_CONTENT_PAGES,
 	SOURCE_FILES,
 	SOURCE_LINKS,
 	SOURCE_PHOTOS

@@ -1,7 +1,7 @@
 import { parseGroupSiteFormData } from '../microsites/config.js';
 import { isReservedMicrositeSlug, normalizeMicrositeSlug } from '../microsites/host.js';
 
-export const GROUP_SITE_EDITOR_VIEWS = Object.freeze([
+const GROUP_SITE_EDITOR_VIEWS = Object.freeze([
 	'builder',
 	'quick',
 	'navigation',
@@ -20,7 +20,7 @@ const EDITOR_ENVELOPE_KEYS = new Set([
 	'pending_sponsor_logo_files'
 ]);
 
-export function normalizeGroupSiteEditorView(value, fallback = 'builder') {
+function normalizeGroupSiteEditorView(value, fallback = 'builder') {
 	const raw = String(value ?? '').trim();
 	const normalized = raw === 'buillder' ? 'builder' : raw;
 	return GROUP_SITE_EDITOR_VIEWS.includes(normalized) ? normalized : fallback;
@@ -61,7 +61,7 @@ export function validateGroupSiteDraftSubmission({
 	return { ok: true, slug: normalizedSlug };
 }
 
-export function toLocalDateTimeValue(value) {
+function toLocalDateTimeValue(value) {
 	if (!value) return '';
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return '';
@@ -310,33 +310,4 @@ export function buildGroupSiteEditorState({
 		rideDifficultyColors,
 		selectedRideGroupIds
 	};
-}
-
-/**
- * @param {Record<string, any>} [state]
- */
-export function createGroupSiteEditorSnapshot(state = {}) {
-	return JSON.stringify({
-		siteConfig: state.siteConfig,
-		sitePages: state.sitePages,
-		pageBlocks: state.pageBlocks,
-		sponsorItems: (Array.isArray(state.sponsorItems) ? state.sponsorItems : []).map(
-			({ name = '', text = '', logo = '', url = '' }) => ({ name, text, logo, url })
-		),
-		faqItems: state.faqItems,
-		slugInput: state.slugInput,
-		rideFilterMode: state.rideFilterMode,
-		rideLocation: state.rideLocation,
-		rideNear: state.rideNear,
-		rideRadius: state.rideRadius,
-		rideDefaultTab: state.rideDefaultTab,
-		rideTheme: state.rideTheme,
-		rideDensity: state.rideDensity,
-		rideShowFilters: state.rideShowFilters,
-		rideShowAdd: state.rideShowAdd,
-		ridePrefixCity: state.ridePrefixCity,
-		rideDifficultyColors: state.rideDifficultyColors,
-		selectedRideGroupIds: state.selectedRideGroupIds,
-		sponsorFileRevision: state.sponsorFileRevision ?? 0
-	});
 }

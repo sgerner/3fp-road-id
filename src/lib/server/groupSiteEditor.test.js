@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
 	buildGroupSiteEditorState,
-	createGroupSiteEditorSnapshot,
 	extractGroupSiteEditorFormValues,
 	GROUP_SITE_LOGO_MAX_BYTES,
 	mergeGroupSiteEditorConfig,
 	siteEditorConfigFingerprint,
 	toIsoDateTimeValue,
-	toLocalDateTimeValue,
 	validateGroupSiteDraftSubmission
 } from '../groups/siteEditor.js';
 import { buildDefaultGroupSiteConfig, normalizeGroupSiteConfig } from '../microsites/config.js';
@@ -44,11 +42,24 @@ test('site editor fingerprints ignore object key order but detect newer nested e
 
 test('site editor converts stored timestamps into a datetime-local value without changing the instant', () => {
 	const instant = '2026-01-15T18:30:00.000Z';
-	const localValue = toLocalDateTimeValue(instant);
+	const localValue = mergeGroupSiteEditorConfig(
+		{},
+		{ announcement_expires_at: instant }
+	).announcement_expires_at;
 	assert.match(localValue, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 	assert.equal(new Date(localValue).toISOString(), instant);
 	assert.equal(toIsoDateTimeValue(localValue), instant);
-	assert.equal(toLocalDateTimeValue('not-a-date'), '');
+	assert.equal(mergeGroupSiteEditorConfig({}, {}).announcement_expires_at, '');
+	assert.equal(
+		mergeGroupSiteEditorConfig({}, { announcement_expires_at: '' }).announcement_expires_at,
+		''
+	);
+	assert.equal(
+		mergeGroupSiteEditorConfig({}, { announcement_expires_at: 'not-a-date' })
+			.announcement_expires_at,
+		''
+	);
+	assert.equal(toIsoDateTimeValue(''), '');
 	assert.equal(toIsoDateTimeValue('not-a-date'), '');
 });
 
@@ -230,8 +241,9 @@ test('hydrating from form.values preserves unpublished state while anchoring sav
 		micrositeSlug: 'mesariders',
 		group
 	});
-	const savedSnapshot = createGroupSiteEditorSnapshot(savedState);
-	assert.equal(createGroupSiteEditorSnapshot(savedState), savedSnapshot);
+	assert.equal(savedState.siteConfig.site_title, 'Mesa Riders');
+	assert.equal(savedState.slugInput, 'mesariders');
+	assert.deepEqual(savedState.faqItems, [{ question: 'Saved question', answer: 'Saved answer' }]);
 
 	const formData = new FormData();
 	formData.set('microsite_slug', 'taken-slug');
@@ -274,9 +286,8 @@ test('hydrating from form.values preserves unpublished state while anchoring sav
 	assert.deepEqual(hydratedState.faqItems, [
 		{ question: 'Draft question', answer: 'Draft answer' }
 	]);
-	assert.notEqual(createGroupSiteEditorSnapshot(hydratedState), savedSnapshot);
 
-	// Reverting all draft fields back to the saved values clears dirty state cleanly.
+	// Reverting all draft fields back to the saved values restores the saved state cleanly.
 	const revertedState = buildGroupSiteEditorState({
 		defaultSiteConfig,
 		siteConfig,
@@ -290,5 +301,8 @@ test('hydrating from form.values preserves unpublished state while anchoring sav
 			pending_sponsor_logo_files: []
 		}
 	});
-	assert.equal(createGroupSiteEditorSnapshot(revertedState), savedSnapshot);
+	assert.deepEqual(revertedState.siteConfig, savedState.siteConfig);
+	assert.equal(revertedState.slugInput, savedState.slugInput);
+	assert.equal(revertedState.rideFilterMode, savedState.rideFilterMode);
+	assert.deepEqual(revertedState.faqItems, savedState.faqItems);
 });

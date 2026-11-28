@@ -5,7 +5,6 @@ import {
 	createGroupSiteBlock,
 	deriveLegacySiteVisibility,
 	GROUP_SITE_BLOCK_LIMIT,
-	groupSiteBlockOrder,
 	getGroupSiteBlockTone,
 	hasGroupSiteBlock,
 	normalizeGroupSiteBlocks
@@ -137,7 +136,6 @@ test('block order derives public visibility and legacy compatibility flags', () 
 	const visibility = deriveLegacySiteVisibility(blocks, { join: true });
 	assert.equal(hasGroupSiteBlock(blocks, 'contact'), true);
 	assert.equal(hasGroupSiteBlock(blocks, 'gallery'), false);
-	assert.equal(groupSiteBlockOrder(blocks, 'text'), 2);
 	assert.deepEqual(visibility, {
 		sections: {
 			join: true,

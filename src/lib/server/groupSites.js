@@ -5,8 +5,7 @@ import {
 	buildGroupNewsView,
 	getGroupNewsProfilesMap,
 	getGroupNewsPostBySlug,
-	listPublishedGroupNewsSummaries,
-	listPublishedGroupNewsPosts
+	listPublishedGroupNewsSummaries
 } from '#lib/server/groupNews';
 import { normalizeVolunteerEvents } from '#lib/volunteer/event-utils';
 import { buildContactLinks, selectPrimaryCta } from '#lib/groups/contactLinks';
@@ -991,18 +990,6 @@ function internalizeTbagAssetBuckets(assetBuckets = []) {
 		document_assets: mapAssets(bucket.document_assets),
 		link_assets: mapAssets(bucket.link_assets)
 	}));
-}
-
-export async function loadMicrositeNewsViews(groupId) {
-	const db = pickGroupSiteClient();
-	const posts = await listPublishedGroupNewsPosts(db, groupId);
-	const profileIds = Array.from(
-		new Set(
-			posts.flatMap((post) => [post.created_by_user_id, post.updated_by_user_id]).filter(Boolean)
-		)
-	);
-	const profiles = await getGroupNewsProfilesMap(db, profileIds);
-	return Promise.all(posts.map((post) => buildGroupNewsView(post, { profiles })));
 }
 
 export async function loadMicrositeNewsArchive(
