@@ -39,14 +39,28 @@ export const POST = async (event) => {
 			customerUserId
 		});
 		if (!result?.ok) {
+			const status = result?.status === 502 ? 503 : result?.status || 400;
 			return json(
-				{ error: result?.error || 'Unable to create checkout session.' },
-				{ status: result?.status || 400 }
+				{
+					ok: false,
+					code: result?.code || (status === 503 ? 'service_unavailable' : 'checkout_session_error'),
+					retryable: result?.retryable ?? status === 503,
+					error: result?.error || 'Unable to create checkout session.'
+				},
+				{ status }
 			);
 		}
 		return json({ ok: true, url: result.checkoutUrl, orderNumber: result.orderNumber });
 	} catch (error) {
 		console.error('Merch checkout session error', error);
-		return json({ error: 'Unable to create checkout session.' }, { status: 500 });
+		return json(
+			{
+				ok: false,
+				code: 'service_unavailable',
+				retryable: true,
+				error: 'Unable to create checkout session.'
+			},
+			{ status: 503 }
+		);
 	}
 };

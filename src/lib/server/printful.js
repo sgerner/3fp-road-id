@@ -118,11 +118,14 @@ function resolveNextHref(payload) {
 	return href;
 }
 
-function resolveErrorMessage(payload, status) {
+export function resolvePrintfulErrorMessage(payload, status) {
 	if (typeof payload?.error?.message === 'string' && payload.error.message) {
 		return payload.error.message;
 	}
 	if (typeof payload?.message === 'string' && payload.message) return payload.message;
+	if (typeof payload?.error_description === 'string' && payload.error_description) {
+		return payload.error_description;
+	}
 	if (typeof payload?.error === 'string' && payload.error) return payload.error;
 	if (typeof payload?.result === 'string' && payload.result) return payload.result;
 	if (Array.isArray(payload?.errors) && payload.errors.length) {
@@ -187,7 +190,7 @@ async function sendPrintfulTokenRequest(params) {
 	});
 
 	let payload = {};
-	const rawBuffer = await readResponseBuffer(response, 256 * 1024);
+	const rawBuffer = await readResponseBuffer(response, 256 * 1024, { allowErrorBody: true });
 	const raw = rawBuffer ? rawBuffer.toString('utf8') : '';
 	if (raw) {
 		try {
@@ -198,7 +201,12 @@ async function sendPrintfulTokenRequest(params) {
 	}
 
 	if (!response.ok) {
-		throw new Error(resolveErrorMessage(payload, response.status));
+		const error = /** @type {Error & { status?: number, payload?: any }} */ (
+			new Error(resolvePrintfulErrorMessage(payload, response.status))
+		);
+		error.status = response.status;
+		error.payload = payload;
+		throw error;
 	}
 
 	return normalizeTokenSet(payload);
@@ -353,7 +361,9 @@ export async function sendPrintfulRequest({
 
 			let payload = {};
 			if (response.status !== 204) {
-				const rawBuffer = await readResponseBuffer(response, 8 * 1024 * 1024);
+				const rawBuffer = await readResponseBuffer(response, 8 * 1024 * 1024, {
+					allowErrorBody: true
+				});
 				const raw = rawBuffer ? rawBuffer.toString('utf8') : '';
 				if (raw) {
 					try {
@@ -417,7 +427,12 @@ export async function printfulFetchV2(
 		maxAttempts
 	});
 	if (!result.ok) {
-		throw new Error(resolveErrorMessage(result.payload, result.status));
+		const error = /** @type {Error & { status?: number, payload?: any }} */ (
+			new Error(resolvePrintfulErrorMessage(result.payload, result.status))
+		);
+		error.status = result.status;
+		error.payload = result.payload;
+		throw error;
 	}
 	return result.payload;
 }

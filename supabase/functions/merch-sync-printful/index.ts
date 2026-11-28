@@ -6,7 +6,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '
 const PRINTFUL_CLIENT_ID = Deno.env.get('PRINTFUL_CLIENT_ID') || '';
 const PRINTFUL_CLIENT_SECRET = Deno.env.get('PRINTFUL_CLIENT_SECRET') || '';
 const PRINTFUL_OAUTH_URL = 'https://www.printful.com/oauth/token';
-const PRINTFUL_API_BASE_URL = 'https://api.printful.com/v2';
+const PRINTFUL_API_ROOT_URL = 'https://api.printful.com';
+const PRINTFUL_API_BASE_URL = `${PRINTFUL_API_ROOT_URL}/v2`;
+const PRINTFUL_REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const PRINTFUL_SYNC_REQUEST_TIMEOUT_MS = 90_000;
+const PRINTFUL_SYNC_REQUEST_ATTEMPTS = 2;
 
 function cleanText(value: unknown, maxLength = 0) {
 	if (value === null || value === undefined) return '';
@@ -17,6 +21,46 @@ function cleanText(value: unknown, maxLength = 0) {
 function normalizePositiveInt(value: unknown) {
 	const parsed = Number.parseInt(String(value ?? ''), 10);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function toIsoFromUnix(value: unknown) {
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric) || numeric <= 0) return null;
+	const millis = numeric > 10_000_000_000 ? numeric : numeric * 1000;
+	return new Date(millis).toISOString();
+}
+
+function toScopeList(value: unknown) {
+	if (Array.isArray(value)) return value.map((entry) => cleanText(entry, 120)).filter(Boolean);
+	const cleaned = cleanText(value, 4000);
+	if (!cleaned) return [];
+	return cleaned
+		.split(/[\s,]+/)
+		.map((entry) => cleanText(entry, 120))
+		.filter(Boolean);
+}
+
+function resolveErrorMessage(
+	payload: any,
+	status: number,
+	fallbackPrefix = 'Printful request failed'
+) {
+	if (typeof payload?.error?.message === 'string' && payload.error.message) {
+		return payload.error.message;
+	}
+	if (typeof payload?.message === 'string' && payload.message) return payload.message;
+	if (typeof payload?.error_description === 'string' && payload.error_description) {
+		return payload.error_description;
+	}
+	if (typeof payload?.error === 'string' && payload.error) return payload.error;
+	if (typeof payload?.result === 'string' && payload.result) return payload.result;
+	if (Array.isArray(payload?.errors) && payload.errors.length) {
+		return payload.errors
+			.map((entry: any) => entry?.message || entry?.detail || JSON.stringify(entry))
+			.filter(Boolean)
+			.join('; ');
+	}
+	return `${fallbackPrefix} (${status})`;
 }
 
 function parseMoneyStringToCents(value: unknown, fallback = 0) {
@@ -47,10 +91,26 @@ function buildImportedProductSlug(name: string, externalProductId: string) {
 }
 
 function normalizeResultList(payload: any) {
+	if (Array.isArray(payload)) return payload;
 	if (Array.isArray(payload?.data)) return payload.data;
 	if (Array.isArray(payload?.result)) return payload.result;
 	if (Array.isArray(payload?.result?.data)) return payload.result.data;
 	return [];
+}
+
+function normalizeV2Subpath(rawPath: string) {
+	const trimmed = cleanText(rawPath, 4000);
+	if (!trimmed) return '';
+	let path = trimmed;
+	if (path.startsWith(PRINTFUL_API_BASE_URL)) {
+		path = path.slice(PRINTFUL_API_BASE_URL.length);
+	} else if (path.startsWith(PRINTFUL_API_ROOT_URL)) {
+		path = path.slice(PRINTFUL_API_ROOT_URL.length);
+	}
+	if (path === '/v2') return '/';
+	if (path.startsWith('/v2/')) path = path.slice(3);
+	else if (path.startsWith('/v2?')) path = `/${path.slice(3)}`;
+	return path.startsWith('/') ? path : `/${path}`;
 }
 
 function resolveNextHref(payload: any) {
@@ -60,10 +120,7 @@ function resolveNextHref(payload: any) {
 		cleanText(payload?.paging?.next, 4000) ||
 		cleanText(payload?.result?.paging?.next, 4000);
 	if (!href) return '';
-	if (href.startsWith(PRINTFUL_API_BASE_URL)) return href.slice(PRINTFUL_API_BASE_URL.length);
-	if (href.startsWith('https://api.printful.com'))
-		return href.slice('https://api.printful.com'.length);
-	return href;
+	return normalizeV2Subpath(href);
 }
 
 function extractPrintfulProductName(product: any) {
@@ -143,6 +200,93 @@ function extractPrintfulVariantName(variant: any) {
 	);
 }
 
+function normalizePrintfulPlacements(placements: unknown) {
+	if (!Array.isArray(placements)) return [];
+	const normalized = [];
+	for (const placement of placements) {
+		const layers = [];
+		for (const layer of Array.isArray(placement?.layers) ? placement.layers : []) {
+			const layerId = cleanText(layer?.id, 120);
+			const layerUrl = cleanText(layer?.url, 2000);
+			if (!layerId && !layerUrl) continue;
+
+			const normalizedLayer: Record<string, unknown> = {};
+			if (layerId) normalizedLayer.id = layerId;
+			if (layerUrl) normalizedLayer.url = layerUrl;
+
+			const layerType = cleanText(layer?.type, 40);
+			if (layerType) normalizedLayer.type = layerType;
+			if (layer?.position && typeof layer.position === 'object') {
+				normalizedLayer.position = layer.position;
+			}
+			if (Array.isArray(layer?.layer_options) && layer.layer_options.length) {
+				normalizedLayer.layer_options = layer.layer_options;
+			}
+			layers.push(normalizedLayer);
+		}
+		if (!layers.length) continue;
+
+		const normalizedPlacement: Record<string, unknown> = { layers };
+		const placementName = cleanText(placement?.placement, 120);
+		if (placementName) normalizedPlacement.placement = placementName;
+		const technique = cleanText(placement?.technique, 120);
+		if (technique) normalizedPlacement.technique = technique;
+		if (Array.isArray(placement?.placement_options) && placement.placement_options.length) {
+			normalizedPlacement.placement_options = placement.placement_options;
+		}
+		normalized.push(normalizedPlacement);
+	}
+	return normalized;
+}
+
+function collectPrintfulProductImageGallery(product: any) {
+	const seen = new Set<string>();
+	const images: string[] = [];
+	const details: Record<string, unknown>[] = [];
+	const addImage = (url: unknown, source: string, extra: Record<string, unknown> = {}) => {
+		const cleanUrl = cleanText(url, 2000);
+		if (!cleanUrl || seen.has(cleanUrl)) return;
+		seen.add(cleanUrl);
+		images.push(cleanUrl);
+		details.push({
+			url: cleanUrl,
+			source,
+			placement: cleanText(extra?.placement, 120) || null,
+			catalog_variant_id: cleanText(extra?.catalogVariantId, 120) || null
+		});
+	};
+
+	const featuredImageUrl = extractPrintfulProductImageUrl(product);
+	if (featuredImageUrl) addImage(featuredImageUrl, 'sync_product_thumbnail');
+	addImage(product?.thumbnail_url, 'sync_product_thumbnail');
+	addImage(product?.preview_url, 'sync_product_preview');
+	addImage(product?.image_url, 'sync_product_image');
+
+	for (const variant of Array.isArray(product?.variants) ? product.variants : []) {
+		addImage(variant?.thumbnail_url, 'sync_variant_thumbnail');
+		addImage(variant?.preview_url, 'sync_variant_preview');
+		addImage(variant?.image_url, 'sync_variant_image');
+
+		for (const file of Array.isArray(variant?.files) ? variant.files : []) {
+			addImage(file?.preview_url, 'sync_variant_file_preview');
+			addImage(file?.thumbnail_url, 'sync_variant_file_thumbnail');
+			addImage(file?.url, 'sync_variant_file');
+		}
+
+		for (const placement of Array.isArray(variant?.placements) ? variant.placements : []) {
+			for (const layer of Array.isArray(placement?.layers) ? placement.layers : []) {
+				addImage(layer?.url, 'sync_variant_layer', { placement: placement?.placement || null });
+			}
+		}
+	}
+
+	return {
+		featuredImageUrl: images[0] || featuredImageUrl || null,
+		images,
+		details
+	};
+}
+
 function buildPrintfulPartnerVariantRef({
 	productId,
 	variantId,
@@ -160,14 +304,19 @@ function buildPrintfulPartnerVariantRef({
 	};
 	const cleanCatalogVariantId = cleanText(catalogVariantId, 120);
 	if (cleanCatalogVariantId) payload.catalog_variant_id = cleanCatalogVariantId;
-	if (Array.isArray(placements) && placements.length) payload.placements = placements;
+	const normalizedPlacements = normalizePrintfulPlacements(placements);
+	if (normalizedPlacements.length) payload.placements = normalizedPlacements;
 	return JSON.stringify(payload);
 }
 
 async function refreshPrintfulAccessToken(refreshToken: string) {
+	const cleanRefreshToken = cleanText(refreshToken, 4000);
+	if (!cleanRefreshToken) {
+		throw new Error('Missing Printful refresh token.');
+	}
 	const body = new URLSearchParams({
 		grant_type: 'refresh_token',
-		refresh_token: refreshToken,
+		refresh_token: cleanRefreshToken,
 		client_id: PRINTFUL_CLIENT_ID,
 		client_secret: PRINTFUL_CLIENT_SECRET
 	});
@@ -177,28 +326,39 @@ async function refreshPrintfulAccessToken(refreshToken: string) {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			Accept: 'application/json'
 		},
-		body: body.toString()
+		body: body.toString(),
+		signal: AbortSignal.timeout(30_000)
 	});
 	const payload = await response.json().catch(() => ({}));
 	if (!response.ok) {
 		throw new Error(
-			payload?.error?.message || payload?.message || 'Failed to refresh Printful token.'
+			resolveErrorMessage(payload, response.status, 'Failed to refresh Printful token')
 		);
 	}
-	const expiresAt = Number(payload?.expires_at);
+	const accessToken = cleanText(payload?.access_token, 4000);
+	if (!accessToken) {
+		throw new Error('Printful token response did not include an access token.');
+	}
+	const nextRefreshToken = cleanText(payload?.refresh_token, 4000) || cleanRefreshToken;
+	const refreshTokenExpiresAt =
+		toIsoFromUnix(payload?.refresh_token_expires_at) ||
+		(nextRefreshToken ? new Date(Date.now() + PRINTFUL_REFRESH_TOKEN_TTL_MS).toISOString() : null);
 	return {
-		access_token: cleanText(payload?.access_token, 4000),
-		refresh_token: cleanText(payload?.refresh_token, 4000) || refreshToken,
+		access_token: accessToken,
+		refresh_token: nextRefreshToken,
 		token_type: cleanText(payload?.token_type, 40) || 'Bearer',
-		scopes: cleanText(payload?.scope, 4000)
-			.split(/[\s,]+/)
-			.map((entry) => cleanText(entry, 120))
-			.filter(Boolean),
-		access_token_expires_at: Number.isFinite(expiresAt)
-			? new Date(expiresAt * 1000).toISOString()
-			: null,
-		refresh_token_expires_at: null
+		scopes: toScopeList(payload?.scope || payload?.scopes),
+		access_token_expires_at: toIsoFromUnix(payload?.expires_at),
+		refresh_token_expires_at: refreshTokenExpiresAt
 	};
+}
+
+function isRetriableStatus(status: number) {
+	return status === 408 || status === 429 || status >= 500;
+}
+
+function delay(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function printfulRequest(
@@ -207,8 +367,16 @@ async function printfulRequest(
 	{
 		method = 'GET',
 		body,
-		storeId
-	}: { method?: string; body?: unknown; storeId?: number | null } = {}
+		storeId,
+		timeoutMs = PRINTFUL_SYNC_REQUEST_TIMEOUT_MS,
+		maxAttempts = PRINTFUL_SYNC_REQUEST_ATTEMPTS
+	}: {
+		method?: string;
+		body?: unknown;
+		storeId?: number | null;
+		timeoutMs?: number;
+		maxAttempts?: number;
+	} = {}
 ) {
 	const headers: Record<string, string> = {
 		Authorization: `Bearer ${accessToken}`,
@@ -216,23 +384,28 @@ async function printfulRequest(
 	};
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 	if (storeId) headers['X-PF-Store-Id'] = String(storeId);
-	const response = await fetch(`${PRINTFUL_API_BASE_URL}${path}`, {
-		method,
-		headers,
-		body: body === undefined ? undefined : JSON.stringify(body)
-	});
-	const payload = await response.json().catch(() => ({}));
-	if (!response.ok) {
-		throw new Error(
-			payload?.error?.message || payload?.message || `Printful request failed (${response.status})`
-		);
+	const normalizedPath = normalizeV2Subpath(path);
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+		const response = await fetch(`${PRINTFUL_API_BASE_URL}${normalizedPath}`, {
+			method,
+			headers,
+			body: body === undefined ? undefined : JSON.stringify(body),
+			signal: AbortSignal.timeout(timeoutMs)
+		});
+		const payload = response.status === 204 ? {} : await response.json().catch(() => ({}));
+		if (response.ok) return payload;
+		if (attempt >= maxAttempts || !isRetriableStatus(response.status)) {
+			throw new Error(resolveErrorMessage(payload, response.status));
+		}
+		await delay(600 * attempt);
 	}
-	return payload;
+	throw new Error('Printful request failed after retries.');
 }
 
 async function listPrintfulProductsWithVariants(accessToken: string, storeId: number) {
 	const products: any[] = [];
-	let nextPath = '/products?limit=100';
+	let nextPath = '/sync-products?limit=25';
 	while (nextPath) {
 		const payload = await printfulRequest(accessToken, nextPath, { storeId });
 		products.push(...normalizeResultList(payload));
@@ -241,10 +414,10 @@ async function listPrintfulProductsWithVariants(accessToken: string, storeId: nu
 
 	const result = [];
 	for (const product of products) {
-		const productId = cleanText(product?.id, 120);
+		const productId = normalizePositiveInt(product?.id) || cleanText(product?.id, 120);
 		if (!productId) continue;
 		const variants: any[] = [];
-		let nextVariantPath = `/products/${encodeURIComponent(productId)}/variants?limit=100`;
+		let nextVariantPath = `/sync-products/${encodeURIComponent(String(productId))}/sync-variants?limit=50`;
 		while (nextVariantPath) {
 			const payload = await printfulRequest(accessToken, nextVariantPath, { storeId });
 			variants.push(...normalizeResultList(payload));
@@ -272,6 +445,7 @@ async function syncStore(
 			token_type: refreshed.token_type,
 			scopes: refreshed.scopes,
 			access_token_expires_at: refreshed.access_token_expires_at,
+			refresh_token_expires_at: refreshed.refresh_token_expires_at,
 			last_refreshed_at: syncedAt,
 			last_error: null,
 			updated_at: syncedAt
@@ -296,6 +470,7 @@ async function syncStore(
 		if (!externalProductId) continue;
 		seenProductIds.add(externalProductId);
 		const productName = extractPrintfulProductName(product);
+		const imageGallery = collectPrintfulProductImageGallery(product);
 
 		const { data: productRows, error: productError } = await supabase
 			.from('merch_products')
@@ -305,7 +480,7 @@ async function syncStore(
 					name: productName,
 					slug: buildImportedProductSlug(productName, externalProductId),
 					description: extractPrintfulProductDescription(product),
-					image_url: extractPrintfulProductImageUrl(product),
+					image_url: imageGallery.featuredImageUrl || extractPrintfulProductImageUrl(product),
 					status: 'active',
 					default_partner: 'printful',
 					source_of_truth: 'printful',
@@ -313,7 +488,12 @@ async function syncStore(
 					external_product_id: externalProductId,
 					external_store_id: printfulStoreId,
 					external_synced_at: syncedAt,
-					metadata: { printful_product: product },
+					metadata: {
+						printful_product: product,
+						printful_featured_image: imageGallery.featuredImageUrl || null,
+						printful_images: imageGallery.images,
+						printful_image_details: imageGallery.details
+					},
 					updated_at: syncedAt
 				},
 				{ onConflict: 'store_id,external_provider,external_product_id' }
@@ -329,12 +509,19 @@ async function syncStore(
 		for (const variant of Array.isArray(product?.variants) ? product.variants : []) {
 			const externalVariantId = cleanText(variant?.id, 120);
 			if (!externalVariantId) continue;
-			const priceCents = parseMoneyStringToCents(variant?.retail_price ?? variant?.price, 0);
+			const priceCents = parseMoneyStringToCents(
+				variant?.retail_price ?? variant?.price ?? variant?.price_data?.retail_price,
+				0
+			);
 			if (priceCents <= 0) continue;
 			seenVariantIds.add(externalVariantId);
 			const catalogVariantId = cleanText(
 				variant?.catalog_variant_id || variant?.catalogVariantId,
 				120
+			);
+			const costCents = parseMoneyStringToCents(
+				variant?.price ?? variant?.cost ?? variant?.price_data?.price,
+				0
 			);
 
 			const { error: variantError } = await supabase.from('merch_product_variants').upsert(
@@ -351,7 +538,7 @@ async function syncStore(
 						placements: Array.isArray(variant?.placements) ? variant.placements : undefined
 					}),
 					price_cents: priceCents,
-					cost_cents: parseMoneyStringToCents(variant?.price ?? variant?.cost, 0) || null,
+					cost_cents: costCents || null,
 					is_active:
 						variant?.is_enabled === false || variant?.availability_status === 'discontinued'
 							? false
